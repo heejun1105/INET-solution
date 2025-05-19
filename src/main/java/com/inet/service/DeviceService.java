@@ -560,8 +560,12 @@ public class DeviceService {
                             throw new IllegalArgumentException((rowCount+1) + "번째 행에 설치장소(교실)가 지정되지 않았습니다. 설치장소는 필수 항목입니다.");
                         }
                         
-                        classroom = classroomService.findByRoomName(classroomName.trim());
-                        if (classroom == null) {
+                        // 학교별 교실 검색으로 수정
+                        Optional<Classroom> existingClassroom = classroomService.findByRoomNameAndSchool(classroomName.trim(), school.getSchoolId());
+                        if (existingClassroom.isPresent()) {
+                            classroom = existingClassroom.get();
+                            System.out.println((rowCount + 1) + "번째 행 기존 교실 사용: " + classroomName);
+                        } else {
                             classroom = new Classroom();
                             classroom.setRoomName(classroomName.trim());
                             classroom.setSchool(school);
@@ -571,14 +575,9 @@ public class DeviceService {
                             classroom.setHeight(100);
                             classroom = classroomService.saveClassroom(classroom);
                             System.out.println((rowCount + 1) + "번째 행 새 교실 생성: " + classroomName);
-                        } else {
-                            System.out.println((rowCount + 1) + "번째 행 기존 교실 사용: " + classroomName);
                         }
                     } catch (IllegalArgumentException e) {
                         throw e; // 이미 구체적인 오류 메시지가 있는 예외는 그대로 던짐
-                    } catch (Exception e) {
-                        System.out.println((rowCount + 1) + "번째 행 교실 처리 중 예외 발생: " + e.getMessage());
-                        throw new IllegalArgumentException((rowCount+1) + "번째 행 교실 처리 중 오류가 발생했습니다: " + e.getMessage());
                     }
                     
                     // 기타 옵션 필드
