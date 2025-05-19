@@ -58,7 +58,7 @@ public class DeviceController {
                       @RequestParam(required = false) String type,
                       @RequestParam(required = false) Long classroomId,
                       @RequestParam(defaultValue = "1") int page,
-                      @RequestParam(defaultValue = "10") int size,
+                      @RequestParam(defaultValue = "16") int size,
                       Model model) {
         
         model.addAttribute("schools", schoolService.getAllSchools());
