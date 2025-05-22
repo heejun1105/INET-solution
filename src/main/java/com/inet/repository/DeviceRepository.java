@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -47,4 +48,12 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     // Uid 관련 검색
     Optional<Device> findByUid(Uid uid);
     List<Device> findByUidCate(String cate);
+
+    // 삭제 관련
+    @Modifying
+    @Query("DELETE FROM Device d WHERE d.school.schoolId = :schoolId")
+    int deleteBySchoolSchoolId(Long schoolId);
+
+    @Query("SELECT COUNT(d) FROM Device d WHERE d.school.schoolId = :schoolId")
+    long countBySchoolSchoolId(Long schoolId);
 } 

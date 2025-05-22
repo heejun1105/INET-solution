@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>IP 대장 - 테스트</title>
+    <link rel="stylesheet" href="/device.css">
+    <link rel="stylesheet" href="/main.css" />
+    <link rel="stylesheet" href="/ip.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 네비게이션 바 포함 -->
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+    
+    <div class="container">
+        <div class="device-form-container">
+            <div class="title">
+                <div class="subject">IP 대장 (자동 리로드 테스트)</div>
+                <div class="subtitle">IP 주소별 장비 현황을 확인할 수 있습니다.</div>
+            </div>
+
+            <!-- 학교 선택 필터 -->
+            <div class="filter-container">
+                <select id="schoolSelect" onchange="this.form.submit()" name="schoolId" form="schoolForm">
+                    <option value="">학교 선택</option>
+                    <option th:each="school : ${schools}"
+                            th:value="${school.schoolId}"
+                            th:text="${school.schoolName}"
+                            th:selected="${selectedSchool != null && selectedSchool.schoolId == school.schoolId}">
+                    </option>
+                </select>
+                <form id="schoolForm" th:action="@{/ip/iplist}" method="get"></form>
+            </div>
+
+            <!-- IP 목록 표시 -->
+            <div class="ip-grid" th:if="${selectedSchool != null}">
+                <div th:each="ip : ${ipList}" class="ip-item" th:classappend="${ip.device != null ? 'used' : ''}">
+                    <div class="ip-number" th:text="${ip.number}">1</div>
+                    <div class="ip-info" th:if="${ip.device != null}">
+                        <div class="device-name" th:text="${ip.device.type}">장비유형</div>
+                        <div class="device-location" th:text="${ip.device.classroom != null ? ip.device.classroom.roomName : '위치 미지정'}">설치위치</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 학교 미선택 시 안내 메시지 -->
+            <div class="no-school-message" th:if="${selectedSchool == null}">
+                <i class="fas fa-info-circle"></i>
+                <p>학교를 선택하면 IP 현황이 표시됩니다.</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 푸터 포함 -->
+    <div th:replace="~{fragments/footer :: footer}"></div>
+</body>
+</html> 

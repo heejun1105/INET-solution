@@ -1,6 +1,8 @@
 package com.inet.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
 
 import com.inet.entity.Uid;
@@ -41,4 +43,14 @@ public interface UidRepository extends JpaRepository<Uid, Long> {
     
     // 학교, 카테고리, 제조년, ID 번호로 Uid 검색
     Optional<Uid> findBySchoolAndCateAndMfgYearAndIdNumber(School school, String cate, String mfgYear, Long idNumber);
+
+    @Modifying
+    @Query("DELETE FROM Uid u WHERE u.school.schoolId = :schoolId")
+    int deleteBySchoolSchoolId(Long schoolId);
+
+    @Query("SELECT COUNT(u) FROM Uid u WHERE u.school.schoolId = :schoolId")
+    long countBySchoolSchoolId(Long schoolId);
+
+    @Query("SELECT u FROM Uid u WHERE u.school.schoolId = :schoolId")
+    List<Uid> findBySchoolSchoolId(Long schoolId);
 } 

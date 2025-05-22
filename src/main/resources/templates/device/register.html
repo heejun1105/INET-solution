@@ -17,148 +17,141 @@
                 <div class="subject">장비 등록</div>
                 <div class="subtitle">새로운 장비 정보를 입력해 주세요.</div>
                 <div style="margin-top:10px;">
-                    <a href="/device/upload" class="sub-but" style="background-color:#28a745; color:white; padding:6px 16px; border-radius:4px; text-decoration:none;">엑셀 업로드</a>
+                    <a href="/device/upload" class="sub-but" style="background-color:#28a745; color:white; padding:6px 16px; border-radius:4px; text-decoration:none;">
+                        <i class="fas fa-file-excel"></i> 엑셀 업로드
+                    </a>
                 </div>
             </div>
             <div class="main">
                 <form id="deviceForm" th:action="@{/device/register}" th:object="${device}" method="post">
-                    <table class="sign_table">
-                        <tr>
-                            <td class="need">학교</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <select name="school" th:field="*{school}" class="form-select">
-                                    <option th:each="school : ${schools}" 
-                                            th:value="${school.schoolId}" 
-                                            th:text="${school.schoolName}">
-                                    </option>
-                                </select>
-                            </td>
-                        </tr>
+                    <div class="tabs-container">
+                        <div class="tab-list">
+                            <button type="button" class="tab-item active" data-tab="basic">기본 정보</button>
+                            <button type="button" class="tab-item" data-tab="details">장비 상세</button>
+                            <button type="button" class="tab-item" data-tab="location">위치 정보</button>
+                            <button type="button" class="tab-item" data-tab="management">관리 정보</button>
+                        </div>
 
-                        <tr>
-                            <td>관리번호</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div style="display: flex; gap: 8px;">
-                                    <select id="manageCate" name="manageCate" required>
-                                        <option value="">선택하세요</option>
-                                        <option value="custom">직접입력</option>
+                        <!-- 기본 정보 탭 -->
+                        <div class="tab-panel active" id="basic-tab">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="required">학교</label>
+                                    <select name="school" th:field="*{school}" required>
+                                        <option th:each="school : ${schools}" 
+                                                th:value="${school.schoolId}" 
+                                                th:text="${school.schoolName}">
+                                        </option>
                                     </select>
-                                    <input type="text" id="manageCateInput" name="manageCateCustom" placeholder="구분 직접입력" style="display:none; width: 80px;">
-
-                                    <select id="year" name="manageYear">
-                                        <option value="">선택하세요</option>
-                                        <option value="custom">직접입력</option>
-                                    </select>
-                                    <input type="text" id="manageYearInput" name="manageYearCustom" placeholder="연도 직접입력" style="display:none; width: 60px;">
-
-                                    <select id="manageNum" name="manageNum" required>
-                                        <option value="">선택하세요</option>
-                                        <option value="custom">직접입력</option>
-                                    </select>
-                                    <input type="number" id="manageNumInput" name="manageNumCustom" placeholder="번호 직접입력" style="display:none; width: 60px;">
                                 </div>
-                            </td>
-                        </tr>
 
-                        <tr>
-                            <td class="need">유형</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{type}" required></td>
-                        </tr>
-
-                        <tr>
-                            <td>제조사</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{manufacturer}"></td>
-                        </tr>
-
-                        <tr>
-                            <td>모델명</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{modelName}"></td>
-                        </tr>
-
-                        <tr>
-                            <td>구매일자</td>
-                        </tr>
-                        <tr>
-                            <td><input type="date" th:field="*{purchaseDate}"></td>
-                        </tr>
-
-                        <tr>
-                            <td>IP주소</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{ipAddress}"></td>
-                        </tr>
-
-                        <tr>
-                            <td class="need">위치</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" name="location" required></td>
-                        </tr>
-
-                        <tr>
-                            <td>용도</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{purpose}"></td>
-                        </tr>
-
-                        <tr>
-                            <td>세트분류</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{setType}"></td>
-                        </tr>
-
-                        <tr>
-                            <td>담당자</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" name="operatorName"></td>
-                        </tr>
-
-                        <tr>
-                            <td>직위</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" name="operatorPosition"></td>
-                        </tr>
-
-                        <tr>
-                            <td>불용</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div class="gender">
-                                    <label><input type="checkbox" th:field="*{unused}">불용</label>
+                                <div class="form-group">
+                                    <label class="required">유형</label>
+                                    <input type="text" th:field="*{type}" required>
                                 </div>
-                            </td>
-                        </tr>
 
-                        <tr>
-                            <td>비고</td>
-                        </tr>
-                        <tr>
-                            <td><textarea th:field="*{note}" rows="3"></textarea></td>
-                        </tr>
+                                <div class="form-group full-width">
+                                    <label class="required">관리번호</label>
+                                    <div style="display: flex; gap: 8px;">
+                                        <select id="manageCate" name="manageCate" required>
+                                            <option value="">구분 선택</option>
+                                            <option value="custom">직접입력</option>
+                                        </select>
+                                        <input type="text" id="manageCateInput" name="manageCateCustom" placeholder="구분 직접입력" style="display:none; width: 80px;">
 
-                        <tr>
-                            <td></td>
-                        </tr>
-                    </table>
-                    <div class="but">
+                                        <select id="manageYear" name="manageYear" required>
+                                            <option value="">연도 선택</option>
+                                            <option value="custom">직접입력</option>
+                                        </select>
+                                        <input type="text" id="manageYearInput" name="manageYearCustom" placeholder="연도 직접입력" style="display:none; width: 60px;">
+
+                                        <select id="manageNum" name="manageNum" required>
+                                            <option value="">번호 선택</option>
+                                            <option value="custom">직접입력</option>
+                                        </select>
+                                        <input type="number" id="manageNumInput" name="manageNumCustom" placeholder="번호 직접입력" style="display:none; width: 60px;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 장비 상세 탭 -->
+                        <div class="tab-panel" id="details-tab">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>제조사</label>
+                                    <input type="text" th:field="*{manufacturer}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>모델명</label>
+                                    <input type="text" th:field="*{modelName}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>구매일자</label>
+                                    <input type="date" th:field="*{purchaseDate}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>불용 여부</label>
+                                    <div class="gender">
+                                        <label><input type="checkbox" th:field="*{unused}">불용</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 위치 정보 탭 -->
+                        <div class="tab-panel" id="location-tab">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>IP주소</label>
+                                    <input type="text" th:field="*{ipAddress}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="required">위치</label>
+                                    <input type="text" name="location" required>
+                                    <div class="form-help">교실 또는 설치 장소를 입력하세요.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 관리 정보 탭 -->
+                        <div class="tab-panel" id="management-tab">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>용도</label>
+                                    <input type="text" th:field="*{purpose}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>세트분류</label>
+                                    <input type="text" th:field="*{setType}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>담당자</label>
+                                    <input type="text" name="operatorName">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>직위</label>
+                                    <input type="text" name="operatorPosition">
+                                </div>
+
+                                <div class="form-group full-width">
+                                    <label>비고</label>
+                                    <textarea th:field="*{note}" rows="3"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-buttons">
                         <button type="submit" class="sub-but">등록</button>
-                        <a href="/device/list" class="sub-but" style="background-color: #6c757d; margin-left: 10px;">목록</a>
+                        <a href="/device/list" class="sub-but" style="background-color: #6c757d;">목록</a>
                     </div>
                 </form>
             </div>
@@ -168,6 +161,161 @@
     <!-- 푸터 포함 -->
     <div th:replace="~{fragments/footer :: footer}"></div>
     
-    <script src="/js/device/register.js"></script>
+    <script>
+        // 탭 전환 기능
+        document.querySelectorAll('.tab-item').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // 모든 탭과 패널의 active 클래스 제거
+                document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                
+                // 클릭된 탭과 해당 패널에 active 클래스 추가
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab + '-tab').classList.add('active');
+            });
+        });
+
+        // 학교 선택 시 관리번호 카테고리 로드
+        function loadManageCates(schoolId) {
+            fetch(`/api/manages/cates/${schoolId}`)
+                .then(response => response.json())
+                .then(cates => {
+                    const cateSelect = document.getElementById('manageCate');
+                    cateSelect.innerHTML = '<option value="">구분 선택</option>';
+                    cates.forEach(cate => {
+                        const option = document.createElement('option');
+                        option.value = cate;
+                        option.textContent = cate;
+                        cateSelect.appendChild(option);
+                    });
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    cateSelect.appendChild(customOption);
+                });
+        }
+
+        // 관리번호 카테고리 선택 시 연도 로드
+        function loadYears(schoolId, manageCate) {
+            if (manageCate === 'custom') return;
+            fetch(`/api/manages/years/${schoolId}/${manageCate}`)
+                .then(response => response.json())
+                .then(years => {
+                    const yearSelect = document.getElementById('manageYear');
+                    yearSelect.innerHTML = '<option value="">연도 선택</option>';
+                    years.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = year;
+                        yearSelect.appendChild(option);
+                    });
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    yearSelect.appendChild(customOption);
+                });
+        }
+
+        // 연도 선택 시 번호 목록 로드
+        function loadManageNums(schoolId, manageCate, year) {
+            if (manageCate === 'custom' || year === 'custom') return;
+            let url = `/api/manages/nums/${schoolId}/${manageCate}`;
+            if (year) {
+                url += `/${year}`;
+            }
+            fetch(url)
+                .then(response => response.json())
+                .then(nums => {
+                    const numSelect = document.getElementById('manageNum');
+                    numSelect.innerHTML = '<option value="">번호 선택</option>';
+                    const maxNum = nums.length > 0 ? Math.max(...nums) : 0;
+                    const nextNum = maxNum + 1;
+                    const nextOption = document.createElement('option');
+                    nextOption.value = nextNum;
+                    nextOption.textContent = nextNum + ' (신규)';
+                    numSelect.appendChild(nextOption);
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    numSelect.appendChild(customOption);
+                });
+        }
+
+        // 이벤트 리스너 등록
+        document.addEventListener('DOMContentLoaded', function() {
+            const schoolSelect = document.getElementById('school');
+            const manageCate = document.getElementById('manageCate');
+            const manageYear = document.getElementById('manageYear');
+            
+            // 학교 선택 이벤트
+            schoolSelect.addEventListener('change', function() {
+                if (this.value) {
+                    loadManageCates(this.value);
+                }
+            });
+            
+            // 관리번호 카테고리 선택 이벤트
+            manageCate.addEventListener('change', function() {
+                if (schoolSelect.value && this.value) {
+                    loadYears(schoolSelect.value, this.value);
+                    loadManageNums(schoolSelect.value, this.value, manageYear.value);
+                }
+                setupCustomInput('manageCate', 'manageCateInput');
+            });
+            
+            // 연도 선택 이벤트
+            manageYear.addEventListener('change', function() {
+                if (schoolSelect.value && manageCate.value) {
+                    loadManageNums(schoolSelect.value, manageCate.value, this.value);
+                }
+                setupCustomInput('manageYear', 'manageYearInput');
+            });
+
+            // 번호 선택 이벤트
+            const manageNum = document.getElementById('manageNum');
+            manageNum.addEventListener('change', function() {
+                setupCustomInput('manageNum', 'manageNumInput');
+            });
+        });
+
+        // 직접입력 기능
+        function setupCustomInput(selectId, inputId) {
+            const select = document.getElementById(selectId);
+            const input = document.getElementById(inputId);
+            
+            input.style.display = select.value === 'custom' ? 'block' : 'none';
+            if (select.value === 'custom') {
+                input.required = true;
+                select.required = false;
+            } else {
+                input.required = false;
+                select.required = true;
+            }
+        }
+
+        // 폼 제출 전 유효성 검사
+        document.getElementById('deviceForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // 필수 필드 검사
+            const requiredFields = document.querySelectorAll('[required]');
+            let isValid = true;
+            
+            requiredFields.forEach(field => {
+                if (!field.value) {
+                    isValid = false;
+                    field.closest('.form-group').classList.add('has-error');
+                } else {
+                    field.closest('.form-group').classList.remove('has-error');
+                }
+            });
+            
+            if (isValid) {
+                this.submit();
+            } else {
+                alert('필수 항목을 모두 입력해주세요.');
+            }
+        });
+    </script>
 </body>
 </html> 

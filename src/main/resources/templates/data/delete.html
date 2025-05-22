@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>데이터 삭제</title>
+    <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .delete-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 2rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: white;
+        }
+        .warning {
+            color: #dc3545;
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 1px solid #dc3545;
+            border-radius: 4px;
+            background-color: #fff8f8;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+        .alert {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-danger {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .mt-3 {
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+
+    <div class="container">
+        <div class="delete-container">
+            <h2>데이터 삭제</h2>
+            
+            <div class="warning">
+                <strong>주의!</strong>
+                <p>선택한 학교의 모든 데이터가 삭제됩니다. (학교 정보 제외)</p>
+                <p>삭제된 데이터는 복구할 수 없습니다.</p>
+            </div>
+
+            <form th:action="@{/data/delete}" method="post" onsubmit="return confirmDelete()">
+                <div class="form-group">
+                    <label for="schoolId">학교 선택:</label>
+                    <select name="schoolId" id="schoolId" required>
+                        <option value="">학교를 선택하세요</option>
+                        <option th:each="school : ${schools}" 
+                                th:value="${school.schoolId}" 
+                                th:text="${school.schoolName}"></option>
+                    </select>
+                </div>
+                <button type="submit" class="delete-btn">데이터 삭제</button>
+            </form>
+
+            <div th:if="${message}" class="alert alert-success mt-3">[[${message}]]</div>
+            <div th:if="${error}" class="alert alert-danger mt-3">[[${error}]]</div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/footer :: footer}"></div>
+
+    <script>
+        function confirmDelete() {
+            const school = document.getElementById('schoolId');
+            const schoolName = school.options[school.selectedIndex].text;
+            return confirm(`정말로 ${schoolName}의 모든 데이터를 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.`);
+        }
+    </script>
+</body>
+</html> 

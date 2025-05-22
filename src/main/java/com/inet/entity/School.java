@@ -36,12 +36,12 @@ public class School {
     @OneToMany(mappedBy = "school")
     private List<Operator> operators;
 
-    public String getName() {
+    public String getSchoolName() {
         return schoolName;
     }
 
-    public void setName(String name) {
-        this.schoolName = name;
+    public void setSchoolName(String schoolName) {
+        this.schoolName = schoolName;
     }
 
     public Integer getIp() {

@@ -1,20 +1,21 @@
 package com.inet.entity;
 
+import java.time.LocalDate;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Column;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import lombok.EqualsAndHashCode;
-import java.time.LocalDate;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonBackReference;
 
 @Entity
 @Table(name = "device")
@@ -72,4 +73,38 @@ public class Device {
     @ManyToOne
     @JoinColumn(name = "uid_id")
     private Uid uid;
+
+    // Explicit getter methods
+    public String getIpAddress() {
+        return this.ipAddress;
+    }
+
+    public String getType() {
+        return this.type;
+    }
+
+    public Classroom getClassroom() {
+        return this.classroom;
+    }
+
+    // Explicit setter methods
+    public void setManage(Manage manage) {
+        this.manage = manage;
+    }
+
+    public void setClassroom(Classroom classroom) {
+        this.classroom = classroom;
+    }
+
+    public void setOperator(Operator operator) {
+        this.operator = operator;
+    }
+
+    public void setUid(Uid uid) {
+        this.uid = uid;
+    }
+
+    public void setSchool(School school) {
+        this.school = school;
+    }
 } 

@@ -1020,4 +1020,8 @@ public class DeviceService {
             return findAll();
         }
     }
+
+    public List<Device> findDevicesBySchool(School school) {
+        return deviceRepository.findBySchool(school);
+    }
 } 

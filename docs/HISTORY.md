@@ -96,6 +96,18 @@
     - 정적 리소스 변경 감지
     - LiveReload 지원
 
+### 6. 파일 이름 변경 및 경로 정리
+- IP 대장 페이지 파일명 변경
+  - 변경 내용:
+    ```
+    src/main/resources/templates/ip/list.html → src/main/resources/templates/ip/iplist.html
+    ```
+  - 관련 파일 수정:
+    1. IpController.java - 뷰 이름 변경 ("/ip/list" → "/ip/iplist")
+    2. index.html - 링크 경로 변경
+    3. navbar.html - 네비게이션 링크 변경
+  - 목적: 파일명 중복 방지 및 명확한 의미 전달
+
 ## 참고사항
 1. 교실 관련 작업 시 항상 학교 정보 확인 필요
 2. 데이터 삭제 시 school 테이블 데이터 보존 필수

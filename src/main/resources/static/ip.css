@@ -1,0 +1,116 @@
+/* IP 그리드 레이아웃 */
+.ip-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+/* IP 아이템 스타일 */
+.ip-item {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+}
+
+.ip-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* 사용 중인 IP 스타일 */
+.ip-item.used {
+    border-left: 4px solid #3d96ff;
+}
+
+/* IP 번호 스타일 */
+.ip-number {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2d3436;
+    margin-bottom: 10px;
+}
+
+/* IP 정보 스타일 */
+.ip-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.device-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #3d96ff;
+}
+
+.device-location {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* 미사용 IP 스타일 */
+.ip-item:not(.used) {
+    background: #f8f9fa;
+    opacity: 0.7;
+}
+
+.ip-item:not(.used) .ip-number {
+    color: #adb5bd;
+}
+
+/* 학교 미선택 시 메시지 스타일 */
+.no-school-message {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+    background: #f8f9fa;
+    border-radius: 10px;
+    margin-top: 20px;
+}
+
+.no-school-message i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #adb5bd;
+}
+
+.no-school-message p {
+    font-size: 16px;
+    margin: 0;
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+    .ip-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+        padding: 15px;
+    }
+
+    .ip-item {
+        padding: 10px;
+        min-height: 80px;
+    }
+
+    .ip-number {
+        font-size: 16px;
+    }
+
+    .device-name {
+        font-size: 12px;
+    }
+
+    .device-location {
+        font-size: 11px;
+    }
+} 
