@@ -33,4 +33,21 @@ public class Manage {
     
     @Column(name = "manage_num")
     private Long manageNum;
+
+    // Explicit getter methods
+    public String getManageCate() {
+        return this.manageCate;
+    }
+
+    public Integer getYear() {
+        return this.year;
+    }
+
+    public Long getManageNum() {
+        return this.manageNum;
+    }
+
+    public School getSchool() {
+        return this.school;
+    }
 } 

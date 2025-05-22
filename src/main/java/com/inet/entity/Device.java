@@ -83,8 +83,36 @@ public class Device {
         return this.type;
     }
 
+    public String getModelName() {
+        return this.modelName;
+    }
+
     public Classroom getClassroom() {
         return this.classroom;
+    }
+
+    public Manage getManage() {
+        return this.manage;
+    }
+
+    public School getSchool() {
+        return this.school;
+    }
+
+    public Operator getOperator() {
+        return this.operator;
+    }
+
+    public String getSetType() {
+        return this.setType;
+    }
+
+    public LocalDate getPurchaseDate() {
+        return this.purchaseDate;
+    }
+
+    public Uid getUid() {
+        return this.uid;
     }
 
     // Explicit setter methods

@@ -55,4 +55,17 @@ public class Classroom {
     @JsonManagedReference
     @JsonView(Views.Detail.class)
     private List<Device> devices;
+
+    // Explicit getter methods
+    public String getRoomName() {
+        return this.roomName;
+    }
+
+    public School getSchool() {
+        return this.school;
+    }
+
+    public List<Device> getDevices() {
+        return this.devices;
+    }
 } 

@@ -36,19 +36,24 @@ public class School {
     @OneToMany(mappedBy = "school")
     private List<Operator> operators;
 
-    public String getSchoolName() {
-        return schoolName;
+    // Explicit getter methods
+    public Long getSchoolId() {
+        return this.schoolId;
     }
 
-    public void setSchoolName(String schoolName) {
-        this.schoolName = schoolName;
+    public String getSchoolName() {
+        return this.schoolName;
     }
 
     public Integer getIp() {
-        return ip;
+        return this.ip;
     }
 
-    public void setIp(Integer ip) {
-        this.ip = ip;
+    public List<Classroom> getClassrooms() {
+        return this.classrooms;
+    }
+
+    public List<Operator> getOperators() {
+        return this.operators;
     }
 } 
