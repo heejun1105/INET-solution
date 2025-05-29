@@ -18,7 +18,7 @@ body {
     line-height: 1.6;
 }
 
-/* 네비게이션 바 스타일 */
+/* ?비게이??비게이??*/
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -71,7 +71,7 @@ body {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* 메인 콘텐츠 컨테이너 */
+/* 메인 콘텐컨테너 */
 .container {
     max-width: 1200px;
     margin: 1rem auto 2rem auto;
@@ -79,7 +79,7 @@ body {
     flex: 1;
 }
 
-/* 메인 페이지 카드 그리드 */
+/* 메인 이지 카드 그리??*/
 .card-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -158,7 +158,7 @@ body {
     transform: none !important;
 }
 
-/* 페이지 제목 */
+/* 이지 목 */
 .page-title {
     text-align: center;
     margin-bottom: 3rem;
@@ -179,7 +179,7 @@ body {
     font-weight: 400;
 }
 
-/* 푸터 스타일 */
+/* 터 치*/
 .footer {
     background-color: #f9f9f9;
     border-top: 1px solid #e5e5e5;
@@ -276,155 +276,333 @@ body {
     font-size: 0.8rem;
 }
 
-/* 반응형 디자인 - 태블릿 */
+/* 반응???자??- ?블*/
 @media (max-width: 1024px) {
     .container {
-        max-width: 100%;
-        padding: 0 1.5rem;
+        max-width: 95%;
+        padding: 0 1rem;
     }
-    
+
+    .hero-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        text-align: center;
+    }
+
+    .gradient-text {
+        font-size: 3rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1.3rem;
+    }
+
+    .hero-stats {
+        justify-content: center;
+        gap: 1.5rem;
+    }
+
+    .features-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .section-header h2 {
+        font-size: 2rem;
+    }
+
     .page-title h1 {
-        font-size: 2.2rem;
+        font-size: 2rem;
     }
-    
+
     .page-title p {
         font-size: 1rem;
     }
-    
+
     .card-grid {
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 1.2rem;
     }
-    
+
     .card-grid-bottom {
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1.2rem;
     }
-    
+
     .card {
-        padding: 1.5rem 1rem;
         min-height: 160px;
+        padding: 1.5rem 1rem;
     }
-    
+
     .card-icon {
-        font-size: 2.2rem;
+        font-size: 2rem;
     }
-    
+
     .card-title {
         font-size: 1.2rem;
     }
-    
+
     .card-description {
         font-size: 0.85rem;
     }
 }
 
-/* 반응형 디자인 - 모바일 */
+/* 반응???자??- 모바*/
 @media (max-width: 768px) {
     body {
-        font-size: 13px;
+        font-size: 14px;
+    }
+
+    .hero-section {
+        padding: 3rem 0;
+        margin-bottom: 2rem;
+    }
+
+    .gradient-text {
+        font-size: 2.5rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1.1rem;
+    }
+
+    .hero-description {
+        font-size: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .hero-stats {
+        flex-direction: column;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+    }
+
+    .hero-visual {
+        margin-top: 2rem;
+    }
+
+    .hero-content {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        text-align: center;
+        max-width: 100%;
+        background: transparent;
+        backdrop-filter: none;
+        border-radius: 0;
+        padding: 2rem;
+        margin: 1rem;
+        border: none;
+        box-shadow: none;
+    }
+
+    .hero-image-container {
+        position: absolute !important;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100% !important;
+        height: auto;
+    }
+
+    .modern-network {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #1e40af 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .hub-core {
+        width: 60px;
+        height: 60px;
+    }
+
+    .hub-core i {
+        font-size: 1.5rem;
+    }
+
+    .pulse-ring {
+        width: 60px;
+        height: 60px;
+    }
+
+    .floating-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+    }
+
+    .floating-icon i {
+        font-size: 1rem;
+    }
+
+    .section-header h2 {
+        font-size: 1.8rem;
+    }
+
+    .features-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        margin-bottom: 3rem;
+    }
+
+    .feature-card {
+        padding: 1.5rem;
+    }
+
+    .additional-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
     }
     
     .navbar {
-        height: 56px;
-        padding: 0 1rem;
         flex-wrap: wrap;
+        padding: 0.5rem 1rem;
+        height: auto;
+        min-height: 60px;
     }
-    
+
     .navbar-logo {
         font-size: 1.1rem;
     }
     
     .navbar-menu {
         gap: 0.5rem;
+        flex-wrap: wrap;
         justify-content: center;
-        margin-top: 0.5rem;
         width: 100%;
+        margin-top: 0.5rem;
     }
-    
+
     .navbar-menu a {
-        font-size: 0.8rem;
-        padding: 0.4rem 0.6rem;
+        font-size: 0.85rem;
+        padding: 0.4rem 0.8rem;
     }
-    
+
     .container {
-        margin: 0.5rem auto 1rem auto;
-        padding: 0 1rem;
+        margin: 1rem auto;
+        padding: 0 0.8rem;
     }
-    
+
     .page-title {
         margin-bottom: 2rem;
         padding: 1rem 0;
     }
-    
+
     .page-title h1 {
         font-size: 1.8rem;
     }
-    
+
     .page-title p {
         font-size: 0.9rem;
     }
-    
+
     .card-grid {
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: 1fr;
         gap: 1rem;
-        margin-bottom: 1.5rem;
     }
-    
+
     .card-grid-bottom {
         grid-template-columns: 1fr;
         gap: 1rem;
-        margin-bottom: 1.5rem;
     }
-    
+
     .card {
-        padding: 1.5rem 1rem;
         min-height: 140px;
+        padding: 1.5rem 1rem;
     }
-    
+
     .card-icon {
-        font-size: 2rem;
+        font-size: 1.8rem;
         margin-bottom: 0.8rem;
     }
-    
+
     .card-title {
         font-size: 1.1rem;
         margin-bottom: 0.4rem;
     }
-    
+
     .card-description {
         font-size: 0.8rem;
     }
-    
+
     .footer {
-        padding: 1.5rem 0 1rem;
+        padding: 1.5rem 0 0.8rem;
     }
-    
+
     .footer-content {
         flex-direction: column;
-        gap: 1.5rem;
+        gap: 1rem;
+        text-align: center;
     }
-    
+
     .footer-info, .footer-links {
-        min-width: auto;
+        margin-bottom: 0;
     }
-    
+
     .footer-links h4 {
-        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
     }
 }
 
-/* 반응형 디자인 - 소형 모바일 */
+/* 반응???자??- ?형 모바*/
 @media (max-width: 480px) {
-    .navbar {
-        height: auto;
-        min-height: 56px;
-        padding: 0.5rem;
+    .hero-section {
+        padding: 2rem 0;
     }
-    
-    .navbar-menu {
-        flex-wrap: wrap;
-        margin-top: 0.5rem;
+
+    .gradient-text {
+        font-size: 2rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1rem;
+    }
+
+    .hero-description {
+        font-size: 0.9rem;
+    }
+
+    .stat-number {
+        font-size: 1.8rem;
+    }
+
+    .section-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .feature-card {
+        padding: 1.2rem;
+    }
+
+    .feature-card .card-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 1.2rem;
+    }
+
+    .card-content h3 {
+        font-size: 1.2rem;
+    }
+
+    .navbar {
+        padding: 0.5rem 0.8rem;
     }
     
     .container {
@@ -434,48 +612,723 @@ body {
     .page-title h1 {
         font-size: 1.5rem;
     }
-    
+
     .page-title p {
         font-size: 0.85rem;
     }
-    
+
     .card-grid {
         grid-template-columns: 1fr;
         gap: 0.8rem;
     }
-    
+
     .card {
-        padding: 1.2rem 0.8rem;
         min-height: 120px;
+        padding: 1.2rem 0.8rem;
     }
-    
+
     .card-icon {
-        font-size: 1.8rem;
-        margin-bottom: 0.6rem;
+        font-size: 1.5rem;
     }
-    
+
     .card-title {
         font-size: 1rem;
     }
-    
+
     .card-description {
         font-size: 0.75rem;
-        line-height: 1.4;
     }
-    
+
     .footer {
-        padding: 1rem 0;
+        padding: 1rem 0 0.5rem;
     }
-    
+
     .footer-container {
-        padding: 0 0.5rem;
+        padding: 0 0.8rem;
     }
-    
+
     .footer-logo strong {
+        font-size: 1.1rem;
+    }
+
+    .footer-links h4 {
+        font-size: 0.9rem;
+    }
+
+    .hero-image-container {
+        position: relative !important;
+        right: auto !important;
+        width: 100% !important;
+        height: 200px;
+    }
+
+    .modern-network {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #1e40af 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .hub-core {
+        width: 60px;
+        height: 60px;
+    }
+
+    .hub-core i {
+        font-size: 1.5rem;
+    }
+
+    .pulse-ring {
+        width: 60px;
+        height: 60px;
+    }
+
+    .floating-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+    }
+
+    .floating-icon i {
         font-size: 1rem;
     }
-    
-    .footer-links h4 {
-        font-size: 0.85rem;
+
+    .image-overlay {
+        padding: 1.5rem 1rem 1rem;
     }
-} 
+
+    .overlay-content h3 {
+        font-size: 1.1rem;
+    }
+
+    .overlay-content p {
+        font-size: 0.8rem;
+    }
+}
+
+/* Hero 션 */
+.hero-section {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    color: white;
+    padding: 4rem 0;
+    margin-bottom: 4rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+    opacity: 0.5;
+    z-index: 0;
+}
+
+.hero-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    position: relative;
+    z-index: 10;
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.hero-image-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.hero-content {
+    display: block;
+    max-width: 600px;
+    width: auto;
+    background: transparent;
+    backdrop-filter: none;
+    border-radius: 0;
+    padding: 3rem;
+    border: none;
+    box-shadow: none;
+}
+
+.hero-title {
+    margin-bottom: 1.5rem;
+}
+
+.gradient-text {
+    font-size: 3.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ffffff 0%, #a5c7fe 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: block;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+.hero-subtitle {
+    font-size: 1.5rem;
+    font-weight: 400;
+    color: #ffffff;
+    display: block;
+    text-shadow: 0 3px 15px rgba(0, 0, 0, 0.8);
+}
+
+.hero-description {
+    font-size: 1.2rem;
+    line-height: 1.8;
+    color: #f1f5f9;
+    margin-bottom: 3rem;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+}
+
+.hero-stats {
+    display: flex;
+    gap: 2rem;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #60a5fa;
+    line-height: 1;
+    text-shadow: 0 3px 15px rgba(0, 0, 0, 0.8);
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #f1f5f9;
+    margin-top: 0.5rem;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+}
+
+.hero-visual {
+    display: none;
+}
+
+.modern-network {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #1e40af 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.hub-core {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(96, 165, 250, 0.4);
+    position: relative;
+    z-index: 4;
+}
+
+.hub-core i {
+    font-size: 2.5rem;
+    color: white;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.pulse-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100px;
+    height: 100px;
+    border: 2px solid rgba(96, 165, 250, 0.6);
+    border-radius: 50%;
+    animation: pulseRing 3s ease-out infinite;
+}
+
+.floating-icon {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: rgba(30, 58, 138, 0.9);
+    border: 2px solid rgba(96, 165, 250, 0.7);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+.floating-icon i {
+    font-size: 1.5rem;
+    color: #60a5fa;
+}
+
+.connection-path {
+    fill: none;
+    stroke-width: 2;
+    stroke-dasharray: 5, 5;
+    animation: dash 3s linear infinite;
+    opacity: 0.7;
+}
+
+.bg-pattern {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 25% 25%, rgba(96, 165, 250, 0.1) 2px, transparent 2px),
+        radial-gradient(circle at 75% 75%, rgba(96, 165, 250, 0.05) 1px, transparent 1px);
+    background-size: 50px 50px, 30px 30px;
+    animation: float 20s ease-in-out infinite;
+}
+
+.central-hub {
+    position: absolute;
+    top: 50%;
+    right: 25%;
+    transform: translate(50%, -50%);
+    z-index: 3;
+}
+
+.pulse-delay-1 {
+    animation-delay: 1s;
+}
+
+.pulse-delay-2 {
+    animation-delay: 2s;
+}
+
+.floating-icon:hover {
+    background: rgba(30, 58, 138, 1);
+    transform: scale(1.1);
+    box-shadow: 0 8px 25px rgba(96, 165, 250, 0.4);
+}
+
+.connection-svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* 애니메이션 */
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes float1 {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(10px, -5px); }
+    66% { transform: translate(-5px, 10px); }
+}
+
+@keyframes float2 {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(-8px, 8px); }
+    66% { transform: translate(8px, -8px); }
+}
+
+@keyframes float3 {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(12px, 5px); }
+    66% { transform: translate(-10px, -5px); }
+}
+
+@keyframes float4 {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(-12px, -8px); }
+    66% { transform: translate(8px, 12px); }
+}
+
+@keyframes float5 {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(8px, -12px); }
+    66% { transform: translate(-8px, 8px); }
+}
+
+@keyframes float6 {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(-10px, 10px); }
+    66% { transform: translate(10px, -8px); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+@keyframes pulseRing {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.6;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(3);
+        opacity: 0;
+    }
+}
+
+@keyframes dash {
+    to {
+        stroke-dashoffset: -20;
+    }
+}
+
+.image-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+    color: white;
+    padding: 2rem 1.5rem 1.5rem;
+    z-index: 4;
+}
+
+.overlay-content h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.overlay-content p {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+/* 메인 기능 션 */
+.main-features {
+    padding: 2rem 0 4rem;
+}
+
+.section-header {
+    text-align: center;
+    margin-bottom: 4rem;
+}
+
+.section-header h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1e3a8a;
+    margin-bottom: 1rem;
+}
+
+.section-header p {
+    font-size: 1.1rem;
+    color: #6b7280;
+}
+
+/* 주요 기능 카드 그리??*/
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-bottom: 4rem;
+}
+
+.feature-card {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--card-gradient-start), var(--card-gradient-end));
+    transition: all 0.3s ease;
+}
+
+.feature-card.primary {
+    --card-gradient-start: #3b82f6;
+    --card-gradient-end: #1d4ed8;
+}
+
+.feature-card.secondary {
+    --card-gradient-start: #10b981;
+    --card-gradient-end: #059669;
+}
+
+.feature-card.accent {
+    --card-gradient-start: #f59e0b;
+    --card-gradient-end: #d97706;
+}
+
+.feature-card.info {
+    --card-gradient-start: #8b5cf6;
+    --card-gradient-end: #7c3aed;
+}
+
+.feature-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    border-color: var(--card-gradient-start);
+}
+
+.feature-card:hover::before {
+    height: 8px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.feature-card .card-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--card-gradient-start), var(--card-gradient-end));
+    color: white;
+    font-size: 1.5rem;
+    transition: transform 0.3s ease;
+}
+
+.feature-card:hover .card-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.card-badge {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.card-content h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.75rem;
+}
+
+.card-content p {
+    color: #6b7280;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.card-features {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.feature-tag {
+    background: #f3f4f6;
+    color: #6b7280;
+    padding: 0.25rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.card-arrow {
+    align-self: flex-end;
+    margin-top: 1rem;
+    color: var(--card-gradient-start);
+    font-size: 1.2rem;
+    transition: transform 0.3s ease;
+}
+
+.feature-card:hover .card-arrow {
+    transform: translateX(4px);
+}
+
+/* 추 기능 션 */
+.additional-features {
+    margin-top: 3rem;
+}
+
+.subsection-title {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.additional-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.additional-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.additional-card:hover:not(.disabled) {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border-color: #d1d5db;
+}
+
+.additional-card .card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f9fafb;
+    color: #6b7280;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.additional-card.danger .card-icon {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.additional-card .card-content {
+    flex: 1;
+}
+
+.additional-card h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.additional-card p {
+    color: #6b7280;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-badge.coming-soon {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.status-badge.active {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.additional-card.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.additional-card.disabled:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: #e5e7eb;
+}
+
+/* 아이콘 위치 - 텍스트 영역을 피해 오른쪽에 배치 */
+.icon-1 {
+    top: 10%;
+    right: 15%;
+    animation: float1 6s ease-in-out infinite;
+}
+
+.icon-2 {
+    top: 30%;
+    right: 5%;
+    animation: float2 7s ease-in-out infinite;
+}
+
+.icon-3 {
+    bottom: 15%;
+    right: 30%;
+    animation: float3 8s ease-in-out infinite;
+}
+
+.icon-4 {
+    bottom: 10%;
+    right: 8%;
+    animation: float4 6.5s ease-in-out infinite;
+}
+
+.icon-5 {
+    top: 55%;
+    right: 35%;
+    animation: float5 7.5s ease-in-out infinite;
+}
+
+.icon-6 {
+    top: 25%;
+    right: 40%;
+    animation: float6 8.5s ease-in-out infinite;
+}
+
+.connection-mesh {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+}
+
+.connection-svg {
+    width: 100%;
+    height: 100%;
+}

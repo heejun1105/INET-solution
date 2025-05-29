@@ -39,4 +39,28 @@ public class Uid {
     @JoinColumn(name = "school_id")
     private School school;
     
+    /**
+     * 표시용 고유번호를 반환합니다.
+     * 형식: 카테고리 + 학교코드 + 제조연도 + ID번호
+     */
+    public String getDisplayId() {
+        if (cate == null || idNumber == null) {
+            return "";
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append(cate);
+        
+        if (school != null && school.getIp() != null) {
+            sb.append(String.format("%02d", school.getIp()));
+        }
+        
+        if (mfgYear != null && !mfgYear.isEmpty()) {
+            sb.append(mfgYear);
+        }
+        
+        sb.append(String.format("%04d", idNumber));
+        
+        return sb.toString();
+    }
 } 

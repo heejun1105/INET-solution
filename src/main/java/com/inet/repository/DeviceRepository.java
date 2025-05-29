@@ -56,4 +56,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
     @Query("SELECT COUNT(d) FROM Device d WHERE d.school.schoolId = :schoolId")
     long countBySchoolSchoolId(Long schoolId);
+
+    // 통계용 메서드 추가
+    long countByUnusedFalseOrUnusedIsNull();
 } 

@@ -1040,4 +1040,13 @@ public class DeviceService {
     public List<Device> findDevicesBySchool(School school) {
         return deviceRepository.findBySchool(school);
     }
+
+    // 통계용 메서드들
+    public long countAllDevices() {
+        return deviceRepository.count();
+    }
+    
+    public long countActiveDevices() {
+        return deviceRepository.countByUnusedFalseOrUnusedIsNull();
+    }
 } 

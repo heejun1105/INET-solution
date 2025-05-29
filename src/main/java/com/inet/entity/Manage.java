@@ -50,4 +50,25 @@ public class Manage {
     public School getSchool() {
         return this.school;
     }
+    
+    /**
+     * 표시용 관리번호를 반환합니다.
+     * 형식: 관리카테고리-연도-일련번호 또는 관리카테고리-일련번호
+     */
+    public String getDisplayId() {
+        if (manageCate == null || manageNum == null) {
+            return "";
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append(manageCate);
+        
+        if (year != null) {
+            sb.append("-").append(year);
+        }
+        
+        sb.append("-").append(String.format("%03d", manageNum));
+        
+        return sb.toString();
+    }
 } 

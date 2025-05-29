@@ -48,15 +48,16 @@
                         <input type="hidden" name="size" th:value="${pageSize}" />
                     </form>
                     <div class="action-buttons-container">
-                        <a href="/device/register" class="btn-primary">
+                        <a href="/device/register" class="btn btn-primary">
                             <i class="fas fa-plus-circle"></i> 장비 등록
                         </a>
-                        <a th:href="@{/device/excel(schoolId=${selectedSchoolId}, type=${selectedType}, classroomId=${selectedClassroomId})}" class="btn-success">
+                        <a th:href="@{/device/excel(schoolId=${selectedSchoolId}, type=${selectedType}, classroomId=${selectedClassroomId})}" class="btn btn-success">
                             <i class="fas fa-file-excel"></i> 엑셀 다운로드
                         </a>
                     </div>
                 </div>
                 
+                <!-- 데스크톱 테이블 뷰 -->
                 <table class="device-table">
                     <thead>
                         <tr>
@@ -68,7 +69,7 @@
                             <th>담당자</th>
                             <th>제조사</th>
                             <th>모델명</th>
-                            <th>제조일자</th>
+                            <th>구매일자</th>
                             <th>IP주소</th>
                             <th>교실</th>
                             <th>용도</th>
@@ -80,58 +81,74 @@
                     </thead>
                     <tbody>
                         <th:block th:each="device, iterStat : ${devices}">
-                            <!-- 교실 헤더: 이전 장비와 교실명이 다르면 출력 -->
-                            <tr th:if="${iterStat.index == 0 or devices[iterStat.index - 1].classroom?.roomName != device.classroom?.roomName}" class="classroom-header">
+                            <!-- 교실 헤더 표시 (새로운 교실일 때) -->
+                            <tr th:if="${iterStat.index == 0 or device.classroom?.roomName != devices[iterStat.index - 1].classroom?.roomName}" 
+                                class="classroom-header">
                                 <td colspan="16">
-                                    <strong th:text="'교실: ' + ${device.classroom != null ? device.classroom.roomName : '미지정 교실'}"></strong>
+                                    <strong>
+                                        <i class="fas fa-door-open"></i> 
+                                        <span th:text="${device.classroom != null and device.classroom.roomName != null ? device.classroom.roomName : '미지정 교실'}"></span>
+                                    </strong>
                                 </td>
                             </tr>
-                            <!-- 그룹 헤더: 이전 장비와 세트타입/담당자가 다르면 출력 -->
-                            <tr th:if="${iterStat.index == 0 
-                                or devices[iterStat.index - 1].classroom?.roomName != device.classroom?.roomName
-                                or (devices[iterStat.index - 1].setType != device.setType)
-                                or ((devices[iterStat.index - 1].setType == null or devices[iterStat.index - 1].setType == '') 
-                                    and (device.setType == null or device.setType == '') 
-                                    and (devices[iterStat.index - 1].operator?.name != device.operator?.name))}"
+                            
+                            <!-- 세트타입 그룹 헤더 표시 (새로운 세트타입일 때) -->
+                            <tr th:if="${device.setType != null and !device.setType.isEmpty() and 
+                                       (iterStat.index == 0 or 
+                                        device.classroom?.roomName != devices[iterStat.index - 1].classroom?.roomName or
+                                        device.setType != devices[iterStat.index - 1].setType)}" 
                                 class="group-header">
                                 <td colspan="16">
-                                    <strong th:if="${device.setType != null and device.setType != ''}" th:text="'세트 타입: ' + ${device.setType}"></strong>
-                                    <strong th:if="${(device.setType == null or device.setType == '') and device.operator != null and device.operator.name != null}" th:text="'담당자: ' + ${device.operator.name}"></strong>
-                                    <strong th:if="${(device.setType == null or device.setType == '') and (device.operator == null or device.operator.name == null)}" th:text="'기타'"></strong>
+                                    <strong>
+                                        <i class="fas fa-layer-group"></i> 
+                                        세트: <span th:text="${device.setType}"></span>
+                                    </strong>
                                 </td>
                             </tr>
-                            <!-- 장비 데이터 행 -->
-                            <tr th:class="${device.setType != null && device.setType != '' ? 'set-group-item group-item' : (device.operator != null && device.operator.name != null ? 'operator-group-item group-item' : 'group-item')}">
-                                <td th:text="${device.school != null && device.school.schoolName != null ? device.school.schoolName : ''}"></td>
-                                <td>
-                                    <span th:if="${device.uid != null}" th:with="
-                                        cate=${device.uid.cate},
-                                        schoolCode=${device.school != null ? #numbers.formatInteger(device.school.schoolId, 2) : '00'},
-                                        mfgYear=${device.uid.mfgYear != null ? device.uid.mfgYear : 'xx'},
-                                        idNumber=${device.uid.idNumber != null ? #numbers.formatInteger(device.uid.idNumber, 4) : '0000'}"
-                                        th:text="${cate + schoolCode + mfgYear + idNumber}"></span>
+                            
+                            <!-- 담당자 그룹 헤더 표시 (세트가 없고 새로운 담당자일 때) -->
+                            <tr th:if="${(device.setType == null or device.setType.isEmpty()) and 
+                                       device.operator != null and device.operator.name != null and
+                                       (iterStat.index == 0 or 
+                                        device.classroom?.roomName != devices[iterStat.index - 1].classroom?.roomName or
+                                        device.operator?.name != devices[iterStat.index - 1].operator?.name)}" 
+                                class="group-header">
+                                <td colspan="16">
+                                    <strong>
+                                        <i class="fas fa-user"></i> 
+                                        담당자: <span th:text="${device.operator.name}"></span>
+                                        <span th:if="${device.operator.position != null}">
+                                            (<span th:text="${device.operator.position}"></span>)
+                                        </span>
+                                    </strong>
                                 </td>
-                                <td th:text="${device.manage != null ? (device.manage.manageCate != null ? device.manage.manageCate : '') + (device.manage.year != null ? '-' + device.manage.year : '') + (device.manage.manageNum != null ? '-' + device.manage.manageNum : '') : ''}"></td>
-                                <td class="device-type" th:text="${device.type != null ? device.type : ''}"></td>
-                                <td th:text="${device.operator != null && device.operator.position != null ? device.operator.position : ''}"></td>
-                                <td th:text="${device.operator != null && device.operator.name != null ? device.operator.name : ''}"></td>
-                                <td th:text="${device.manufacturer != null ? device.manufacturer : ''}"></td>
-                                <td th:text="${device.modelName != null ? device.modelName : ''}"></td>
-                                <td th:text="${device.purchaseDate != null ? (#strings.substring(device.purchaseDate, 2, 4) + '.' + #strings.substring(device.purchaseDate, 5, 7) + '.' + #strings.substring(device.purchaseDate, 8, 10)) : ''}"></td>
-                                <td class="ip-address" th:text="${device.ipAddress != null ? device.ipAddress : ''}"></td>
-                                <td th:text="${device.classroom != null && device.classroom.roomName != null ? device.classroom.roomName : ''}"></td>
-                                <td th:text="${device.purpose != null ? device.purpose : ''}"></td>
-                                <td th:text="${device.setType != null ? device.setType : ''}"></td>
-                                <td th:text="${device.note != null ? device.note : ''}"></td>
-                                <td th:text="${device.unused != null && device.unused ? 'O' : 'X'}"></td>
-                                <td>
+                            </tr>
+                            
+                            <!-- 장비 데이터 행 -->
+                            <tr th:class="${device.setType != null and !device.setType.isEmpty() ? 'set-group-item' : 'operator-group-item'}">
+                                <td data-label="학교" th:text="${device.school != null ? device.school.schoolName : '미지정'}"></td>
+                                <td data-label="고유번호" th:text="${device.uid != null ? device.uid.displayId : ''}"></td>
+                                <td data-label="관리번호" th:text="${device.manage != null ? device.manage.displayId : ''}"></td>
+                                <td data-label="유형" class="device-type" th:text="${device.type != null ? device.type : ''}"></td>
+                                <td data-label="직위" th:text="${device.operator != null && device.operator.position != null ? device.operator.position : ''}"></td>
+                                <td data-label="담당자" th:text="${device.operator != null && device.operator.name != null ? device.operator.name : ''}"></td>
+                                <td data-label="제조사" th:text="${device.manufacturer != null ? device.manufacturer : ''}"></td>
+                                <td data-label="모델명" th:text="${device.modelName != null ? device.modelName : ''}"></td>
+                                <td data-label="구매일자" th:text="${device.purchaseDate != null ? device.purchaseDate : ''}"></td>
+                                <td data-label="IP주소" class="ip-address" th:text="${device.ipAddress != null ? device.ipAddress : ''}"></td>
+                                <td data-label="교실" th:text="${device.classroom != null && device.classroom.roomName != null ? device.classroom.roomName : ''}"></td>
+                                <td data-label="용도" th:text="${device.purpose != null ? device.purpose : ''}"></td>
+                                <td data-label="세트분류" th:text="${device.setType != null ? device.setType : ''}"></td>
+                                <td data-label="비고" th:text="${device.note != null ? device.note : ''}"></td>
+                                <td data-label="불용" th:text="${device.unused != null && device.unused ? 'Y' : 'N'}"></td>
+                                <td data-label="관리">
                                     <div class="action-buttons">
-                                        <a th:href="@{/device/modify/{id}(id=${device.deviceId})}" class="btn-warning" title="수정">
+                                        <a th:href="@{/device/modify/{id}(id=${device.deviceId})}" class="btn btn-warning">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         <form th:action="@{/device/remove}" method="post" style="display: inline;">
                                             <input type="hidden" name="device_id" th:value="${device.deviceId}">
-                                            <button type="submit" class="btn-danger" onclick="return confirm('정말 삭제하시겠습니까?')" title="삭제">
+                                            <button type="submit" class="btn btn-danger" onclick="return confirm('정말 삭제하시겠습니까?')">
                                                 <i class="fas fa-trash-alt"></i>
                                             </button>
                                         </form>
@@ -141,6 +158,135 @@
                         </th:block>
                     </tbody>
                 </table>
+                
+                <!-- 모바일 카드 뷰 -->
+                <div class="mobile-card-container">
+                    <th:block th:each="device, iterStat : ${devices}">
+                        <!-- 교실 헤더 표시 (새로운 교실일 때) -->
+                        <div th:if="${iterStat.index == 0 or device.classroom?.roomName != devices[iterStat.index - 1].classroom?.roomName}" 
+                             class="classroom-header-mobile">
+                            <h3>
+                                <i class="fas fa-door-open"></i> 
+                                <span th:text="${device.classroom != null and device.classroom.roomName != null ? device.classroom.roomName : '미지정 교실'}"></span>
+                            </h3>
+                        </div>
+                        
+                        <!-- 세트타입 그룹 헤더 표시 (새로운 세트타입일 때) -->
+                        <div th:if="${device.setType != null and !device.setType.isEmpty() and 
+                                   (iterStat.index == 0 or 
+                                    device.classroom?.roomName != devices[iterStat.index - 1].classroom?.roomName or
+                                    device.setType != devices[iterStat.index - 1].setType)}" 
+                             class="group-header-mobile">
+                            <h4>
+                                <i class="fas fa-layer-group"></i> 
+                                세트: <span th:text="${device.setType}"></span>
+                            </h4>
+                        </div>
+                        
+                        <!-- 담당자 그룹 헤더 표시 (세트가 없고 새로운 담당자일 때) -->
+                        <div th:if="${(device.setType == null or device.setType.isEmpty()) and 
+                                   device.operator != null and device.operator.name != null and
+                                   (iterStat.index == 0 or 
+                                    device.classroom?.roomName != devices[iterStat.index - 1].classroom?.roomName or
+                                    device.operator?.name != devices[iterStat.index - 1].operator?.name)}" 
+                             class="group-header-mobile">
+                            <h4>
+                                <i class="fas fa-user"></i> 
+                                담당자: <span th:text="${device.operator.name}"></span>
+                                <span th:if="${device.operator.position != null}">
+                                    (<span th:text="${device.operator.position}"></span>)
+                                </span>
+                            </h4>
+                        </div>
+                        
+                        <!-- 장비 카드 -->
+                        <div class="device-card">
+                            <div class="card-header">
+                                <div class="card-title" th:text="${device.type != null ? device.type : '장비'}">유형</div>
+                                <div class="card-school" th:text="${device.school != null ? device.school.schoolName : '미지정'}">학교</div>
+                            </div>
+                            
+                            <div class="card-content">
+                                <div class="card-field" th:if="${device.uid != null && device.uid.displayId != null && !#strings.isEmpty(device.uid.displayId)}">
+                                    <div class="field-label">고유번호</div>
+                                    <div class="field-value" th:text="${device.uid.displayId}"></div>
+                                </div>
+                                
+                                <div class="card-field" th:if="${device.manage != null && device.manage.displayId != null && !#strings.isEmpty(device.manage.displayId)}">
+                                    <div class="field-label">관리번호</div>
+                                    <div class="field-value" th:text="${device.manage.displayId}"></div>
+                                </div>
+                                
+                                <div class="card-field" th:if="${device.operator != null && device.operator.position != null && !#strings.isEmpty(device.operator.position)}">
+                                    <div class="field-label">직위</div>
+                                    <div class="field-value" th:text="${device.operator.position}"></div>
+                                </div>
+                                
+                                <div class="card-field" th:if="${device.operator != null && device.operator.name != null && !#strings.isEmpty(device.operator.name)}">
+                                    <div class="field-label">담당자</div>
+                                    <div class="field-value" th:text="${device.operator.name}"></div>
+                                </div>
+                                
+                                <div class="card-field" th:if="${device.manufacturer != null && !#strings.isEmpty(device.manufacturer)}">
+                                    <div class="field-label">제조사</div>
+                                    <div class="field-value" th:text="${device.manufacturer}"></div>
+                                </div>
+                                
+                                <div class="card-field full-width" th:if="${device.modelName != null && !#strings.isEmpty(device.modelName)}">
+                                    <div class="field-label">모델명</div>
+                                    <div class="field-value" th:text="${device.modelName}"></div>
+                                </div>
+                                
+                                <div class="card-field" th:if="${device.purchaseDate != null}">
+                                    <div class="field-label">구매일자</div>
+                                    <div class="field-value" th:text="${device.purchaseDate}"></div>
+                                </div>
+                                
+                                <div class="card-field" th:if="${device.ipAddress != null && !#strings.isEmpty(device.ipAddress)}">
+                                    <div class="field-label">IP주소</div>
+                                    <div class="field-value" th:text="${device.ipAddress}"></div>
+                                </div>
+                                
+                                <div class="card-field" th:if="${device.classroom != null && device.classroom.roomName != null && !#strings.isEmpty(device.classroom.roomName)}">
+                                    <div class="field-label">교실</div>
+                                    <div class="field-value" th:text="${device.classroom.roomName}"></div>
+                                </div>
+                                
+                                <div class="card-field" th:if="${device.purpose != null && !#strings.isEmpty(device.purpose)}">
+                                    <div class="field-label">용도</div>
+                                    <div class="field-value" th:text="${device.purpose}"></div>
+                                </div>
+                                
+                                <div class="card-field" th:if="${device.setType != null && !#strings.isEmpty(device.setType)}">
+                                    <div class="field-label">세트분류</div>
+                                    <div class="field-value" th:text="${device.setType}"></div>
+                                </div>
+                                
+                                <div class="card-field" th:if="${device.unused != null && device.unused}">
+                                    <div class="field-label">불용</div>
+                                    <div class="field-value" style="color: #dc2626; font-weight: 600;">Y</div>
+                                </div>
+                                
+                                <div class="card-field full-width" th:if="${device.note != null && !#strings.isEmpty(device.note)}">
+                                    <div class="field-label">비고</div>
+                                    <div class="field-value" th:text="${device.note}"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="card-actions">
+                                <a th:href="@{/device/modify/{id}(id=${device.deviceId})}" class="btn btn-warning">
+                                    <i class="fas fa-edit"></i> 수정
+                                </a>
+                                <form th:action="@{/device/remove}" method="post" style="display: inline;">
+                                    <input type="hidden" name="device_id" th:value="${device.deviceId}">
+                                    <button type="submit" class="btn btn-danger" onclick="return confirm('정말 삭제하시겠습니까?')">
+                                        <i class="fas fa-trash-alt"></i> 삭제
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </th:block>
+                </div>
                 
                 <!-- 페이징 네비게이션 -->
                 <nav th:if="${totalPages > 1}">

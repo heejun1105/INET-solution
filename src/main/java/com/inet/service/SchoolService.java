@@ -51,4 +51,9 @@ public class SchoolService {
     public Optional<School> findById(Long schoolId) {
         return schoolRepository.findById(schoolId);
     }
+    
+    // 통계용 메서드
+    public long countAllSchools() {
+        return schoolRepository.count();
+    }
 } 

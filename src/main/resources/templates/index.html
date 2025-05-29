@@ -11,74 +11,222 @@
     <!-- 네비게이션 바 포함 -->
     <div th:replace="~{fragments/navbar :: navbar}"></div>
     
-    <div class="container">
-        <div class="page-title">
-            <h1>I-NET</h1>
-            <p>학교 네트워크 장비 관리 시스템</p>
-        </div>
-        
-        <!-- 상단 카드 그리드 (4개) -->
-        <div class="card-grid">
-            <a href="/device/list" class="card">
-                <div class="card-icon">
+    <!-- Hero 섹션 -->
+    <section class="hero-section">
+        <!-- 배경 이미지 컨테이너 (전체 높이) -->
+        <div class="hero-image-container">
+            <div class="modern-network">
+                <!-- 배경 패턴 -->
+                <div class="bg-pattern"></div>
+                
+                <!-- 중앙 허브 -->
+                <div class="central-hub">
+                    <div class="hub-core">
+                        <i class="fas fa-network-wired"></i>
+                    </div>
+                    <div class="pulse-ring"></div>
+                    <div class="pulse-ring pulse-delay-1"></div>
+                    <div class="pulse-ring pulse-delay-2"></div>
+                </div>
+                
+                <!-- 플로팅 아이콘들 -->
+                <div class="floating-icon icon-1">
                     <i class="fas fa-laptop"></i>
                 </div>
-                <div class="card-title">장비 목록</div>
-                <div class="card-description">등록된 장비를 조회하고 관리합니다.</div>
-            </a>
-            
-            <a href="/device/register" class="card">
-                <div class="card-icon">
-                    <i class="fas fa-plus-circle"></i>
+                <div class="floating-icon icon-2">
+                    <i class="fas fa-server"></i>
                 </div>
-                <div class="card-title">장비 등록</div>
-                <div class="card-description">새로운 장비를 시스템에 등록합니다.</div>
-            </a>
-            
-            <a href="/ip/iplist" class="card">
-                <div class="card-icon">
-                    <i class="fas fa-network-wired"></i>
+                <div class="floating-icon icon-3">
+                    <i class="fas fa-mobile-alt"></i>
                 </div>
-                <div class="card-title">IP 대장</div>
-                <div class="card-description">IP 주소별 장비 현황을 확인합니다.</div>
-            </a>
-            
-            <a href="/wireless-ap/list" class="card">
-                <div class="card-icon">
+                <div class="floating-icon icon-4">
+                    <i class="fas fa-tablet-alt"></i>
+                </div>
+                <div class="floating-icon icon-5">
                     <i class="fas fa-wifi"></i>
                 </div>
-                <div class="card-title">무선AP</div>
-                <div class="card-description">무선 액세스 포인트를 관리합니다.</div>
-            </a>
+                <div class="floating-icon icon-6">
+                    <i class="fas fa-cloud"></i>
+                </div>
+                
+                <!-- 연결 라인들 -->
+                <div class="connection-mesh">
+                    <svg class="connection-svg" viewBox="0 0 450 400">
+                        <defs>
+                            <linearGradient id="lineGradient" x1="20%" y1="0%" x2="80%" y2="0%">
+                                <stop offset="0%" style="stop-color:rgba(96,165,250,0.8);stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:rgba(96, 165, 250, 0.25);stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <path class="connection-path path-1" d="M300,140 Q380,100 660,80" stroke="url(#lineGradient)" />
+                        <path class="connection-path path-2" d="M300,160 Q430,180 630,250" stroke="url(#lineGradient)" />
+                        <path class="connection-path path-3" d="M300,200 Q400,300 550,320" stroke="url(#lineGradient)" />
+                        <path class="connection-path path-4" d="M300,120 Q460,40 620,150" stroke="url(#lineGradient)" />
+
+                    </svg>
+                </div>
+            </div>
         </div>
         
-        <!-- 하단 카드 그리드 (3개) -->
-        <div class="card-grid-bottom">
-            <a href="#" class="card disabled">
-                <div class="card-icon">
-                    <i class="fas fa-map"></i>
+        <!-- 텍스트 컨텐츠 -->
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1 class="hero-title">
+                        <span class="gradient-text">I-NET</span>
+                        <span class="hero-subtitle">학교 네트워크 장비 관리 시스템</span>
+                    </h1>
+                    <p class="hero-description">
+                        정확하고 효율적인 정보화 장비 관리로<br>
+                        스마트한 학교 네트워크 환경을 구축하세요
+                    </p>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <div class="stat-number" th:text="${totalDevices > 0 ? totalDevices  : '632'}">632</div>
+                            <div class="stat-label">관리 장비</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" th:text="${totalSchools > 0 ? totalSchools  : '4'}">4</div>
+                            <div class="stat-label">연결 학교</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" th:text="${systemReliability + '%'}">99.5%</div>
+                            <div class="stat-label">시스템 안정성</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-title">학교 평면도</div>
-                <div class="card-description">학교의 평면도를 조회하고 관리합니다. (준비중)</div>
-            </a>
-            
-            <a href="#" class="card disabled">
-                <div class="card-icon">
-                    <i class="fas fa-file-export"></i>
-                </div>
-                <div class="card-title">제출용 파일</div>
-                <div class="card-description">제출용 파일을 생성하고 다운로드합니다. (준비중)</div>
-            </a>
-
-            <a href="/data/delete" class="card">
-                <div class="card-icon">
-                    <i class="fas fa-trash-alt"></i>
-                </div>
-                <div class="card-title">데이터 삭제</div>
-                <div class="card-description">학교별 데이터를 삭제합니다.</div>
-            </a>
+            </div>
         </div>
-    </div>
+    </section>
+
+    <!-- 메인 기능 섹션 -->
+    <section class="main-features">
+        <div class="container">
+            <div class="section-header">
+                <h2>주요 기능</h2>
+                <p>I-NET으로 학교 네트워크를 체계적으로 관리하세요</p>
+            </div>
+            
+            <!-- 상단 주요 기능 카드 (4개) -->
+            <div class="features-grid">
+                <a href="/device/list" class="feature-card primary">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <i class="fas fa-laptop"></i>
+                        </div>
+                        <div class="card-badge">인기</div>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">장비 목록</h3>
+                        <p class="card-description">등록된 모든 장비를 한눈에 확인하고 효율적으로 관리할 수 있습니다.</p>
+                        <div class="card-features">
+                            <span class="feature-tag">실시간 현황</span>
+                            <span class="feature-tag">필터링</span>
+                        </div>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </a>
+                
+                <a href="/device/register" class="feature-card secondary">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <i class="fas fa-plus-circle"></i>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">장비 등록</h3>
+                        <p class="card-description">새로운 장비를 시스템에 빠르고 간편하게 등록합니다.</p>
+                        <div class="card-features">
+                            <span class="feature-tag">일괄 등록</span>
+                            <span class="feature-tag">자동 번호</span>
+                        </div>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </a>
+                
+                <a href="/ip/iplist" class="feature-card accent">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <i class="fas fa-network-wired"></i>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">IP 대장</h3>
+                        <p class="card-description">IP 주소별 장비 할당 현황을 시각적으로 확인합니다.</p>
+                        <div class="card-features">
+                            <span class="feature-tag">시각화</span>
+                            <span class="feature-tag">충돌 방지</span>
+                        </div>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </a>
+                
+                <a href="/wireless-ap/list" class="feature-card info">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <i class="fas fa-wifi"></i>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">무선 AP</h3>
+                        <p class="card-description">무선 액세스 포인트를 체계적으로 관리합니다.</p>
+                        <div class="card-features">
+                            <span class="feature-tag">위치 관리</span>
+                            <span class="feature-tag">상태 모니터링</span>
+                        </div>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </a>
+            </div>
+            
+            <!-- 하단 추가 기능 카드 (3개) -->
+            <div class="additional-features">
+                <h3 class="subsection-title">추가 기능</h3>
+                <div class="additional-grid">
+                    <a href="#" class="additional-card disabled">
+                        <div class="card-icon">
+                            <i class="fas fa-map"></i>
+                        </div>
+                        <div class="card-content">
+                            <h4 class="card-title">학교 평면도</h4>
+                            <p class="card-description">학교의 평면도를 조회하고 관리합니다.</p>
+                            <span class="status-badge coming-soon">준비중</span>
+                        </div>
+                    </a>
+                    
+                    <a href="#" class="additional-card disabled">
+                        <div class="card-icon">
+                            <i class="fas fa-file-export"></i>
+                        </div>
+                        <div class="card-content">
+                            <h4 class="card-title">제출용 파일</h4>
+                            <p class="card-description">제출용 파일을 생성하고 다운로드합니다.</p>
+                            <span class="status-badge coming-soon">준비중</span>
+                        </div>
+                    </a>
+
+                    <a href="/data/delete" class="additional-card danger">
+                        <div class="card-icon">
+                            <i class="fas fa-trash-alt"></i>
+                        </div>
+                        <div class="card-content">
+                            <h4 class="card-title">데이터 삭제</h4>
+                            <p class="card-description">학교별 데이터를 안전하게 삭제합니다.</p>
+                            <span class="status-badge active">사용 가능</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
     
     <!-- 푸터 포함 -->
     <div th:replace="~{fragments/footer :: footer}"></div>

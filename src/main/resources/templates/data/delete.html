@@ -7,137 +7,388 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .delete-container {
-            max-width: 700px;
-            margin: 2rem auto;
-            padding: 2rem;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background-color: white;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.05);
         }
-        .warning {
-            color: #dc3545;
-            margin: 1rem 0;
-            padding: 1rem;
-            border: 1px solid #dc3545;
-            border-radius: 4px;
-            background-color: #fff8f8;
+        
+        .page-title {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e5e7eb;
         }
-        .form-group {
-            margin-bottom: 1.5rem;
+        
+        .page-title h1 {
+            color: #dc2626;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
         }
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: bold;
-        }
-        .form-group select {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .delete-type-group {
-            margin: 1.5rem 0;
-            padding: 1rem;
-            border: 1px solid #e3e6f0;
-            border-radius: 6px;
-            background-color: #f8f9fc;
-        }
-        .delete-type-title {
-            font-weight: bold;
-            margin-bottom: 1rem;
-            color: #1e3a8a;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .radio-group {
-            margin-bottom: 1rem;
-        }
-        .radio-group input[type="radio"] {
-            margin-right: 8px;
-        }
-        .radio-group label {
-            font-weight: normal;
-            display: inline;
-            cursor: pointer;
-        }
-        .checkbox-group {
-            margin-left: 1.5rem;
-            padding: 1rem;
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-            background-color: white;
-            display: none;
-        }
-        .checkbox-group.active {
-            display: block;
-        }
-        .checkbox-item {
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .checkbox-item input[type="checkbox"] {
-            margin: 0;
-        }
-        .checkbox-item label {
-            font-weight: normal;
-            margin: 0;
-            cursor: pointer;
-            flex: 1;
-        }
-        .delete-btn {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
+        
+        .page-title p {
+            color: #6b7280;
             font-size: 1rem;
-            font-weight: bold;
         }
-        .delete-btn:hover {
-            background-color: #c82333;
+        
+        .warning-section {
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+            border: 2px solid #fca5a5;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
         }
-        .delete-btn:disabled {
-            background-color: #6c757d;
-            cursor: not-allowed;
+        
+        .warning-icon {
+            font-size: 3rem;
+            color: #dc2626;
+            margin-bottom: 15px;
         }
-        .alert {
-            padding: 1.25rem 1.5rem;
-            margin: 1.5rem 0;
+        
+        .warning-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #dc2626;
+            margin-bottom: 10px;
+        }
+        
+        .warning-text {
+            color: #991b1b;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        
+        .school-section {
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #1e3a8a;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .school-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        
+        .school-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .school-card:hover {
+            border-color: #dc2626;
+            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .school-card.selected {
+            border-color: #dc2626;
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 50%);
+            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.2);
+        }
+        
+        .school-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .school-card.selected::before {
+            transform: scaleX(1);
+        }
+        
+        .school-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 12px;
+        }
+        
+        .school-info {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-bottom: 15px;
+        }
+        
+        .school-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .stat-item {
+            background: #f3f4f6;
             border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #dc2626;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        
+        .checkbox-wrapper label {
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
+        
+        .action-section {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #e5e7eb;
+        }
+        
+        .delete-button {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            padding: 16px 40px;
+            border: none;
+            border-radius: 12px;
             font-size: 1.1rem;
             font-weight: 600;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            animation: slideInFromTop 0.5s ease-out;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+            min-height: 56px;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
         }
+        
+        .delete-button:hover {
+            background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(220, 38, 38, 0.4);
+        }
+        
+        .delete-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .confirmation-text {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-top: 15px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+        
+        .alert {
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+        
         .alert-success {
-            color: #0f5132;
-            background-color: #d1e7dd;
-            border: 2px solid #a3cfbb;
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            color: #065f46;
+            border: 2px solid #10b981;
         }
-        .alert-danger {
-            color: #58151c;
-            background-color: #f8d7da;
-            border: 2px solid #f1aeb5;
+        
+        .alert-error {
+            background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%);
+            color: #991b1b;
+            border: 2px solid #dc2626;
         }
-        @keyframes slideInFromTop {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
+        
+        .alert-icon {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        /* 태블릿 스타일 */
+        @media (max-width: 1024px) {
+            .delete-container {
+                margin: 16px;
+                padding: 20px;
             }
-            to {
-                opacity: 1;
-                transform: translateY(0);
+            
+            .page-title h1 {
+                font-size: 1.75rem;
+            }
+            
+            .school-grid {
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 12px;
+            }
+            
+            .school-card {
+                padding: 16px;
             }
         }
-        .mt-3 {
-            margin-top: 1rem;
+        
+        /* 모바일 스타일 */
+        @media (max-width: 768px) {
+            .delete-container {
+                margin: 8px;
+                padding: 16px;
+                border-radius: 8px;
+            }
+            
+            .page-title h1 {
+                font-size: 1.5rem;
+            }
+            
+            .page-title p {
+                font-size: 0.9rem;
+            }
+            
+            .warning-section {
+                padding: 16px;
+                margin-bottom: 24px;
+            }
+            
+            .warning-icon {
+                font-size: 2.5rem;
+                margin-bottom: 12px;
+            }
+            
+            .warning-title {
+                font-size: 1.1rem;
+            }
+            
+            .warning-text {
+                font-size: 0.9rem;
+            }
+            
+            .school-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            .school-card {
+                padding: 16px;
+            }
+            
+            .school-stats {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 6px;
+            }
+            
+            .delete-button {
+                width: 100%;
+                padding: 16px 24px;
+                font-size: 1rem;
+            }
+            
+            .section-title {
+                font-size: 1.2rem;
+            }
+        }
+        
+        /* 소형 모바일 스타일 */
+        @media (max-width: 480px) {
+            .delete-container {
+                margin: 4px;
+                padding: 12px;
+            }
+            
+            .page-title h1 {
+                font-size: 1.3rem;
+            }
+            
+            .warning-section {
+                padding: 12px;
+            }
+            
+            .warning-icon {
+                font-size: 2rem;
+            }
+            
+            .school-card {
+                padding: 12px;
+            }
+            
+            .school-name {
+                font-size: 1.1rem;
+            }
+            
+            .school-stats {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .stat-item {
+                padding: 6px;
+            }
+            
+            .confirmation-text {
+                font-size: 0.85rem;
+            }
         }
     </style>
 </head>
@@ -155,79 +406,100 @@
                 <i class="fas fa-exclamation-circle"></i> [[${error}]]
             </div>
             
-            <div class="warning">
-                <strong><i class="fas fa-exclamation-triangle"></i> 주의!</strong>
-                <p>선택한 데이터가 삭제됩니다. (학교 정보는 유지됩니다)</p>
-                <p>삭제된 데이터는 복구할 수 없습니다.</p>
+            <div class="warning-section">
+                <i class="fas fa-exclamation-triangle warning-icon"></i>
+                <h3 class="warning-title">주의!</h3>
+                <p class="warning-text">선택한 데이터가 삭제됩니다. (학교 정보는 유지됩니다)</p>
+                <p class="warning-text">삭제된 데이터는 복구할 수 없습니다.</p>
             </div>
 
             <form th:action="@{/data/delete}" method="post" onsubmit="return confirmDelete()">
-                <div class="form-group">
-                    <label for="schoolId"><i class="fas fa-school"></i> 학교 선택:</label>
-                    <select name="schoolId" id="schoolId" required>
-                        <option value="">학교를 선택하세요</option>
-                        <option th:each="school : ${schools}" 
-                                th:value="${school.schoolId}" 
-                                th:text="${school.schoolName}"></option>
-                    </select>
-                </div>
-
-                <div class="delete-type-group">
-                    <div class="delete-type-title">
-                        <i class="fas fa-cog"></i> 삭제 옵션
-                    </div>
-                    
-                    <div class="radio-group">
-                        <input type="radio" name="deleteType" value="all" id="deleteAll" onchange="toggleSelectiveOptions()">
-                        <label for="deleteAll">전체 데이터 삭제</label>
-                    </div>
-                    
-                    <div class="radio-group">
-                        <input type="radio" name="deleteType" value="selective" id="deleteSelective" onchange="toggleSelectiveOptions()">
-                        <label for="deleteSelective">선택적 삭제</label>
-                    </div>
-                    
-                    <div class="checkbox-group" id="selectiveOptions">
-                        <div class="checkbox-item">
-                            <input type="checkbox" name="deleteDevices" id="deleteDevices" value="true">
-                            <label for="deleteDevices">
-                                <i class="fas fa-desktop"></i> 장비 데이터 삭제
-                            </label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" name="deleteWirelessAps" id="deleteWirelessAps" value="true">
-                            <label for="deleteWirelessAps">
-                                <i class="fas fa-wifi"></i> 무선 AP 데이터 삭제
-                            </label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" name="deleteClassrooms" id="deleteClassrooms" value="true">
-                            <label for="deleteClassrooms">
-                                <i class="fas fa-door-open"></i> 교실 데이터 삭제
-                            </label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" name="deleteOperators" id="deleteOperators" value="true">
-                            <label for="deleteOperators">
-                                <i class="fas fa-user-tie"></i> 운영자 데이터 삭제
-                            </label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" name="deleteManages" id="deleteManages" value="true">
-                            <label for="deleteManages">
-                                <i class="fas fa-clipboard-list"></i> 관리 데이터 삭제
-                            </label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" name="deleteUids" id="deleteUids" value="true">
-                            <label for="deleteUids">
-                                <i class="fas fa-id-card"></i> UID 데이터 삭제
-                            </label>
+                <div class="school-section">
+                    <label for="schoolId" class="section-title"><i class="fas fa-school"></i> 학교 선택:</label>
+                    <div class="school-grid">
+                        <div th:each="school : ${schools}" class="school-card" th:data-school-id="${school.schoolId}" th:data-school-name="${school.schoolName}">
+                            <h3 class="school-name">[[${school.schoolName}]]</h3>
+                            <p class="school-info">[[${school.schoolInfo}]]</p>
+                            <div class="school-stats">
+                                <div class="stat-item">
+                                    <span class="stat-number">[[${school.deviceCount}]]</span>
+                                    <span class="stat-label">장비</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number">[[${school.wirelessApCount}]]</span>
+                                    <span class="stat-label">무선 AP</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number">[[${school.classroomCount}]]</span>
+                                    <span class="stat-label">교실</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number">[[${school.operatorCount}]]</span>
+                                    <span class="stat-label">운영자</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number">[[${school.manageCount}]]</span>
+                                    <span class="stat-label">관리</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number">[[${school.uidCount}]]</span>
+                                    <span class="stat-label">UID</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <button type="submit" class="delete-btn" id="deleteButton" disabled>
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="deleteAll" id="deleteAll" onchange="toggleSelectiveOptions()">
+                    <label for="deleteAll">전체 데이터 삭제</label>
+                </div>
+                
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="deleteSelective" id="deleteSelective" onchange="toggleSelectiveOptions()">
+                    <label for="deleteSelective">선택적 삭제</label>
+                </div>
+                
+                <div class="checkbox-group" id="selectiveOptions">
+                    <div class="checkbox-item">
+                        <input type="checkbox" name="deleteDevices" id="deleteDevices" value="true">
+                        <label for="deleteDevices">
+                            <i class="fas fa-desktop"></i> 장비 데이터 삭제
+                        </label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" name="deleteWirelessAps" id="deleteWirelessAps" value="true">
+                        <label for="deleteWirelessAps">
+                            <i class="fas fa-wifi"></i> 무선 AP 데이터 삭제
+                        </label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" name="deleteClassrooms" id="deleteClassrooms" value="true">
+                        <label for="deleteClassrooms">
+                            <i class="fas fa-door-open"></i> 교실 데이터 삭제
+                        </label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" name="deleteOperators" id="deleteOperators" value="true">
+                        <label for="deleteOperators">
+                            <i class="fas fa-user-tie"></i> 운영자 데이터 삭제
+                        </label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" name="deleteManages" id="deleteManages" value="true">
+                        <label for="deleteManages">
+                            <i class="fas fa-clipboard-list"></i> 관리 데이터 삭제
+                        </label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" name="deleteUids" id="deleteUids" value="true">
+                        <label for="deleteUids">
+                            <i class="fas fa-id-card"></i> UID 데이터 삭제
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="delete-button" id="deleteButton" disabled>
                     <i class="fas fa-trash-alt"></i> 데이터 삭제
                 </button>
             </form>
