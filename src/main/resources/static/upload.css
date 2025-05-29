@@ -1,0 +1,432 @@
+/* 업로드 페이지 전용 스타일 */
+
+/* 업로드 컨테이너 스타일 */
+.upload-container {
+    background-color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin: 2rem auto;
+    max-width: 800px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.upload-container h2 {
+    color: #1e3a8a;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    border-bottom: 2px solid #e5e5e5;
+    padding-bottom: 1rem;
+}
+
+/* 폼 그룹 스타일 */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.95rem;
+}
+
+.form-group input[type="file"], 
+.form-group select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    background-color: #fafafa;
+    min-height: 48px;
+}
+
+.form-group input[type="file"]:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #1e3a8a;
+    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+    background-color: white;
+}
+
+/* 파일 입력 필드 커스터마이징 */
+.form-group input[type="file"] {
+    cursor: pointer;
+}
+
+.form-group input[type="file"]::-webkit-file-upload-button {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 16px;
+    margin-right: 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #374151;
+    transition: all 0.3s ease;
+}
+
+.form-group input[type="file"]::-webkit-file-upload-button:hover {
+    background-color: #1e3a8a;
+    color: white;
+    transform: translateY(-1px);
+}
+
+/* 버튼 스타일 */
+.upload-form button[type="submit"] {
+    background-color: #1e3a8a;
+    color: white;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+    margin-top: 1rem;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-form button[type="submit"]:hover {
+    background-color: #1e40af;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+}
+
+.upload-form button[type="submit"]:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(30, 58, 138, 0.3);
+}
+
+/* 알림 메시지 스타일 */
+.alert {
+    padding: 1rem 1.2rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    line-height: 1.5;
+}
+
+.alert-success {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.alert-success::before {
+    content: "✓";
+    font-weight: bold;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.alert-danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.alert-danger::before {
+    content: "⚠";
+    font-weight: bold;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* 도움말 섹션 스타일 */
+.help-section {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+
+.help-section h3 {
+    color: #1e3a8a;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.help-section h3::before {
+    content: "💡";
+    font-size: 1.3rem;
+}
+
+.help-section p {
+    color: #4a5568;
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+}
+
+.help-section ul {
+    color: #4a5568;
+    padding-left: 1.5rem;
+    line-height: 1.6;
+}
+
+.help-section li {
+    margin-bottom: 0.7rem;
+}
+
+.help-section ol {
+    color: #4a5568;
+    padding-left: 1.5rem;
+    margin-top: 0.5rem;
+    line-height: 1.6;
+}
+
+.help-section ol li {
+    margin-bottom: 0.5rem;
+    padding-left: 0.5rem;
+}
+
+/* 순서 목록 하이라이트 */
+.help-section ol li:nth-child(odd) {
+    background-color: rgba(30, 58, 138, 0.05);
+    padding: 0.4rem 0.7rem;
+    border-radius: 4px;
+    margin: 0.3rem 0;
+}
+
+/* 로딩 상태 스타일 */
+.upload-form.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.upload-form.loading button[type="submit"] {
+    background-color: #6b7280;
+    cursor: not-allowed;
+    position: relative;
+    color: transparent;
+}
+
+.upload-form.loading button[type="submit"]::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-top: -10px;
+    margin-left: -10px;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    border-top: 2px solid transparent;
+    animation: spin 1s linear infinite;
+}
+
+.upload-form.loading button[type="submit"]::after {
+    content: "업로드 중...";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 0.9rem;
+    margin-top: 15px;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(2px);
+}
+
+.loading-overlay.active {
+    display: flex;
+}
+
+.loading-content {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    min-width: 250px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e5e7eb;
+    border-top: 4px solid #1e3a8a;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+.loading-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e3a8a;
+    margin-bottom: 0.5rem;
+}
+
+.loading-subtext {
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 태블릿 스타일 */
+@media (max-width: 1024px) {
+    .upload-container {
+        max-width: 100%;
+        margin: 1.5rem auto;
+        padding: 1.8rem;
+    }
+    
+    .help-section {
+        padding: 1.3rem;
+    }
+}
+
+/* 모바일 스타일 */
+@media (max-width: 768px) {
+    .upload-container {
+        margin: 1rem auto;
+        padding: 1.5rem;
+        border-radius: 8px;
+    }
+    
+    .upload-container h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1.2rem;
+    }
+    
+    .form-group input[type="file"], 
+    .form-group select {
+        font-size: 16px; /* iOS 줌 방지 */
+        min-height: 52px;
+        padding: 14px 16px;
+    }
+    
+    .form-group input[type="file"]::-webkit-file-upload-button {
+        padding: 10px 14px;
+        font-size: 0.85rem;
+        margin-right: 0.8rem;
+    }
+    
+    .upload-form button[type="submit"] {
+        padding: 16px 24px;
+        font-size: 1.1rem;
+        min-height: 56px;
+    }
+    
+    .help-section {
+        padding: 1.2rem;
+        margin-top: 1.5rem;
+    }
+    
+    .help-section h3 {
+        font-size: 1.1rem;
+        margin-bottom: 0.8rem;
+    }
+    
+    .help-section p,
+    .help-section ul,
+    .help-section ol {
+        font-size: 0.9rem;
+    }
+    
+    .alert {
+        padding: 0.9rem 1rem;
+        font-size: 0.85rem;
+    }
+    
+    .loading-content {
+        margin: 0 1rem;
+        padding: 1.5rem;
+        min-width: auto;
+        max-width: 300px;
+    }
+    
+    .loading-text {
+        font-size: 1rem;
+    }
+    
+    .loading-subtext {
+        font-size: 0.85rem;
+    }
+}
+
+/* 소형 모바일 스타일 */
+@media (max-width: 480px) {
+    .upload-container {
+        margin: 0.5rem auto;
+        padding: 1rem;
+    }
+    
+    .upload-container h2 {
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.2rem;
+    }
+    
+    .form-group label {
+        font-size: 0.9rem;
+        margin-bottom: 6px;
+    }
+    
+    .help-section {
+        padding: 1rem;
+        margin-top: 1.2rem;
+    }
+    
+    .help-section h3 {
+        font-size: 1rem;
+    }
+    
+    .help-section p,
+    .help-section ul,
+    .help-section ol {
+        font-size: 0.85rem;
+    }
+    
+    .loading-content {
+        padding: 1.2rem;
+    }
+    
+    .loading-spinner {
+        width: 32px;
+        height: 32px;
+        border-width: 3px;
+    }
+} 

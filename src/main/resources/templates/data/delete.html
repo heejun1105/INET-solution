@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .delete-container {
-            max-width: 600px;
+            max-width: 700px;
             margin: 2rem auto;
             padding: 2rem;
             border: 1px solid #ddd;
@@ -23,7 +23,7 @@
             background-color: #fff8f8;
         }
         .form-group {
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
         }
         .form-group label {
             display: block;
@@ -36,6 +36,58 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        .delete-type-group {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            border: 1px solid #e3e6f0;
+            border-radius: 6px;
+            background-color: #f8f9fc;
+        }
+        .delete-type-title {
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #1e3a8a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .radio-group {
+            margin-bottom: 1rem;
+        }
+        .radio-group input[type="radio"] {
+            margin-right: 8px;
+        }
+        .radio-group label {
+            font-weight: normal;
+            display: inline;
+            cursor: pointer;
+        }
+        .checkbox-group {
+            margin-left: 1.5rem;
+            padding: 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background-color: white;
+            display: none;
+        }
+        .checkbox-group.active {
+            display: block;
+        }
+        .checkbox-item {
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-item input[type="checkbox"] {
+            margin: 0;
+        }
+        .checkbox-item label {
+            font-weight: normal;
+            margin: 0;
+            cursor: pointer;
+            flex: 1;
+        }
         .delete-btn {
             background-color: #dc3545;
             color: white;
@@ -44,24 +96,45 @@
             border-radius: 4px;
             cursor: pointer;
             width: 100%;
+            font-size: 1rem;
+            font-weight: bold;
         }
         .delete-btn:hover {
             background-color: #c82333;
         }
+        .delete-btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
         .alert {
-            padding: 1rem;
-            margin: 1rem 0;
-            border-radius: 4px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideInFromTop 0.5s ease-out;
         }
         .alert-success {
-            color: #155724;
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
+            color: #0f5132;
+            background-color: #d1e7dd;
+            border: 2px solid #a3cfbb;
         }
         .alert-danger {
-            color: #721c24;
+            color: #58151c;
             background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
+            border: 2px solid #f1aeb5;
+        }
+        @keyframes slideInFromTop {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         .mt-3 {
             margin-top: 1rem;
@@ -73,17 +146,24 @@
 
     <div class="container">
         <div class="delete-container">
-            <h2>데이터 삭제</h2>
+            <h2><i class="fas fa-trash-alt"></i> 데이터 삭제</h2>
+            
+            <div th:if="${message}" class="alert alert-success">
+                <i class="fas fa-check-circle"></i> [[${message}]]
+            </div>
+            <div th:if="${error}" class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i> [[${error}]]
+            </div>
             
             <div class="warning">
-                <strong>주의!</strong>
-                <p>선택한 학교의 모든 데이터가 삭제됩니다. (학교 정보 제외)</p>
+                <strong><i class="fas fa-exclamation-triangle"></i> 주의!</strong>
+                <p>선택한 데이터가 삭제됩니다. (학교 정보는 유지됩니다)</p>
                 <p>삭제된 데이터는 복구할 수 없습니다.</p>
             </div>
 
             <form th:action="@{/data/delete}" method="post" onsubmit="return confirmDelete()">
                 <div class="form-group">
-                    <label for="schoolId">학교 선택:</label>
+                    <label for="schoolId"><i class="fas fa-school"></i> 학교 선택:</label>
                     <select name="schoolId" id="schoolId" required>
                         <option value="">학교를 선택하세요</option>
                         <option th:each="school : ${schools}" 
@@ -91,22 +171,174 @@
                                 th:text="${school.schoolName}"></option>
                     </select>
                 </div>
-                <button type="submit" class="delete-btn">데이터 삭제</button>
-            </form>
 
-            <div th:if="${message}" class="alert alert-success mt-3">[[${message}]]</div>
-            <div th:if="${error}" class="alert alert-danger mt-3">[[${error}]]</div>
+                <div class="delete-type-group">
+                    <div class="delete-type-title">
+                        <i class="fas fa-cog"></i> 삭제 옵션
+                    </div>
+                    
+                    <div class="radio-group">
+                        <input type="radio" name="deleteType" value="all" id="deleteAll" onchange="toggleSelectiveOptions()">
+                        <label for="deleteAll">전체 데이터 삭제</label>
+                    </div>
+                    
+                    <div class="radio-group">
+                        <input type="radio" name="deleteType" value="selective" id="deleteSelective" onchange="toggleSelectiveOptions()">
+                        <label for="deleteSelective">선택적 삭제</label>
+                    </div>
+                    
+                    <div class="checkbox-group" id="selectiveOptions">
+                        <div class="checkbox-item">
+                            <input type="checkbox" name="deleteDevices" id="deleteDevices" value="true">
+                            <label for="deleteDevices">
+                                <i class="fas fa-desktop"></i> 장비 데이터 삭제
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" name="deleteWirelessAps" id="deleteWirelessAps" value="true">
+                            <label for="deleteWirelessAps">
+                                <i class="fas fa-wifi"></i> 무선 AP 데이터 삭제
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" name="deleteClassrooms" id="deleteClassrooms" value="true">
+                            <label for="deleteClassrooms">
+                                <i class="fas fa-door-open"></i> 교실 데이터 삭제
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" name="deleteOperators" id="deleteOperators" value="true">
+                            <label for="deleteOperators">
+                                <i class="fas fa-user-tie"></i> 운영자 데이터 삭제
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" name="deleteManages" id="deleteManages" value="true">
+                            <label for="deleteManages">
+                                <i class="fas fa-clipboard-list"></i> 관리 데이터 삭제
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" name="deleteUids" id="deleteUids" value="true">
+                            <label for="deleteUids">
+                                <i class="fas fa-id-card"></i> UID 데이터 삭제
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="delete-btn" id="deleteButton" disabled>
+                    <i class="fas fa-trash-alt"></i> 데이터 삭제
+                </button>
+            </form>
         </div>
     </div>
 
     <div th:replace="~{fragments/footer :: footer}"></div>
 
     <script>
+        function toggleSelectiveOptions() {
+            const deleteSelective = document.getElementById('deleteSelective');
+            const selectiveOptions = document.getElementById('selectiveOptions');
+            const deleteButton = document.getElementById('deleteButton');
+            
+            if (deleteSelective.checked) {
+                selectiveOptions.classList.add('active');
+            } else {
+                selectiveOptions.classList.remove('active');
+                // 체크박스 초기화
+                document.getElementById('deleteDevices').checked = false;
+                document.getElementById('deleteWirelessAps').checked = false;
+                document.getElementById('deleteClassrooms').checked = false;
+                document.getElementById('deleteOperators').checked = false;
+                document.getElementById('deleteManages').checked = false;
+                document.getElementById('deleteUids').checked = false;
+            }
+            
+            updateDeleteButton();
+        }
+        
+        function updateDeleteButton() {
+            const schoolId = document.getElementById('schoolId').value;
+            const deleteAll = document.getElementById('deleteAll').checked;
+            const deleteSelective = document.getElementById('deleteSelective').checked;
+            const deleteDevices = document.getElementById('deleteDevices').checked;
+            const deleteWirelessAps = document.getElementById('deleteWirelessAps').checked;
+            const deleteClassrooms = document.getElementById('deleteClassrooms').checked;
+            const deleteOperators = document.getElementById('deleteOperators').checked;
+            const deleteManages = document.getElementById('deleteManages').checked;
+            const deleteUids = document.getElementById('deleteUids').checked;
+            const deleteButton = document.getElementById('deleteButton');
+            
+            let isValid = schoolId && (deleteAll || (deleteSelective && (deleteDevices || deleteWirelessAps || deleteClassrooms || deleteOperators || deleteManages || deleteUids)));
+            deleteButton.disabled = !isValid;
+        }
+        
         function confirmDelete() {
             const school = document.getElementById('schoolId');
             const schoolName = school.options[school.selectedIndex].text;
-            return confirm(`정말로 ${schoolName}의 모든 데이터를 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.`);
+            const deleteAll = document.getElementById('deleteAll').checked;
+            const deleteDevices = document.getElementById('deleteDevices').checked;
+            const deleteWirelessAps = document.getElementById('deleteWirelessAps').checked;
+            const deleteClassrooms = document.getElementById('deleteClassrooms').checked;
+            const deleteOperators = document.getElementById('deleteOperators').checked;
+            const deleteManages = document.getElementById('deleteManages').checked;
+            const deleteUids = document.getElementById('deleteUids').checked;
+            
+            let confirmMessage = '';
+            
+            if (deleteAll) {
+                confirmMessage = `정말로 ${schoolName}의 모든 데이터를 삭제하시겠습니까?`;
+            } else {
+                let dataTypes = [];
+                if (deleteDevices) dataTypes.push('장비');
+                if (deleteWirelessAps) dataTypes.push('무선 AP');
+                if (deleteClassrooms) dataTypes.push('교실');
+                if (deleteOperators) dataTypes.push('운영자');
+                if (deleteManages) dataTypes.push('관리');
+                if (deleteUids) dataTypes.push('UID');
+                
+                confirmMessage = `정말로 ${schoolName}의 ${dataTypes.join(', ')} 데이터를 삭제하시겠습니까?`;
+            }
+            
+            confirmMessage += '\n\n이 작업은 취소할 수 없습니다.';
+            
+            return confirm(confirmMessage);
         }
+        
+        // 이벤트 리스너 추가
+        document.getElementById('schoolId').addEventListener('change', updateDeleteButton);
+        document.getElementById('deleteDevices').addEventListener('change', updateDeleteButton);
+        document.getElementById('deleteWirelessAps').addEventListener('change', updateDeleteButton);
+        document.getElementById('deleteClassrooms').addEventListener('change', updateDeleteButton);
+        document.getElementById('deleteOperators').addEventListener('change', updateDeleteButton);
+        document.getElementById('deleteManages').addEventListener('change', updateDeleteButton);
+        document.getElementById('deleteUids').addEventListener('change', updateDeleteButton);
+        
+        // 초기 상태 설정
+        updateDeleteButton();
+        
+        // 메시지가 있을 때 상단으로 스크롤
+        document.addEventListener('DOMContentLoaded', function() {
+            const successAlert = document.querySelector('.alert-success');
+            const errorAlert = document.querySelector('.alert-danger');
+            
+            if (successAlert || errorAlert) {
+                // 페이지 상단으로 스크롤
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // 성공 메시지는 5초 후 자동으로 숨김
+                if (successAlert) {
+                    setTimeout(function() {
+                        successAlert.style.opacity = '0';
+                        successAlert.style.transform = 'translateY(-20px)';
+                        setTimeout(function() {
+                            successAlert.style.display = 'none';
+                        }, 500);
+                    }, 5000);
+                }
+            }
+        });
     </script>
 </body>
 </html> 

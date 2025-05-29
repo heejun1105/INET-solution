@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>무선 AP 목록</title>
+    <link rel="stylesheet" href="/main.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .wireless-ap-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .title {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .subject {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
+        
+        .action-buttons {
+            margin-bottom: 20px;
+            text-align: right;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            white-space: nowrap;
+        }
+        
+        .btn-primary {
+            background-color: #1e3a8a;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1e40af;
+            transform: translateY(-1px);
+        }
+        
+        .btn-success {
+            background-color: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #059669;
+            transform: translateY(-1px);
+        }
+        
+        .btn-warning {
+            background-color: #f59e0b;
+            color: white;
+            padding: 6px 12px;
+            font-size: 0.875rem;
+        }
+        
+        .btn-warning:hover {
+            background-color: #d97706;
+        }
+        
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+            padding: 6px 12px;
+            font-size: 0.875rem;
+        }
+        
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        
+        .school-filter {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .school-filter select {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            min-width: 200px;
+        }
+        
+        /* 데스크톱 테이블 스타일 */
+        .wireless-ap-table {
+            width: auto;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            table-layout: fixed;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+        
+        .wireless-ap-table th {
+            background-color: #1e3a8a;
+            color: white;
+            padding: 12px 8px;
+            text-align: center;
+            font-weight: 600;
+            border-bottom: 2px solid #1e40af;
+            font-size: 0.875rem;
+        }
+        
+        .wireless-ap-table th:nth-child(1),
+        .wireless-ap-table td:nth-child(1) {
+            width:100px;
+        }
+        
+        .wireless-ap-table th:nth-child(2),
+        .wireless-ap-table td:nth-child(2) {
+            width: 110px;
+        }
+        
+        .wireless-ap-table th:nth-child(3),
+        .wireless-ap-table td:nth-child(3) {
+            width: 95px;
+        }
+        
+        .wireless-ap-table th:nth-child(4),
+        .wireless-ap-table td:nth-child(4) {
+            width: 100px;
+        }
+        
+        .wireless-ap-table th:nth-child(5),
+        .wireless-ap-table td:nth-child(5) {
+            width: 80px;
+        }
+        
+        .wireless-ap-table th:nth-child(6),
+        .wireless-ap-table td:nth-child(6) {
+            width: 80px;
+        }
+        
+        .wireless-ap-table th:nth-child(7),
+        .wireless-ap-table td:nth-child(7) {
+            width: 100px;
+        }
+        
+        .wireless-ap-table th:nth-child(8),
+        .wireless-ap-table td:nth-child(8) {
+            width: 120px;
+        }
+        
+        .wireless-ap-table th:nth-child(9),
+        .wireless-ap-table td:nth-child(9) {
+            width: 100px;
+        }
+        
+        .wireless-ap-table th:nth-child(10),
+        .wireless-ap-table td:nth-child(10) {
+            width: 110px;
+        }
+        
+        .wireless-ap-table th:nth-child(11),
+        .wireless-ap-table td:nth-child(11) {
+            width: 80px;
+        }
+        
+        .wireless-ap-table th:nth-child(12),
+        .wireless-ap-table td:nth-child(12) {
+            width: 140px;
+        }
+        
+        .wireless-ap-table td {
+            padding: 8px 6px;
+            text-align: center;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: middle;
+            word-wrap: break-word;
+            overflow: hidden;
+            font-size: 0.875rem;
+        }
+        
+        .wireless-ap-table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+        
+        .location-header {
+            background-color: #f0f9ff !important;
+            border-left: 4px solid #1e3a8a;
+            font-weight: bold;
+            color: #1e3a8a;
+        }
+        
+        .location-header td {
+            text-align: left !important;
+            padding: 12px 16px;
+        }
+        
+        .action-buttons-cell {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .action-buttons-cell form {
+            margin: 0;
+        }
+        
+        /* 모바일 카드 스타일 */
+        .mobile-card-container {
+            display: none;
+        }
+        
+        .wireless-ap-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+            padding: 16px;
+            border-left: 4px solid #1e3a8a;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .card-title {
+            font-weight: bold;
+            color: #1e3a8a;
+            font-size: 1.1rem;
+        }
+        
+        .card-school {
+            font-size: 0.875rem;
+            color: #6b7280;
+            background: #f3f4f6;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        
+        .card-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .card-field {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .card-field.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .field-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .field-value {
+            font-size: 0.875rem;
+            color: #374151;
+            word-break: break-word;
+        }
+        
+        .card-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            padding-top: 8px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        /* 태블릿 스타일 (768px - 1023px) */
+        @media (max-width: 1023px) {
+            .wireless-ap-container {
+                padding: 15px;
+                max-width: 100%;
+            }
+            
+            .subject {
+                font-size: 1.5rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+            }
+            
+            .action-buttons {
+                justify-content: center;
+                text-align: center;
+            }
+            
+            .btn {
+                padding: 8px 16px;
+                font-size: 0.875rem;
+            }
+            
+            .wireless-ap-table {
+                font-size: 0.75rem;
+                overflow-x: auto;
+                display: block;
+                white-space: nowrap;
+            }
+            
+            .wireless-ap-table thead,
+            .wireless-ap-table tbody,
+            .wireless-ap-table th,
+            .wireless-ap-table td,
+            .wireless-ap-table tr {
+                display: block;
+            }
+            
+            .wireless-ap-table thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+            
+            .wireless-ap-table tr {
+                border: 1px solid #ccc;
+                margin-bottom: 10px;
+                padding: 10px;
+                border-radius: 8px;
+                background: white;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .wireless-ap-table td {
+                border: none;
+                position: relative;
+                padding: 8px 8px 8px 120px;
+                text-align: left;
+                white-space: normal;
+                word-wrap: break-word;
+            }
+            
+            .wireless-ap-table td:before {
+                content: attr(data-label);
+                position: absolute;
+                left: 8px;
+                width: 100px;
+                font-weight: bold;
+                color: #1e3a8a;
+                font-size: 0.75rem;
+                top: 8px;
+            }
+        }
+        
+        /* 모바일 스타일 (767px 이하) */
+        @media (max-width: 767px) {
+            .wireless-ap-container {
+                padding: 10px;
+            }
+            
+            .subject {
+                font-size: 1.25rem;
+            }
+            
+            .subtitle {
+                font-size: 0.9rem;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .btn {
+                margin: 0;
+                margin-bottom: 8px;
+                padding: 12px;
+                font-size: 0.875rem;
+            }
+            
+            .school-filter select {
+                width: 100%;
+                min-width: auto;
+            }
+            
+            /* 테이블 숨기고 카드 보이기 */
+            .wireless-ap-table {
+                display: none;
+            }
+            
+            .mobile-card-container {
+                display: block;
+            }
+            
+            .empty-state {
+                padding: 30px 10px;
+            }
+            
+            .empty-state i {
+                font-size: 2rem;
+            }
+        }
+        
+        /* 아주 작은 화면 (480px 이하) */
+        @media (max-width: 480px) {
+            .wireless-ap-container {
+                padding: 8px;
+            }
+            
+            .subject {
+                font-size: 1.1rem;
+            }
+            
+            .card-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .card-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                font-size: 0.8rem;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+    
+    <div class="container">
+        <div class="wireless-ap-container">
+            <div class="title">
+                <div class="subject">무선 AP 목록</div>
+                <div class="subtitle">무선 AP 장비를 관리하세요!</div>
+            </div>
+            
+            <!-- 학교 선택 필터 -->
+            <div class="school-filter">
+                <form method="get" style="display: inline-block;">
+                    <select name="schoolId" onchange="this.form.submit()">
+                        <option value="">전체 학교</option>
+                        <option th:each="school : ${schools}" 
+                                th:value="${school.schoolId}" 
+                                th:text="${school.schoolName}"
+                                th:selected="${selectedSchoolId != null && selectedSchoolId == school.schoolId}">
+                        </option>
+                    </select>
+                </form>
+            </div>
+            
+            <div class="action-buttons">
+                <a href="/wireless-ap/register" class="btn btn-primary">
+                    <i class="fas fa-plus-circle"></i> 무선 AP 등록
+                </a>
+                <a href="/wireless-ap/upload" class="btn btn-success">
+                    <i class="fas fa-file-excel"></i> 엑셀 업로드
+                </a>
+            </div>
+            
+            <!-- 데스크톱 테이블 뷰 -->
+            <table class="wireless-ap-table">
+                <thead>
+                    <tr>
+                        <th>학교</th>
+                        <th>설치장소</th>
+                        <th>라벨번호</th>
+                        <th>장비번호</th>
+                        <th>도입연도</th>
+                        <th>제조사</th>
+                        <th>모델명</th>
+                        <th>MAC 주소</th>
+                        <th>이전 장소</th>
+                        <th>이전 라벨번호</th>
+                        <th>비고</th>
+                        <th>관리</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <th:block th:each="ap, iterStat : ${wirelessAps}">
+                        <!-- 무선 AP 데이터 행 -->
+                        <tr>
+                            <td data-label="학교" th:text="${ap.school != null ? ap.school.schoolName : '미지정'}"></td>
+                            <td data-label="설치장소" th:text="${ap.location != null ? ap.location.roomName : '미지정'}"></td>
+                            <td data-label="새 라벨 번호" th:text="${ap.newLabelNumber != null ? ap.newLabelNumber : ''}"></td>
+                            <td data-label="장비 번호" th:text="${ap.deviceNumber != null ? ap.deviceNumber : ''}"></td>
+                            <td data-label="도입연도" th:text="${ap.APYear != null ? ap.APYear.year : ''}"></td>
+                            <td data-label="제조사" th:text="${ap.manufacturer != null ? ap.manufacturer : ''}"></td>
+                            <td data-label="모델명" th:text="${ap.model != null ? ap.model : ''}"></td>
+                            <td data-label="MAC 주소" th:text="${ap.macAddress != null ? ap.macAddress : ''}"></td>
+                            <td data-label="이전 설치장소" th:text="${ap.prevLocation != null ? ap.prevLocation : ''}"></td>
+                            <td data-label="이전 라벨 번호" th:text="${ap.prevLabelNumber != null ? ap.prevLabelNumber : ''}"></td>
+                            <td data-label="비고" th:text="${ap.note != null ? ap.note : ''}"></td>
+                            <td data-label="관리">
+                                <div class="action-buttons-cell">
+                                    <a th:href="@{/wireless-ap/modify/{id}(id=${ap.APId})}" class="btn btn-warning" title="수정">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form th:action="@{/wireless-ap/remove}" method="post">
+                                        <input type="hidden" name="ap_id" th:value="${ap.APId}">
+                                        <button type="submit" class="btn btn-danger" onclick="return confirm('정말 삭제하시겠습니까?')" title="삭제">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    </th:block>
+                </tbody>
+            </table>
+            
+            <!-- 모바일 카드 뷰 -->
+            <div class="mobile-card-container">
+                <th:block th:each="ap : ${wirelessAps}">
+                    <div class="wireless-ap-card">
+                        <div class="card-header">
+                            <div class="card-title" th:text="${ap.location != null ? ap.location.roomName : '미지정'}">설치장소</div>
+                            <div class="card-school" th:text="${ap.school != null ? ap.school.schoolName : '미지정'}">학교</div>
+                        </div>
+                        
+                        <div class="card-content">
+                            <div class="card-field" th:if="${ap.newLabelNumber != null && !#strings.isEmpty(ap.newLabelNumber)}">
+                                <div class="field-label">새 라벨 번호</div>
+                                <div class="field-value" th:text="${ap.newLabelNumber}"></div>
+                            </div>
+                            
+                            <div class="card-field" th:if="${ap.deviceNumber != null && !#strings.isEmpty(ap.deviceNumber)}">
+                                <div class="field-label">장비 번호</div>
+                                <div class="field-value" th:text="${ap.deviceNumber}"></div>
+                            </div>
+                            
+                            <div class="card-field" th:if="${ap.APYear != null}">
+                                <div class="field-label">도입연도</div>
+                                <div class="field-value" th:text="${ap.APYear.year}"></div>
+                            </div>
+                            
+                            <div class="card-field" th:if="${ap.manufacturer != null && !#strings.isEmpty(ap.manufacturer)}">
+                                <div class="field-label">제조사</div>
+                                <div class="field-value" th:text="${ap.manufacturer}"></div>
+                            </div>
+                            
+                            <div class="card-field full-width" th:if="${ap.model != null && !#strings.isEmpty(ap.model)}">
+                                <div class="field-label">모델명</div>
+                                <div class="field-value" th:text="${ap.model}"></div>
+                            </div>
+                            
+                            <div class="card-field full-width" th:if="${ap.macAddress != null && !#strings.isEmpty(ap.macAddress)}">
+                                <div class="field-label">MAC 주소</div>
+                                <div class="field-value" th:text="${ap.macAddress}"></div>
+                            </div>
+                            
+                            <div class="card-field" th:if="${ap.prevLocation != null && !#strings.isEmpty(ap.prevLocation)}">
+                                <div class="field-label">이전 설치장소</div>
+                                <div class="field-value" th:text="${ap.prevLocation}"></div>
+                            </div>
+                            
+                            <div class="card-field" th:if="${ap.prevLabelNumber != null && !#strings.isEmpty(ap.prevLabelNumber)}">
+                                <div class="field-label">이전 라벨 번호</div>
+                                <div class="field-value" th:text="${ap.prevLabelNumber}"></div>
+                            </div>
+                            
+                            <div class="card-field full-width" th:if="${ap.note != null && !#strings.isEmpty(ap.note)}">
+                                <div class="field-label">비고</div>
+                                <div class="field-value" th:text="${ap.note}"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="card-actions">
+                            <a th:href="@{/wireless-ap/modify/{id}(id=${ap.APId})}" class="btn btn-warning">
+                                <i class="fas fa-edit"></i> 수정
+                            </a>
+                            <form th:action="@{/wireless-ap/remove}" method="post" style="display: inline;">
+                                <input type="hidden" name="ap_id" th:value="${ap.APId}">
+                                <button type="submit" class="btn btn-danger" onclick="return confirm('정말 삭제하시겠습니까?')">
+                                    <i class="fas fa-trash-alt"></i> 삭제
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </th:block>
+            </div>
+            
+            <!-- 빈 상태 -->
+            <div th:if="${#lists.isEmpty(wirelessAps)}" class="empty-state">
+                <i class="fas fa-wifi"></i>
+                <p>등록된 무선 AP가 없습니다.</p>
+                <a href="/wireless-ap/register" class="btn btn-primary">첫 번째 무선 AP 등록하기</a>
+            </div>
+        </div>
+    </div>
+    
+    <div th:replace="~{fragments/footer :: footer}"></div>
+</body>
+</html> 

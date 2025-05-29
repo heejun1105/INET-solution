@@ -6,19 +6,37 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Column;
-import lombok.Data;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "wireless_ap")
-@Data
+@Getter
+@Setter
+@ToString(exclude = {"location", "school"})
+@EqualsAndHashCode(exclude = {"location", "school"})
+@AllArgsConstructor
+@NoArgsConstructor
 public class WirelessAp {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long APId;
 
-    @Column(name = "location")
-    private String location;
+    @ManyToOne
+    @JoinColumn(name = "location")
+    private Classroom location;
+
+    @ManyToOne
+    @JoinColumn(name = "school_id")
+    private School school;
 
     @Column(name = "new_label_number")
     private String newLabelNumber;
@@ -26,8 +44,8 @@ public class WirelessAp {
     @Column(name = "device_number")
     private String deviceNumber;
 
-    @Column(name = "year")
-    private Integer year;
+    @Column(name = "ap_year")
+    private LocalDate APYear;
 
     @Column(name = "manufacturer")
     private String manufacturer;
@@ -47,6 +65,52 @@ public class WirelessAp {
     @Column(name = "note")
     private String note;
 
-    @Column(name = "category")
-    private String category;
+    // Manual setter methods for compilation
+    public void setAPId(Long APId) {
+        this.APId = APId;
+    }
+
+    public void setLocation(Classroom location) {
+        this.location = location;
+    }
+
+    public void setSchool(School school) {
+        this.school = school;
+    }
+
+    public void setNewLabelNumber(String newLabelNumber) {
+        this.newLabelNumber = newLabelNumber;
+    }
+
+    public void setDeviceNumber(String deviceNumber) {
+        this.deviceNumber = deviceNumber;
+    }
+
+    public void setAPYear(LocalDate APYear) {
+        this.APYear = APYear;
+    }
+
+    public void setManufacturer(String manufacturer) {
+        this.manufacturer = manufacturer;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
+    }
+
+    public void setMacAddress(String macAddress) {
+        this.macAddress = macAddress;
+    }
+
+    public void setPrevLocation(String prevLocation) {
+        this.prevLocation = prevLocation;
+    }
+
+    public void setPrevLabelNumber(String prevLabelNumber) {
+        this.prevLabelNumber = prevLabelNumber;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
+    }
 } 

@@ -67,38 +67,38 @@ public class DeviceService {
     
     // Create
     public Device saveDevice(Device device) {
-        log.info("Saving device: {}", device);
+        System.out.println("Saving device: " + device);
         return deviceRepository.save(device);
     }
     
     // Read
     public List<Device> getAllDevices() {
-        log.info("Getting all devices");
+        System.out.println("Getting all devices");
         return deviceRepository.findAll();
     }
     
     public List<Device> getDevicesBySchoolId(Long schoolId) {
-        log.info("Getting devices by school id: {}", schoolId);
+        System.out.println("Getting devices by school id: " + schoolId);
         School school = schoolRepository.findById(schoolId)
                 .orElseThrow(() -> new RuntimeException("School not found with id: " + schoolId));
         return deviceRepository.findBySchool(school);
     }
     
     public Optional<Device> getDeviceById(Long id) {
-        log.info("Getting device by id: {}", id);
+        System.out.println("Getting device by id: " + id);
         return deviceRepository.findById(id);
     }
     
     // Update
     public Device updateDevice(Device device) {
-        log.info("Updating device: {}", device);
+        System.out.println("Updating device: " + device);
         return deviceRepository.save(device);
     }
     
     // Delete
     @Transactional
     public void deleteDevice(Long id) {
-        log.info("Deleting device with id: {}", id);
+        System.out.println("Deleting device with id: " + id);
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Device not found with id: " + id));
         
@@ -404,31 +404,25 @@ public class DeviceService {
         try (InputStream is = file.getInputStream()) {
             Workbook workbook = WorkbookFactory.create(is);
             Sheet sheet = workbook.getSheetAt(0);
-            boolean first = true;
             int rowCount = 0;
             
             System.out.println("총 행 수: " + sheet.getPhysicalNumberOfRows());
             
             // 시트에 데이터가 없는 경우 확인
-            if (sheet.getPhysicalNumberOfRows() <= 1) {
+            if (sheet.getPhysicalNumberOfRows() == 0) {
                 System.out.println("데이터가 없는 엑셀 파일입니다");
-                throw new IllegalArgumentException("데이터가 없습니다. 최소한 헤더행과 1개 이상의 데이터행이 필요합니다.");
+                throw new IllegalArgumentException("데이터가 없습니다. 최소한 1개 이상의 데이터행이 필요합니다.");
             }
             
             for (Row row : sheet) {
-                if (first) { 
-                    first = false; 
-                    System.out.println("헤더 행 처리 완료");
-                    continue; 
-                } 
                 rowCount++;
                 
                 try {
-                    System.out.println((rowCount + 1) + "번째 행 처리 시작");
+                    System.out.println(rowCount + "번째 행 처리 시작");
                     
                     // 빈 행 체크 - 타입(3번째 컬럼)이 비어있으면 스킵
                     if (isEmptyRow(row)) {
-                        System.out.println((rowCount + 1) + "번째 행은 빈 행이므로 스킵합니다");
+                        System.out.println(rowCount + "번째 행은 빈 행이므로 스킵합니다");
                         continue;
                     }
                     
@@ -436,9 +430,9 @@ public class DeviceService {
                     String uidInfo = null;
                     try {
                         uidInfo = getCellString(row.getCell(0));
-                        System.out.println((rowCount + 1) + "번째 행 UID 정보: " + uidInfo);
+                        System.out.println(rowCount + "번째 행 UID 정보: " + uidInfo);
                     } catch (Exception e) {
-                        System.out.println((rowCount + 1) + "번째 행 UID 정보 처리 중 오류: " + e.getMessage());
+                        System.out.println(rowCount + "번째 행 UID 정보 처리 중 오류: " + e.getMessage());
                     }
                     
                     String uidCate = null;
@@ -447,9 +441,9 @@ public class DeviceService {
                     String manageNo = null;
                     try {
                         manageNo = getCellString(row.getCell(1));
-                        System.out.println((rowCount + 1) + "번째 행 관리번호: " + manageNo);
+                        System.out.println(rowCount + "번째 행 관리번호: " + manageNo);
                     } catch (Exception e) {
-                        System.out.println((rowCount + 1) + "번째 행 관리번호 처리 중 오류: " + e.getMessage());
+                        System.out.println(rowCount + "번째 행 관리번호 처리 중 오류: " + e.getMessage());
                     }
                     
                     // Manage 엔티티 조회/생성 (관리번호가 없으면 null)
@@ -457,7 +451,7 @@ public class DeviceService {
                     if (manageNo != null && !manageNo.trim().isEmpty()) {
                         try {
                             ManageNumber mn = parseManageNo(manageNo);
-                            System.out.println((rowCount + 1) + "번째 행 관리번호 파싱 결과: 카테고리=" + 
+                            System.out.println(rowCount + "번째 행 관리번호 파싱 결과: 카테고리=" + 
                                     mn.manageCate + ", 연도=" + mn.year + ", 번호=" + mn.manageNum);
                             
                             manage = manageRepository.findByManageCateAndYearAndManageNum(mn.manageCate, mn.year, mn.manageNum)
@@ -479,11 +473,11 @@ public class DeviceService {
                                     return manageRepository.save(m);
                                 });
                             
-                            System.out.println((rowCount + 1) + "번째 행 Manage 엔티티 처리 완료: ID=" + manage.getManageId());
+                            System.out.println(rowCount + "번째 행 Manage 엔티티 처리 완료: ID=" + manage.getManageId());
                         } catch (Exception e) {
-                            System.out.println((rowCount + 1) + "번째 행 관리번호 형식 오류: " + manageNo + ", " + e.getMessage());
+                            System.out.println(rowCount + "번째 행 관리번호 형식 오류: " + manageNo + ", " + e.getMessage());
                             // 특정 행의 관리번호 오류를 알림
-                            throw new IllegalArgumentException((rowCount+1) + "번째 행의 관리번호 형식이 잘못되었습니다: " + manageNo);
+                            throw new IllegalArgumentException(rowCount + "번째 행의 관리번호 형식이 잘못되었습니다: " + manageNo);
                         }
                     }
                     
@@ -491,15 +485,15 @@ public class DeviceService {
                     String type = null;
                     try {
                         type = getCellString(row.getCell(2));
-                        System.out.println((rowCount + 1) + "번째 행 장비 타입: " + type);
+                        System.out.println(rowCount + "번째 행 장비 타입: " + type);
                     } catch (Exception e) {
-                        System.out.println((rowCount + 1) + "번째 행 장비 타입 처리 중 오류: " + e.getMessage());
+                        System.out.println(rowCount + "번째 행 장비 타입 처리 중 오류: " + e.getMessage());
                     }
                     
                     // 유효한 타입이 없으면 구체적인 오류 메시지와 함께 예외 발생
                     if (type == null || type.trim().isEmpty()) {
-                        System.out.println((rowCount + 1) + "번째 행 장비 타입 누락");
-                        throw new IllegalArgumentException((rowCount+1) + "번째 행에 장비 타입이 없습니다. 장비 타입은 필수 값입니다.");
+                        System.out.println(rowCount + "번째 행 장비 타입 누락");
+                        throw new IllegalArgumentException(rowCount + "번째 행에 장비 타입이 없습니다. 장비 타입은 필수 값입니다.");
                     }
                     
                     // 취급자 정보 (4번째와 5번째 컬럼)
@@ -518,10 +512,10 @@ public class DeviceService {
                                     op.setSchool(school);
                                     return operatorService.saveOperator(op);
                                 });
-                            System.out.println((rowCount + 1) + "번째 행 취급자 정보: " + operatorName + " (" + operatorPosition + ")");
+                            System.out.println(rowCount + "번째 행 취급자 정보: " + operatorName + " (" + operatorPosition + ")");
                         }
                     } catch (Exception e) {
-                        System.out.println((rowCount + 1) + "번째 행 취급자 정보 처리 중 오류: " + e.getMessage());
+                        System.out.println(rowCount + "번째 행 취급자 정보 처리 중 오류: " + e.getMessage());
                         // 취급자 정보는 선택사항이므로 오류가 있어도 진행
                     }
                     
@@ -538,12 +532,12 @@ public class DeviceService {
                         Cell dateCell = row.getCell(7); // 도입일자 컬럼
                         if (dateCell != null && dateCell.getCellType() != CellType.BLANK) {
                             purchaseDate = parseLocalDate(dateCell);
-                            System.out.println((rowCount + 1) + "번째 행 도입일자 파싱 결과: " + purchaseDate);
+                            System.out.println(rowCount + "번째 행 도입일자 파싱 결과: " + purchaseDate);
                         }
                         
                         ipAddress = getCellString(row.getCell(8));
                     } catch (Exception e) {
-                        System.out.println((rowCount + 1) + "번째 행 기타 정보 처리 중 오류: " + e.getMessage());
+                        System.out.println(rowCount + "번째 행 기타 정보 처리 중 오류: " + e.getMessage());
                         // 선택적 정보이므로 진행
                     }
                     
@@ -553,18 +547,18 @@ public class DeviceService {
                     
                     try {
                         classroomName = getCellString(row.getCell(9));
-                        System.out.println((rowCount + 1) + "번째 행 설치장소(교실): " + classroomName);
+                        System.out.println(rowCount + "번째 행 설치장소(교실): " + classroomName);
                         
                         if (classroomName == null || classroomName.isBlank()) {
-                            System.out.println((rowCount + 1) + "번째 행 설치장소(교실) 누락");
-                            throw new IllegalArgumentException((rowCount+1) + "번째 행에 설치장소(교실)가 지정되지 않았습니다. 설치장소는 필수 항목입니다.");
+                            System.out.println(rowCount + "번째 행 설치장소(교실) 누락");
+                            throw new IllegalArgumentException(rowCount + "번째 행에 설치장소(교실)가 지정되지 않았습니다. 설치장소는 필수 항목입니다.");
                         }
                         
                         // 학교별 교실 검색으로 수정
                         Optional<Classroom> existingClassroom = classroomService.findByRoomNameAndSchool(classroomName.trim(), school.getSchoolId());
                         if (existingClassroom.isPresent()) {
                             classroom = existingClassroom.get();
-                            System.out.println((rowCount + 1) + "번째 행 기존 교실 사용: " + classroomName);
+                            System.out.println(rowCount + "번째 행 기존 교실 사용: " + classroomName);
                         } else {
                             classroom = new Classroom();
                             classroom.setRoomName(classroomName.trim());
@@ -574,7 +568,7 @@ public class DeviceService {
                             classroom.setWidth(100);
                             classroom.setHeight(100);
                             classroom = classroomService.saveClassroom(classroom);
-                            System.out.println((rowCount + 1) + "번째 행 새 교실 생성: " + classroomName);
+                            System.out.println(rowCount + "번째 행 새 교실 생성: " + classroomName);
                         }
                     } catch (IllegalArgumentException e) {
                         throw e; // 이미 구체적인 오류 메시지가 있는 예외는 그대로 던짐
@@ -660,7 +654,7 @@ public class DeviceService {
                         uidCate = uidInfo;
                     }
                     
-                    System.out.println((rowCount + 1) + "번째 행 최종 UID 카테고리: " + uidCate);
+                    System.out.println(rowCount + "번째 행 최종 UID 카테고리: " + uidCate);
                     
                     // Device 객체 생성 및 기본 정보 설정
                     Device device = new Device();
@@ -681,13 +675,13 @@ public class DeviceService {
                     // 디바이스 저장 전에 UID 설정 - 필수 데이터 확인
                     if (uidCate != null && !uidCate.trim().isEmpty()) {
                         devices.add(device);
-                        System.out.println((rowCount + 1) + "번째 행 장비 처리 완료");
+                        System.out.println(rowCount + "번째 행 장비 처리 완료");
                     } else {
-                        System.out.println((rowCount + 1) + "번째 행 UID 카테고리 누락으로 장비 무시");
+                        System.out.println(rowCount + "번째 행 UID 카테고리 누락으로 장비 무시");
                     }
                 } catch (Exception e) {
-                    System.out.println((rowCount + 1) + "번째 행 처리 중 예외 발생: " + e.getMessage());
-                    throw new IllegalArgumentException((rowCount+1) + "번째 행 처리 중 오류가 발생했습니다: " + e.getMessage());
+                    System.out.println(rowCount + "번째 행 처리 중 예외 발생: " + e.getMessage());
+                    throw new IllegalArgumentException(rowCount + "번째 행 처리 중 오류가 발생했습니다: " + e.getMessage());
                 }
             }
             
@@ -802,21 +796,43 @@ public class DeviceService {
                     return String.valueOf(cell.getBooleanCellValue());
                 case FORMULA:
                     try {
-                        return cell.getStringCellValue().trim();
-                    } catch (Exception e) {
-                        try {
-                            return String.valueOf(cell.getNumericCellValue());
-                        } catch (Exception ex) {
+                        // 엑셀 공식의 계산된 결과값을 가져옴
+                        CellType cachedFormulaResultType = cell.getCachedFormulaResultType();
+                        System.out.println("getCellString: FORMULA cell with cached result type = " + cachedFormulaResultType);
+                        
+                        if (cachedFormulaResultType == CellType.STRING) {
+                            return cell.getStringCellValue().trim();
+                        } else if (cachedFormulaResultType == CellType.NUMERIC) {
+                            if (DateUtil.isCellDateFormatted(cell)) {
+                                return cell.getLocalDateTimeCellValue().toString();
+                            } else {
+                                double numValue = cell.getNumericCellValue();
+                                if (numValue == Math.floor(numValue)) {
+                                    return String.format("%.0f", numValue);
+                                } else {
+                                    return String.valueOf(numValue);
+                                }
+                            }
+                        } else if (cachedFormulaResultType == CellType.BOOLEAN) {
+                            return String.valueOf(cell.getBooleanCellValue());
+                        } else if (cachedFormulaResultType == CellType.BLANK) {
                             return "";
                         }
+                    } catch (Exception e) {
+                        System.out.println("getCellString: Failed to process FORMULA cell: " + e.getMessage());
+                        return "";
                     }
+                    break;
+                case BLANK:
+                    return "";
                 default:
                     return "";
             }
         } catch (Exception e) {
-            System.out.println("셀 값 추출 중 오류 발생: " + e.getMessage());
+            System.out.println("getCellString: 셀 값 추출 중 오류 발생: " + e.getMessage());
             return "";
         }
+        return "";
     }
 
     private static class ManageNumber {

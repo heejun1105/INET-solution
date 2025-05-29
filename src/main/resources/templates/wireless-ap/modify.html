@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>무선 AP 수정</title>
+    <link rel="stylesheet" href="/main.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .wireless-ap-form-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .title {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .subject {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #6b7280;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+        
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .form-group label.required::after {
+            content: " *";
+            color: #ef4444;
+            font-weight: bold;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 12px 14px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            background-color: #fafafa;
+            min-height: 44px; /* 터치 친화적 최소 높이 */
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #1e3a8a;
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+            background-color: white;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .form-help {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+        
+        .form-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1rem;
+            min-height: 48px; /* 터치 친화적 높이 */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background-color: #1e3a8a;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1e40af;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+        }
+        
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #4b5563;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+        }
+        
+        /* 태블릿 스타일 */
+        @media (max-width: 1024px) {
+            .wireless-ap-form-container {
+                max-width: 100%;
+                padding: 16px;
+            }
+            
+            .form-container {
+                padding: 24px;
+            }
+            
+            .subject {
+                font-size: 1.75rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+            }
+            
+            .form-grid {
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 16px;
+            }
+        }
+        
+        /* 모바일 스타일 */
+        @media (max-width: 768px) {
+            .wireless-ap-form-container {
+                padding: 12px;
+            }
+            
+            .title {
+                margin-bottom: 24px;
+            }
+            
+            .subject {
+                font-size: 1.5rem;
+            }
+            
+            .subtitle {
+                font-size: 0.9rem;
+            }
+            
+            .form-container {
+                padding: 20px;
+                border-radius: 8px;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+                margin-bottom: 16px;
+            }
+            
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                padding: 14px 16px;
+                font-size: 16px; /* iOS 줌 방지 */
+                min-height: 48px;
+            }
+            
+            .form-buttons {
+                flex-direction: column;
+                gap: 12px;
+                margin-top: 24px;
+            }
+            
+            .btn {
+                width: 100%;
+                padding: 16px 24px;
+                font-size: 1.1rem;
+                min-height: 52px;
+            }
+        }
+        
+        /* 소형 모바일 스타일 */
+        @media (max-width: 480px) {
+            .wireless-ap-form-container {
+                padding: 8px;
+            }
+            
+            .subject {
+                font-size: 1.3rem;
+            }
+            
+            .subtitle {
+                font-size: 0.85rem;
+            }
+            
+            .form-container {
+                padding: 16px;
+            }
+            
+            .form-group label {
+                font-size: 0.9rem;
+            }
+            
+            .form-help {
+                font-size: 0.8rem;
+            }
+            
+            .btn {
+                font-size: 1rem;
+                padding: 14px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+    
+    <div class="container">
+        <div class="wireless-ap-form-container">
+            <div class="title">
+                <div class="subject">무선 AP 수정</div>
+                <div class="subtitle">무선 AP 정보를 수정해 주세요.</div>
+            </div>
+            
+            <div class="form-container">
+                <form th:action="@{/wireless-ap/modify}" th:object="${wirelessAp}" method="post">
+                    <input type="hidden" th:field="*{APId}" />
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="required">학교 선택</label>
+                            <select name="schoolId" required>
+                                <option value="">학교를 선택하세요</option>
+                                <option th:each="school : ${schools}" 
+                                        th:value="${school.schoolId}" 
+                                        th:text="${school.schoolName}"
+                                        th:selected="${wirelessAp.school != null && wirelessAp.school.schoolId == school.schoolId}">
+                                </option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="required">설치장소</label>
+                            <input type="text" name="locationName" required placeholder="교실명 또는 설치 장소"
+                                   th:value="${wirelessAp.location != null ? wirelessAp.location.roomName : ''}">
+                            <div class="form-help">예: 1-1교실, 교무실, 회의실</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>새 라벨 번호</label>
+                            <input type="text" th:field="*{newLabelNumber}" placeholder="새 라벨 번호">
+                        </div>
+
+                        <div class="form-group">
+                            <label>장비 번호</label>
+                            <input type="text" th:field="*{deviceNumber}" placeholder="장비 번호">
+                        </div>
+
+                        <div class="form-group">
+                            <label>도입연도</label>
+                            <input type="number" name="apYear" placeholder="예: 2025" min="2000" max="2100"
+                                   th:value="${wirelessAp.APYear != null ? wirelessAp.APYear.year : ''}">
+                        </div>
+
+                        <div class="form-group">
+                            <label>제조사</label>
+                            <input type="text" th:field="*{manufacturer}" placeholder="제조사명">
+                        </div>
+
+                        <div class="form-group">
+                            <label>모델명</label>
+                            <input type="text" th:field="*{model}" placeholder="모델명">
+                        </div>
+
+                        <div class="form-group">
+                            <label>MAC 주소</label>
+                            <input type="text" th:field="*{macAddress}" placeholder="예: AA:BB:CC:DD:EE:FF">
+                            <div class="form-help">MAC 주소를 콜론(:) 구분자와 함께 입력하세요.</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>이전 설치장소</label>
+                            <input type="text" th:field="*{prevLocation}" placeholder="이전 설치장소">
+                        </div>
+
+                        <div class="form-group">
+                            <label>이전 라벨 번호</label>
+                            <input type="text" th:field="*{prevLabelNumber}" placeholder="이전 라벨 번호">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label>비고</label>
+                            <textarea th:field="*{note}" rows="3" placeholder="추가 정보나 특이사항을 입력하세요."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-buttons">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> 수정
+                        </button>
+                        <a href="/wireless-ap/list" class="btn btn-secondary">
+                            <i class="fas fa-list"></i> 목록
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div th:replace="~{fragments/footer :: footer}"></div>
+    
+    <script>
+        // 폼 유효성 검사
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const schoolSelect = document.querySelector('select[name="schoolId"]');
+            const locationName = document.querySelector('input[name="locationName"]').value.trim();
+            
+            if (!schoolSelect.value) {
+                e.preventDefault();
+                alert('학교를 선택해주세요.');
+                return false;
+            }
+            
+            if (!locationName) {
+                e.preventDefault();
+                alert('설치장소는 필수 입력 항목입니다.');
+                return false;
+            }
+        });
+        
+        // MAC 주소 형식 자동 변환
+        document.querySelector('input[name="macAddress"]').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+            if (value.length > 12) value = value.substring(0, 12);
+            
+            // 2자리씩 콜론으로 구분
+            if (value.length > 0) {
+                value = value.match(/.{1,2}/g).join(':');
+            }
+            
+            e.target.value = value;
+        });
+    </script>
+</body>
+</html> 

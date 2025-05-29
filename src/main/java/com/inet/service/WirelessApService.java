@@ -1,0 +1,284 @@
+package com.inet.service;
+
+import com.inet.entity.WirelessAp;
+import com.inet.entity.Classroom;
+import com.inet.entity.School;
+import com.inet.repository.WirelessApRepository;
+import com.inet.repository.ClassroomRepository;
+import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+public class WirelessApService {
+    private static final Logger log = LoggerFactory.getLogger(WirelessApService.class);
+    
+    private final WirelessApRepository wirelessApRepository;
+    private final ClassroomRepository classroomRepository;
+    private final ClassroomService classroomService;
+
+    // 모든 무선 AP 조회
+    public List<WirelessAp> getAllWirelessAps() {
+        return wirelessApRepository.findAll();
+    }
+
+    // 학교별 무선 AP 조회 (교실명 순으로 정렬)
+    public List<WirelessAp> getWirelessApsBySchool(School school) {
+        return wirelessApRepository.findBySchoolOrderByLocationRoomNameAsc(school);
+    }
+
+    // ID로 무선 AP 조회
+    public Optional<WirelessAp> getWirelessApById(Long id) {
+        return wirelessApRepository.findById(id);
+    }
+
+    // 무선 AP 저장
+    public WirelessAp saveWirelessAp(WirelessAp wirelessAp) {
+        return wirelessApRepository.save(wirelessAp);
+    }
+
+    // 무선 AP 삭제
+    public void deleteWirelessAp(Long id) {
+        wirelessApRepository.deleteById(id);
+    }
+
+    // 교실별 무선 AP 조회
+    public List<WirelessAp> getWirelessApsByLocation(Classroom location) {
+        return wirelessApRepository.findByLocation(location);
+    }
+
+    @Transactional
+    public void saveWirelessApsFromExcel(MultipartFile file, School school) throws Exception {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("빈 파일입니다. 내용이 있는 엑셀 파일을 업로드해주세요.");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !(originalFilename.endsWith(".xls") || originalFilename.endsWith(".xlsx"))) {
+            throw new IllegalArgumentException("엑셀 파일(.xls 또는 .xlsx)만 업로드 가능합니다.");
+        }
+
+        List<WirelessAp> wirelessAps = new ArrayList<>();
+        int processedRows = 0;
+        int skippedRows = 0;
+        
+        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            log.info("Processing Excel file: {} with {} rows", originalFilename, sheet.getLastRowNum() + 1);
+            
+            // 첫 번째 행부터 데이터로 처리
+            for (int i = 0; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null) {
+                    log.debug("Row {} is null, skipping", i);
+                    skippedRows++;
+                    continue;
+                }
+
+                // 첫 번째 셀(location)이 비어있으면 빈 행으로 간주하고 건너뛰기
+                String locationValue = getCellValueAsString(row.getCell(0));
+                if (locationValue == null || locationValue.trim().isEmpty()) {
+                    log.debug("Row {} has empty location, skipping", i);
+                    skippedRows++;
+                    continue;
+                }
+
+                log.debug("Processing row {}: location = '{}'", i, locationValue);
+
+                WirelessAp ap = new WirelessAp();
+                
+                // school 설정
+                ap.setSchool(school);
+                log.debug("Set school: {}", school.getSchoolName());
+                
+                // location (Classroom) 처리
+                Optional<Classroom> existingClassroom = classroomService.findByRoomNameAndSchool(locationValue, school.getSchoolId());
+                Classroom classroom;
+                
+                if (existingClassroom.isPresent()) {
+                    classroom = existingClassroom.get();
+                    log.debug("Found existing classroom: {}", classroom.getRoomName());
+                } else {
+                    // 새로운 Classroom 생성 시 school도 함께 설정
+                    classroom = new Classroom();
+                    classroom.setRoomName(locationValue);
+                    classroom.setSchool(school);
+                    classroom.setXCoordinate(0);
+                    classroom.setYCoordinate(0);
+                    classroom.setWidth(100);
+                    classroom.setHeight(100);
+                    classroom = classroomService.saveClassroom(classroom);
+                    log.debug("Created new classroom: {}", classroom.getRoomName());
+                }
+                ap.setLocation(classroom);
+
+                // 나머지 필드들 설정
+                ap.setNewLabelNumber(getCellValueAsString(row.getCell(1)));
+                ap.setDeviceNumber(getCellValueAsString(row.getCell(2)));
+                
+                LocalDate apYear = getCellValueAsLocalDate(row.getCell(3));
+                ap.setAPYear(apYear);
+                log.debug("Row {}: APYear = {}", i, apYear);
+                
+                ap.setManufacturer(getCellValueAsString(row.getCell(4)));
+                ap.setModel(getCellValueAsString(row.getCell(5)));
+                ap.setMacAddress(getCellValueAsString(row.getCell(6)));
+                ap.setPrevLocation(getCellValueAsString(row.getCell(7)));
+                ap.setPrevLabelNumber(getCellValueAsString(row.getCell(8)));
+                ap.setNote(getCellValueAsString(row.getCell(9)));
+
+                wirelessAps.add(ap);
+                processedRows++;
+                log.debug("Added WirelessAp for row {}", i);
+            }
+        }
+
+        log.info("Excel processing completed. Processed: {}, Skipped: {}, Total to save: {}", 
+                processedRows, skippedRows, wirelessAps.size());
+        
+        if (!wirelessAps.isEmpty()) {
+            wirelessApRepository.saveAll(wirelessAps);
+            log.info("Successfully saved {} wireless APs to database", wirelessAps.size());
+        } else {
+            log.warn("No valid wireless AP data found in Excel file");
+        }
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) return null;
+        
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
+                return String.valueOf((long) cell.getNumericCellValue());
+            case FORMULA:
+                try {
+                    CellType cachedFormulaResultType = cell.getCachedFormulaResultType();
+                    if (cachedFormulaResultType == CellType.STRING) {
+                        return cell.getStringCellValue();
+                    } else if (cachedFormulaResultType == CellType.NUMERIC) {
+                        return String.valueOf((long) cell.getNumericCellValue());
+                    } else if (cachedFormulaResultType == CellType.BLANK) {
+                        return null;
+                    }
+                } catch (Exception e) {
+                    log.warn("getCellValueAsString: Failed to process FORMULA cell: {}", e.getMessage());
+                    return null;
+                }
+                break;
+            case BLANK:
+                return null;
+            default:
+                return null;
+        }
+        return null;
+    }
+
+    private Integer getCellValueAsInteger(Cell cell) {
+        if (cell == null) return null;
+        
+        switch (cell.getCellType()) {
+            case NUMERIC:
+                return (int) cell.getNumericCellValue();
+            case STRING:
+                try {
+                    return Integer.parseInt(cell.getStringCellValue());
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            default:
+                return null;
+        }
+    }
+
+    private LocalDate getCellValueAsLocalDate(Cell cell) {
+        if (cell == null) {
+            log.debug("getCellValueAsLocalDate: cell is null");
+            return null;
+        }
+        
+        Integer year = null;
+        String originalValue = "";
+        
+        switch (cell.getCellType()) {
+            case NUMERIC:
+                year = (int) cell.getNumericCellValue();
+                originalValue = String.valueOf(year);
+                log.debug("getCellValueAsLocalDate: NUMERIC value = {}", originalValue);
+                break;
+            case STRING:
+                try {
+                    originalValue = cell.getStringCellValue().trim();
+                    log.debug("getCellValueAsLocalDate: STRING value = '{}'", originalValue);
+                    
+                    String yearStr = originalValue;
+                    // '2022년' 형태의 문자열 처리
+                    if (yearStr.endsWith("년")) {
+                        yearStr = yearStr.substring(0, yearStr.length() - 1);
+                        log.debug("getCellValueAsLocalDate: Removed '년' suffix, yearStr = '{}'", yearStr);
+                    }
+                    year = Integer.parseInt(yearStr);
+                    log.debug("getCellValueAsLocalDate: Parsed year = {}", year);
+                } catch (NumberFormatException e) {
+                    log.warn("getCellValueAsLocalDate: Failed to parse '{}' as year: {}", originalValue, e.getMessage());
+                    return null;
+                }
+                break;
+            case FORMULA:
+                try {
+                    // 엑셀 공식의 계산된 결과값을 가져옴
+                    CellType cachedFormulaResultType = cell.getCachedFormulaResultType();
+                    log.debug("getCellValueAsLocalDate: FORMULA cell with cached result type = {}", cachedFormulaResultType);
+                    
+                    if (cachedFormulaResultType == CellType.NUMERIC) {
+                        year = (int) cell.getNumericCellValue();
+                        originalValue = "FORMULA->" + year;
+                        log.debug("getCellValueAsLocalDate: FORMULA NUMERIC result = {}", year);
+                    } else if (cachedFormulaResultType == CellType.STRING) {
+                        originalValue = cell.getStringCellValue().trim();
+                        log.debug("getCellValueAsLocalDate: FORMULA STRING result = '{}'", originalValue);
+                        
+                        String yearStr = originalValue;
+                        if (yearStr.endsWith("년")) {
+                            yearStr = yearStr.substring(0, yearStr.length() - 1);
+                        }
+                        year = Integer.parseInt(yearStr);
+                    } else if (cachedFormulaResultType == CellType.BLANK) {
+                        log.debug("getCellValueAsLocalDate: FORMULA result is BLANK");
+                        return null;
+                    }
+                } catch (Exception e) {
+                    log.warn("getCellValueAsLocalDate: Failed to process FORMULA cell: {}", e.getMessage());
+                    return null;
+                }
+                break;
+            case BLANK:
+                log.debug("getCellValueAsLocalDate: BLANK cell");
+                return null;
+            default:
+                log.debug("getCellValueAsLocalDate: Unsupported cell type = {}", cell.getCellType());
+                return null;
+        }
+        
+        if (year != null && year >= 1900 && year <= 2100) {
+            LocalDate result = LocalDate.of(year, 1, 1);
+            log.debug("getCellValueAsLocalDate: Successfully created LocalDate = {} from original value '{}'", result, originalValue);
+            return result; // 년도만 있으면 1월 1일로 설정
+        } else {
+            log.warn("getCellValueAsLocalDate: Year {} is outside valid range (1900-2100)", year);
+        }
+        
+        return null;
+    }
+} 

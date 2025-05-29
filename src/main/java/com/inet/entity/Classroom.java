@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.EqualsAndHashCode;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -17,6 +19,8 @@ import com.inet.config.Views;
 @Setter
 @ToString(exclude = {"devices"})
 @EqualsAndHashCode(exclude = {"devices"})
+@AllArgsConstructor
+@NoArgsConstructor
 public class Classroom {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -67,5 +71,30 @@ public class Classroom {
 
     public List<Device> getDevices() {
         return this.devices;
+    }
+
+    // Manual setter methods for WirelessApService
+    public void setRoomName(String roomName) {
+        this.roomName = roomName;
+    }
+
+    public void setSchool(School school) {
+        this.school = school;
+    }
+
+    public void setXCoordinate(Integer xCoordinate) {
+        this.xCoordinate = xCoordinate;
+    }
+
+    public void setYCoordinate(Integer yCoordinate) {
+        this.yCoordinate = yCoordinate;
+    }
+
+    public void setWidth(Integer width) {
+        this.width = width;
+    }
+
+    public void setHeight(Integer height) {
+        this.height = height;
     }
 } 

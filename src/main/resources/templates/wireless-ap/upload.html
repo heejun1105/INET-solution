@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>장비 엑셀 업로드</title>
+    <title>무선 AP 엑셀 업로드</title>
     <link rel="stylesheet" href="/main.css">
     <link rel="stylesheet" href="/upload.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -15,15 +15,15 @@
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-content">
             <div class="loading-spinner"></div>
-            <div class="loading-text">엑셀 파일 업로드 중</div>
+            <div class="loading-text">무선 AP 엑셀 파일 업로드 중</div>
             <div class="loading-subtext">잠시만 기다려주세요...</div>
         </div>
     </div>
 
     <div class="container">
         <div class="upload-container">
-            <h2>장비 엑셀 업로드</h2>
-            <form th:action="@{/device/upload}" method="post" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+            <h2>무선 AP 엑셀 업로드</h2>
+            <form th:action="@{/wireless-ap/upload}" method="post" enctype="multipart/form-data" class="upload-form" id="uploadForm">
                 <div class="form-group">
                     <label>학교 선택:</label>
                     <select name="schoolId" required>
@@ -51,73 +51,51 @@
                         <div style="margin-top: 0.5rem; background-color: #f0f9ff; padding: 1rem; border-radius: 6px; border-left: 4px solid #1e3a8a;">
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem; font-size: 0.85rem;">
                                 <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">1</span>
-                                    <strong>고유번호</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">2</span>
-                                    <strong>관리번호</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #dc2626; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">3</span>
-                                    <strong>종류</strong> <span style="color: #dc2626;">⭐</span>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">4</span>
-                                    <strong>직위</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">5</span>
-                                    <strong>취급자</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">6</span>
-                                    <strong>제조사</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">7</span>
-                                    <strong>모델명</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">8</span>
-                                    <strong>도입일자</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">9</span>
-                                    <strong>IP주소</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #dc2626; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">10</span>
+                                    <span style="background: #dc2626; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">1</span>
                                     <strong>설치장소</strong> <span style="color: #dc2626;">⭐</span>
                                 </div>
                                 <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">11</span>
-                                    <strong>용도</strong>
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">2</span>
+                                    <strong>새 라벨 번호</strong>
                                 </div>
                                 <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">12</span>
-                                    <strong>세트분류</strong>
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">3</span>
+                                    <strong>장비 번호</strong>
                                 </div>
                                 <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">13</span>
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">4</span>
+                                    <strong>도입연도</strong>
+                                </div>
+                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">5</span>
+                                    <strong>제조사</strong>
+                                </div>
+                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">6</span>
+                                    <strong>모델명</strong>
+                                </div>
+                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">7</span>
+                                    <strong>MAC 주소</strong>
+                                </div>
+                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">8</span>
+                                    <strong>이전 설치장소</strong>
+                                </div>
+                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">9</span>
+                                    <strong>이전 라벨 번호</strong>
+                                </div>
+                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
+                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">10</span>
                                     <strong>비고</strong>
                                 </div>
                             </div>
                         </div>
                     </li>
-                    <li>필수 입력 항목: <strong>장비 타입(3번째 열)</strong>, <strong>설치장소(10번째 열)</strong></li>
-                    <li>관리번호는 '카테고리-번호' 또는 '카테고리-연도-번호' 형식이어야 합니다.</li>
-                    <li>도입일자는 다양한 형식으로 입력 가능합니다:
-                        <ol>
-                            <li>YYYY-MM-DD: 2025-03-15</li>
-                            <li>YYYY-MM: 2025-03 (일자는 1일로 자동 설정)</li>
-                            <li>YYYY: 2025 (월/일은 1월 1일로 자동 설정)</li>
-                            <li>YY-MM: 25-03 (현재 세기에 맞춰 연도 해석)</li>
-                            <li>YY: 25 (현재 세기에 맞춰 연도 해석, 월/일은 1월 1일로 자동 설정)</li>
-                            <li>구분자로 ., /, - 또는 '년', '월', '일' 사용 가능</li>
-                        </ol>
-                    </li>
-                    <li>IP 주소는 자유 형식으로 입력 가능합니다.</li>
+                    <li>필수 입력 항목: <strong>설치장소(1번째 열)</strong></li>
+                    <li>설치장소가 기존에 없는 경우 자동으로 새로 생성됩니다.</li>
+                    <li>빈 셀은 null로 처리됩니다.</li>
                 </ul>
             </div>
         </div>
@@ -176,24 +154,6 @@
             uploadForm.classList.remove('loading');
             uploadBtn.disabled = false;
         });
-    </script>
-
-    <script th:if="${error}">
-        // 오류 메시지에 따라 적절한 메시지를 표시
-        var errorMessage = /*[[${error}]]*/ "오류가 발생했습니다.";
-        
-        // 특정 오류 패턴에 맞는 추가 안내 메시지
-        var additionalInfo = "";
-        
-        if(errorMessage.includes("관리번호 형식이 잘못되었습니다")) {
-            additionalInfo = "\n\n올바른 형식: '카테고리-번호' 또는 '카테고리-연도-번호'\n예: 업무-2023-001 또는 교육-001";
-        } else if(errorMessage.includes("빈 파일입니다")) {
-            additionalInfo = "\n\n데이터가 포함된 엑셀 파일을 업로드해주세요.";
-        } else if(errorMessage.includes("설치장소")) {
-            additionalInfo = "\n\n설치장소(교실명)는 필수 입력 항목입니다.";
-        }
-        
-        alert(errorMessage + additionalInfo);
     </script>
 </body>
 </html> 
