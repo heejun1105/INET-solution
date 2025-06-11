@@ -29,7 +29,7 @@ public interface ManageRepository extends JpaRepository<Manage, Long> {
     @Query("SELECT DISTINCT m.year FROM Manage m WHERE m.school = :school")
     List<Integer> findDistinctYearBySchool(@Param("school") School school);
 
-    @Query("SELECT DISTINCT m.manageCate FROM Manage m WHERE m.school = :school AND m.manageCate = :manageCate AND m.year IS NOT NULL")
+    @Query("SELECT DISTINCT m.year FROM Manage m WHERE m.school = :school AND m.manageCate = :manageCate AND m.year IS NOT NULL")
     List<Integer> findDistinctYearBySchoolAndManageCate(@Param("school") School school, @Param("manageCate") String manageCate);
 
     @Query("SELECT m FROM Manage m WHERE m.school = :school AND m.manageCate = :manageCate AND m.year = :year ORDER BY m.manageNum DESC")
@@ -41,6 +41,12 @@ public interface ManageRepository extends JpaRepository<Manage, Long> {
 
     @Query("SELECT m FROM Manage m WHERE m.school = :school AND m.manageCate = :manageCate AND m.year IS NULL ORDER BY m.manageNum DESC")
     List<Manage> findBySchoolAndManageCateAndYearIsNullOrderByManageNumDesc(
+        @Param("school") School school, 
+        @Param("manageCate") String manageCate
+    );
+
+    @Query("SELECT m FROM Manage m WHERE m.school = :school AND m.manageCate = :manageCate ORDER BY m.manageNum DESC")
+    List<Manage> findBySchoolAndManageCateAllYearsOrderByManageNumDesc(
         @Param("school") School school, 
         @Param("manageCate") String manageCate
     );

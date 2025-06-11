@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDate;
+import java.util.ArrayList;
 
 @Service
 @Transactional
@@ -298,5 +299,76 @@ public class UidService {
      */
     public String getCurrentTwoDigitYear() {
         return String.valueOf(LocalDate.now().getYear() % 100);
+    }
+
+    /**
+     * 학교와 카테고리로 연도 목록 조회
+     * @param schoolId 학교 ID
+     * @param cate 카테고리
+     * @return 연도 목록
+     */
+    public List<String> getUidYearsBySchoolAndCate(Long schoolId, String cate) {
+        log.info("Getting UID years for schoolId: {} and cate: {}", schoolId, cate);
+        List<String> years = uidRepository.findDistinctMfgYearBySchoolSchoolIdAndCateOrderByMfgYear(schoolId, cate);
+        log.info("Found years: {}", years);
+        return years;
+    }
+
+    /**
+     * 학교, 카테고리, 연도별 고유번호 목록 + 다음 번호 조회
+     * @param schoolId 학교 ID
+     * @param cate 카테고리
+     * @param year 연도 (null인 경우 모든 연도)
+     * @return 번호 목록 (마지막에 다음 번호 포함)
+     */
+    public List<Long> getUidNumsWithNext(Long schoolId, String cate, String year) {
+        log.info("Getting uid nums with next by schoolId: {}, cate: {}, year: {}", schoolId, cate, year);
+        
+        School school = new School();
+        school.setSchoolId(schoolId);
+        
+        Long nextNumber;
+        if (year != null && !year.trim().isEmpty()) {
+            // 연도가 지정된 경우
+            nextNumber = getLastIdNumberBySchoolAndMfgYear(school, cate, year) + 1;
+        } else {
+            // 연도가 지정되지 않은 경우
+            nextNumber = getLastIdNumberBySchool(cate, school) + 1;
+        }
+        
+        List<Long> result = new ArrayList<>();
+        result.add(nextNumber);
+        
+        return result;
+    }
+
+    /**
+     * 학교별 고유번호 카테고리 목록 조회
+     * @param schoolId 학교 ID
+     * @return 카테고리 목록
+     */
+    public List<String> getUidCatesBySchool(Long schoolId) {
+        log.info("Getting distinct UID categories for schoolId: {}", schoolId);
+        return uidRepository.findDistinctCateBySchoolSchoolIdOrderByCate(schoolId);
+    }
+    
+    /**
+     * 학교별 모든 Uid 조회 (디버깅용)
+     * @param schoolId 학교 ID
+     * @return Uid 목록
+     */
+    public List<Uid> getUidsBySchoolId(Long schoolId) {
+        log.info("Getting all UIDs for schoolId: {}", schoolId);
+        return uidRepository.findBySchoolSchoolId(schoolId);
+    }
+    
+    /**
+     * Uid 저장
+     * @param uid 저장할 Uid 객체
+     * @return 저장된 Uid 객체
+     */
+    public Uid saveUid(Uid uid) {
+        log.info("Saving Uid: {}", uid);
+        return uidRepository.save(uid);
     }
 } 

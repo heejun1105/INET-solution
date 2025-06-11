@@ -32,4 +32,12 @@ public class ManageController {
             @RequestParam(required = false) Integer year) {
         return ResponseEntity.ok(manageService.getNextManageNum(schoolId, manageCate, year));
     }
+
+    @GetMapping("/nums/{schoolId}/{manageCate}")
+    public ResponseEntity<List<Long>> getManageNumsWithNext(
+            @PathVariable Long schoolId,
+            @PathVariable String manageCate,
+            @RequestParam(required = false) Integer year) {
+        return ResponseEntity.ok(manageService.getManageNumsWithNext(schoolId, manageCate, year));
+    }
 } 

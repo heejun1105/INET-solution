@@ -51,6 +51,14 @@ public interface UidRepository extends JpaRepository<Uid, Long> {
     @Query("SELECT COUNT(u) FROM Uid u WHERE u.school.schoolId = :schoolId")
     long countBySchoolSchoolId(Long schoolId);
 
+    // 학교와 카테고리로 제조년 목록 조회
+    @Query("SELECT DISTINCT u.mfgYear FROM Uid u WHERE u.school.schoolId = :schoolId AND u.cate = :cate ORDER BY u.mfgYear")
+    List<String> findDistinctMfgYearBySchoolSchoolIdAndCateOrderByMfgYear(Long schoolId, String cate);
+
     @Query("SELECT u FROM Uid u WHERE u.school.schoolId = :schoolId")
     List<Uid> findBySchoolSchoolId(Long schoolId);
+    
+    // 학교별 카테고리 목록 조회
+    @Query("SELECT DISTINCT u.cate FROM Uid u WHERE u.school.schoolId = :schoolId ORDER BY u.cate")
+    List<String> findDistinctCateBySchoolSchoolIdOrderByCate(Long schoolId);
 } 

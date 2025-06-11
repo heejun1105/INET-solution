@@ -34,19 +34,33 @@ function loadYears(schoolId, manageCate) {
 function loadManageNums(schoolId, manageCate, year) {
     let url = `/api/manages/nums/${schoolId}/${manageCate}`;
     if (year) {
-        url += `/${year}`;
+        url += `?year=${year}`;
     }
     fetch(url)
         .then(response => response.json())
         .then(nums => {
             const numSelect = document.getElementById('manageNum');
             numSelect.innerHTML = '<option value="">선택하세요</option>';
-            const maxNum = nums.length > 0 ? Math.max(...nums) : 0;
-            const nextNum = maxNum + 1;
-            const nextOption = document.createElement('option');
-            nextOption.value = nextNum;
-            nextOption.textContent = nextNum + ' (신규)';
-            numSelect.appendChild(nextOption);
+            
+            if (nums && nums.length > 0) {
+                // 마지막 번호+1만 표시
+                const sortedNums = nums.sort((a, b) => a - b);
+                const lastNum = sortedNums[sortedNums.length - 1]; // 마지막 번호 (신규)
+                
+                const nextOption = document.createElement('option');
+                nextOption.value = lastNum;
+                nextOption.textContent = lastNum + ' (신규)';
+                nextOption.selected = true;
+                numSelect.appendChild(nextOption);
+            } else {
+                // 번호가 없는 경우 1번을 신규로 추가
+                const nextOption = document.createElement('option');
+                nextOption.value = 1;
+                nextOption.textContent = '1 (신규)';
+                nextOption.selected = true;
+                numSelect.appendChild(nextOption);
+            }
+            
             const customOption = document.createElement('option');
             customOption.value = 'custom';
             customOption.textContent = '직접입력';

@@ -19,148 +19,175 @@
             </div>
             <div class="main">
                 <form th:action="@{/device/modify}" method="post" th:object="${device}">
-                    <table class="sign_table">
-                        <tr>
-                            <td class="need">학교</td>
-                        </tr>
-                        <tr>
-                            <td>
+                    
+                    <!-- 기본 정보 섹션 -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-info-circle"></i> 기본 정보</h3>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="required">학교</label>
                                 <select th:field="*{school}" required>
                                     <option value="">학교 선택</option>
                                     <option th:each="school : ${schools}" 
                                             th:value="${school.schoolId}" 
                                             th:text="${school.schoolName}"></option>
                                 </select>
-                            </td>
-                        </tr>
+                            </div>
 
-                        <tr>
-                            <td class="need">관리번호</td>
-                        </tr>
-                        <tr>
-                            <td>
+                            <div class="form-group">
+                                <label class="required">유형</label>
+                                <select id="typeSelect" name="type" th:field="*{type}" required>
+                                    <option value="">유형 선택</option>
+                                    <option th:each="type : ${types}" 
+                                            th:value="${type}" 
+                                            th:text="${type}"
+                                            th:selected="${device.type == type}">
+                                    </option>
+                                    <option value="CUSTOM" th:selected="${!#lists.contains(types, device.type) && device.type != null && device.type != ''}">직접입력</option>
+                                </select>
+                                <input type="text" id="typeInput" name="typeCustom" placeholder="직접 입력" 
+                                       style="display:none; margin-top: 8px;" 
+                                       th:value="${!#lists.contains(types, device.type) ? device.type : ''}"
+                                       th:field="*{type}">
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label class="required">고유번호</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <select id="uidCateSelect" name="uidCate" required>
+                                        <option value="">구분 선택</option>
+                                        <option value="custom">직접입력</option>
+                                    </select>
+                                    <input type="text" id="uidCateInput" name="uidCateCustom" placeholder="구분 직접입력" style="display:none; width: 80px;">
+
+                                    <select id="uidYearSelect" name="uidYear" required>
+                                        <option value="">연도 선택</option>
+                                        <option value="custom">직접입력</option>
+                                    </select>
+                                    <input type="text" id="uidYearInput" name="uidYearCustom" placeholder="연도 직접입력" style="display:none; width: 60px;">
+
+                                    <select id="uidNumSelect" name="uidNum" required>
+                                        <option value="">번호 선택</option>
+                                        <option value="custom">직접입력</option>
+                                    </select>
+                                    <input type="number" id="uidNumInput" name="uidNumCustom" placeholder="번호 직접입력" style="display:none; width: 60px;">
+                                </div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label class="required">관리번호</label>
                                 <div style="display: flex; gap: 8px;">
                                     <select id="manageCateSelect" name="manageCate" required>
                                         <option value="">구분 선택</option>
-                                        <!-- JS로 옵션 동적 로딩 -->
                                         <option value="custom">직접입력</option>
                                     </select>
                                     <input type="text" id="manageCateInput" name="manageCateCustom" placeholder="구분 직접입력" style="display:none; width: 80px;">
 
                                     <select id="manageYearSelect" name="manageYear" required>
                                         <option value="">연도 선택</option>
-                                        <!-- JS로 옵션 동적 로딩 -->
                                         <option value="custom">직접입력</option>
                                     </select>
                                     <input type="text" id="manageYearInput" name="manageYearCustom" placeholder="연도 직접입력" style="display:none; width: 60px;">
 
                                     <select id="manageNumSelect" name="manageNum" required>
                                         <option value="">번호 선택</option>
-                                        <!-- JS로 옵션 동적 로딩 -->
                                         <option value="custom">직접입력</option>
                                     </select>
                                     <input type="text" id="manageNumInput" name="manageNumCustom" placeholder="번호 직접입력" style="display:none; width: 60px;">
                                 </div>
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
+                    </div>
 
-                        <tr>
-                            <td class="need">유형</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{type}" required></td>
-                        </tr>
+                    <!-- 장비 상세 섹션 -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-cogs"></i> 장비 상세</h3>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>제조사</label>
+                                <input type="text" th:field="*{manufacturer}">
+                            </div>
 
-                        <tr>
-                            <td>제조사</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{manufacturer}"></td>
-                        </tr>
+                            <div class="form-group">
+                                <label>모델명</label>
+                                <input type="text" th:field="*{modelName}">
+                            </div>
 
-                        <tr>
-                            <td>모델명</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{modelName}"></td>
-                        </tr>
+                            <div class="form-group">
+                                <label>구매일자</label>
+                                <input type="date" th:field="*{purchaseDate}">
+                            </div>
 
-                        <tr>
-                            <td>구매일자</td>
-                        </tr>
-                        <tr>
-                            <td><input type="date" th:field="*{purchaseDate}"></td>
-                        </tr>
-
-                        <tr>
-                            <td>IP주소</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{ipAddress}"></td>
-                        </tr>
-
-                        <tr>
-                            <td class="need">위치</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" name="location" th:value="${device.classroom != null ? device.classroom.roomName : ''}" required></td>
-                        </tr>
-
-                        <tr>
-                            <td>용도</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{purpose}"></td>
-                        </tr>
-
-                        <tr>
-                            <td>세트분류</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" th:field="*{setType}"></td>
-                        </tr>
-
-                        <tr>
-                            <td>담당자</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" name="operator_name" 
-                                   th:value="${device.operator != null ? device.operator.name : ''}"></td>
-                        </tr>
-
-                        <tr>
-                            <td>직위</td>
-                        </tr>
-                        <tr>
-                            <td><input type="text" name="operator_position" 
-                                   th:value="${device.operator != null ? device.operator.position : ''}"></td>
-                        </tr>
-
-                        <tr>
-                            <td>불용</td>
-                        </tr>
-                        <tr>
-                            <td>
+                            <div class="form-group">
+                                <label>불용 여부</label>
                                 <div class="gender">
                                     <label><input type="checkbox" th:field="*{unused}">불용</label>
                                 </div>
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
+                    </div>
 
-                        <tr>
-                            <td>비고</td>
-                        </tr>
-                        <tr>
-                            <td><textarea th:field="*{note}" rows="3"></textarea></td>
-                        </tr>
+                    <!-- 위치 정보 섹션 -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-map-marker-alt"></i> 위치 정보</h3>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>IP주소</label>
+                                <input type="text" th:field="*{ipAddress}">
+                            </div>
 
-                        <tr>
-                            <td></td>
-                        </tr>
-                    </table>
-                    <div class="but">
+                            <div class="form-group">
+                                <label class="required">위치</label>
+                                <input type="text" name="location" th:value="${device.classroom != null ? device.classroom.roomName : ''}" required>
+                                <div class="form-help">교실 또는 설치 장소를 입력하세요.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 관리 정보 섹션 -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-clipboard-list"></i> 관리 정보</h3>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>용도</label>
+                                <input type="text" th:field="*{purpose}">
+                            </div>
+
+                            <div class="form-group">
+                                <label>세트분류</label>
+                                <input type="text" th:field="*{setType}">
+                            </div>
+
+                            <div class="form-group">
+                                <label>담당자</label>
+                                <input type="text" name="operator_name" 
+                                       th:value="${device.operator != null ? device.operator.name : ''}">
+                            </div>
+
+                            <div class="form-group">
+                                <label>직위</label>
+                                <input type="text" name="operator_position" 
+                                       th:value="${device.operator != null ? device.operator.position : ''}">
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label>비고</label>
+                                <textarea th:field="*{note}" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-buttons">
                         <button type="submit" class="sub-but">수정</button>
-                        <a href="/device/list" class="sub-but" style="background-color: #6c757d; margin-left: 10px;">목록</a>
+                        <a href="/device/list" class="sub-but" style="background-color: #6c757d;">목록</a>
                     </div>
                 </form>
             </div>
@@ -169,5 +196,416 @@
     
     <!-- 푸터 포함 -->
     <div th:replace="~{fragments/footer :: footer}"></div>
+    
+    <script>
+        // 학교 선택 시 관리번호 카테고리 로드
+        function loadManageCates(schoolId) {
+            fetch(`/api/manages/cates?schoolId=${schoolId}`)
+                .then(response => response.json())
+                .then(cates => {
+                    const cateSelect = document.getElementById('manageCateSelect');
+                    cateSelect.innerHTML = '<option value="">구분 선택</option>';
+                    cates.forEach(cate => {
+                        const option = document.createElement('option');
+                        option.value = cate;
+                        option.textContent = cate;
+                        cateSelect.appendChild(option);
+                    });
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    cateSelect.appendChild(customOption);
+                });
+        }
+
+        // 관리번호 카테고리 선택 시 연도 로드
+        function loadYears(schoolId, manageCate) {
+            if (manageCate === 'custom') return;
+            fetch(`/api/manages/years?schoolId=${schoolId}&manageCate=${encodeURIComponent(manageCate)}`)
+                .then(response => response.json())
+                .then(years => {
+                    const yearSelect = document.getElementById('manageYearSelect');
+                    yearSelect.innerHTML = '<option value="">연도 선택</option>';
+                    years.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = year;
+                        yearSelect.appendChild(option);
+                    });
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    yearSelect.appendChild(customOption);
+                });
+        }
+
+        // 연도 선택 시 번호 목록 로드
+        function loadManageNums(schoolId, manageCate, year) {
+            if (manageCate === 'custom') return;
+            
+            let url = `/api/manages/nums/${schoolId}/${encodeURIComponent(manageCate)}`;
+            if (year && year !== 'custom') {
+                url = `/api/manages/nums/${schoolId}/${encodeURIComponent(manageCate)}?year=${year}`;
+            }
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(nums => {
+                    const numSelect = document.getElementById('manageNumSelect');
+                    numSelect.innerHTML = '<option value="">번호 선택</option>';
+                    
+                    if (nums && nums.length > 0) {
+                        // 마지막 번호+1만 표시
+                        const sortedNums = nums.sort((a, b) => a - b);
+                        const lastNum = sortedNums[sortedNums.length - 1]; // 마지막 번호 (신규)
+                        
+                        const option = document.createElement('option');
+                        option.value = lastNum;
+                        option.textContent = lastNum + ' (신규)';
+                        option.selected = true; // 기본 선택
+                        numSelect.appendChild(option);
+                    } else {
+                        // 번호가 없는 경우 1번을 신규로 추가
+                        const option = document.createElement('option');
+                        option.value = 1;
+                        option.textContent = '1 (신규)';
+                        option.selected = true;
+                        numSelect.appendChild(option);
+                    }
+                    
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    numSelect.appendChild(customOption);
+                });
+        }
+
+        // 고유번호 관련 함수들
+
+        // 고유번호 카테고리 로드
+        function loadUidCates(schoolId) {
+            console.log('=== 고유번호 카테고리 로드 시작 ===');
+            console.log('학교 ID:', schoolId);
+            
+            fetch(`/api/uids/cates/${schoolId}`)
+                .then(response => {
+                    console.log('API 응답 상태:', response.status);
+                    return response.json();
+                })
+                .then(cates => {
+                    console.log('받은 고유번호 카테고리 목록:', cates);
+                    const cateSelect = document.getElementById('uidCateSelect');
+                    cateSelect.innerHTML = '<option value="">구분 선택</option>';
+                    
+                    cates.forEach((cate, index) => {
+                        console.log(`고유번호 카테고리 ${index}:`, cate);
+                        const option = document.createElement('option');
+                        option.value = cate;
+                        option.textContent = cate;
+                        cateSelect.appendChild(option);
+                    });
+                    
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    cateSelect.appendChild(customOption);
+                    
+                    console.log('고유번호 카테고리 옵션 추가 완료');
+                })
+                .catch(error => {
+                    console.error('=== 고유번호 카테고리 API 호출 오류 ===');
+                    console.error('오류 타입:', error.name);
+                    console.error('오류 메시지:', error.message);
+                    console.error('전체 오류:', error);
+                });
+        }
+
+        // 고유번호 연도 로드
+        function loadUidYears(schoolId, uidCate) {
+            if (uidCate === 'custom') return;
+            
+            console.log('=== 고유번호 연도 로드 시작 ===');
+            console.log('학교 ID:', schoolId);
+            console.log('카테고리:', uidCate);
+            
+            fetch(`/api/uids/years/${schoolId}/${encodeURIComponent(uidCate)}`)
+                .then(response => {
+                    console.log('연도 API 응답 상태:', response.status);
+                    if (response.status === 404) {
+                        console.log('해당 카테고리의 연도 데이터가 없습니다.');
+                        return [];
+                    }
+                    return response.json();
+                })
+                .then(years => {
+                    console.log('받은 고유번호 연도 목록:', years);
+                    const yearSelect = document.getElementById('uidYearSelect');
+                    yearSelect.innerHTML = '<option value="">연도 선택</option>';
+                    
+                    // years가 배열인지 확인
+                    if (Array.isArray(years)) {
+                        years.forEach(year => {
+                            const option = document.createElement('option');
+                            option.value = year;
+                            option.textContent = year;
+                            yearSelect.appendChild(option);
+                        });
+                    }
+                    
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    yearSelect.appendChild(customOption);
+                    
+                    console.log('고유번호 연도 옵션 추가 완료');
+                })
+                .catch(error => {
+                    console.error('=== 고유번호 연도 API 호출 오류 ===');
+                    console.error('오류:', error);
+                    
+                    // 오류 발생 시에도 직접입력 옵션은 제공
+                    const yearSelect = document.getElementById('uidYearSelect');
+                    yearSelect.innerHTML = '<option value="">연도 선택</option>';
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    yearSelect.appendChild(customOption);
+                });
+        }
+
+        // 고유번호 번호 로드
+        function loadUidNums(schoolId, uidCate, year) {
+            if (uidCate === 'custom') return;
+            
+            let url = `/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}`;
+            if (year && year !== 'custom') {
+                url = `/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}?year=${year}`;
+            }
+            
+            fetch(url)
+                .then(response => {
+                    console.log('고유번호 번호 API 응답 상태:', response.status);
+                    if (response.status === 404) {
+                        console.log('해당 카테고리의 번호 데이터가 없습니다.');
+                        return [];
+                    }
+                    return response.json();
+                })
+                .then(nums => {
+                    console.log('받은 고유번호 번호 목록:', nums);
+                    const numSelect = document.getElementById('uidNumSelect');
+                    numSelect.innerHTML = '<option value="">번호 선택</option>';
+                    
+                    // nums가 배열인지 확인
+                    if (Array.isArray(nums) && nums.length > 0) {
+                        // 마지막 번호+1만 표시
+                        const lastNum = nums[nums.length - 1]; // 마지막 번호 (신규)
+                        
+                        const option = document.createElement('option');
+                        option.value = lastNum;
+                        option.textContent = lastNum + ' (신규)';
+                        option.selected = true; // 기본 선택
+                        numSelect.appendChild(option);
+                    } else {
+                        // 번호가 없는 경우 1번을 신규로 추가
+                        const option = document.createElement('option');
+                        option.value = 1;
+                        option.textContent = '1 (신규)';
+                        option.selected = true;
+                        numSelect.appendChild(option);
+                    }
+                    
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    numSelect.appendChild(customOption);
+                })
+                .catch(error => {
+                    console.error('고유번호 번호 로드 중 오류:', error);
+                    
+                    // 오류 발생 시에도 기본 옵션 제공
+                    const numSelect = document.getElementById('uidNumSelect');
+                    numSelect.innerHTML = '<option value="">번호 선택</option>';
+                    
+                    const option = document.createElement('option');
+                    option.value = 1;
+                    option.textContent = '1 (신규)';
+                    option.selected = true;
+                    numSelect.appendChild(option);
+                    
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    numSelect.appendChild(customOption);
+                });
+        }
+
+        // 유형에 따른 고유번호 카테고리 매핑
+        function getUidCateByType(type) {
+            switch (type) {
+                case "데스크톱":
+                    return "DW"; // 기본값, 실제로는 관리번호에 따라 결정됨
+                case "모니터":
+                    return "MO";
+                case "프린터":
+                    return "PR";
+                case "TV":
+                    return "TV";
+                case "전자칠판":
+                    return "ID";
+                case "전자교탁":
+                    return "ED";
+                case "DID":
+                    return "DI";
+                case "태블릿":
+                    return "TB";
+                case "프로젝트":
+                case "프로젝터":
+                    return "PJ";
+                default:
+                    return "ET"; // 기타 장비
+            }
+        }
+
+        // 이벤트 리스너 등록
+        document.addEventListener('DOMContentLoaded', function() {
+            const schoolSelect = document.querySelector('select[th\\:field="*{school}"]');
+            const manageCate = document.getElementById('manageCateSelect');
+            const manageYear = document.getElementById('manageYearSelect');
+            const typeSelect = document.getElementById('typeSelect');
+            
+            // 초기 로드 시 기존 데이터를 바탕으로 관리번호 필드 설정
+            if (schoolSelect.value) {
+                loadManageCates(schoolSelect.value);
+                // 고유번호 카테고리 목록도 로드
+                loadUidCates(schoolSelect.value);
+            }
+            
+            // 학교 선택 이벤트
+            schoolSelect.addEventListener('change', function() {
+                if (this.value) {
+                    loadManageCates(this.value);
+                    // 고유번호 카테고리 목록도 로드
+                    loadUidCates(this.value);
+                }
+            });
+            
+            // 관리번호 카테고리 선택 이벤트
+            manageCate.addEventListener('change', function() {
+                if (schoolSelect.value && this.value && this.value !== 'custom') {
+                    loadYears(schoolSelect.value, this.value);
+                    loadManageNums(schoolSelect.value, this.value, null);
+                    manageYear.selectedIndex = 0;
+                }
+                setupCustomInput('manageCateSelect', 'manageCateInput');
+            });
+            
+            // 연도 선택 이벤트
+            manageYear.addEventListener('change', function() {
+                if (schoolSelect.value && manageCate.value && manageCate.value !== 'custom') {
+                    if (this.value && this.value !== 'custom') {
+                        loadManageNums(schoolSelect.value, manageCate.value, this.value);
+                    } else if (this.value === '') {
+                        loadManageNums(schoolSelect.value, manageCate.value, null);
+                    }
+                }
+                setupCustomInput('manageYearSelect', 'manageYearInput');
+            });
+
+            // 번호 선택 이벤트
+            const manageNum = document.getElementById('manageNumSelect');
+            manageNum.addEventListener('change', function() {
+                setupCustomInput('manageNumSelect', 'manageNumInput');
+            });
+
+            // 유형 선택 이벤트
+            typeSelect.addEventListener('change', function() {
+                const typeInput = document.getElementById('typeInput');
+                const isCustom = this.value === 'CUSTOM';
+                
+                typeInput.style.display = isCustom ? 'block' : 'none';
+                typeInput.required = isCustom;
+                
+                if (isCustom) {
+                    typeInput.focus();
+                    typeInput.value = '';
+                    this.removeAttribute('name');
+                    typeInput.setAttribute('name', 'type');
+                } else {
+                    this.setAttribute('name', 'type');
+                    typeInput.removeAttribute('name');
+                }
+
+                // 유형 선택 시 고유번호 카테고리 자동 설정
+                if (this.value && this.value !== 'CUSTOM' && schoolSelect.value) {
+                    const uidCate = document.getElementById('uidCateSelect');
+                    const uidCateValue = getUidCateByType(this.value);
+                    if (uidCateValue) {
+                        // 기존 옵션 유지하면서 선택된 값 설정
+                        uidCate.value = uidCateValue;
+                        
+                        // 연도와 번호 로드
+                        loadUidYears(schoolSelect.value, uidCateValue);
+                        loadUidNums(schoolSelect.value, uidCateValue, null);
+                    }
+                }
+            });
+
+            // 고유번호 관련 이벤트 리스너
+            const uidCate = document.getElementById('uidCateSelect');
+            const uidYear = document.getElementById('uidYearSelect');
+            const uidNum = document.getElementById('uidNumSelect');
+
+            // 고유번호 카테고리 선택 이벤트
+            uidCate.addEventListener('change', function() {
+                console.log('=== 고유번호 카테고리 선택 이벤트 ===');
+                console.log('선택된 카테고리:', this.value);
+                console.log('학교 ID:', schoolSelect.value);
+                
+                if (schoolSelect.value && this.value && this.value !== 'custom') {
+                    console.log('고유번호 연도 로드 시작');
+                    loadUidYears(schoolSelect.value, this.value);
+                    loadUidNums(schoolSelect.value, this.value, null);
+                    uidYear.selectedIndex = 0;
+                }
+                setupCustomInput('uidCateSelect', 'uidCateInput');
+            });
+
+            // 고유번호 연도 선택 이벤트
+            uidYear.addEventListener('change', function() {
+                console.log('=== 고유번호 연도 선택 이벤트 ===');
+                console.log('선택된 연도:', this.value);
+                
+                if (schoolSelect.value && uidCate.value && uidCate.value !== 'custom') {
+                    if (this.value && this.value !== 'custom') {
+                        loadUidNums(schoolSelect.value, uidCate.value, this.value);
+                    } else if (this.value === '') {
+                        loadUidNums(schoolSelect.value, uidCate.value, null);
+                    }
+                }
+                setupCustomInput('uidYearSelect', 'uidYearInput');
+            });
+
+            // 고유번호 번호 선택 이벤트
+            uidNum.addEventListener('change', function() {
+                setupCustomInput('uidNumSelect', 'uidNumInput');
+            });
+        });
+
+        // 직접입력 기능
+        function setupCustomInput(selectId, inputId) {
+            const select = document.getElementById(selectId);
+            const input = document.getElementById(inputId);
+            
+            input.style.display = select.value === 'custom' ? 'block' : 'none';
+            if (select.value === 'custom') {
+                input.required = true;
+                select.required = false;
+            } else {
+                input.required = false;
+                select.required = true;
+            }
+        }
+    </script>
 </body>
 </html> 

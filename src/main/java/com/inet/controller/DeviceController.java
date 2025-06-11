@@ -39,13 +39,16 @@ import com.inet.entity.Uid;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 @Controller
 @RequestMapping("/device")
 @RequiredArgsConstructor
 public class DeviceController {
 
+    private static final Logger log = LoggerFactory.getLogger(DeviceController.class);
+    
     private final DeviceService deviceService;
     private final SchoolService schoolService;
     private final OperatorService operatorService;
@@ -152,60 +155,71 @@ public class DeviceController {
         model.addAttribute("device", new Device());
         model.addAttribute("schools", schoolService.getAllSchools());
         model.addAttribute("classrooms", classroomService.getAllClassrooms());
+        model.addAttribute("types", deviceService.getAllTypes());
         return "device/register";
     }
 
     @PostMapping("/register")
     public String register(Device device, String operatorName, String operatorPosition, String location,
                           String manageCate, String manageCateCustom, String manageYear, String manageYearCustom, String manageNum, String manageNumCustom,
-                          String uidCate) {
+                          String uidCate, String uidCateCustom, String uidYear, String uidYearCustom, String uidNum, String uidNumCustom) {
+        
         log.info("Registering device: {}", device);
-        // 학교 정보 가져오기
-        School school = device.getSchool();
-        if (school == null) {
-            throw new IllegalArgumentException("학교 정보가 필요합니다.");
-        }
-        // Operator 처리
-        Operator operator = null;
-        if (operatorName != null && operatorPosition != null) {
-            operator = operatorService.findByNameAndPositionAndSchool(operatorName, operatorPosition, school)
+        log.info("Operator: {}, {}", operatorName, operatorPosition);
+        log.info("Location: {}", location);
+        log.info("고유번호: cate={}, year={}, num={}", uidCate, uidYear, uidNum);
+
+        // 담당자 정보 처리
+        if (operatorName != null && !operatorName.trim().isEmpty() && 
+            operatorPosition != null && !operatorPosition.trim().isEmpty()) {
+            Operator operator = operatorService.findByNameAndPositionAndSchool(operatorName, operatorPosition, device.getSchool())
                 .orElseGet(() -> {
                     Operator op = new Operator();
                     op.setName(operatorName);
                     op.setPosition(operatorPosition);
-                    op.setSchool(school);
+                    op.setSchool(device.getSchool());
                     return operatorService.saveOperator(op);
                 });
+            device.setOperator(operator);
         }
-        device.setOperator(operator);
-        // Classroom 처리
+
+        // 교실 정보 처리
         Classroom classroom = null;
         if (location != null && !location.trim().isEmpty()) {
             classroom = classroomService.findByRoomName(location);
             if (classroom == null) {
                 classroom = new Classroom();
                 classroom.setRoomName(location);
-                classroom.setSchool(school);
+                classroom.setSchool(device.getSchool());
                 classroom.setXCoordinate(0);
                 classroom.setYCoordinate(0);
                 classroom.setWidth(100);
                 classroom.setHeight(100);
                 classroom = classroomService.saveClassroom(classroom);
             }
-        } else {
-            throw new IllegalArgumentException("위치 정보가 필요합니다.");
         }
         device.setClassroom(classroom);
+
         // 관리번호(Manage) 처리
         String cate = ("custom".equals(manageCate)) ? manageCateCustom : manageCate;
         Integer year = ("custom".equals(manageYear)) ? Integer.valueOf(manageYearCustom) : Integer.valueOf(manageYear);
         Long num = ("custom".equals(manageNum)) ? Long.valueOf(manageNumCustom) : Long.valueOf(manageNum);
         Manage manage = manageService.findOrCreate(device.getSchool(), cate, year, num);
         device.setManage(manage);
-        // Uid 처리
-        if (uidCate != null && !uidCate.trim().isEmpty()) {
-            deviceService.setDeviceUid(device, uidCate);
+
+        // 고유번호(Uid) 처리
+        String finalUidCate = ("custom".equals(uidCate)) ? uidCateCustom : uidCate;
+        String finalUidYear = ("custom".equals(uidYear)) ? uidYearCustom : uidYear;
+        Long finalUidNum = ("custom".equals(uidNum)) ? Long.valueOf(uidNumCustom) : Long.valueOf(uidNum);
+        
+        if (finalUidCate != null && !finalUidCate.trim().isEmpty()) {
+            if (finalUidNum != null) {
+                deviceService.setDeviceUidWithNumber(device, finalUidCate, finalUidNum);
+            } else {
+                deviceService.setDeviceUid(device, finalUidCate);
+            }
         }
+
         deviceService.saveDevice(device);
         return "redirect:/device/list";
     }
@@ -215,43 +229,39 @@ public class DeviceController {
         model.addAttribute("device", deviceService.getDeviceById(id).orElseThrow());
         model.addAttribute("schools", schoolService.getAllSchools());
         model.addAttribute("classrooms", classroomService.getAllClassrooms());
+        model.addAttribute("types", deviceService.getAllTypes());
         return "device/modify";
     }
 
     @PostMapping("/modify")
     public String modify(Device device, String operatorName, String operatorPosition, String location,
                         String manageCate, String manageCateCustom, String manageYear, String manageYearCustom, String manageNum, String manageNumCustom,
-                        String uidCate, Long idNumber) {
+                        String uidCate, String uidCateCustom, String uidYear, String uidYearCustom, String uidNum, String uidNumCustom,
+                        Long idNumber) {
         log.info("Modifying device: {}", device);
-        School school = device.getSchool();
-        // Operator 처리
-        Operator operator = device.getOperator();
-        if (operatorName != null && operatorPosition != null) {
-            if (operator != null) {
-                operator.setName(operatorName);
-                operator.setPosition(operatorPosition);
-                operator.setSchool(school);
-                operatorService.updateOperator(operator);
-            } else {
-                operator = operatorService.findByNameAndPositionAndSchool(operatorName, operatorPosition, school)
-                    .orElseGet(() -> {
-                        Operator op = new Operator();
-                        op.setName(operatorName);
-                        op.setPosition(operatorPosition);
-                        op.setSchool(school);
-                        return operatorService.saveOperator(op);
-                    });
-                device.setOperator(operator);
-            }
+
+        // 담당자 정보 처리
+        if (operatorName != null && !operatorName.trim().isEmpty() && 
+            operatorPosition != null && !operatorPosition.trim().isEmpty()) {
+            Operator operator = operatorService.findByNameAndPositionAndSchool(operatorName, operatorPosition, device.getSchool())
+                .orElseGet(() -> {
+                    Operator op = new Operator();
+                    op.setName(operatorName);
+                    op.setPosition(operatorPosition);
+                    op.setSchool(device.getSchool());
+                    return operatorService.saveOperator(op);
+                });
+            device.setOperator(operator);
         }
-        // Classroom 처리
+
+        // 교실 정보 처리
         Classroom classroom = null;
         if (location != null && !location.trim().isEmpty()) {
             classroom = classroomService.findByRoomName(location);
             if (classroom == null) {
                 classroom = new Classroom();
                 classroom.setRoomName(location);
-                classroom.setSchool(school);
+                classroom.setSchool(device.getSchool());
                 classroom.setXCoordinate(0);
                 classroom.setYCoordinate(0);
                 classroom.setWidth(100);
@@ -260,20 +270,27 @@ public class DeviceController {
             }
         }
         device.setClassroom(classroom);
+
         // 관리번호(Manage) 처리
         String cate = ("custom".equals(manageCate)) ? manageCateCustom : manageCate;
         Integer year = ("custom".equals(manageYear)) ? Integer.valueOf(manageYearCustom) : Integer.valueOf(manageYear);
         Long num = ("custom".equals(manageNum)) ? Long.valueOf(manageNumCustom) : Long.valueOf(manageNum);
         Manage manage = manageService.findOrCreate(device.getSchool(), cate, year, num);
         device.setManage(manage);
-        // Uid 처리
-        if (uidCate != null && !uidCate.trim().isEmpty()) {
-            if (idNumber != null) {
-                deviceService.setDeviceUidWithNumber(device, uidCate, idNumber);
+
+        // 고유번호(Uid) 처리
+        String finalUidCate = ("custom".equals(uidCate)) ? uidCateCustom : uidCate;
+        String finalUidYear = ("custom".equals(uidYear)) ? uidYearCustom : uidYear;
+        Long finalUidNum = ("custom".equals(uidNum)) ? Long.valueOf(uidNumCustom) : Long.valueOf(uidNum);
+        
+        if (finalUidCate != null && !finalUidCate.trim().isEmpty()) {
+            if (finalUidNum != null) {
+                deviceService.setDeviceUidWithNumber(device, finalUidCate, finalUidNum);
             } else {
-                deviceService.setDeviceUid(device, uidCate);
+                deviceService.setDeviceUid(device, finalUidCate);
             }
         }
+
         deviceService.updateDevice(device);
         return "redirect:/device/list";
     }
@@ -399,5 +416,143 @@ public class DeviceController {
     @ResponseBody
     public List<Manage> getManagesBySchool(@PathVariable Long schoolId) {
         return manageService.findBySchoolId(schoolId);
+    }
+
+    // 학교별 관리번호 카테고리 목록 조회
+    @GetMapping("/api/manages/cates")
+    @ResponseBody
+    public List<String> getManageCatesBySchool(@RequestParam Long schoolId) {
+        System.out.println("=== 카테고리 목록 조회 API 호출 ===");
+        System.out.println("요청 schoolId: " + schoolId);
+        try {
+            List<String> result = manageService.getManageCatesBySchool(schoolId);
+            System.out.println("조회된 카테고리 개수: " + result.size());
+            System.out.println("조회된 카테고리 목록: " + result);
+            return result;
+        } catch (Exception e) {
+            System.err.println("카테고리 목록 조회 중 오류 발생: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    // 학교 + 카테고리별 연도 목록 조회
+    @GetMapping("/api/manages/years")
+    @ResponseBody
+    public List<Integer> getYearsBySchoolAndManageCate(@RequestParam Long schoolId, @RequestParam String manageCate) {
+        log.info("=== 연도 목록 조회 ===");
+        log.info("schoolId: {}, manageCate: {}", schoolId, manageCate);
+        return manageService.getYearsBySchoolAndManageCate(schoolId, manageCate);
+    }
+
+    // 기존 관리번호 목록 + 다음 번호 조회 (연도 포함)
+    @GetMapping("/api/manages/nums-with-year")
+    @ResponseBody
+    public List<Long> getManageNumsBySchoolAndManageCateAndYear(@RequestParam Long schoolId, @RequestParam String manageCate, @RequestParam Integer year) {
+        log.info("=== API 호출 (연도 포함) ===");
+        log.info("schoolId: {}, manageCate: {}, year: {}", schoolId, manageCate, year);
+        return manageService.getManageNumsWithNext(schoolId, manageCate, year);
+    }
+
+    // 기존 관리번호 목록 + 다음 번호 조회 (연도 없음)
+    @GetMapping("/api/manages/nums")
+    @ResponseBody
+    public List<Long> getManageNumsBySchoolAndManageCate(@RequestParam Long schoolId, @RequestParam String manageCate) {
+        log.info("=== API 호출 디버깅 ===");
+        log.info("schoolId: {}, manageCate: {}", schoolId, manageCate);
+        
+        List<Long> result = manageService.getManageNumsWithNext(schoolId, manageCate, null);
+        log.info("최종 결과: {}", result);
+        return result;
+    }
+
+    // 디버깅용 - 학교의 모든 Manage 데이터 조회 (Device 기반)
+    @GetMapping("/api/debug/manages/{schoolId}")
+    @ResponseBody
+    public List<com.inet.entity.Manage> debugGetAllManages(@PathVariable Long schoolId) {
+        return manageService.findBySchoolId(schoolId);
+    }
+
+    // 디버깅용 - Manage 테이블에서 직접 조회
+    @GetMapping("/api/debug/manages-direct/{schoolId}")
+    @ResponseBody
+    public List<com.inet.entity.Manage> debugGetAllManagesDirect(@PathVariable Long schoolId) {
+        return manageService.findDirectBySchoolId(schoolId);
+    }
+
+    // 고유번호 관련 API들
+
+    // 학교별 고유번호 연도 목록 조회
+    @GetMapping("/api/uids/years/{schoolId}/{cate}")
+    @ResponseBody
+    public List<String> getUidYearsBySchoolAndCate(@PathVariable Long schoolId, @PathVariable String cate) {
+        log.info("=== 고유번호 연도 목록 조회 ===");
+        log.info("schoolId: {}, cate: {}", schoolId, cate);
+        return uidService.getUidYearsBySchoolAndCate(schoolId, cate);
+    }
+
+    // 고유번호 번호 목록 + 다음 번호 조회
+    @GetMapping("/api/uids/nums/{schoolId}/{cate}")
+    @ResponseBody
+    public List<Long> getUidNumsBySchoolAndCate(@PathVariable Long schoolId, @PathVariable String cate, @RequestParam(required = false) String year) {
+        log.info("=== 고유번호 번호 목록 조회 ===");
+        log.info("schoolId: {}, cate: {}, year: {}", schoolId, cate, year);
+        return uidService.getUidNumsWithNext(schoolId, cate, year);
+    }
+
+    // 고유번호 카테고리 목록 조회
+    @GetMapping("/api/uids/cates/{schoolId}")
+    @ResponseBody
+    public List<String> getUidCates(@PathVariable Long schoolId) {
+        log.info("=== 고유번호 카테고리 목록 조회 ===");
+        log.info("schoolId: {}", schoolId);
+        List<String> cates = uidService.getUidCatesBySchool(schoolId);
+        log.info("Found categories: {}", cates);
+        return cates;
+    }
+
+    // 디버깅용 - 학교의 모든 Uid 데이터 조회
+    @GetMapping("/api/debug/uids/{schoolId}")
+    @ResponseBody
+    public List<Uid> debugGetAllUids(@PathVariable Long schoolId) {
+        log.info("=== 고유번호 디버깅 - 모든 UID 조회 ===");
+        log.info("schoolId: {}", schoolId);
+        List<Uid> uids = uidService.getUidsBySchoolId(schoolId);
+        log.info("Found {} UIDs", uids.size());
+        return uids;
+    }
+    
+    // 테스트용 - 고유번호 테스트 데이터 생성
+    @PostMapping("/api/debug/create-test-uids/{schoolId}")
+    @ResponseBody
+    public String createTestUids(@PathVariable Long schoolId) {
+        log.info("=== 테스트 고유번호 데이터 생성 ===");
+        log.info("schoolId: {}", schoolId);
+        
+        try {
+            School school = schoolService.getSchoolById(schoolId).orElseThrow();
+            
+            // 기본 카테고리별 테스트 데이터 생성
+            String[] categories = {"DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET"};
+            String[] years = {"23", "24", "25"};
+            
+            int count = 0;
+            for (String cate : categories) {
+                for (String year : years) {
+                    Uid uid = new Uid();
+                    uid.setCate(cate);
+                    uid.setIdNumber(1L);
+                    uid.setMfgYear(year);
+                    uid.setSchool(school);
+                    uidService.saveUid(uid);
+                    count++;
+                }
+            }
+            
+            return "테스트 데이터 " + count + "개 생성 완료";
+        } catch (Exception e) {
+            log.error("테스트 데이터 생성 중 오류: ", e);
+            return "오류: " + e.getMessage();
+        }
     }
 } 
