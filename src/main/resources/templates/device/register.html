@@ -330,6 +330,10 @@
             fetch(`/api/uids/cates/${schoolId}`)
                 .then(response => {
                     console.log('API 응답 상태:', response.status);
+                    if (response.status === 404) {
+                        console.log('해당 학교의 고유번호 카테고리 데이터가 없습니다.');
+                        return ["DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET"]; // 기본 카테고리
+                    }
                     return response.json();
                 })
                 .then(cates => {
@@ -337,13 +341,16 @@
                     const cateSelect = document.getElementById('uidCate');
                     cateSelect.innerHTML = '<option value="">구분 선택</option>';
                     
-                    cates.forEach((cate, index) => {
-                        console.log(`고유번호 카테고리 ${index}:`, cate);
-                        const option = document.createElement('option');
-                        option.value = cate;
-                        option.textContent = cate;
-                        cateSelect.appendChild(option);
-                    });
+                    // cates가 배열인지 확인
+                    if (Array.isArray(cates)) {
+                        cates.forEach((cate, index) => {
+                            console.log(`고유번호 카테고리 ${index}:`, cate);
+                            const option = document.createElement('option');
+                            option.value = cate;
+                            option.textContent = cate;
+                            cateSelect.appendChild(option);
+                        });
+                    }
                     
                     const customOption = document.createElement('option');
                     customOption.value = 'custom';
@@ -357,6 +364,26 @@
                     console.error('오류 타입:', error.name);
                     console.error('오류 메시지:', error.message);
                     console.error('전체 오류:', error);
+                    
+                    // 오류 발생 시에도 기본 카테고리 옵션은 제공
+                    const cateSelect = document.getElementById('uidCate');
+                    cateSelect.innerHTML = '<option value="">구분 선택</option>';
+                    
+                    // 기본 카테고리 추가
+                    const defaultCates = ["DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET"];
+                    defaultCates.forEach(cate => {
+                        const option = document.createElement('option');
+                        option.value = cate;
+                        option.textContent = cate;
+                        cateSelect.appendChild(option);
+                    });
+                    
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    cateSelect.appendChild(customOption);
+                    
+                    console.log('오류 시 기본 고유번호 카테고리 옵션 추가 완료');
                 });
         }
 

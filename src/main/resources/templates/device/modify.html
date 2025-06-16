@@ -290,6 +290,10 @@
             fetch(`/api/uids/cates/${schoolId}`)
                 .then(response => {
                     console.log('API 응답 상태:', response.status);
+                    if (response.status === 404) {
+                        console.log('해당 학교의 고유번호 카테고리 데이터가 없습니다.');
+                        return ["DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET"]; // 기본 카테고리
+                    }
                     return response.json();
                 })
                 .then(cates => {
@@ -297,13 +301,16 @@
                     const cateSelect = document.getElementById('uidCateSelect');
                     cateSelect.innerHTML = '<option value="">구분 선택</option>';
                     
-                    cates.forEach((cate, index) => {
-                        console.log(`고유번호 카테고리 ${index}:`, cate);
-                        const option = document.createElement('option');
-                        option.value = cate;
-                        option.textContent = cate;
-                        cateSelect.appendChild(option);
-                    });
+                    // cates가 배열인지 확인
+                    if (Array.isArray(cates)) {
+                        cates.forEach((cate, index) => {
+                            console.log(`고유번호 카테고리 ${index}:`, cate);
+                            const option = document.createElement('option');
+                            option.value = cate;
+                            option.textContent = cate;
+                            cateSelect.appendChild(option);
+                        });
+                    }
                     
                     const customOption = document.createElement('option');
                     customOption.value = 'custom';
@@ -317,6 +324,26 @@
                     console.error('오류 타입:', error.name);
                     console.error('오류 메시지:', error.message);
                     console.error('전체 오류:', error);
+                    
+                    // 오류 발생 시에도 기본 카테고리 옵션은 제공
+                    const cateSelect = document.getElementById('uidCateSelect');
+                    cateSelect.innerHTML = '<option value="">구분 선택</option>';
+                    
+                    // 기본 카테고리 추가
+                    const defaultCates = ["DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET"];
+                    defaultCates.forEach(cate => {
+                        const option = document.createElement('option');
+                        option.value = cate;
+                        option.textContent = cate;
+                        cateSelect.appendChild(option);
+                    });
+                    
+                    const customOption = document.createElement('option');
+                    customOption.value = 'custom';
+                    customOption.textContent = '직접입력';
+                    cateSelect.appendChild(customOption);
+                    
+                    console.log('오류 시 기본 고유번호 카테고리 옵션 추가 완료');
                 });
         }
 
@@ -333,7 +360,7 @@
                     console.log('연도 API 응답 상태:', response.status);
                     if (response.status === 404) {
                         console.log('해당 카테고리의 연도 데이터가 없습니다.');
-                        return [];
+                        return ["23", "24", "25"]; // 기본 연도
                     }
                     return response.json();
                 })
@@ -363,13 +390,24 @@
                     console.error('=== 고유번호 연도 API 호출 오류 ===');
                     console.error('오류:', error);
                     
-                    // 오류 발생 시에도 직접입력 옵션은 제공
+                    // 오류 발생 시에도 기본 연도 옵션 제공
                     const yearSelect = document.getElementById('uidYearSelect');
                     yearSelect.innerHTML = '<option value="">연도 선택</option>';
+                    
+                    const defaultYears = ["23", "24", "25"];
+                    defaultYears.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = year;
+                        yearSelect.appendChild(option);
+                    });
+                    
                     const customOption = document.createElement('option');
                     customOption.value = 'custom';
                     customOption.textContent = '직접입력';
                     yearSelect.appendChild(customOption);
+                    
+                    console.log('오류 시 기본 고유번호 연도 옵션 추가 완료');
                 });
         }
 
@@ -387,7 +425,7 @@
                     console.log('고유번호 번호 API 응답 상태:', response.status);
                     if (response.status === 404) {
                         console.log('해당 카테고리의 번호 데이터가 없습니다.');
-                        return [];
+                        return [1]; // 기본 번호
                     }
                     return response.json();
                 })
@@ -437,6 +475,8 @@
                     customOption.value = 'custom';
                     customOption.textContent = '직접입력';
                     numSelect.appendChild(customOption);
+                    
+                    console.log('오류 시 기본 고유번호 번호 옵션 추가 완료');
                 });
         }
 

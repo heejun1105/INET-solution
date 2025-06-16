@@ -1049,4 +1049,8 @@ public class DeviceService {
     public long countActiveDevices() {
         return deviceRepository.countByUnusedFalseOrUnusedIsNull();
     }
+
+    public List<Device> findByClassroomName(String classroomName) {
+        return deviceRepository.findByClassroomRoomName(classroomName);
+    }
 } 

@@ -41,7 +41,7 @@ public class Uid {
     
     /**
      * 표시용 고유번호를 반환합니다.
-     * 형식: 카테고리 + 학교코드 + 제조연도 + ID번호
+     * 형식: 카테고리 + 제조연도 + ID번호
      */
     public String getDisplayId() {
         if (cate == null || idNumber == null) {

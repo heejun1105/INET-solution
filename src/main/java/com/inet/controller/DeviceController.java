@@ -41,6 +41,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Comparator;
 
 @Controller
 @RequestMapping("/device")
@@ -60,25 +61,60 @@ public class DeviceController {
     public String list(@RequestParam(required = false) Long schoolId,
                       @RequestParam(required = false) String type,
                       @RequestParam(required = false) Long classroomId,
+                      @RequestParam(required = false) String classroomName,
                       @RequestParam(defaultValue = "1") int page,
                       @RequestParam(defaultValue = "16") int size,
                       Model model) {
         
-        model.addAttribute("schools", schoolService.getAllSchools());
-        model.addAttribute("types", deviceService.getAllTypes());
+        // 학교 목록
+        List<School> schools = schoolService.getAllSchools();
+        model.addAttribute("schools", schools);
+        
+        // 선택된 학교에 따른 교실 목록
+        List<Classroom> classrooms;
+        if (schoolId != null) {
+            classrooms = classroomService.findBySchoolId(schoolId);
+        } else {
+            classrooms = classroomService.getAllClassrooms().stream()
+                .collect(Collectors.collectingAndThen(
+                    Collectors.toMap(
+                        Classroom::getRoomName,
+                        classroom -> classroom,
+                        (existing, replacement) -> existing
+                    ),
+                    map -> new ArrayList<>(map.values())
+                ))
+                .stream()
+                .sorted(Comparator.comparing(Classroom::getRoomName))
+                .collect(Collectors.toList());
+        }
+        model.addAttribute("classrooms", classrooms);
+        
+        // 장비 유형 목록
+        List<String> types = deviceService.getAllTypes();
+        model.addAttribute("types", types);
+        
+        // 선택된 필터 값들
         model.addAttribute("selectedSchoolId", schoolId);
         model.addAttribute("selectedType", type);
         model.addAttribute("selectedClassroomId", classroomId);
-
-        // 선택된 학교의 교실 목록 조회
-        if (schoolId != null) {
-            model.addAttribute("classrooms", classroomService.findBySchoolId(schoolId));
-        } else {
-            model.addAttribute("classrooms", classroomService.getAllClassrooms());
-        }
+        model.addAttribute("selectedClassroomName", classroomName);
 
         // 모든 장비를 가져와서 교실별로 정렬
-        List<Device> allDevices = deviceService.findFiltered(schoolId, type, classroomId);
+        List<Device> allDevices;
+        if (schoolId != null) {
+            allDevices = deviceService.findFiltered(schoolId, type, classroomId);
+        } else if (classroomName != null && !classroomName.isEmpty()) {
+            // 학교가 선택되지 않았고 교실 이름이 선택된 경우
+            allDevices = deviceService.findByClassroomName(classroomName);
+            if (type != null && !type.isEmpty()) {
+                allDevices = allDevices.stream()
+                    .filter(device -> type.equals(device.getType()))
+                    .collect(Collectors.toList());
+            }
+        } else {
+            allDevices = deviceService.findFiltered(null, type, null);
+        }
         
         // 교실별로 정렬 (교실명 기준)
         allDevices.sort((d1, d2) -> {
@@ -369,6 +405,26 @@ public class DeviceController {
         return "device/map";
     }
 
+    @GetMapping("/api/classrooms")
+    @ResponseBody
+    @JsonView(Views.Summary.class)
+    public List<Classroom> getAllClassrooms() {
+        List<Classroom> allClassrooms = classroomService.getAllClassrooms();
+        // 교실 이름 기준으로 중복 제거하고 가나다순 정렬
+        return allClassrooms.stream()
+            .collect(Collectors.collectingAndThen(
+                Collectors.toMap(
+                    Classroom::getRoomName,
+                    classroom -> classroom,
+                    (existing, replacement) -> existing
+                ),
+                map -> new ArrayList<>(map.values())
+            ))
+            .stream()
+            .sorted(Comparator.comparing(Classroom::getRoomName))
+            .collect(Collectors.toList());
+    }
+
     @GetMapping("/api/classrooms/{schoolId}")
     @ResponseBody
     @JsonView(Views.Summary.class)
@@ -488,7 +544,24 @@ public class DeviceController {
     public List<String> getUidYearsBySchoolAndCate(@PathVariable Long schoolId, @PathVariable String cate) {
         log.info("=== 고유번호 연도 목록 조회 ===");
         log.info("schoolId: {}, cate: {}", schoolId, cate);
-        return uidService.getUidYearsBySchoolAndCate(schoolId, cate);
+        
+        try {
+            List<String> years = uidService.getUidYearsBySchoolAndCate(schoolId, cate);
+            log.info("Found years: {}", years);
+            
+            // 데이터가 없으면 기본 연도 반환
+            if (years == null || years.isEmpty()) {
+                log.info("No years found, returning default years");
+                List<String> defaultYears = List.of("23", "24", "25");
+                return defaultYears;
+            }
+            
+            return years;
+        } catch (Exception e) {
+            log.error("고유번호 연도 조회 중 오류: ", e);
+            // 오류 발생 시 기본 연도 반환
+            return List.of("23", "24", "25");
+        }
     }
 
     // 고유번호 번호 목록 + 다음 번호 조회
@@ -497,18 +570,49 @@ public class DeviceController {
     public List<Long> getUidNumsBySchoolAndCate(@PathVariable Long schoolId, @PathVariable String cate, @RequestParam(required = false) String year) {
         log.info("=== 고유번호 번호 목록 조회 ===");
         log.info("schoolId: {}, cate: {}, year: {}", schoolId, cate, year);
-        return uidService.getUidNumsWithNext(schoolId, cate, year);
+        
+        try {
+            List<Long> nums = uidService.getUidNumsWithNext(schoolId, cate, year);
+            log.info("Found nums: {}", nums);
+            
+            // 데이터가 없으면 1번 반환
+            if (nums == null || nums.isEmpty()) {
+                log.info("No nums found, returning default num 1");
+                return List.of(1L);
+            }
+            
+            return nums;
+        } catch (Exception e) {
+            log.error("고유번호 번호 조회 중 오류: ", e);
+            // 오류 발생 시 1번 반환
+            return List.of(1L);
+        }
     }
 
-    // 고유번호 카테고리 목록 조회
+    // 고유번호 카테고리 목록 조회 (간단한 버전)
     @GetMapping("/api/uids/cates/{schoolId}")
     @ResponseBody
     public List<String> getUidCates(@PathVariable Long schoolId) {
         log.info("=== 고유번호 카테고리 목록 조회 ===");
         log.info("schoolId: {}", schoolId);
-        List<String> cates = uidService.getUidCatesBySchool(schoolId);
-        log.info("Found categories: {}", cates);
-        return cates;
+        
+        try {
+            List<String> cates = uidService.getUidCatesBySchool(schoolId);
+            log.info("Found categories: {}", cates);
+            
+            // 데이터가 없으면 기본 카테고리 반환
+            if (cates == null || cates.isEmpty()) {
+                log.info("No categories found, returning default categories");
+                List<String> defaultCates = List.of("DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET");
+                return defaultCates;
+            }
+            
+            return cates;
+        } catch (Exception e) {
+            log.error("고유번호 카테고리 조회 중 오류: ", e);
+            // 오류 발생 시 기본 카테고리 반환
+            return List.of("DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET");
+        }
     }
 
     // 디버깅용 - 학교의 모든 Uid 데이터 조회
