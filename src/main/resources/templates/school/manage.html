@@ -219,12 +219,46 @@
             padding: 1.5rem;
             transition: all 0.3s ease;
             position: relative;
+            display: block;
+            text-decoration: none;
+            color: inherit;
         }
 
         .school-item:hover {
             transform: translateY(-4px);
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-            border-color: rgba(255, 255, 255, 0.3);
+            border-color: rgba(96, 165, 250, 0.5);
+            background: rgba(96, 165, 250, 0.1);
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .school-link {
+            cursor: pointer;
+        }
+
+        .school-action-hint {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+
+        .school-item:hover .school-action-hint {
+            opacity: 1;
+            transform: translateY(0);
+            color: #60a5fa;
+        }
+
+        .school-action-hint i {
+            font-size: 0.8rem;
         }
 
         .school-header {
@@ -397,7 +431,9 @@
                 
                 <!-- 학교 목록 -->
                 <div th:if="${!#lists.isEmpty(schools)}" class="schools-grid">
-                    <div th:each="school : ${schools}" class="school-item">
+                    <a th:each="school : ${schools}" 
+                       th:href="@{/device/list(schoolId=${school.schoolId})}" 
+                       class="school-item school-link">
                         <div class="school-header">
                             <div class="school-name">
                                 <i class="fas fa-school"></i>
@@ -412,7 +448,12 @@
                             <i class="fas fa-network-wired" style="margin-right: 0.5rem;"></i>
                             IP: <span th:text="${school.ip}">192.168.1.1</span>
                         </div>
-                    </div>
+                        
+                        <div class="school-action-hint">
+                            <i class="fas fa-arrow-right"></i>
+                            <span>장비 목록 보기</span>
+                        </div>
+                    </a>
                 </div>
             </div>
         </div>
