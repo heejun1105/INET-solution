@@ -6,388 +6,431 @@
     <link rel="stylesheet" href="/main.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        .delete-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(0, 0, 0, 0.05);
-        }
-        
-        .page-title {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #e5e7eb;
-        }
-        
-        .page-title h1 {
-            color: #dc2626;
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-        
-        .page-title p {
-            color: #6b7280;
-            font-size: 1rem;
-        }
-        
-        .warning-section {
-            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-            border: 2px solid #fca5a5;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-        
-        .warning-icon {
-            font-size: 3rem;
-            color: #dc2626;
-            margin-bottom: 15px;
-        }
-        
-        .warning-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: #dc2626;
-            margin-bottom: 10px;
-        }
-        
-        .warning-text {
-            color: #991b1b;
-            font-size: 1rem;
-            line-height: 1.6;
-        }
-        
-        .school-section {
-            margin-bottom: 40px;
-        }
-        
-        .section-title {
-            font-size: 1.4rem;
-            font-weight: 600;
-            color: #1e3a8a;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e5e7eb;
-        }
-        
-        .school-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 16px;
-        }
-        
-        .school-card {
-            background: white;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.3s ease;
-            cursor: pointer;
+        /* 전체 컨테이너 스타일 */
+        .delete-page-container {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%);
+            min-height: 100vh;
+            padding: 2rem 0;
             position: relative;
             overflow: hidden;
         }
-        
-        .school-card:hover {
-            border-color: #dc2626;
-            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.15);
-            transform: translateY(-2px);
-        }
-        
-        .school-card.selected {
-            border-color: #dc2626;
-            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 50%);
-            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.2);
-        }
-        
-        .school-card::before {
+
+        .delete-page-container::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #dc2626, #ef4444);
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+            z-index: 1;
         }
-        
-        .school-card.selected::before {
-            transform: scaleX(1);
+
+        .main-container {
+            position: relative;
+            z-index: 2;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
         }
-        
-        .school-name {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #1f2937;
-            margin-bottom: 12px;
-        }
-        
-        .school-info {
-            font-size: 0.9rem;
-            color: #6b7280;
-            margin-bottom: 15px;
-        }
-        
-        .school-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-            gap: 8px;
-            margin-bottom: 15px;
-        }
-        
-        .stat-item {
-            background: #f3f4f6;
-            border-radius: 8px;
-            padding: 8px;
+
+        /* 헤더 섹션 */
+        .modern-header {
             text-align: center;
+            margin-bottom: 3rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
-        
-        .stat-number {
-            font-size: 1.1rem;
+
+        .modern-header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .modern-header .subtitle {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .modern-header .warning-text {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 400;
+        }
+
+        /* 알림 메시지 */
+        .alert-modern {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            animation: slideInFromTop 0.6s ease-out;
+        }
+
+        .alert-modern.success {
+            border-left: 4px solid #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .alert-modern.error {
+            border-left: 4px solid #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .alert-modern i {
+            font-size: 1.2rem;
+            color: #ffffff;
+        }
+
+        .alert-modern span {
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        /* 메인 콘텐츠 카드 */
+        .content-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            animation: slideInFromBottom 0.6s ease-out;
+        }
+
+        /* 섹션 타이틀 */
+        .section-title-modern {
+            font-size: 1.5rem;
             font-weight: 700;
-            color: #dc2626;
+            color: #ffffff;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
-        
-        .stat-label {
-            font-size: 0.75rem;
-            color: #6b7280;
-            margin-top: 2px;
-        }
-        
-        .checkbox-wrapper {
+
+        .section-title-modern .step-number {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            color: white;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: 15px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(96, 165, 250, 0.3);
         }
-        
-        .checkbox-wrapper input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            margin-right: 10px;
-            cursor: pointer;
+
+        /* 학교 그리드 */
+        .school-grid-modern {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
         }
-        
-        .checkbox-wrapper label {
-            font-weight: 500;
-            color: #374151;
-            cursor: pointer;
-        }
-        
-        .action-section {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 30px;
-            border-top: 2px solid #e5e7eb;
-        }
-        
-        .delete-button {
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-            color: white;
-            padding: 16px 40px;
-            border: none;
+
+        .school-card-modern {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
             border-radius: 12px;
-            font-size: 1.1rem;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            min-height: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .school-card-modern::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .school-card-modern:hover::before {
+            opacity: 1;
+        }
+
+        .school-card-modern:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .school-card-modern.selected {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.3) 100%);
+            border-color: #10b981;
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.3);
+        }
+
+        .school-card-modern .school-name {
+            font-size: 0.95rem;
             font-weight: 600;
+            color: #ffffff;
+            text-align: center;
+            margin-bottom: 0;
+        }
+
+        .school-card-modern .school-checkbox {
+            position: absolute;
+            top: 50%;
+            right: 0.75rem;
+            transform: translateY(-50%);
+            width: 1rem;
+            height: 1rem;
+            accent-color: #10b981;
+        }
+
+        /* 삭제 옵션 섹션 */
+        .delete-options-modern {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+
+        .radio-group-modern {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .radio-option-modern {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-            min-height: 56px;
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .delete-button:hover {
-            background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(220, 38, 38, 0.4);
-        }
-        
-        .delete-button:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .confirmation-text {
-            font-size: 0.9rem;
-            color: #6b7280;
-            margin-top: 15px;
-            max-width: 500px;
-            margin-left: auto;
-            margin-right: auto;
-            line-height: 1.6;
-        }
-        
-        .alert {
-            padding: 16px 20px;
-            border-radius: 12px;
-            margin: 20px 0;
-            font-weight: 500;
+            flex: 1;
+            min-width: 200px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 0.75rem;
+        }
+
+        .radio-option-modern:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .radio-option-modern.active {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
+            border-color: #10b981;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+        }
+
+        .radio-option-modern input[type="radio"] {
+            width: 1.2rem;
+            height: 1.2rem;
+            accent-color: #10b981;
+        }
+
+        .radio-option-modern label {
+            color: #ffffff;
+            font-weight: 500;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        /* 체크박스 그리드 */
+        .checkbox-grid-modern {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .checkbox-item-modern {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 1rem;
+            cursor: pointer;
             transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
-        
-        .alert-success {
-            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-            color: #065f46;
-            border: 2px solid #10b981;
+
+        .checkbox-item-modern:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
         }
-        
-        .alert-error {
-            background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%);
-            color: #991b1b;
-            border: 2px solid #dc2626;
+
+        .checkbox-item-modern.checked {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
+            border-color: #10b981;
         }
-        
-        .alert-icon {
-            font-size: 1.2rem;
-            flex-shrink: 0;
+
+        .checkbox-item-modern input[type="checkbox"] {
+            width: 1.2rem;
+            height: 1.2rem;
+            accent-color: #10b981;
         }
-        
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e5e7eb;
-            border-radius: 4px;
-            margin: 20px 0;
-            overflow: hidden;
+
+        .checkbox-item-modern i {
+            color: #ffffff;
+            font-size: 1.1rem;
+            width: 1.5rem;
+            text-align: center;
         }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #dc2626, #ef4444);
-            width: 0%;
-            transition: width 0.3s ease;
+
+        .checkbox-item-modern label {
+            color: #ffffff;
+            font-weight: 500;
+            cursor: pointer;
+            flex: 1;
         }
-        
-        /* 태블릿 스타일 */
-        @media (max-width: 1024px) {
-            .delete-container {
-                margin: 16px;
-                padding: 20px;
+
+        /* 액션 버튼 */
+        .action-section-modern {
+            text-align: center;
+            margin-top: 3rem;
+        }
+
+        .delete-button-modern {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border: none;
+            border-radius: 16px;
+            padding: 1rem 2.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 0 auto 1rem;
+        }
+
+        .delete-button-modern:hover:not(:disabled) {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(239, 68, 68, 0.4);
+        }
+
+        .delete-button-modern:disabled {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .confirmation-text-modern {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        /* 애니메이션 */
+        @keyframes slideInFromTop {
+            from {
+                transform: translateY(-30px);
+                opacity: 0;
             }
-            
-            .page-title h1 {
-                font-size: 1.75rem;
-            }
-            
-            .school-grid {
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 12px;
-            }
-            
-            .school-card {
-                padding: 16px;
+            to {
+                transform: translateY(0);
+                opacity: 1;
             }
         }
-        
-        /* 모바일 스타일 */
+
+        @keyframes slideInFromBottom {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* 반응형 디자인 */
         @media (max-width: 768px) {
-            .delete-container {
-                margin: 8px;
-                padding: 16px;
-                border-radius: 8px;
+            .main-container {
+                padding: 0 1rem;
             }
-            
-            .page-title h1 {
-                font-size: 1.5rem;
+
+            .modern-header h1 {
+                font-size: 2.2rem;
             }
-            
-            .page-title p {
-                font-size: 0.9rem;
-            }
-            
-            .warning-section {
-                padding: 16px;
-                margin-bottom: 24px;
-            }
-            
-            .warning-icon {
-                font-size: 2.5rem;
-                margin-bottom: 12px;
-            }
-            
-            .warning-title {
-                font-size: 1.1rem;
-            }
-            
-            .warning-text {
-                font-size: 0.9rem;
-            }
-            
-            .school-grid {
+
+            .school-grid-modern {
                 grid-template-columns: 1fr;
-                gap: 12px;
             }
-            
-            .school-card {
-                padding: 16px;
+
+            .radio-group-modern {
+                flex-direction: column;
             }
-            
-            .school-stats {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 6px;
+
+            .radio-option-modern {
+                min-width: auto;
             }
-            
-            .delete-button {
-                width: 100%;
-                padding: 16px 24px;
-                font-size: 1rem;
-            }
-            
-            .section-title {
-                font-size: 1.2rem;
+
+            .checkbox-grid-modern {
+                grid-template-columns: 1fr;
             }
         }
-        
-        /* 소형 모바일 스타일 */
+
         @media (max-width: 480px) {
-            .delete-container {
-                margin: 4px;
-                padding: 12px;
+            .modern-header {
+                padding: 2rem 1.5rem;
             }
-            
-            .page-title h1 {
-                font-size: 1.3rem;
+
+            .content-card {
+                padding: 2rem 1.5rem;
             }
-            
-            .warning-section {
-                padding: 12px;
-            }
-            
-            .warning-icon {
-                font-size: 2rem;
-            }
-            
-            .school-card {
-                padding: 12px;
-            }
-            
-            .school-name {
-                font-size: 1.1rem;
-            }
-            
-            .school-stats {
-                grid-template-columns: 1fr 1fr;
-            }
-            
-            .stat-item {
-                padding: 6px;
-            }
-            
-            .confirmation-text {
-                font-size: 0.85rem;
+
+            .modern-header h1 {
+                font-size: 1.8rem;
             }
         }
     </style>
@@ -395,113 +438,115 @@
 <body>
     <div th:replace="~{fragments/navbar :: navbar}"></div>
 
-    <div class="container">
-        <div class="delete-container">
-            <h2><i class="fas fa-trash-alt"></i> 데이터 삭제</h2>
-            
-            <div th:if="${message}" class="alert alert-success">
-                <i class="fas fa-check-circle"></i> [[${message}]]
-            </div>
-            <div th:if="${error}" class="alert alert-danger">
-                <i class="fas fa-exclamation-circle"></i> [[${error}]]
-            </div>
-            
-            <div class="warning-section">
-                <i class="fas fa-exclamation-triangle warning-icon"></i>
-                <h3 class="warning-title">주의!</h3>
-                <p class="warning-text">선택한 데이터가 삭제됩니다. (학교 정보는 유지됩니다)</p>
-                <p class="warning-text">삭제된 데이터는 복구할 수 없습니다.</p>
+    <div class="delete-page-container">
+        <div class="main-container">
+            <!-- 모던 헤더 -->
+            <div class="modern-header">
+                <h1><i class="fas fa-trash-alt" style="margin-right: 0.5rem;"></i>데이터 삭제</h1>
+                <p class="subtitle">선택한 데이터가 삭제됩니다. (학교 정보는 유지됩니다)</p>
+                <p class="warning-text">⚠️ 삭제된 데이터는 복구할 수 없습니다.</p>
             </div>
 
-            <form th:action="@{/data/delete}" method="post" onsubmit="return confirmDelete()">
-                <div class="school-section">
-                    <label for="schoolId" class="section-title"><i class="fas fa-school"></i> 학교 선택:</label>
-                    <div class="school-grid">
-                        <div th:each="school : ${schools}" class="school-card" th:data-school-id="${school.schoolId}" th:data-school-name="${school.schoolName}">
-                            <h3 class="school-name">[[${school.schoolName}]]</h3>
-                            <p class="school-info">[[${school.schoolInfo}]]</p>
-                            <div class="school-stats">
-                                <div class="stat-item">
-                                    <span class="stat-number">[[${school.deviceCount}]]</span>
-                                    <span class="stat-label">장비</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-number">[[${school.wirelessApCount}]]</span>
-                                    <span class="stat-label">무선 AP</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-number">[[${school.classroomCount}]]</span>
-                                    <span class="stat-label">교실</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-number">[[${school.operatorCount}]]</span>
-                                    <span class="stat-label">운영자</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-number">[[${school.manageCount}]]</span>
-                                    <span class="stat-label">관리</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-number">[[${school.uidCount}]]</span>
-                                    <span class="stat-label">UID</span>
-                                </div>
+            <!-- 알림 메시지 -->
+            <div th:if="${message}" class="alert-modern success">
+                <i class="fas fa-check-circle"></i>
+                <span th:text="${message}"></span>
+            </div>
+            <div th:if="${error}" class="alert-modern error">
+                <i class="fas fa-exclamation-circle"></i>
+                <span th:text="${error}"></span>
+            </div>
+
+            <!-- 메인 폼 -->
+            <form id="deleteForm" th:action="@{/data/delete}" method="post" onsubmit="return confirmDelete()">
+                <!-- 학교 선택 섹션 -->
+                <div class="content-card">
+                    <h2 class="section-title-modern">
+                        <span class="step-number">1</span>
+                        삭제할 학교 선택 (다중 선택 가능)
+                    </h2>
+                    
+                    <div class="school-grid-modern">
+                        <div th:each="school : ${schools}" 
+                             class="school-card-modern" 
+                             th:data-school-name="${school.schoolName}" 
+                             onclick="toggleSchoolSelection(this, event)">
+                            <input type="checkbox" name="schoolIds" th:value="${school.schoolId}" class="school-checkbox" onclick="event.stopPropagation()">
+                            <div class="school-name" th:text="${school.schoolName}"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 삭제 옵션 섹션 -->
+                <div class="content-card">
+                    <h2 class="section-title-modern">
+                        <span class="step-number">2</span>
+                        삭제 범위 선택
+                    </h2>
+
+                    <div class="delete-options-modern">
+                        <div class="radio-group-modern">
+                            <div class="radio-option-modern" onclick="selectDeleteType('all')">
+                                <input type="radio" id="deleteAll" name="deleteType" value="all" onchange="toggleSelectiveOptions()">
+                                <label for="deleteAll">
+                                    <i class="fas fa-fire"></i>
+                                    전체 데이터 삭제
+                                </label>
+                            </div>
+                            <div class="radio-option-modern active" onclick="selectDeleteType('selective')">
+                                <input type="radio" id="deleteSelective" name="deleteType" value="selective" onchange="toggleSelectiveOptions()" checked>
+                                <label for="deleteSelective">
+                                    <i class="fas fa-filter"></i>
+                                    선택적 데이터 삭제
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="checkbox-grid-modern" id="selectiveOptions">
+                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteDevices', event)">
+                                <input type="checkbox" name="deleteDevices" id="deleteDevices" value="true" onclick="event.stopPropagation()">
+                                <i class="fas fa-desktop"></i>
+                                <label for="deleteDevices">장비</label>
+                            </div>
+                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteWirelessAps', event)">
+                                <input type="checkbox" name="deleteWirelessAps" id="deleteWirelessAps" value="true" onclick="event.stopPropagation()">
+                                <i class="fas fa-wifi"></i>
+                                <label for="deleteWirelessAps">무선 AP</label>
+                            </div>
+                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteClassrooms', event)">
+                                <input type="checkbox" name="deleteClassrooms" id="deleteClassrooms" value="true" onclick="event.stopPropagation()">
+                                <i class="fas fa-door-open"></i>
+                                <label for="deleteClassrooms">교실</label>
+                            </div>
+                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteOperators', event)">
+                                <input type="checkbox" name="deleteOperators" id="deleteOperators" value="true" onclick="event.stopPropagation()">
+                                <i class="fas fa-user-tie"></i>
+                                <label for="deleteOperators">운영자</label>
+                            </div>
+                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteManages', event)">
+                                <input type="checkbox" name="deleteManages" id="deleteManages" value="true" onclick="event.stopPropagation()">
+                                <i class="fas fa-clipboard-list"></i>
+                                <label for="deleteManages">관리번호</label>
+                            </div>
+                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteUids', event)">
+                                <input type="checkbox" name="deleteUids" id="deleteUids" value="true" onclick="event.stopPropagation()">
+                                <i class="fas fa-id-card"></i>
+                                <label for="deleteUids">고유번호</label>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" name="deleteAll" id="deleteAll" onchange="toggleSelectiveOptions()">
-                    <label for="deleteAll">전체 데이터 삭제</label>
+                <!-- 액션 버튼 -->
+                <div class="action-section-modern">
+                    <button type="submit" id="deleteButton" class="delete-button-modern" disabled>
+                        <i class="fas fa-trash-alt"></i>
+                        선택한 데이터 삭제
+                    </button>
+                    <p class="confirmation-text-modern">
+                        삭제할 학교와 데이터 범위를 선택한 후 버튼을 클릭하세요.
+                    </p>
                 </div>
-                
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" name="deleteSelective" id="deleteSelective" onchange="toggleSelectiveOptions()">
-                    <label for="deleteSelective">선택적 삭제</label>
-                </div>
-                
-                <div class="checkbox-group" id="selectiveOptions">
-                    <div class="checkbox-item">
-                        <input type="checkbox" name="deleteDevices" id="deleteDevices" value="true">
-                        <label for="deleteDevices">
-                            <i class="fas fa-desktop"></i> 장비 데이터 삭제
-                        </label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" name="deleteWirelessAps" id="deleteWirelessAps" value="true">
-                        <label for="deleteWirelessAps">
-                            <i class="fas fa-wifi"></i> 무선 AP 데이터 삭제
-                        </label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" name="deleteClassrooms" id="deleteClassrooms" value="true">
-                        <label for="deleteClassrooms">
-                            <i class="fas fa-door-open"></i> 교실 데이터 삭제
-                        </label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" name="deleteOperators" id="deleteOperators" value="true">
-                        <label for="deleteOperators">
-                            <i class="fas fa-user-tie"></i> 운영자 데이터 삭제
-                        </label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" name="deleteManages" id="deleteManages" value="true">
-                        <label for="deleteManages">
-                            <i class="fas fa-clipboard-list"></i> 관리 데이터 삭제
-                        </label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" name="deleteUids" id="deleteUids" value="true">
-                        <label for="deleteUids">
-                            <i class="fas fa-id-card"></i> UID 데이터 삭제
-                        </label>
-                    </div>
-                </div>
-
-                <button type="submit" class="delete-button" id="deleteButton" disabled>
-                    <i class="fas fa-trash-alt"></i> 데이터 삭제
-                </button>
             </form>
         </div>
     </div>
@@ -509,107 +554,161 @@
     <div th:replace="~{fragments/footer :: footer}"></div>
 
     <script>
+        const deleteButton = document.getElementById('deleteButton');
+        
+        function toggleSchoolSelection(cardElement, event) {
+            // 체크박스 직접 클릭인 경우에는 처리하지 않음
+            if (event && event.target.type === 'checkbox') {
+                return;
+            }
+            
+            cardElement.classList.toggle('selected');
+            const checkbox = cardElement.querySelector('input[type="checkbox"]');
+            checkbox.checked = !checkbox.checked;
+            updateDeleteButtonState();
+        }
+
+        function selectDeleteType(type) {
+            const allOption = document.querySelector('.radio-option-modern:first-child');
+            const selectiveOption = document.querySelector('.radio-option-modern:last-child');
+            
+            allOption.classList.remove('active');
+            selectiveOption.classList.remove('active');
+            
+            if (type === 'all') {
+                allOption.classList.add('active');
+                document.getElementById('deleteAll').checked = true;
+            } else {
+                selectiveOption.classList.add('active');
+                document.getElementById('deleteSelective').checked = true;
+            }
+            
+            toggleSelectiveOptions();
+        }
+
         function toggleSelectiveOptions() {
-            const deleteSelective = document.getElementById('deleteSelective');
             const selectiveOptions = document.getElementById('selectiveOptions');
-            const deleteButton = document.getElementById('deleteButton');
-            
-            if (deleteSelective.checked) {
-                selectiveOptions.classList.add('active');
-            } else {
-                selectiveOptions.classList.remove('active');
-                // 체크박스 초기화
-                document.getElementById('deleteDevices').checked = false;
-                document.getElementById('deleteWirelessAps').checked = false;
-                document.getElementById('deleteClassrooms').checked = false;
-                document.getElementById('deleteOperators').checked = false;
-                document.getElementById('deleteManages').checked = false;
-                document.getElementById('deleteUids').checked = false;
+            const isSelective = document.getElementById('deleteSelective').checked;
+            selectiveOptions.style.display = isSelective ? 'grid' : 'none';
+            updateDeleteButtonState();
+        }
+
+        function toggleCheckbox(checkboxId, event) {
+            // 체크박스 직접 클릭인 경우에는 처리하지 않음
+            if (event && event.target.type === 'checkbox') {
+                return;
             }
             
-            updateDeleteButton();
-        }
-        
-        function updateDeleteButton() {
-            const schoolId = document.getElementById('schoolId').value;
-            const deleteAll = document.getElementById('deleteAll').checked;
-            const deleteSelective = document.getElementById('deleteSelective').checked;
-            const deleteDevices = document.getElementById('deleteDevices').checked;
-            const deleteWirelessAps = document.getElementById('deleteWirelessAps').checked;
-            const deleteClassrooms = document.getElementById('deleteClassrooms').checked;
-            const deleteOperators = document.getElementById('deleteOperators').checked;
-            const deleteManages = document.getElementById('deleteManages').checked;
-            const deleteUids = document.getElementById('deleteUids').checked;
-            const deleteButton = document.getElementById('deleteButton');
+            const checkbox = document.getElementById(checkboxId);
+            const container = checkbox.closest('.checkbox-item-modern');
             
-            let isValid = schoolId && (deleteAll || (deleteSelective && (deleteDevices || deleteWirelessAps || deleteClassrooms || deleteOperators || deleteManages || deleteUids)));
-            deleteButton.disabled = !isValid;
-        }
-        
-        function confirmDelete() {
-            const school = document.getElementById('schoolId');
-            const schoolName = school.options[school.selectedIndex].text;
-            const deleteAll = document.getElementById('deleteAll').checked;
-            const deleteDevices = document.getElementById('deleteDevices').checked;
-            const deleteWirelessAps = document.getElementById('deleteWirelessAps').checked;
-            const deleteClassrooms = document.getElementById('deleteClassrooms').checked;
-            const deleteOperators = document.getElementById('deleteOperators').checked;
-            const deleteManages = document.getElementById('deleteManages').checked;
-            const deleteUids = document.getElementById('deleteUids').checked;
+            checkbox.checked = !checkbox.checked;
             
-            let confirmMessage = '';
-            
-            if (deleteAll) {
-                confirmMessage = `정말로 ${schoolName}의 모든 데이터를 삭제하시겠습니까?`;
+            if (checkbox.checked) {
+                container.classList.add('checked');
             } else {
-                let dataTypes = [];
-                if (deleteDevices) dataTypes.push('장비');
-                if (deleteWirelessAps) dataTypes.push('무선 AP');
-                if (deleteClassrooms) dataTypes.push('교실');
-                if (deleteOperators) dataTypes.push('운영자');
-                if (deleteManages) dataTypes.push('관리');
-                if (deleteUids) dataTypes.push('UID');
-                
-                confirmMessage = `정말로 ${schoolName}의 ${dataTypes.join(', ')} 데이터를 삭제하시겠습니까?`;
+                container.classList.remove('checked');
             }
             
-            confirmMessage += '\n\n이 작업은 취소할 수 없습니다.';
-            
-            return confirm(confirmMessage);
+            updateDeleteButtonState();
         }
-        
-        // 이벤트 리스너 추가
-        document.getElementById('schoolId').addEventListener('change', updateDeleteButton);
-        document.getElementById('deleteDevices').addEventListener('change', updateDeleteButton);
-        document.getElementById('deleteWirelessAps').addEventListener('change', updateDeleteButton);
-        document.getElementById('deleteClassrooms').addEventListener('change', updateDeleteButton);
-        document.getElementById('deleteOperators').addEventListener('change', updateDeleteButton);
-        document.getElementById('deleteManages').addEventListener('change', updateDeleteButton);
-        document.getElementById('deleteUids').addEventListener('change', updateDeleteButton);
-        
-        // 초기 상태 설정
-        updateDeleteButton();
-        
-        // 메시지가 있을 때 상단으로 스크롤
-        document.addEventListener('DOMContentLoaded', function() {
-            const successAlert = document.querySelector('.alert-success');
-            const errorAlert = document.querySelector('.alert-danger');
+
+        function getSelectedSchools() {
+            const selectedSchools = [];
+            document.querySelectorAll('.school-card-modern.selected').forEach(card => {
+                selectedSchools.push({
+                    id: card.querySelector('.school-checkbox').value,
+                    name: card.getAttribute('data-school-name')
+                });
+            });
+            return selectedSchools;
+        }
+
+        function updateDeleteButtonState() {
+            const selectedSchools = getSelectedSchools();
+            const schoolSelected = selectedSchools.length > 0;
+            const isAll = document.getElementById('deleteAll').checked;
+            const isSelective = document.getElementById('deleteSelective').checked;
             
-            if (successAlert || errorAlert) {
-                // 페이지 상단으로 스크롤
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                
-                // 성공 메시지는 5초 후 자동으로 숨김
-                if (successAlert) {
-                    setTimeout(function() {
-                        successAlert.style.opacity = '0';
-                        successAlert.style.transform = 'translateY(-20px)';
-                        setTimeout(function() {
-                            successAlert.style.display = 'none';
-                        }, 500);
-                    }, 5000);
+            let selectiveOptionChecked = false;
+            if (isSelective) {
+                const checkboxes = document.querySelectorAll('#selectiveOptions input[type="checkbox"]');
+                for (const checkbox of checkboxes) {
+                    if (checkbox.checked) {
+                        selectiveOptionChecked = true;
+                        break;
+                    }
                 }
             }
+            
+            deleteButton.disabled = !(schoolSelected && (isAll || (isSelective && selectiveOptionChecked)));
+        }
+
+        function confirmDelete() {
+            const selectedSchools = getSelectedSchools();
+            if (selectedSchools.length === 0) {
+                alert("삭제할 학교를 하나 이상 선택해주세요.");
+                return false;
+            }
+            const schoolNames = selectedSchools.map(s => s.name).join(', ');
+
+            const isAll = document.getElementById('deleteAll').checked;
+            let message = `정말로 '${schoolNames}'의 `;
+            
+            if (isAll) {
+                message += "모든 데이터를 삭제하시겠습니까?";
+            } else {
+                const selectedTypes = [];
+                document.querySelectorAll('#selectiveOptions input[type="checkbox"]:checked').forEach(cb => {
+                    const label = document.querySelector(`label[for='${cb.id}']`);
+                    selectedTypes.push(label.innerText.trim());
+                });
+                if (selectedTypes.length === 0) {
+                     alert("삭제할 데이터 유형을 하나 이상 선택해주세요.");
+                     return false;
+                }
+                message += `${selectedTypes.join(', ')} 데이터를 삭제하시겠습니까?`;
+            }
+            
+            message += "\n\n이 작업은 되돌릴 수 없습니다.";
+            return confirm(message);
+        }
+
+        // 체크박스 상태에 따른 UI 업데이트
+        document.querySelectorAll('#selectiveOptions input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const container = this.closest('.checkbox-item-modern');
+                if (this.checked) {
+                    container.classList.add('checked');
+                } else {
+                    container.classList.remove('checked');
+                }
+                updateDeleteButtonState();
+            });
+        });
+
+        // 학교 선택 체크박스 이벤트 리스너
+        document.querySelectorAll('.school-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const card = this.closest('.school-card-modern');
+                if (this.checked) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+                updateDeleteButtonState();
+            });
+        });
+
+        // 이벤트 리스너 연결
+        document.querySelectorAll('input[name="deleteType"]').forEach(el => {
+            el.addEventListener('change', updateDeleteButtonState);
+        });
+
+        // 페이지 로드 시 초기 상태 설정
+        document.addEventListener('DOMContentLoaded', () => {
+            toggleSelectiveOptions();
+            updateDeleteButtonState();
         });
     </script>
 </body>

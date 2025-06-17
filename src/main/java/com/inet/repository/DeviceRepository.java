@@ -44,6 +44,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     List<Device> findBySchoolSchoolIdAndType(Long schoolId, String type);
 
     List<Device> findByClassroomRoomName(String roomName);
+    List<Device> findByClassroomRoomNameAndType(String roomName, String type);
     
     // Uid 관련 검색
     Optional<Device> findByUid(Uid uid);

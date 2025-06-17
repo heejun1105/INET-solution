@@ -102,15 +102,28 @@ public class DeviceController {
 
         // 모든 장비를 가져와서 교실별로 정렬
         List<Device> allDevices;
-        if (schoolId != null) {
+        if (schoolId == null && classroomId != null) {
+            String selectedClassroomName = classroomService.getClassroomById(classroomId)
+                                                .map(Classroom::getRoomName)
+                                                .orElse(null);
+            
+            if (selectedClassroomName != null && !selectedClassroomName.isEmpty()) {
+                if (type != null && !type.isEmpty()) {
+                    allDevices = deviceService.findByClassroomNameAndType(selectedClassroomName, type);
+                } else {
+                    allDevices = deviceService.findByClassroomName(selectedClassroomName);
+                }
+            } else {
+                allDevices = deviceService.findFiltered(null, type, classroomId);
+            }
+
+        } else if (schoolId != null) {
             allDevices = deviceService.findFiltered(schoolId, type, classroomId);
         } else if (classroomName != null && !classroomName.isEmpty()) {
-            // 학교가 선택되지 않았고 교실 이름이 선택된 경우
-            allDevices = deviceService.findByClassroomName(classroomName);
             if (type != null && !type.isEmpty()) {
-                allDevices = allDevices.stream()
-                    .filter(device -> type.equals(device.getType()))
-                    .collect(Collectors.toList());
+                allDevices = deviceService.findByClassroomNameAndType(classroomName, type);
+            } else {
+                allDevices = deviceService.findByClassroomName(classroomName);
             }
         } else {
             allDevices = deviceService.findFiltered(null, type, null);

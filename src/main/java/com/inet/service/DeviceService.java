@@ -1053,4 +1053,8 @@ public class DeviceService {
     public List<Device> findByClassroomName(String classroomName) {
         return deviceRepository.findByClassroomRoomName(classroomName);
     }
+
+    public List<Device> findByClassroomNameAndType(String classroomName, String type) {
+        return deviceRepository.findByClassroomRoomNameAndType(classroomName, type);
+    }
 } 
