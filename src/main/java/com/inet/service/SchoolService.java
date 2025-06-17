@@ -20,6 +20,7 @@ public class SchoolService {
     private final SchoolRepository schoolRepository;
     
     // Create
+    @Transactional
     public School saveSchool(School school) {
         log.info("Saving school: {}", school);
         return schoolRepository.save(school);
