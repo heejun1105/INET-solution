@@ -5,103 +5,708 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>무선 AP 엑셀 업로드</title>
     <link rel="stylesheet" href="/main.css">
-    <link rel="stylesheet" href="/upload.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* 전체 컨테이너 스타일 */
+        .upload-page-container {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%);
+            min-height: 100vh;
+            padding: 2rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-page-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+            z-index: 1;
+        }
+
+        .main-container {
+            position: relative;
+            z-index: 2;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* 헤더 섹션 */
+        .modern-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            animation: slideInFromTop 0.8s ease-out;
+        }
+
+        .modern-header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+        }
+
+        .wifi-icon-header {
+            font-size: 3rem;
+            color: #10b981;
+            animation: wifiPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes wifiPulse {
+            0%, 100% { 
+                transform: scale(1);
+                filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.5));
+            }
+            50% { 
+                transform: scale(1.1);
+                filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.8));
+            }
+        }
+
+        .modern-header .subtitle {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 0;
+            font-weight: 500;
+        }
+
+        /* 메인 업로드 카드 */
+        .upload-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            animation: slideInFromBottom 0.8s ease-out 0.3s both;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .upload-card:hover::before {
+            opacity: 1;
+        }
+
+        /* 업로드 영역 */
+        .upload-area {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(16, 185, 129, 0.5);
+            border-radius: 20px;
+            padding: 3rem;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-bottom: 2rem;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.2);
+        }
+
+        .upload-area.file-selected {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.15);
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #10b981;
+            margin-bottom: 1.5rem;
+            animation: uploadFloat 2s ease-in-out infinite;
+        }
+
+        @keyframes uploadFloat {
+            0%, 100% { 
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            50% { 
+                transform: scale(1.05) rotate(5deg);
+                opacity: 0.8;
+            }
+        }
+
+        .upload-text {
+            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-subtext {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1rem;
+        }
+
+        /* 폼 섹션 */
+        .form-section {
+            display: grid;
+            gap: 2rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-group label i {
+            color: #10b981;
+        }
+
+        .form-group select,
+        .form-group input[type="file"] {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 1rem;
+            color: #ffffff;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .form-group select:focus,
+        .form-group input[type="file"]:focus {
+            outline: none;
+            border-color: #10b981;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+
+        .form-group select option {
+            background: #1e3a8a;
+            color: #ffffff;
+        }
+
+        /* 업로드 버튼 */
+        .upload-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            color: white;
+            padding: 1.2rem 2.5rem;
+            border-radius: 16px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            margin-top: 1.5rem;
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+        }
+
+        .upload-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+
+        .upload-btn:hover::before {
+            left: 100%;
+        }
+
+        .upload-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .upload-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 도움말 카드 */
+        .help-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 2.5rem;
+            margin-top: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            animation: slideInFromBottom 0.8s ease-out 0.6s both;
+        }
+
+        .help-card h3 {
+            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .help-card h3 i {
+            color: #10b981;
+        }
+
+        .help-content {
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.7;
+        }
+
+        .help-content ul {
+            margin: 1.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .help-content li {
+            margin-bottom: 0.8rem;
+            position: relative;
+        }
+
+        .help-content li::marker {
+            color: #10b981;
+        }
+
+        /* 엑셀 열 순서 표시 */
+        .excel-columns {
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .excel-columns h4 {
+            color: #10b981;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        .columns-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .column-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .column-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .column-number {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .column-number.required {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            animation: requiredPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes requiredPulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+            }
+            50% { 
+                transform: scale(1.1);
+                box-shadow: 0 4px 16px rgba(245, 158, 11, 0.5);
+            }
+        }
+
+        .column-name {
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        /* 로딩 오버레이 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(30, 58, 138, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 3rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .loading-spinner {
+            width: 80px;
+            height: 80px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid #10b981;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 2rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: #ffffff;
+        }
+
+        .loading-subtext {
+            font-size: 1rem;
+            opacity: 0.8;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* 알림 메시지 */
+        .alert {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            margin: 1.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            animation: slideInLeft 0.5s ease-out;
+        }
+
+        .alert-success {
+            border-left: 4px solid #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .alert-danger {
+            border-left: 4px solid #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .alert i {
+            font-size: 1.2rem;
+            color: #ffffff;
+        }
+
+        .alert span {
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        /* 애니메이션 */
+        @keyframes slideInFromTop {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInFromBottom {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 0 1rem;
+            }
+
+            .upload-card {
+                padding: 1.5rem;
+            }
+
+            .modern-header {
+                padding: 2rem;
+            }
+
+            .modern-header h1 {
+                font-size: 2.2rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .wifi-icon-header {
+                font-size: 2.5rem;
+            }
+
+            .columns-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .upload-area {
+                padding: 2rem 1rem;
+            }
+
+            .upload-icon {
+                font-size: 3rem;
+            }
+
+            .upload-btn {
+                padding: 1rem 2rem;
+                font-size: 1rem;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div th:replace="~{fragments/navbar :: navbar}"></div>
+    <div class="upload-page-container">
+        <div th:replace="~{fragments/navbar :: navbar}"></div>
 
-    <!-- 로딩 오버레이 -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <div class="loading-text">무선 AP 엑셀 파일 업로드 중</div>
-            <div class="loading-subtext">잠시만 기다려주세요...</div>
-        </div>
-    </div>
-
-    <div class="container">
-        <div class="upload-container">
-            <h2>무선 AP 엑셀 업로드</h2>
-            <form th:action="@{/wireless-ap/upload}" method="post" enctype="multipart/form-data" class="upload-form" id="uploadForm">
-                <div class="form-group">
-                    <label>학교 선택:</label>
-                    <select name="schoolId" required>
-                        <option value="">학교를 선택하세요</option>
-                        <option th:each="school : ${schools}" th:value="${school.schoolId}" th:text="${school.schoolName}"></option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>엑셀 파일:</label>
-                    <input type="file" name="file" accept=".xls,.xlsx" required>
-                </div>
-                <button type="submit" id="uploadBtn">업로드</button>
-            </form>
-
-            <div th:if="${message}" class="alert alert-success">[[${message}]]</div>
-            <div th:if="${error}" class="alert alert-danger">[[${error}]]</div>
-
-            <div class="help-section">
-                <h3>엑셀 파일 업로드 도움말</h3>
-                <p>업로드 시 다음 사항을 확인해주세요:</p>
-                <ul>
-                    <li>파일은 .xls 또는 .xlsx 형식이어야 합니다.</li>
-                    <li>데이터는 1행부터 시작됩니다.</li>
-                    <li><strong>📋 엑셀 데이터 열 순서 (중요!):</strong>
-                        <div style="margin-top: 0.5rem; background-color: #f0f9ff; padding: 1rem; border-radius: 6px; border-left: 4px solid #1e3a8a;">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem; font-size: 0.85rem;">
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #dc2626; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">1</span>
-                                    <strong>설치장소</strong> <span style="color: #dc2626;">⭐</span>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">2</span>
-                                    <strong>새 라벨 번호</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">3</span>
-                                    <strong>장비 번호</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">4</span>
-                                    <strong>도입연도</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">5</span>
-                                    <strong>제조사</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">6</span>
-                                    <strong>모델명</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">7</span>
-                                    <strong>MAC 주소</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">8</span>
-                                    <strong>이전 설치장소</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">9</span>
-                                    <strong>이전 라벨 번호</strong>
-                                </div>
-                                <div style="background: white; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span style="background: #1e3a8a; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;">10</span>
-                                    <strong>비고</strong>
-                                </div>
-                            </div>
-                        </div>
-                    </li>
-                    <li>필수 입력 항목: <strong>설치장소(1번째 열)</strong></li>
-                    <li>설치장소가 기존에 없는 경우 자동으로 새로 생성됩니다.</li>
-                    <li>빈 셀은 null로 처리됩니다.</li>
-                </ul>
+        <!-- 로딩 오버레이 -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">무선 AP 업로드 중</div>
+                <div class="loading-subtext">데이터를 처리하고 있습니다...</div>
             </div>
         </div>
-    </div>
 
-    <div th:replace="~{fragments/footer :: footer}"></div>
+        <div class="main-container">
+            <!-- 헤더 섹션 -->
+            <div class="modern-header">
+                <h1>
+                    <i class="fas fa-wifi wifi-icon-header"></i>
+                    무선 AP 엑셀 업로드
+                </h1>
+                <p class="subtitle">Excel 파일을 업로드하여 여러 무선 액세스 포인트를 한 번에 등록하세요</p>
+            </div>
+
+            <!-- 메인 업로드 카드 -->
+            <div class="upload-card">
+                <form th:action="@{/wireless-ap/upload}" method="post" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+                    <!-- 업로드 영역 -->
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">
+                            <i class="fas fa-file-excel"></i>
+                        </div>
+                        <div class="upload-text">무선 AP 엑셀 파일을 선택하세요</div>
+                        <div class="upload-subtext">.xls 또는 .xlsx 형식만 지원됩니다</div>
+                    </div>
+
+                    <!-- 폼 섹션 -->
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label>
+                                <i class="fas fa-school"></i>
+                                학교 선택
+                            </label>
+                            <select name="schoolId" required>
+                                <option value="">학교를 선택하세요</option>
+                                <option th:each="school : ${schools}" th:value="${school.schoolId}" th:text="${school.schoolName}"></option>
+                            </select>
+                        </div>
+
+                        <!-- 숨겨진 파일 입력 -->
+                        <input type="file" name="file" accept=".xls,.xlsx" required id="fileInput" style="display: none;">
+
+                        <button type="submit" class="upload-btn" id="uploadBtn">
+                            <i class="fas fa-upload"></i>
+                            업로드 시작
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 알림 메시지 -->
+                <div th:if="${message}" class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    <span>[[${message}]]</span>
+                </div>
+                <div th:if="${error}" class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>[[${error}]]</span>
+                </div>
+            </div>
+
+            <!-- 도움말 카드 -->
+            <div class="help-card">
+                <h3>
+                    <i class="fas fa-broadcast-tower"></i>
+                    업로드 가이드
+                </h3>
+                <div class="help-content">
+                    <p><strong>📡 무선 AP 엑셀 파일 형식 요구사항:</strong></p>
+                    
+                    <div class="excel-columns">
+                        <h4>엑셀 데이터 열 순서 (반드시 순서대로 입력)</h4>
+                        <div class="columns-grid">
+                            <div class="column-item">
+                                <span class="column-number required">1</span>
+                                <span class="column-name">설치장소 ⭐</span>
+                            </div>
+                            <div class="column-item">
+                                <span class="column-number">2</span>
+                                <span class="column-name">새 라벨 번호</span>
+                            </div>
+                            <div class="column-item">
+                                <span class="column-number">3</span>
+                                <span class="column-name">장비 번호</span>
+                            </div>
+                            <div class="column-item">
+                                <span class="column-number">4</span>
+                                <span class="column-name">도입연도</span>
+                            </div>
+                            <div class="column-item">
+                                <span class="column-number">5</span>
+                                <span class="column-name">제조사</span>
+                            </div>
+                            <div class="column-item">
+                                <span class="column-number">6</span>
+                                <span class="column-name">모델명</span>
+                            </div>
+                            <div class="column-item">
+                                <span class="column-number">7</span>
+                                <span class="column-name">MAC 주소</span>
+                            </div>
+                            <div class="column-item">
+                                <span class="column-number">8</span>
+                                <span class="column-name">이전 설치장소</span>
+                            </div>
+                            <div class="column-item">
+                                <span class="column-number">9</span>
+                                <span class="column-name">이전 라벨 번호</span>
+                            </div>
+                            <div class="column-item">
+                                <span class="column-number">10</span>
+                                <span class="column-name">비고</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <ul>
+                        <li><strong>필수 입력 항목:</strong> 설치장소(1번째 열)</li>
+                        <li><strong>파일 형식:</strong> .xls 또는 .xlsx만 지원</li>
+                        <li><strong>데이터 시작:</strong> 1행부터 시작 (헤더 행 없음)</li>
+                        <li><strong>설치장소:</strong> 존재하지 않는 경우 자동으로 새로 생성됩니다</li>
+                        <li><strong>빈 셀:</strong> null로 처리되어 자동으로 처리됩니다</li>
+                        <li><strong>MAC 주소:</strong> 다양한 형식으로 입력 가능합니다</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div th:replace="~{fragments/footer :: footer}"></div>
+    </div>
 
     <script>
         // 폼 업로드 로딩 처리
@@ -134,8 +739,8 @@
             
             // 로딩 상태 활성화
             loadingOverlay.classList.add('active');
-            this.classList.add('loading');
             uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 업로드 중...';
             
             // 파일 크기가 클 경우 추가 안내
             const fileSize = fileInput.files[0].size;
@@ -147,13 +752,95 @@
         // 페이지 로드 시 로딩 상태 해제 (새로고침 대비)
         window.addEventListener('load', function() {
             const loadingOverlay = document.getElementById('loadingOverlay');
-            const uploadForm = document.getElementById('uploadForm');
             const uploadBtn = document.getElementById('uploadBtn');
             
             loadingOverlay.classList.remove('active');
-            uploadForm.classList.remove('loading');
             uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '<i class="fas fa-upload"></i> 업로드 시작';
         });
+
+        // 파일 선택 시 업로드 영역 업데이트
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const uploadArea = document.getElementById('uploadArea');
+            const uploadText = document.querySelector('.upload-text');
+            const uploadSubtext = document.querySelector('.upload-subtext');
+            const uploadIcon = document.querySelector('.upload-icon i');
+            
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                uploadText.textContent = `선택된 파일: ${file.name}`;
+                uploadSubtext.textContent = `파일 크기: ${(file.size / 1024 / 1024).toFixed(2)}MB`;
+                uploadArea.classList.add('file-selected');
+                uploadIcon.className = 'fas fa-check-circle';
+            } else {
+                uploadText.textContent = '무선 AP 엑셀 파일을 선택하세요';
+                uploadSubtext.textContent = '.xls 또는 .xlsx 형식만 지원됩니다';
+                uploadArea.classList.remove('file-selected');
+                uploadIcon.className = 'fas fa-file-excel';
+            }
+        });
+
+        // 드래그 앤 드롭 기능
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#10b981';
+            uploadArea.style.background = 'rgba(16, 185, 129, 0.15)';
+        });
+
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+            uploadArea.style.background = 'rgba(255, 255, 255, 0.05)';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                fileInput.dispatchEvent(new Event('change'));
+            }
+            uploadArea.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+            uploadArea.style.background = 'rgba(255, 255, 255, 0.05)';
+        });
+
+        // WiFi 신호 효과
+        document.addEventListener('DOMContentLoaded', function() {
+            const wifiIcon = document.querySelector('.wifi-icon-header');
+            
+            // WiFi 신호 강도 랜덤 변화 효과
+            setInterval(() => {
+                const random = Math.random();
+                if (random < 0.15) { // 15% 확률
+                    wifiIcon.style.transform = 'scale(1.2)';
+                    wifiIcon.style.filter = 'drop-shadow(0 0 25px rgba(16, 185, 129, 1))';
+                    setTimeout(() => {
+                        wifiIcon.style.transform = 'scale(1)';
+                        wifiIcon.style.filter = 'drop-shadow(0 0 10px rgba(16, 185, 129, 0.5))';
+                    }, 300);
+                }
+            }, 2500);
+        });
+    </script>
+
+    <script th:if="${error}">
+        var errorMessage = /*[[${error}]]*/ "오류가 발생했습니다.";
+        var additionalInfo = "";
+        
+        if(errorMessage.includes("설치장소")) {
+            additionalInfo = "\n\n설치장소는 필수 입력 항목입니다.";
+        } else if(errorMessage.includes("빈 파일입니다")) {
+            additionalInfo = "\n\n데이터가 포함된 엑셀 파일을 업로드해주세요.";
+        }
+        
+        alert(errorMessage + additionalInfo);
     </script>
 </body>
 </html> 
