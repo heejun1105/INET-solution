@@ -9,6 +9,8 @@ import com.inet.entity.School;
 import com.inet.service.WirelessApService;
 import com.inet.service.ClassroomService;
 import com.inet.service.SchoolService;
+import com.inet.config.Views;
+import com.fasterxml.jackson.annotation.JsonView;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDate;
@@ -66,7 +68,7 @@ public class WirelessApController {
     @PostMapping("/register")
     public String register(WirelessAp wirelessAp, 
                           @RequestParam("schoolId") Long schoolId,
-                          @RequestParam("locationName") String locationName,
+                          @RequestParam("locationId") Long locationId,
                           @RequestParam(value = "apYear", required = false) Integer apYear) {
         log.info("Registering wireless AP: {}", wirelessAp);
         
@@ -80,26 +82,10 @@ public class WirelessApController {
             wirelessAp.setAPYear(LocalDate.of(apYear, 1, 1));
         }
         
-        // 교실 처리
-        if (locationName != null && !locationName.trim().isEmpty()) {
-            var existingClassroom = classroomService.findByRoomNameAndSchool(locationName, schoolId);
-            Classroom classroom;
-            
-            if (existingClassroom.isPresent()) {
-                classroom = existingClassroom.get();
-            } else {
-                // 새로운 교실 생성
-                classroom = new Classroom();
-                classroom.setRoomName(locationName);
-                classroom.setSchool(school);
-                classroom.setXCoordinate(0);
-                classroom.setYCoordinate(0);
-                classroom.setWidth(100);
-                classroom.setHeight(100);
-                classroom = classroomService.saveClassroom(classroom);
-            }
-            wirelessAp.setLocation(classroom);
-        }
+        // 교실 설정
+        Classroom classroom = classroomService.getClassroomById(locationId)
+                .orElseThrow(() -> new RuntimeException("Classroom not found with id: " + locationId));
+        wirelessAp.setLocation(classroom);
         
         wirelessApService.saveWirelessAp(wirelessAp);
         return "redirect:/wireless-ap/list";
@@ -161,5 +147,14 @@ public class WirelessApController {
         log.info("Removing wireless AP with id: {}", apId);
         wirelessApService.deleteWirelessAp(apId);
         return "redirect:/wireless-ap/list";
+    }
+
+    // 학교별 교실 목록 조회 API
+    @GetMapping("/api/classrooms/{schoolId}")
+    @ResponseBody
+    @JsonView(Views.Summary.class)
+    public List<Classroom> getClassroomsBySchool(@PathVariable Long schoolId) {
+        log.info("Getting classrooms for school id: {}", schoolId);
+        return classroomService.findBySchoolId(schoolId);
     }
 } 

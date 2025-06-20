@@ -209,13 +209,13 @@ public class DeviceController {
     }
 
     @PostMapping("/register")
-    public String register(Device device, String operatorName, String operatorPosition, String location,
+    public String register(Device device, String operatorName, String operatorPosition, String location, String locationCustom,
                           String manageCate, String manageCateCustom, String manageYear, String manageYearCustom, String manageNum, String manageNumCustom,
                           String uidCate, String uidCateCustom, String uidYear, String uidYearCustom, String uidNum, String uidNumCustom) {
         
         log.info("Registering device: {}", device);
         log.info("Operator: {}, {}", operatorName, operatorPosition);
-        log.info("Location: {}", location);
+        log.info("Location: {}, LocationCustom: {}", location, locationCustom);
         log.info("고유번호: cate={}, year={}, num={}", uidCate, uidYear, uidNum);
 
         // 담당자 정보 처리
@@ -233,19 +233,22 @@ public class DeviceController {
         }
 
         // 교실 정보 처리
+        String finalLocation = ("CUSTOM".equals(location)) ? locationCustom : location;
         Classroom classroom = null;
-        if (location != null && !location.trim().isEmpty()) {
-            classroom = classroomService.findByRoomName(location);
-            if (classroom == null) {
-                classroom = new Classroom();
-                classroom.setRoomName(location);
-                classroom.setSchool(device.getSchool());
-                classroom.setXCoordinate(0);
-                classroom.setYCoordinate(0);
-                classroom.setWidth(100);
-                classroom.setHeight(100);
-                classroom = classroomService.saveClassroom(classroom);
-            }
+        if (finalLocation != null && !finalLocation.trim().isEmpty()) {
+            // 학교와 교실명으로 검색
+            classroom = classroomService.findByRoomNameAndSchool(finalLocation, device.getSchool().getSchoolId())
+                .orElseGet(() -> {
+                    // 교실이 없으면 새로 생성
+                    Classroom newClassroom = new Classroom();
+                    newClassroom.setRoomName(finalLocation);
+                    newClassroom.setSchool(device.getSchool());
+                    newClassroom.setXCoordinate(0);
+                    newClassroom.setYCoordinate(0);
+                    newClassroom.setWidth(100);
+                    newClassroom.setHeight(100);
+                    return classroomService.saveClassroom(newClassroom);
+                });
         }
         device.setClassroom(classroom);
 
@@ -283,7 +286,7 @@ public class DeviceController {
     }
 
     @PostMapping("/modify")
-    public String modify(Device device, String operatorName, String operatorPosition, String location,
+    public String modify(Device device, String operatorName, String operatorPosition, String location, String locationCustom,
                         String manageCate, String manageCateCustom, String manageYear, String manageYearCustom, String manageNum, String manageNumCustom,
                         String uidCate, String uidCateCustom, String uidYear, String uidYearCustom, String uidNum, String uidNumCustom,
                         Long idNumber) {
@@ -304,19 +307,22 @@ public class DeviceController {
         }
 
         // 교실 정보 처리
+        String finalLocation = ("CUSTOM".equals(location)) ? locationCustom : location;
         Classroom classroom = null;
-        if (location != null && !location.trim().isEmpty()) {
-            classroom = classroomService.findByRoomName(location);
-            if (classroom == null) {
-                classroom = new Classroom();
-                classroom.setRoomName(location);
-                classroom.setSchool(device.getSchool());
-                classroom.setXCoordinate(0);
-                classroom.setYCoordinate(0);
-                classroom.setWidth(100);
-                classroom.setHeight(100);
-                classroom = classroomService.saveClassroom(classroom);
-            }
+        if (finalLocation != null && !finalLocation.trim().isEmpty()) {
+            // 학교와 교실명으로 검색
+            classroom = classroomService.findByRoomNameAndSchool(finalLocation, device.getSchool().getSchoolId())
+                .orElseGet(() -> {
+                    // 교실이 없으면 새로 생성
+                    Classroom newClassroom = new Classroom();
+                    newClassroom.setRoomName(finalLocation);
+                    newClassroom.setSchool(device.getSchool());
+                    newClassroom.setXCoordinate(0);
+                    newClassroom.setYCoordinate(0);
+                    newClassroom.setWidth(100);
+                    newClassroom.setHeight(100);
+                    return classroomService.saveClassroom(newClassroom);
+                });
         }
         device.setClassroom(classroom);
 

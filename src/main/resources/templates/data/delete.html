@@ -288,7 +288,7 @@
             align-items: center;
             gap: 0.75rem;
         }
-
+        
         .checkbox-item-modern:hover {
             background: rgba(255, 255, 255, 0.15);
             border-color: rgba(255, 255, 255, 0.3);
@@ -491,15 +491,15 @@
                                 <label for="deleteAll">
                                     <i class="fas fa-fire"></i>
                                     전체 데이터 삭제
-                                </label>
-                            </div>
+                        </label>
+                    </div>
                             <div class="radio-option-modern active" onclick="selectDeleteType('selective')">
                                 <input type="radio" id="deleteSelective" name="deleteType" value="selective" onchange="toggleSelectiveOptions()" checked>
                                 <label for="deleteSelective">
                                     <i class="fas fa-filter"></i>
                                     선택적 데이터 삭제
-                                </label>
-                            </div>
+                        </label>
+                    </div>
                         </div>
 
                         <div class="checkbox-grid-modern" id="selectiveOptions">
@@ -527,13 +527,13 @@
                                 <input type="checkbox" name="deleteManages" id="deleteManages" value="true" onclick="event.stopPropagation()">
                                 <i class="fas fa-clipboard-list"></i>
                                 <label for="deleteManages">관리번호</label>
-                            </div>
+                    </div>
                             <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteUids', event)">
                                 <input type="checkbox" name="deleteUids" id="deleteUids" value="true" onclick="event.stopPropagation()">
                                 <i class="fas fa-id-card"></i>
                                 <label for="deleteUids">고유번호</label>
-                            </div>
-                        </div>
+                    </div>
+                    </div>
                     </div>
                 </div>
 
@@ -542,7 +542,7 @@
                     <button type="submit" id="deleteButton" class="delete-button-modern" disabled>
                         <i class="fas fa-trash-alt"></i>
                         선택한 데이터 삭제
-                    </button>
+                </button>
                     <p class="confirmation-text-modern">
                         삭제할 학교와 데이터 범위를 선택한 후 버튼을 클릭하세요.
                     </p>
@@ -643,7 +643,7 @@
             
             deleteButton.disabled = !(schoolSelected && (isAll || (isSelective && selectiveOptionChecked)));
         }
-
+        
         function confirmDelete() {
             const selectedSchools = getSelectedSchools();
             if (selectedSchools.length === 0) {

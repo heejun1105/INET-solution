@@ -113,4 +113,53 @@ public class WirelessAp {
     public void setNote(String note) {
         this.note = note;
     }
+
+    // Manual getter methods for compilation
+    public Long getAPId() {
+        return this.APId;
+    }
+
+    public Classroom getLocation() {
+        return this.location;
+    }
+
+    public School getSchool() {
+        return this.school;
+    }
+
+    public String getNewLabelNumber() {
+        return this.newLabelNumber;
+    }
+
+    public String getDeviceNumber() {
+        return this.deviceNumber;
+    }
+
+    public LocalDate getAPYear() {
+        return this.APYear;
+    }
+
+    public String getManufacturer() {
+        return this.manufacturer;
+    }
+
+    public String getModel() {
+        return this.model;
+    }
+
+    public String getMacAddress() {
+        return this.macAddress;
+    }
+
+    public String getPrevLocation() {
+        return this.prevLocation;
+    }
+
+    public String getPrevLabelNumber() {
+        return this.prevLabelNumber;
+    }
+
+    public String getNote() {
+        return this.note;
+    }
 } 

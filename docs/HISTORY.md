@@ -31,6 +31,101 @@
 
 ## 최근 작업 내역
 
+### 8. UI/UX 개선 - 업로드 페이지 완전 리디자인 (2025-01-21)
+- 장비 업로드 및 무선 AP 업로드 페이지 모던 스타일로 재설계
+  - 작업 순서: 8번째 작업
+  - 세부 작업 내용:
+    1. 기존 기본 스타일에서 트렌디한 모던 글래스모피즘 스타일로 변경
+    2. 기존 페이지들과 조화를 이루는 디자인 언어 적용
+    3. 중복된 파일 선택 UI 제거하여 사용자 경험 단순화
+    4. 색상 테마 통일 (녹색 계열로 일관성 확보)
+  
+  - 변경사항:
+    ```css
+    /* 전체 컨테이너 - 글래스모피즘 스타일 */
+    .upload-page-container {
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%);
+        backdrop-filter: blur(20px);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* 격자 패턴 배경 */
+    .grid-overlay {
+        background-image: 
+            linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+        background-size: 30px 30px;
+    }
+    
+    /* 드래그 앤 드롭 영역 */
+    .upload-area {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 2px dashed rgba(16, 185, 129, 0.5);
+        border-radius: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    /* 녹색 테마 통일 */
+    .upload-btn {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    ```
+  
+  - 영향 받은 파일 (수정 순서대로):
+    1. src/main/resources/templates/device/device_upload.html (완전 재설계)
+    2. src/main/resources/templates/wireless-ap/upload.html (완전 재설계)
+  
+  - 하위 작업:
+    1. 첫 번째 단계: 글래스모피즘 스타일 적용 (보라-파랑 vs 틸-그린 테마)
+    2. 두 번째 단계: 사이버펑크 스타일 실험 (사용자 피드백으로 폐기)
+    3. 세 번째 단계: 트렌디한 모던 스타일로 최종 확정
+    4. 네 번째 단계: 중복 UI 제거 및 녹색 테마 통일
+
+#### 주요 개선사항:
+1. **디자인 통일성**
+   - 기존 데이터삭제, 장비등록 등 페이지와 동일한 디자인 언어 적용
+   - 글래스모피즘 효과와 부드러운 애니메이션으로 현대적 느낌
+   - 블루 그래디언트 배경과 격자 패턴으로 깊이감 연출
+
+2. **사용자 경험 개선**
+   - 중복된 파일 선택 UI 완전 제거로 직관적인 인터페이스 구현
+   - 드래그 앤 드롭 영역만으로 파일 선택 완료 (하단 파일 입력 필드 제거)
+   - 반응형 디자인 적용으로 모바일 환경에서도 완벽한 사용성
+
+3. **시각적 효과 강화**
+   - 부드러운 호버 애니메이션 및 transition 효과
+   - 깊이감 있는 그림자와 backdrop-filter 블러 효과
+   - 녹색 계열로 완전 통일된 컬러 팔레트 (장비/무선AP 동일)
+
+4. **기능성 유지 및 강화**
+   - 기존 파일 업로드 기능 완전 보존
+   - 유효성 검사 및 에러 처리 로직 유지
+   - 로딩 상태 표시 및 실시간 피드백 시스템 개선
+   - 드래그 앤 드롭 상태별 시각적 피드백 강화
+
+#### 기술적 세부사항:
+- CSS3 backdrop-filter를 활용한 최신 글래스모피즘 구현
+- JavaScript 드래그 앤 드롭 API 완전 활용
+- Thymeleaf 템플릿 엔진과의 완벽한 호환성 유지
+- 모바일 퍼스트 반응형 디자인 적용
+- CSS Grid와 Flexbox를 조합한 현대적 레이아웃
+
+#### 디자인 진화 과정:
+1. **1차 디자인**: 글래스모피즘 + 차별화된 컬러 테마
+2. **2차 디자인**: 사이버펑크 네온 스타일 (사용자 요청으로 변경)
+3. **3차 디자인**: 트렌디한 모던 스타일 (기존 페이지와 조화)
+4. **4차 최종**: UI 단순화 + 색상 통일 (녹색 테마로 완전 통일)
+
+---
+
 ### 1. 데이터베이스 초기화
 - 자인중학교 데이터 초기화 완료
   - 삭제된 데이터:

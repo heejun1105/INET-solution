@@ -144,8 +144,12 @@
 
                             <div class="form-group">
                                 <label class="required">위치</label>
-                                <input type="text" name="location" th:value="${device.classroom != null ? device.classroom.roomName : ''}" required>
-                                <div class="form-help">교실 또는 설치 장소를 입력하세요.</div>
+                                <select id="locationSelect" name="location" required>
+                                    <option value="">위치 선택</option>
+                                    <option value="CUSTOM">직접입력</option>
+                                </select>
+                                <input type="text" id="locationInput" name="locationCustom" placeholder="교실명 또는 설치 장소 직접입력" style="display:none; margin-top: 8px;">
+                                <div class="form-help">교실을 선택하거나 직접 입력하세요.</div>
                             </div>
                         </div>
                     </div>
@@ -519,6 +523,8 @@
                 loadManageCates(schoolSelect.value);
                 // 고유번호 카테고리 목록도 로드
                 loadUidCates(schoolSelect.value);
+                // 교실 목록도 로드
+                loadClassrooms(schoolSelect.value);
             }
             
             // 학교 선택 이벤트
@@ -527,6 +533,12 @@
                     loadManageCates(this.value);
                     // 고유번호 카테고리 목록도 로드
                     loadUidCates(this.value);
+                    // 교실 목록도 로드
+                    loadClassrooms(this.value);
+                } else {
+                    // 교실 선택 초기화
+                    const locationSelect = document.getElementById('locationSelect');
+                    locationSelect.innerHTML = '<option value="">위치 선택</option><option value="CUSTOM">직접입력</option>';
                 }
             });
             
@@ -630,6 +642,12 @@
             uidNum.addEventListener('change', function() {
                 setupCustomInput('uidNumSelect', 'uidNumInput');
             });
+
+            // 위치 선택 이벤트
+            const locationSelect = document.getElementById('locationSelect');
+            locationSelect.addEventListener('change', function() {
+                setupCustomLocationInput();
+            });
         });
 
         // 직접입력 기능
@@ -637,13 +655,97 @@
             const select = document.getElementById(selectId);
             const input = document.getElementById(inputId);
             
-            input.style.display = select.value === 'custom' ? 'block' : 'none';
-            if (select.value === 'custom') {
+            const isCustom = select.value === 'custom' || select.value === 'CUSTOM';
+            
+            input.style.display = isCustom ? 'block' : 'none';
+            if (isCustom) {
                 input.required = true;
                 select.required = false;
+                input.focus();
             } else {
                 input.required = false;
                 select.required = true;
+            }
+        }
+
+        // 교실 목록 로드 함수
+        function loadClassrooms(schoolId) {
+            console.log('=== 교실 목록 로드 시작 ===');
+            console.log('학교 ID:', schoolId);
+            
+            const locationSelect = document.getElementById('locationSelect');
+            
+            fetch(`/device/api/classrooms/${schoolId}`)
+                .then(response => {
+                    console.log('교실 API 응답 상태:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(classrooms => {
+                    console.log('받은 교실 목록:', classrooms);
+                    
+                    // 기본 옵션으로 초기화
+                    locationSelect.innerHTML = '<option value="">위치 선택</option>';
+                    
+                    // 교실 옵션 추가
+                    classrooms.forEach(classroom => {
+                        const option = document.createElement('option');
+                        option.value = classroom.roomName;
+                        option.textContent = classroom.roomName;
+                        locationSelect.appendChild(option);
+                    });
+                    
+                    // 직접입력 옵션 추가
+                    const customOption = document.createElement('option');
+                    customOption.value = 'CUSTOM';
+                    customOption.textContent = '직접입력';
+                    locationSelect.appendChild(customOption);
+                    
+                    // 기존 교실값이 있으면 선택
+                    const currentLocation = /*[[${device.classroom != null ? device.classroom.roomName : ''}]]*/ '';
+                    if (currentLocation) {
+                        locationSelect.value = currentLocation;
+                    }
+                    
+                    console.log('교실 옵션 추가 완료');
+                })
+                .catch(error => {
+                    console.error('=== 교실 로드 API 호출 오류 ===');
+                    console.error('오류:', error);
+                    
+                    // 오류 발생 시에도 직접입력 옵션은 제공
+                    locationSelect.innerHTML = '<option value="">위치 선택</option>';
+                    const customOption = document.createElement('option');
+                    customOption.value = 'CUSTOM';
+                    customOption.textContent = '직접입력';
+                    locationSelect.appendChild(customOption);
+                    
+                    // 기존 교실값이 있으면 직접입력으로 설정
+                    const currentLocation = /*[[${device.classroom != null ? device.classroom.roomName : ''}]]*/ '';
+                    if (currentLocation) {
+                        locationSelect.value = 'CUSTOM';
+                        const locationInput = document.getElementById('locationInput');
+                        locationInput.value = currentLocation;
+                        locationInput.style.display = 'block';
+                    }
+                });
+        }
+
+        // 직접입력 위치 설정 함수
+        function setupCustomLocationInput() {
+            const locationSelect = document.getElementById('locationSelect');
+            const locationInput = document.getElementById('locationInput');
+            
+            if (locationSelect.value === 'CUSTOM') {
+                locationInput.style.display = 'block';
+                locationInput.required = true;
+                locationSelect.required = false;
+            } else {
+                locationInput.style.display = 'none';
+                locationInput.required = false;
+                locationSelect.required = true;
             }
         }
     </script>
