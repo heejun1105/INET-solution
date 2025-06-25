@@ -31,6 +31,237 @@
 
 ## 최근 작업 내역
 
+### 11. 버그 수정 - 장비목록 페이지 필터링 기능 개선 (2025-01-23)
+- "전체 학교" 선택 시 교실 필터링 문제 해결
+  - 작업 순서: 11번째 작업
+  - 세부 작업 내용:
+    1. 문제: "전체 학교" 상태에서 교실을 선택했을 때 필터링이 제대로 되지 않음
+    2. 원인: 교실 ID로만 필터링하여 해당 학교의 특정 교실만 조회되는 문제
+    3. 해결: 교실명을 기준으로 모든 학교의 동일한 교실명을 가진 교실들을 조회하도록 변경
+
+  - 변경사항:
+    ```java
+    // DeviceRepository에 새 메서드 추가
+    List<Device> findByClassroomRoomNameAndType(String roomName, String type);
+    
+    // DeviceService에 새 메서드 추가
+    public List<Device> findByClassroomNameAndType(String classroomName, String type) {
+        return deviceRepository.findByClassroomRoomNameAndType(classroomName, type);
+    }
+    
+    // DeviceController 로직 수정
+    if ("전체 학교".equals(schoolName) && classroomId != null) {
+        Classroom classroom = classroomService.findById(classroomId);
+        if (classroom != null) {
+            devices = deviceService.findByClassroomNameAndType(classroom.getRoomName(), type);
+        }
+    }
+    ```
+
+  - 영향 받은 파일 (수정 순서대로):
+    1. src/main/java/com/inet/repository/DeviceRepository.java
+    2. src/main/java/com/inet/service/DeviceService.java
+    3. src/main/java/com/inet/controller/DeviceController.java
+
+  - 하위 작업:
+    1. 첫 번째 단계: 문제 분석 및 원인 파악
+    2. 두 번째 단계: DeviceRepository에 새로운 쿼리 메서드 추가
+    3. 세 번째 단계: DeviceService에 비즈니스 로직 추가
+    4. 네 번째 단계: DeviceController의 필터링 로직 개선
+
+### 10. UI/UX 개선 - 데이터 삭제 페이지 완전 재설계 (2025-01-23)
+- 데이터 삭제 페이지 기능 개선 및 UI 현대화
+  - 작업 순서: 10번째 작업
+  - 세부 작업 내용:
+    1. 템플릿 파싱 오류 수정 (school.schoolInfo 등 존재하지 않는 필드 참조 제거)
+    2. CSS 스타일 누락 문제 해결 (school-grid, school-card 등 스타일 추가)
+    3. 다중 학교 선택 기능 추가
+    4. 세분화된 삭제 옵션 복원 (전체/선택적 삭제, 데이터 유형별 선택)
+
+  - 변경사항:
+    ```html
+    <!-- 다중 학교 선택 기능 -->
+    <div class="school-card" th:each="school : ${schools}">
+        <input type="checkbox" th:id="'school-' + ${school.id}" 
+               th:value="${school.id}" name="selectedSchools" class="school-checkbox">
+        <label th:for="'school-' + ${school.id}" class="school-label">
+            <span th:text="${school.schoolName}">학교명</span>
+        </label>
+    </div>
+    
+    <!-- 삭제 옵션 선택 -->
+    <div class="delete-options">
+        <div class="radio-group">
+            <input type="radio" id="deleteAll" name="deleteType" value="all" checked>
+            <label for="deleteAll">전체 삭제</label>
+            
+            <input type="radio" id="deleteSelected" name="deleteType" value="selected">
+            <label for="deleteSelected">선택 삭제</label>
+        </div>
+        
+        <div class="checkbox-group" id="dataTypeOptions" style="display: none;">
+            <input type="checkbox" id="deleteDevices" name="dataTypes" value="devices" checked>
+            <label for="deleteDevices">장비 데이터</label>
+            <!-- 기타 데이터 유형들... -->
+        </div>
+    </div>
+    ```
+
+    ```css
+    /* 모던 글래스모피즘 스타일 추가 */
+    .school-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        padding: 20px;
+    }
+    
+    .school-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        padding: 20px;
+        transition: all 0.3s ease;
+    }
+    
+    .school-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    ```
+
+    ```javascript
+    // 다중 선택 처리 로직
+    function deleteSelectedData() {
+        const selectedSchools = Array.from(document.querySelectorAll('.school-checkbox:checked'))
+            .map(cb => cb.value);
+        
+        if (selectedSchools.length === 0) {
+            alert('삭제할 학교를 선택해주세요.');
+            return;
+        }
+        
+        const deleteType = document.querySelector('input[name="deleteType"]:checked').value;
+        const dataTypes = deleteType === 'selected' 
+            ? Array.from(document.querySelectorAll('input[name="dataTypes"]:checked')).map(cb => cb.value)
+            : ['all'];
+        
+        // 삭제 요청 처리...
+    }
+    ```
+
+  - 영향 받은 파일 (수정 순서대로):
+    1. src/main/resources/templates/data/delete.html (완전 재설계)
+    2. src/main/resources/static/main.css (스타일 추가)
+    3. src/main/java/com/inet/controller/DataManagementController.java (다중 선택 처리)
+
+  - 하위 작업:
+    1. 첫 번째 단계: 템플릿 오류 수정 및 기본 기능 복원
+    2. 두 번째 단계: CSS 스타일 추가 및 레이아웃 개선
+    3. 세 번째 단계: 다중 학교 선택 기능 구현
+    4. 네 번째 단계: 세분화된 삭제 옵션 및 JavaScript 로직 구현
+
+### 9. 기능 개선 - 장비 등록/수정 페이지 관리번호 동적 로딩 (2025-01-22)
+- 관리번호 입력 부분에 동적 로딩 기능 구현
+  - 작업 순서: 9번째 작업
+  - 세부 작업 내용:
+    1. 구분선택(manageCate) 변경 시 해당 구분의 연도들 자동 로드
+    2. 연도 선택/미선택 시 해당 조건에서 가장 마지막 번호+1 자동 표시
+    3. 연도 미선택 시 모든 연도의 번호들을 조회하도록 개선
+
+  - 변경사항:
+    ```java
+    // ManageApiController에 새 API 엔드포인트들 추가
+    @GetMapping("/years/{manageCate}")
+    public ResponseEntity<List<String>> getYearsByManageCate(@PathVariable String manageCate, @RequestParam Long schoolId) {
+        List<String> years = manageService.getYearsByManageCateAndSchool(manageCate, schoolId);
+        return ResponseEntity.ok(years);
+    }
+    
+    @GetMapping("/next-number")
+    public ResponseEntity<String> getNextManageNumber(
+            @RequestParam String manageCate,
+            @RequestParam(required = false) String year,
+            @RequestParam Long schoolId) {
+        String nextNumber = manageService.getNextManageNumber(manageCate, year, schoolId);
+        return ResponseEntity.ok(nextNumber);
+    }
+    
+    // ManageService에서 연도 미선택 시 전체 조회 로직 개선
+    public String getManageNumsWithNext(String manageCate, String year, Long schoolId) {
+        List<Manage> manages;
+        if (year == null || year.isEmpty()) {
+            // 연도를 선택하지 않으면 해당 manageCate의 모든 연도 번호들 조회
+            manages = manageRepository.findBySchoolAndManageCateAllYearsOrderByManageNumDesc(
+                schoolRepository.findById(schoolId).orElse(null), manageCate);
+        } else {
+            manages = manageRepository.findBySchoolAndManageCateAndYearOrderByManageNumDesc(
+                schoolRepository.findById(schoolId).orElse(null), manageCate, year);
+        }
+        // 다음 번호 계산 로직...
+    }
+    ```
+
+    ```javascript
+    // 동적 UI 처리 JavaScript
+    document.getElementById('manageCate').addEventListener('change', function() {
+        const manageCate = this.value;
+        const schoolId = document.getElementById('schoolId').value;
+        
+        if (manageCate && schoolId) {
+            // 연도 목록 로드
+            fetch(`/api/manage/years/${manageCate}?schoolId=${schoolId}`)
+                .then(response => response.json())
+                .then(years => {
+                    const yearSelect = document.getElementById('year');
+                    yearSelect.innerHTML = '<option value="">연도 선택</option>';
+                    years.forEach(year => {
+                        yearSelect.innerHTML += `<option value="${year}">${year}</option>`;
+                    });
+                    
+                    // 다음 번호 자동 로드
+                    loadNextNumber();
+                });
+        }
+    });
+    
+    document.getElementById('year').addEventListener('change', function() {
+        loadNextNumber();
+    });
+    
+    function loadNextNumber() {
+        const manageCate = document.getElementById('manageCate').value;
+        const year = document.getElementById('year').value;
+        const schoolId = document.getElementById('schoolId').value;
+        
+        if (manageCate && schoolId) {
+            const url = `/api/manage/next-number?manageCate=${manageCate}&schoolId=${schoolId}` + 
+                       (year ? `&year=${year}` : '');
+            
+            fetch(url)
+                .then(response => response.text())
+                .then(nextNumber => {
+                    document.getElementById('manageNum').value = nextNumber;
+                });
+        }
+    }
+    ```
+
+  - 영향 받은 파일 (수정 순서대로):
+    1. src/main/java/com/inet/controller/ManageApiController.java (새 API 추가)
+    2. src/main/java/com/inet/service/ManageService.java (로직 개선)
+    3. src/main/java/com/inet/repository/ManageRepository.java (새 쿼리 메서드 추가)
+    4. src/main/resources/static/js/device/register.js (동적 UI 로직 추가)
+    5. src/main/resources/templates/device/register.html (UI 개선)
+    6. src/main/resources/templates/device/modify.html (UI 개선)
+
+  - 하위 작업:
+    1. 첫 번째 단계: API 엔드포인트 설계 및 구현
+    2. 두 번째 단계: 연도 미선택 시 전체 조회 로직 개선
+    3. 세 번째 단계: JavaScript 동적 로딩 구현
+    4. 네 번째 단계: UI 개선 및 사용자 경험 향상
+
 ### 8. UI/UX 개선 - 업로드 페이지 완전 리디자인 (2025-01-21)
 - 장비 업로드 및 무선 AP 업로드 페이지 모던 스타일로 재설계
   - 작업 순서: 8번째 작업
@@ -410,7 +641,7 @@ for (Map.Entry<String, List<Map<String, Object>>> entry : ipListByOctet.entrySet
 #### 3. 사용성 개선
 1. IP 정보 표시 최적화
    - IP 주소와 상태 정보 레이아웃 개선
-   - 툴팁으로 상세 정보 표시 기능 추가
+       - 툴팁으로 상세 정보 표시 기능 추가
    ```html
    <div class="ip-item" th:title="${'교실: ' + ip.classroom + '\n담당자: ' + ip.operator}">
      <!-- IP 정보 표시 -->
@@ -609,3 +840,16 @@ public void deleteSchoolData(Long schoolId) {
 - [ ] 삭제 작업 진행률 표시
 - [ ] 대용량 데이터 삭제 시 비동기 처리
 - [ ] 삭제 이력 관리 기능 추가
+
+## 참고사항
+1. 최근 작업들은 모두 Spring Boot 8082 포트에서 진행됨
+2. 장비목록 필터링 개선으로 "전체 학교" 선택 시에도 정상적인 교실 필터링 가능
+3. 데이터 삭제 페이지에서 다중 학교 선택 및 세분화된 삭제 옵션 지원
+4. 관리번호 동적 로딩으로 사용자 편의성 크게 향상
+5. 모든 UI 개선 작업은 글래스모피즘 스타일과 현대적 디자인 언어 적용
+
+## 다음 작업 예정
+- [ ] 데이터 삭제 페이지 UI 트렌디하게 개선 (진행 중)
+- [ ] 장비목록 페이지 성능 최적화
+- [ ] 관리번호 자동 생성 알고리즘 개선
+- [ ] 실시간 데이터 동기화 기능 추가

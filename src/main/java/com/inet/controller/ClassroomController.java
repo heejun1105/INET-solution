@@ -15,6 +15,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.stream.Collectors;
+import jakarta.servlet.http.HttpSession;
+import java.util.ArrayList;
+import java.util.Optional;
 
 @Slf4j
 @Controller
@@ -29,7 +35,7 @@ public class ClassroomController {
      * 교실 관리 메인 페이지
      */
     @GetMapping("/manage")
-    public String managePage(@RequestParam(value = "schoolId", required = false) Long schoolId, Model model) {
+    public String managePage(@RequestParam(value = "schoolId", required = false) Long schoolId, Model model, HttpSession session) {
         log.info("교실 관리 페이지 요청. schoolId: {}", schoolId);
         
         List<School> schools = schoolService.getAllSchools();
@@ -37,28 +43,54 @@ public class ClassroomController {
         log.info("전체 학교 수: {}", schools.size());
         
         if (schoolId != null) {
-            School selectedSchool = schoolService.getSchoolById(schoolId)
-                    .orElseThrow(() -> new RuntimeException("School not found with id: " + schoolId));
-            
-            List<Classroom> classrooms = classroomService.findBySchoolId(schoolId);
-            Map<String, List<Classroom>> duplicateGroups = classroomService.findDuplicateClassrooms(schoolId);
-            
-            log.info("선택된 학교: {}", selectedSchool.getSchoolName());
-            log.info("해당 학교의 교실 수: {}", classrooms.size());
-            log.info("중복 그룹 수: {}", duplicateGroups.size());
-            
-            // 각 교실 정보 로그
-            for (Classroom classroom : classrooms) {
-                log.info("교실: ID={}, 이름={}", classroom.getClassroomId(), classroom.getRoomName());
-            }
-            
-            model.addAttribute("selectedSchool", selectedSchool);
-            model.addAttribute("classrooms", classrooms);
-            model.addAttribute("duplicateGroups", duplicateGroups);
-            model.addAttribute("selectedSchoolId", schoolId);
+            return manageClassrooms(schoolId, model, session);
         }
         
         return "classroom/manage";
+    }
+    
+    public String manageClassrooms(Long schoolId, Model model, HttpSession session) {
+        log.info("교실 관리 페이지 접속 - 학교 ID: {}", schoolId);
+        
+        try {
+            List<Classroom> classrooms = classroomService.findBySchoolId(schoolId);
+            Map<String, List<Classroom>> duplicateGroups = classroomService.findDuplicateClassrooms(schoolId);
+            
+            // 세션에서 임시 중복 그룹 가져오기
+            String tempSessionKey = "tempDuplicateGroup_" + schoolId;
+            @SuppressWarnings("unchecked")
+            Map<String, List<Classroom>> tempGroup = (Map<String, List<Classroom>>) session.getAttribute(tempSessionKey);
+            if (tempGroup != null && !tempGroup.isEmpty()) {
+                log.info("임시 중복 그룹 발견: {}", tempGroup.keySet());
+                // 임시 그룹을 기존 중복 그룹에 추가
+                duplicateGroups.putAll(tempGroup);
+            }
+            
+            // 세션에서 제외된 그룹들을 가져와서 필터링
+            @SuppressWarnings("unchecked")
+            Set<String> excludedGroups = (Set<String>) session.getAttribute("excludedDuplicateGroups_" + schoolId);
+            if (excludedGroups != null && !excludedGroups.isEmpty()) {
+                log.info("세션에서 제외된 그룹들: {}", excludedGroups);
+                duplicateGroups = duplicateGroups.entrySet().stream()
+                    .filter(entry -> !excludedGroups.contains(entry.getKey()))
+                    .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue
+                    ));
+            }
+            
+            model.addAttribute("selectedSchoolId", schoolId);
+            model.addAttribute("classrooms", classrooms);
+            model.addAttribute("duplicateGroups", duplicateGroups);
+            
+            log.info("교실 {}개, 중복 그룹 {}개 로드됨", classrooms.size(), duplicateGroups.size());
+            
+            return "classroom/manage";
+        } catch (Exception e) {
+            log.error("교실 관리 페이지 로드 중 오류: ", e);
+            model.addAttribute("error", "교실 목록을 불러오는 중 오류가 발생했습니다.");
+            return "classroom/manage";
+        }
     }
 
     /**
@@ -146,9 +178,16 @@ public class ClassroomController {
                                  @RequestParam("sourceIds") List<Long> sourceIds,
                                  @RequestParam("newRoomName") String newRoomName,
                                  @RequestParam("schoolId") Long schoolId,
-                                 RedirectAttributes redirectAttributes) {
+                                 RedirectAttributes redirectAttributes,
+                                 HttpSession session) {
         try {
             classroomService.mergeClassrooms(targetId, sourceIds, newRoomName);
+            
+            // 병합 후 임시 그룹 정리
+            String tempSessionKey = "tempDuplicateGroup_" + schoolId;
+            session.removeAttribute(tempSessionKey);
+            log.info("교실 병합 후 임시 그룹 정리 완료");
+            
             redirectAttributes.addFlashAttribute("success", "교실이 성공적으로 병합되었습니다.");
             
         } catch (Exception e) {
@@ -164,28 +203,211 @@ public class ClassroomController {
      */
     @GetMapping("/api/usage/{classroomId}")
     @ResponseBody
-    @JsonView(Views.Summary.class)
-    public ClassroomService.ClassroomUsageInfo getClassroomUsage(@PathVariable Long classroomId) {
+    public Map<String, Object> getClassroomUsage(@PathVariable Long classroomId) {
         log.info("교실 사용 현황 조회 API 호출. classroomId: {}", classroomId);
         
         try {
             ClassroomService.ClassroomUsageInfo usageInfo = classroomService.getClassroomUsage(classroomId);
             log.info("교실 {}의 사용 현황: 장비 {}개, 무선AP {}개", 
                     classroomId, usageInfo.getDeviceCount(), usageInfo.getWirelessApCount());
-            return usageInfo;
+            
+            Map<String, Object> response = Map.of(
+                "classroomId", usageInfo.getClassroomId(),
+                "deviceCount", usageInfo.getDeviceCount(),
+                "wirelessApCount", usageInfo.getWirelessApCount(),
+                "totalCount", usageInfo.getTotalCount(),
+                "isEmpty", usageInfo.isEmpty()
+            );
+            
+            return response;
         } catch (Exception e) {
             log.error("교실 사용 현황 조회 중 오류: ", e);
-            throw e;
+            // 에러 발생 시 기본값 반환
+            return Map.of(
+                "classroomId", classroomId,
+                "deviceCount", 0,
+                "wirelessApCount", 0,
+                "totalCount", 0,
+                "isEmpty", true,
+                "error", e.getMessage()
+            );
         }
     }
 
     /**
-     * 중복 교실 그룹 조회 API
+     * 교실 중복 그룹 조회 API
      */
     @GetMapping("/api/duplicates/{schoolId}")
     @ResponseBody
     @JsonView(Views.Summary.class)
     public Map<String, List<Classroom>> getDuplicateClassrooms(@PathVariable Long schoolId) {
+        log.info("교실 중복 그룹 조회 API 호출. schoolId: {}", schoolId);
         return classroomService.findDuplicateClassrooms(schoolId);
+    }
+
+    /**
+     * 중복 그룹을 세션에서 제외하는 API
+     */
+    @PostMapping("/exclude-duplicate-group")
+    @ResponseBody
+    public Map<String, Object> excludeDuplicateGroup(
+            @RequestParam Long schoolId, 
+            @RequestParam String groupKey, 
+            HttpSession session) {
+        
+        log.info("중복 그룹 제외 요청 - 학교 ID: {}, 그룹 키: {}", schoolId, groupKey);
+        
+        try {
+            // 세션에서 제외된 그룹 목록 가져오기 (없으면 새로 생성)
+            String sessionKey = "excludedDuplicateGroups_" + schoolId;
+            @SuppressWarnings("unchecked")
+            Set<String> excludedGroups = (Set<String>) session.getAttribute(sessionKey);
+            if (excludedGroups == null) {
+                excludedGroups = new HashSet<>();
+            }
+            
+            // 그룹 키 추가
+            excludedGroups.add(groupKey);
+            session.setAttribute(sessionKey, excludedGroups);
+            
+            log.info("그룹 '{}' 이 제외 목록에 추가됨. 현재 제외된 그룹: {}", groupKey, excludedGroups);
+            
+            return Map.of(
+                "success", true,
+                "message", "그룹이 성공적으로 제외되었습니다.",
+                "excludedGroupsCount", excludedGroups.size()
+            );
+            
+        } catch (Exception e) {
+            log.error("중복 그룹 제외 중 오류: ", e);
+            return Map.of(
+                "success", false,
+                "message", "그룹 제외 중 오류가 발생했습니다: " + e.getMessage()
+            );
+        }
+    }
+    
+    /**
+     * 모든 중복 그룹을 세션에서 제외하는 API
+     */
+    @PostMapping("/exclude-all-duplicate-groups")
+    @ResponseBody
+    public Map<String, Object> excludeAllDuplicateGroups(
+            @RequestParam Long schoolId, 
+            HttpSession session) {
+        
+        log.info("모든 중복 그룹 제외 요청 - 학교 ID: {}", schoolId);
+        
+        try {
+            // 현재 중복 그룹들 조회
+            Map<String, List<Classroom>> duplicateGroups = classroomService.findDuplicateClassrooms(schoolId);
+            
+            // 세션에서 제외된 그룹 목록 가져오기 (없으면 새로 생성)
+            String sessionKey = "excludedDuplicateGroups_" + schoolId;
+            @SuppressWarnings("unchecked")
+            Set<String> excludedGroups = (Set<String>) session.getAttribute(sessionKey);
+            if (excludedGroups == null) {
+                excludedGroups = new HashSet<>();
+            }
+            
+            // 모든 그룹 키 추가
+            excludedGroups.addAll(duplicateGroups.keySet());
+            session.setAttribute(sessionKey, excludedGroups);
+            
+            log.info("모든 그룹({})이 제외 목록에 추가됨. 현재 제외된 그룹: {}", duplicateGroups.size(), excludedGroups);
+            
+            return Map.of(
+                "success", true,
+                "message", "모든 그룹이 성공적으로 제외되었습니다.",
+                "excludedGroupsCount", duplicateGroups.size()
+            );
+            
+        } catch (Exception e) {
+            log.error("모든 중복 그룹 제외 중 오류: ", e);
+            return Map.of(
+                "success", false,
+                "message", "그룹 제외 중 오류가 발생했습니다: " + e.getMessage()
+            );
+        }
+    }
+    
+    /**
+     * 선택된 교실들을 임시 중복 그룹으로 추가하는 API
+     */
+    @PostMapping("/add-selected-as-duplicate-group")
+    @ResponseBody
+    public Map<String, Object> addSelectedAsDuplicateGroup(
+            @RequestParam Long schoolId, 
+            @RequestParam List<Long> classroomIds,
+            HttpSession session) {
+        
+        log.info("선택된 교실들을 중복 그룹으로 추가 - 학교 ID: {}, 교실 IDs: {}", schoolId, classroomIds);
+        
+        try {
+            if (classroomIds.size() < 2) {
+                return Map.of(
+                    "success", false,
+                    "message", "최소 2개 이상의 교실을 선택해야 합니다."
+                );
+            }
+            
+            // 선택된 교실들 조회
+            List<Classroom> selectedClassrooms = new ArrayList<>();
+            for (Long classroomId : classroomIds) {
+                Optional<Classroom> classroom = classroomService.getClassroomById(classroomId);
+                if (classroom.isPresent() && classroom.get().getSchool().getSchoolId().equals(schoolId)) {
+                    selectedClassrooms.add(classroom.get());
+                }
+            }
+            
+            if (selectedClassrooms.size() != classroomIds.size()) {
+                return Map.of(
+                    "success", false,
+                    "message", "일부 교실을 찾을 수 없습니다."
+                );
+            }
+            
+            // 임시 그룹 키 생성 (선택된 교실명들로 조합)
+            List<String> roomNames = selectedClassrooms.stream()
+                .map(Classroom::getRoomName)
+                .sorted() // 일관성을 위해 정렬
+                .collect(Collectors.toList());
+            
+            String tempGroupKey;
+            if (roomNames.size() <= 3) {
+                // 3개 이하면 모든 교실명 표시
+                tempGroupKey = String.join(", ", roomNames);
+            } else {
+                // 3개 초과면 처음 3개만 표시하고 나머지는 "외 N개"로 표시
+                tempGroupKey = String.join(", ", roomNames.subList(0, 3)) + 
+                              " 외 " + (roomNames.size() - 3) + "개";
+            }
+            
+            // 그룹 키가 너무 길면 줄임
+            if (tempGroupKey.length() > 50) {
+                tempGroupKey = tempGroupKey.substring(0, 47) + "...";
+            }
+            
+            // 세션에 임시 중복 그룹 저장
+            String sessionKey = "tempDuplicateGroup_" + schoolId;
+            Map<String, List<Classroom>> tempGroup = Map.of(tempGroupKey, selectedClassrooms);
+            session.setAttribute(sessionKey, tempGroup);
+            
+            log.info("임시 중복 그룹 생성됨: 키={}, 교실 수={}", tempGroupKey, selectedClassrooms.size());
+            
+            return Map.of(
+                "success", true,
+                "message", "선택된 교실들이 중복교실 관리에 추가되었습니다.",
+                "groupKey", tempGroupKey,
+                "classroomCount", selectedClassrooms.size()
+            );
+            
+        } catch (Exception e) {
+            log.error("선택된 교실들을 중복 그룹으로 추가 중 오류: ", e);
+            return Map.of(
+                "success", false,
+                "message", "선택된 교실들을 추가하는 중 오류가 발생했습니다: " + e.getMessage()
+            );
+        }
     }
 } 
