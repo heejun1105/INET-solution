@@ -90,7 +90,7 @@ public class ClassroomService {
     }
     
     public List<Classroom> findBySchoolId(Long schoolId) {
-        return classroomRepository.findBySchoolSchoolId(schoolId);
+        return classroomRepository.findBySchoolSchoolIdOrderByRoomNameAsc(schoolId);
     }
     
     public Optional<Classroom> findByRoomNameAndSchool(String roomName, Long schoolId) {

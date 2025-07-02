@@ -1230,6 +1230,16 @@ body {
     flex-shrink: 0;
 }
 
+.additional-card.success .card-icon {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.additional-card.info .card-icon {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
 .additional-card.danger .card-icon {
     background: #fef2f2;
     color: #dc2626;

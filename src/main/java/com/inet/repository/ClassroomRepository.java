@@ -27,4 +27,7 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
 
     @Query("SELECT c FROM Classroom c WHERE c.school.schoolId = :schoolId")
     List<Classroom> findBySchoolSchoolId(Long schoolId);
+    
+    @Query("SELECT c FROM Classroom c WHERE c.school.schoolId = :schoolId ORDER BY c.roomName ASC")
+    List<Classroom> findBySchoolSchoolIdOrderByRoomNameAsc(Long schoolId);
 } 

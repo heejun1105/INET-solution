@@ -31,6 +31,193 @@
 
 ## 최근 작업 내역
 
+### 12. UI/UX 개선 - 교실 관리 페이지 병합 기능 및 CSS 수정 (2025-01-25)
+- 교실 관리 페이지 입력 필드 CSS 스타일링 및 중복 교실 병합 기능 구현
+  - 작업 순서: 12번째 작업
+  - 세부 작업 내용:
+    1. 교실 추가 입력 필드 CSS 스타일링 문제 해결
+    2. 중복 교실 병합 시 사용자 정의 교실명 설정 기능 추가
+    3. 병합 모달 시스템 완전 구현 (HTML, CSS, JavaScript)
+    4. 병합 버튼 작동 문제 및 사용 현황 로딩 문제 해결
+    5. DOM 요소 초기화 타이밍 문제 해결
+
+  - 변경사항:
+    ```css
+    /* 교실 추가 입력 필드 스타일링 개선 */
+    .form-inline input {
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 8px;
+        padding: 10px 15px;
+        color: #333;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(5px);
+        width: 200px;
+        margin-right: 10px;
+    }
+    
+    .form-inline input:focus {
+        outline: none;
+        border-color: #007bff;
+        background: rgba(255, 255, 255, 0.2);
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    }
+    
+    .form-inline input::placeholder {
+        color: rgba(51, 51, 51, 0.6);
+        font-style: italic;
+    }
+    ```
+
+    ```html
+    <!-- 병합 모달 HTML 구조 -->
+    <div id="mergeModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>교실 병합</h3>
+                <span class="close" onclick="closeMergeModal()">&times;</span>
+            </div>
+            <form id="mergeForm" onsubmit="submitMerge(event)">
+                <div class="form-section">
+                    <label>병합할 교실들:</label>
+                    <div id="classroomList"></div>
+                </div>
+                
+                <div class="form-section">
+                    <label for="newClassroomName">새 교실명:</label>
+                    <input type="text" id="newClassroomName" name="newClassroomName" required 
+                           placeholder="병합 후 사용할 교실명을 입력하세요">
+                </div>
+                
+                <div class="form-section">
+                    <label for="targetClassroomId">대상 교실 선택:</label>
+                    <select id="targetClassroomId" name="targetClassroomId" required>
+                        <option value="">선택하세요</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" onclick="closeMergeModal()">취소</button>
+                    <button type="submit">병합 실행</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    ```
+
+    ```javascript
+    // JavaScript 초기화 및 이벤트 처리 개선
+    function initializePage() {
+        console.log('페이지 초기화 시작');
+        
+        // 약간의 지연을 두고 초기화 실행
+        setTimeout(() => {
+            initializeUsageInfo();
+            initializeMergeButtons();
+            initializeMergeForm();
+        }, 100);
+    }
+    
+    function initializeUsageInfo() {
+        const usageElements = document.querySelectorAll('.usage-info');
+        console.log('사용 현황 요소 개수:', usageElements.length);
+        
+        usageElements.forEach((element, index) => {
+            const classroomId = element.getAttribute('data-classroom-id');
+            console.log(`사용 현황 로딩 ${index + 1}:`, classroomId);
+            
+            if (classroomId) {
+                fetch(`/classroom/usage/${classroomId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    element.textContent = `${data.deviceCount}개 장비`;
+                })
+                .catch(error => {
+                    console.error('사용 현황 로딩 실패:', error);
+                    element.textContent = '정보 없음';
+                });
+            }
+        });
+    }
+    
+    function initializeMergeButtons() {
+        // 이벤트 위임 방식으로 병합 버튼 처리
+        document.addEventListener('click', function(event) {
+            if (event.target.classList.contains('merge-btn')) {
+                console.log('병합 버튼 클릭됨');
+                event.preventDefault();
+                
+                const button = event.target;
+                const classroomsData = button.getAttribute('data-classrooms');
+                
+                if (classroomsData) {
+                    try {
+                        const classrooms = JSON.parse(classroomsData);
+                        openMergeModal(classrooms);
+                    } catch (error) {
+                        console.error('교실 데이터 파싱 오류:', error);
+                        alert('교실 데이터를 불러오는 중 오류가 발생했습니다.');
+                    }
+                } else {
+                    console.error('교실 데이터가 없습니다');
+                    alert('교실 데이터가 없습니다.');
+                }
+            }
+        });
+    }
+    
+    function initializeMergeForm() {
+        const mergeForm = document.getElementById('mergeForm');
+        if (mergeForm) {
+            // 기존 이벤트 리스너 제거 후 새로 등록
+            mergeForm.removeEventListener('submit', handleMergeSubmit);
+            mergeForm.addEventListener('submit', handleMergeSubmit);
+            console.log('병합 폼 이벤트 리스너 등록됨');
+        } else {
+            console.error('mergeForm 요소를 찾을 수 없습니다');
+        }
+    }
+    
+    function handleMergeSubmit(event) {
+        event.preventDefault();
+        console.log('병합 폼 제출됨');
+        
+        const formData = new FormData(event.target);
+        const data = {
+            newClassroomName: formData.get('newClassroomName'),
+            targetClassroomId: formData.get('targetClassroomId'),
+            sourceClassroomIds: currentClassrooms
+                .filter(c => c.id != formData.get('targetClassroomId'))
+                .map(c => c.id)
+        };
+        
+        if (confirm(`"${data.newClassroomName}"으로 교실을 병합하시겠습니까?`)) {
+            submitMerge(data);
+        }
+    }
+    ```
+
+  - 영향 받은 파일 (수정 순서대로):
+    1. src/main/resources/static/main.css (입력 필드 스타일링 추가)
+    2. src/main/resources/templates/classroom/manage.html (병합 모달 HTML 추가)
+    3. src/main/resources/static/main.css (병합 모달 CSS 스타일링 추가)
+    4. src/main/resources/templates/classroom/manage.html (JavaScript 코드 전면 개선)
+
+  - 하위 작업:
+    1. 첫 번째 단계: 교실 추가 입력 필드 CSS 스타일링 문제 분석 및 해결
+    2. 두 번째 단계: 병합 모달 HTML 구조 및 CSS 스타일링 구현
+    3. 세 번째 단계: 병합 버튼 작동 문제 해결 (Thymeleaf 데이터 속성 및 이벤트 처리)
+    4. 네 번째 단계: 사용 현황 로딩 문제 해결 (API 호출 및 DOM 요소 처리)
+    5. 다섯 번째 단계: DOM 초기화 타이밍 문제 해결 (setTimeout 및 이벤트 위임 적용)
+    6. 여섯 번째 단계: JavaScript 구조 개선 (함수 분리 및 에러 핸들링 강화)
+
 ### 11. 버그 수정 - 장비목록 페이지 필터링 기능 개선 (2025-01-23)
 - "전체 학교" 선택 시 교실 필터링 문제 해결
   - 작업 순서: 11번째 작업
