@@ -1,2 +1,12 @@
 2025-07-03 03:08:20 [HikariPool-1 housekeeper] WARN  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=5h45m44s552ms405µs300ns).
 2025-07-03 06:19:58 [HikariPool-1 housekeeper] WARN  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=3h7m3s327ms603µs600ns).
+2025-07-03 06:45:39 [http-nio-8082-exec-9] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-03 06:45:46 [http-nio-8082-exec-3] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-03 06:46:52 [http-nio-8082-exec-6] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-03 06:47:21 [http-nio-8082-exec-10] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-03 06:53:53 [http-nio-8082-exec-5] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-03 06:54:01 [http-nio-8082-exec-8] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-03 07:05:18 [http-nio-8082-exec-3] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-03 07:05:38 [http-nio-8082-exec-9] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-03 07:11:45 [http-nio-8082-exec-1] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-03 07:11:47 [http-nio-8082-exec-5] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료

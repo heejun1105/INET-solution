@@ -503,7 +503,7 @@ class ZoomManager {
         const adjustedX = relativeX / this.zoomLevel;
         const adjustedY = relativeY / this.zoomLevel;
         
-        console.log('🎯 정밀한 좌표 계산 (실시간):', {
+        console.log('🎯 정밀한 좌표 계산:', {
             mouse: { clientX: e.clientX, clientY: e.clientY },
             canvasBounds: { 
                 left: rect.left, 
@@ -865,6 +865,7 @@ class FloorPlanManager {
         buildingElement.dataset.id = building.buildingId || 'new';
         buildingElement.textContent = building.buildingName || '새 건물';
         
+        buildingElement.style.position = 'absolute'; // 절대 위치 명시적 설정
         buildingElement.style.left = (building.xCoordinate || 50) + 'px';
         buildingElement.style.top = (building.yCoordinate || 50) + 'px';
         buildingElement.style.width = (building.width || 200) + 'px';
@@ -1026,11 +1027,11 @@ class FloorPlanManager {
             rooms: document.querySelectorAll('.room').length
         });
         
-        // 클릭 위치에 임시 마커 표시 (디버깅용)
+        // 클릭 위치에 임시 마커 표시 (디버깅용) - 절대 위치
         const marker = document.createElement('div');
-        marker.style.position = 'absolute';
-        marker.style.left = (x - 5) + 'px';
-        marker.style.top = (y - 5) + 'px';
+        marker.style.position = 'fixed';
+        marker.style.left = (e.clientX - 5) + 'px'; // 마우스 절대 위치
+        marker.style.top = (e.clientY - 5) + 'px';
         marker.style.width = '10px';
         marker.style.height = '10px';
         marker.style.background = 'red';
@@ -1038,9 +1039,9 @@ class FloorPlanManager {
         marker.style.zIndex = '9999';
         marker.style.pointerEvents = 'none';
         marker.className = 'debug-marker';
+        marker.title = '클릭 위치 (절대)';
         
-        const canvas = document.getElementById('canvasContent');
-        canvas.appendChild(marker);
+        document.body.appendChild(marker);
         
         // 2초 후 마커 제거
         setTimeout(() => {
@@ -1179,6 +1180,7 @@ class FloorPlanManager {
             }
         });
         
+        roomElement.style.position = 'absolute'; // 절대 위치 명시적 설정
         roomElement.style.left = finalLeft + 'px';
         roomElement.style.top = finalTop + 'px';
         roomElement.style.width = finalWidth + 'px';
@@ -1663,7 +1665,7 @@ class UnplacedRoomsManager {
         const finalRoomX = adjustedX;
         const finalRoomY = adjustedY;
         
-        console.log('=== 드래그 앤 드롭 디버깅 (실시간 개선) ===');
+        console.log('=== 드래그 앤 드롭 디버깅 (마진 제거) ===');
         console.log('원시 마우스 좌표:', { clientX: e.clientX, clientY: e.clientY });
         console.log('실시간 캔버스 경계:', { 
             left: rect.left, 
@@ -1675,7 +1677,7 @@ class UnplacedRoomsManager {
         console.log('스크롤 보정 전 상대 좌표:', { x: e.clientX - rect.left, y: e.clientY - rect.top });
         console.log('스크롤 보정 후 좌표:', { rawX, rawY });
         console.log('줌 적용 좌표:', { adjustedX, adjustedY });
-        console.log('최종 마우스 위치 (보정 전):', { roomX: finalRoomX, roomY: finalRoomY });
+        console.log('최종 마우스 위치:', { roomX: finalRoomX, roomY: finalRoomY });
         console.log('줌 레벨:', this.floorPlanManager.zoomManager.zoomLevel);
         console.log('기존 요소 개수:', {
             buildings: document.querySelectorAll('.building').length,
@@ -1707,11 +1709,11 @@ class UnplacedRoomsManager {
         const actualRoomX = correctedX - 50;
         const actualRoomY = correctedY - 40;
         
-        // 마우스 위치에 파란색 마커 표시 (마우스 포인터 위치)
+        // 마우스 위치에 파란색 마커 표시 (절대 위치) 
         const marker = document.createElement('div');
-        marker.style.position = 'absolute';
-        marker.style.left = (correctedX - 5) + 'px'; // 마우스 위치
-        marker.style.top = (correctedY - 5) + 'px';
+        marker.style.position = 'fixed';
+        marker.style.left = (e.clientX - 5) + 'px'; // 마우스 절대 위치
+        marker.style.top = (e.clientY - 5) + 'px';
         marker.style.width = '10px';
         marker.style.height = '10px';
         marker.style.background = 'blue';
@@ -1719,9 +1721,9 @@ class UnplacedRoomsManager {
         marker.style.zIndex = '9999';
         marker.style.pointerEvents = 'none';
         marker.className = 'debug-marker';
-        marker.title = '마우스 위치';
+        marker.title = '마우스 위치 (절대)';
         
-        // 실제 교실이 생성될 위치에 빨간색 아웃라인 표시
+        // 실제 교실이 생성될 위치에 빨간색 아웃라인 표시 (캔버스 내부)
         const roomOutline = document.createElement('div');
         roomOutline.style.position = 'absolute';
         roomOutline.style.left = actualRoomX + 'px';
@@ -1736,12 +1738,13 @@ class UnplacedRoomsManager {
         roomOutline.title = '실제 교실 위치';
         
         console.log('🎯 디버그 마커 위치:', {
-            마우스위치: { x: correctedX, y: correctedY },
+            마우스절대위치: { x: e.clientX, y: e.clientY },
+            마우스캔버스위치: { x: correctedX, y: correctedY },
             실제교실위치: { x: actualRoomX, y: actualRoomY }
         });
         
-        canvas.appendChild(marker);
-        canvas.appendChild(roomOutline);
+        document.body.appendChild(marker); // 절대 위치 마커는 body에 추가
+        canvas.appendChild(roomOutline); // 교실 아웃라인은 캔버스에 추가
         
         // 3초 후 마커들 제거
         setTimeout(() => {
@@ -1753,7 +1756,7 @@ class UnplacedRoomsManager {
             }
         }, 3000);
         
-        // 최종 좌표 (오프셋 제거 - 완전 중첩 가능)
+        // 최종 좌표
         const finalX = correctedX;
         const finalY = correctedY;
         
