@@ -339,6 +339,44 @@
             box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
         }
 
+        /* 다중 선택된 요소 스타일 */
+        .draggable.multi-selected {
+            border-color: #10b981;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        /* 선택 박스 스타일 */
+        .selection-box {
+            border: 2px dashed #3b82f6 !important;
+            background: rgba(59, 130, 246, 0.1) !important;
+            pointer-events: none !important;
+            z-index: 9999 !important;
+        }
+
+        /* 다중 선택 정보 표시 */
+        .multi-select-info {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            z-index: 10000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            transform: translateX(400px);
+            transition: all 0.3s ease;
+        }
+
+        .multi-select-info.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
         /* 크기 조절 핸들 */
         .resize-handles {
             position: absolute;
@@ -984,6 +1022,11 @@
     <!-- 알림 메시지 -->
     <div id="notification" class="notification">
         <span id="notificationText"></span>
+    </div>
+
+    <!-- 다중 선택 정보 -->
+    <div id="multiSelectInfo" class="multi-select-info">
+        <span id="multiSelectText"></span>
     </div>
 
     <!-- 교실 상세 모달 포함 -->

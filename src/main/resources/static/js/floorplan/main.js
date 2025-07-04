@@ -169,6 +169,9 @@ class ResizeManager {
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
         
+        // 크기 조절 완료 후 선택 상태 해제하여 빨간색 테두리 제거
+        this.floorPlanManager.clearSelection();
+        
         // 크기 변경 완료 이벤트 발생
         const resizeCompleteEvent = new CustomEvent('resizeComplete', {
             detail: { element: this.selectedElement }
@@ -349,9 +352,34 @@ class ZoomManager {
         this.minZoom = 0.25; // 최소 25%
         this.maxZoom = 3.0;  // 최대 300%
         this.zoomStep = 0.25; // 확대/축소 단계
+        this.initialized = false;
         
-        this.initEventListeners();
-        this.updateZoomDisplay();
+        // DOM 요소가 준비된 후에 초기화하도록 지연
+        if (this.canvas) {
+            this.delayedInit();
+        }
+    }
+    
+    delayedInit() {
+        // DOM 요소들이 존재하는지 확인 후 초기화
+        const checkElements = () => {
+            const zoomIn = document.getElementById('zoomIn');
+            const zoomOut = document.getElementById('zoomOut');
+            const zoomReset = document.getElementById('zoomReset');
+            const zoomLevel = document.getElementById('zoomLevel');
+            
+            if (zoomIn && zoomOut && zoomReset && zoomLevel) {
+                this.initEventListeners();
+                this.updateZoomDisplay();
+                this.initialized = true;
+                console.log('✅ ZoomManager 초기화 완료');
+            } else {
+                // 요소들이 아직 준비되지 않았으면 100ms 후 다시 시도
+                setTimeout(checkElements, 100);
+            }
+        };
+        
+        checkElements();
     }
     
     initEventListeners() {
@@ -438,13 +466,22 @@ class ZoomManager {
     }
     
     updateZoomDisplay() {
+        if (!this.initialized) return;
+        
         const percentage = Math.round(this.zoomLevel * 100);
-        document.getElementById('zoomLevel').textContent = `${percentage}%`;
+        const zoomLevelElement = document.getElementById('zoomLevel');
+        if (zoomLevelElement) {
+            zoomLevelElement.textContent = `${percentage}%`;
+        }
     }
     
     updateButtonStates() {
+        if (!this.initialized) return;
+        
         const zoomInBtn = document.getElementById('zoomIn');
         const zoomOutBtn = document.getElementById('zoomOut');
+        
+        if (!zoomInBtn || !zoomOutBtn) return;
         
         // 최대 확대 시 확대 버튼 비활성화
         if (this.zoomLevel >= this.maxZoom) {
@@ -540,8 +577,8 @@ class DragManager {
         this.isDragging = true;
         this.dragElement = element;
         
-        // 줌 적용된 좌표로 변환
-        const canvasCoords = this.floorPlanManager.zoomManager.getCanvasCoordinates(e);
+        // FloorPlanManager의 안전한 좌표 계산 메서드 사용
+        const canvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
         const elementRect = element.getBoundingClientRect();
         const elementX = parseInt(element.style.left || 0);
         const elementY = parseInt(element.style.top || 0);
@@ -559,8 +596,8 @@ class DragManager {
     handleMouseMove(e) {
         if (!this.isDragging || !this.dragElement) return;
         
-        // 줌 적용된 좌표로 변환
-        const canvasCoords = this.floorPlanManager.zoomManager.getCanvasCoordinates(e);
+        // FloorPlanManager의 안전한 좌표 계산 메서드 사용
+        const canvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
         const targetX = canvasCoords.x - this.offset.x;
         const targetY = canvasCoords.y - this.offset.y;
         
@@ -579,9 +616,427 @@ class DragManager {
     
     handleMouseUp(e) {
         if (this.isDragging && this.dragElement) {
+            // 드래그 완료 후 스냅 피드백(파란색 테두리) 제거
+            this.floorPlanManager.snapManager.hideSnapFeedback(this.dragElement);
+            
             this.dragElement.style.zIndex = '';
             this.isDragging = false;
+            // 드래그 완료 후 선택 상태는 유지 (clearSelection 제거)
         }
+    }
+}
+
+// 박스 선택 관리 클래스
+class SelectionBoxManager {
+    constructor(floorPlanManager) {
+        this.floorPlanManager = floorPlanManager;
+        this.isBoxSelecting = false;
+        this.selectionBox = null;
+        this.startX = 0;
+        this.startY = 0;
+        this.currentX = 0;
+        this.currentY = 0;
+        this.justCompletedSelection = false;
+        this.MIN_DRAG_DISTANCE = 3; // 최소 드래그 거리를 3픽셀로 줄임 (더 쉽게 박스 선택 시작)
+        this.hasActuallyDragged = false; // 실제 드래그 발생 여부
+    }
+
+    startBoxSelection(e) {
+        console.log('🎯 startBoxSelection 호출됨:', { currentTool: this.floorPlanManager.currentTool });
+        
+        if (this.floorPlanManager.currentTool !== 'select') {
+            console.log('❌ select 도구가 아님, 박스 선택 중단');
+            return false;
+        }
+        
+        const canvas = document.getElementById('canvasContent');
+        const coords = this.floorPlanManager.getCanvasCoordinates(e);
+        
+        this.startX = coords.x;
+        this.startY = coords.y;
+        this.currentX = this.startX;
+        this.currentY = this.startY;
+        this.isBoxSelecting = true;
+        this.hasActuallyDragged = false; // 드래그 상태 초기화
+        
+        console.log('📦 박스 선택 준비:', { startX: this.startX, startY: this.startY });
+        
+        // 선택 박스 요소는 실제 드래그가 발생했을 때 생성
+        this.selectionBox = null;
+        
+        console.log('✅ 박스 선택 준비 완료');
+        return true;
+    }
+
+    updateBoxSelection(e) {
+        if (!this.isBoxSelecting) return;
+        
+        const coords = this.floorPlanManager.getCanvasCoordinates(e);
+        this.currentX = coords.x;
+        this.currentY = coords.y;
+        
+        // 시작점에서 현재 위치까지의 거리 계산
+        const deltaX = Math.abs(this.currentX - this.startX);
+        const deltaY = Math.abs(this.currentY - this.startY);
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        // 최소 드래그 거리 이상 움직였을 때만 실제 드래그로 인정
+        if (!this.hasActuallyDragged && distance >= this.MIN_DRAG_DISTANCE) {
+            this.hasActuallyDragged = true;
+            this.createSelectionBox();
+            console.log('📦 실제 드래그 시작! 박스 생성됨');
+        }
+        
+        // 실제 드래그가 발생한 경우에만 박스 업데이트
+        if (this.hasActuallyDragged && this.selectionBox) {
+            const left = Math.min(this.startX, this.currentX);
+            const top = Math.min(this.startY, this.currentY);
+            const width = Math.abs(this.currentX - this.startX);
+            const height = Math.abs(this.currentY - this.startY);
+            
+            this.selectionBox.style.left = left + 'px';
+            this.selectionBox.style.top = top + 'px';
+            this.selectionBox.style.width = width + 'px';
+            this.selectionBox.style.height = height + 'px';
+            
+            // 큰 드래그만 로그 (너무 많은 로그 방지)
+            if (width > 10 || height > 10) {
+                console.log('📦 박스 업데이트:', { left, top, width, height });
+            }
+        }
+    }
+    
+    createSelectionBox() {
+        const canvas = document.getElementById('canvasContent');
+        
+        // 선택 박스 요소 생성
+        this.selectionBox = document.createElement('div');
+        this.selectionBox.className = 'selection-box';
+        this.selectionBox.style.position = 'absolute';
+        this.selectionBox.style.border = '4px dashed #3b82f6'; // 더 두꺼운 테두리
+        this.selectionBox.style.background = 'rgba(59, 130, 246, 0.2)'; // 더 진한 배경
+        this.selectionBox.style.pointerEvents = 'none';
+        this.selectionBox.style.zIndex = '999999';
+        this.selectionBox.style.left = this.startX + 'px';
+        this.selectionBox.style.top = this.startY + 'px';
+        this.selectionBox.style.width = '0px';
+        this.selectionBox.style.height = '0px';
+        this.selectionBox.style.boxShadow = '0 0 15px rgba(59, 130, 246, 0.8)'; // 더 강한 그림자
+        this.selectionBox.style.animation = 'selectionPulse 0.8s ease-in-out infinite alternate'; // 펄스 애니메이션
+        this.selectionBox.id = 'selection-box-debug';
+        
+        // 애니메이션 CSS 추가 (한 번만)
+        if (!document.getElementById('selection-animation-style')) {
+            const style = document.createElement('style');
+            style.id = 'selection-animation-style';
+            style.textContent = `
+                @keyframes selectionPulse {
+                    from { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.8); }
+                    to { border-color: #1d4ed8; box-shadow: 0 0 25px rgba(29, 78, 216, 1); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        canvas.appendChild(this.selectionBox);
+        console.log('✅ 강화된 선택 박스 요소 생성 및 추가 완료');
+    }
+
+    endBoxSelection(e) {
+        console.log('🏁 endBoxSelection 호출됨:', { 
+            isBoxSelecting: this.isBoxSelecting, 
+            hasActuallyDragged: this.hasActuallyDragged 
+        });
+        
+        if (!this.isBoxSelecting) {
+            console.log('❌ 박스 선택 중이 아님');
+            return [];
+        }
+        
+        // 실제 드래그가 발생하지 않았으면 선택 처리하지 않음
+        if (!this.hasActuallyDragged) {
+            console.log('📦 실제 드래그 없음 - 클릭으로 처리됨');
+            this.isBoxSelecting = false;
+            this.justCompletedSelection = false; // 클릭이므로 플래그 설정 안 함
+            return [];
+        }
+        
+        const left = Math.min(this.startX, this.currentX);
+        const top = Math.min(this.startY, this.currentY);
+        const right = Math.max(this.startX, this.currentX);
+        const bottom = Math.max(this.startY, this.currentY);
+        
+        console.log('📦 박스 선택 영역:', { left, top, right, bottom });
+        
+        // 선택 박스 내의 요소들 찾기
+        const elements = document.querySelectorAll('.building, .room');
+        const selectedElements = [];
+        
+        console.log('🔍 검사할 요소 수:', elements.length);
+        
+        elements.forEach(element => {
+            const rect = {
+                left: parseInt(element.style.left) || 0,
+                top: parseInt(element.style.top) || 0,
+                right: (parseInt(element.style.left) || 0) + (parseInt(element.style.width) || 100),
+                bottom: (parseInt(element.style.top) || 0) + (parseInt(element.style.height) || 80)
+            };
+            
+            // 요소가 선택 박스와 겹치는지 확인
+            if (rect.left < right && rect.right > left && rect.top < bottom && rect.bottom > top) {
+                selectedElements.push(element);
+                console.log('✅ 선택된 요소:', element.dataset.type, element.textContent?.trim());
+            }
+        });
+        
+        console.log('📦 총 선택된 요소 수:', selectedElements.length);
+        
+        // 선택 박스 제거
+        if (this.selectionBox && this.selectionBox.parentNode) {
+            this.selectionBox.parentNode.removeChild(this.selectionBox);
+            console.log('🗑️ 선택 박스 제거됨');
+        }
+        this.selectionBox = null;
+        this.isBoxSelecting = false;
+        
+        this.justCompletedSelection = true;
+        
+        return selectedElements;
+    }
+
+    cancelBoxSelection() {
+        if (this.selectionBox && this.selectionBox.parentNode) {
+            this.selectionBox.parentNode.removeChild(this.selectionBox);
+        }
+        this.selectionBox = null;
+        this.isBoxSelecting = false;
+    }
+}
+
+// 다중 선택 관리 클래스
+class MultiSelectManager {
+    constructor(floorPlanManager) {
+        this.floorPlanManager = floorPlanManager;
+        this.selectedElements = [];
+    }
+
+    selectElement(element, addToSelection = false) {
+        if (!addToSelection) {
+            this.clearSelection();
+        }
+        
+        if (!this.selectedElements.includes(element)) {
+            this.selectedElements.push(element);
+            element.classList.add('multi-selected');
+        }
+        
+        this.updateSelectionDisplay();
+    }
+
+    selectElements(elements, addToSelection = false) {
+        if (!addToSelection) {
+            this.clearSelection();
+        }
+        
+        elements.forEach(element => {
+            if (!this.selectedElements.includes(element)) {
+                this.selectedElements.push(element);
+                element.classList.add('multi-selected');
+            }
+        });
+        
+        this.updateSelectionDisplay();
+    }
+
+    deselectElement(element) {
+        const index = this.selectedElements.indexOf(element);
+        if (index > -1) {
+            this.selectedElements.splice(index, 1);
+            element.classList.remove('multi-selected');
+        }
+        
+        this.updateSelectionDisplay();
+    }
+
+    toggleElement(element) {
+        if (this.selectedElements.includes(element)) {
+            this.deselectElement(element);
+        } else {
+            this.selectElement(element, true);
+        }
+    }
+
+    clearSelection() {
+        // 모든 다중 선택된 요소들의 스타일 제거
+        this.selectedElements.forEach(element => {
+            element.classList.remove('multi-selected');
+        });
+        
+        // 선택된 요소 배열 초기화
+        this.selectedElements = [];
+        
+        // 선택 상태 표시 업데이트
+        this.updateSelectionDisplay();
+    }
+
+    updateSelectionDisplay() {
+        const count = this.selectedElements.length;
+        const infoElement = document.getElementById('multiSelectInfo');
+        const textElement = document.getElementById('multiSelectText');
+        
+        // DOM 요소들이 존재하는지 확인
+        if (!infoElement || !textElement) {
+            console.warn('다중 선택 표시 요소들을 찾을 수 없습니다.');
+            return;
+        }
+        
+        if (count > 1) {
+            textElement.textContent = `${count}개 요소 선택됨 - Ctrl+드래그로 그룹 이동`;
+            infoElement.classList.add('show');
+        } else {
+            infoElement.classList.remove('show');
+        }
+    }
+
+    getSelectedElements() {
+        return [...this.selectedElements];
+    }
+
+    hasSelection() {
+        return this.selectedElements.length > 0;
+    }
+
+    getSelectionBounds() {
+        if (this.selectedElements.length === 0) return null;
+        
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        
+        this.selectedElements.forEach(element => {
+            const left = parseInt(element.style.left) || 0;
+            const top = parseInt(element.style.top) || 0;
+            const right = left + (parseInt(element.style.width) || 100);
+            const bottom = top + (parseInt(element.style.height) || 80);
+            
+            minX = Math.min(minX, left);
+            minY = Math.min(minY, top);
+            maxX = Math.max(maxX, right);
+            maxY = Math.max(maxY, bottom);
+        });
+        
+        return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+    }
+}
+
+// 그룹 드래그 관리 클래스
+class GroupDragManager {
+    constructor(floorPlanManager) {
+        this.floorPlanManager = floorPlanManager;
+        this.isDragging = false;
+        this.dragElements = [];
+        this.startPositions = [];
+        this.startX = 0;
+        this.startY = 0;
+    }
+
+    startGroupDrag(elements, e) {
+        if (elements.length === 0) return false;
+        
+        this.dragElements = [...elements];
+        this.startPositions = elements.map(element => ({
+            element: element,
+            x: parseInt(element.style.left) || 0,
+            y: parseInt(element.style.top) || 0
+        }));
+        
+        this.startX = e.clientX;
+        this.startY = e.clientY;
+        this.isDragging = true;
+        
+        // 드래그 중 시각적 효과
+        this.dragElements.forEach(element => {
+            element.style.zIndex = '1000';
+            element.style.opacity = '0.8';
+            element.style.pointerEvents = 'none'; // 마우스 이벤트 비활성화
+        });
+        
+        // 캔버스 커서 변경
+        document.getElementById('canvasContent').style.cursor = 'move';
+        
+        return true;
+    }
+
+    updateGroupDrag(e) {
+        if (!this.isDragging) return;
+        
+        const deltaX = e.clientX - this.startX;
+        const deltaY = e.clientY - this.startY;
+        
+        // 줌 레벨 적용 (zoomManager가 있고 초기화되었을 때만)
+        let zoomLevel = 1.0;
+        if (this.floorPlanManager.zoomManager && this.floorPlanManager.zoomManager.initialized) {
+            zoomLevel = this.floorPlanManager.zoomManager.getCurrentZoom();
+        }
+        const adjustedDeltaX = deltaX / zoomLevel;
+        const adjustedDeltaY = deltaY / zoomLevel;
+        
+        this.startPositions.forEach(({ element, x, y }) => {
+            const newX = x + adjustedDeltaX;
+            const newY = y + adjustedDeltaY;
+            
+            // 스냅 적용 (첫 번째 요소 기준)
+            if (element === this.dragElements[0]) {
+                const snappedPosition = this.floorPlanManager.snapManager.snapElement(element, newX, newY);
+                const snapDeltaX = snappedPosition.x - newX;
+                const snapDeltaY = snappedPosition.y - newY;
+                
+                // 모든 요소에 스냅 오프셋 적용
+                this.startPositions.forEach(({ element: el, x: origX, y: origY }) => {
+                    el.style.left = Math.max(0, origX + adjustedDeltaX + snapDeltaX) + 'px';
+                    el.style.top = Math.max(0, origY + adjustedDeltaY + snapDeltaY) + 'px';
+                });
+            }
+        });
+    }
+
+    endGroupDrag() {
+        if (!this.isDragging) return;
+        
+        // 드래그 효과 제거
+        this.dragElements.forEach(element => {
+            element.style.zIndex = '';
+            element.style.opacity = '';
+            element.style.pointerEvents = ''; // 마우스 이벤트 다시 활성화
+            this.floorPlanManager.snapManager.hideSnapFeedback(element);
+        });
+        
+        // 캔버스 커서 원래대로
+        this.floorPlanManager.updateCanvasCursor();
+        
+        this.isDragging = false;
+        this.dragElements = [];
+        this.startPositions = [];
+        
+        this.floorPlanManager.showNotification('그룹 이동이 완료되었습니다.');
+    }
+
+    cancelGroupDrag() {
+        if (!this.isDragging) return;
+        
+        // 원래 위치로 복원
+        this.startPositions.forEach(({ element, x, y }) => {
+            element.style.left = x + 'px';
+            element.style.top = y + 'px';
+            element.style.zIndex = '';
+            element.style.opacity = '';
+            element.style.pointerEvents = ''; // 마우스 이벤트 다시 활성화
+        });
+        
+        // 캔버스 커서 원래대로
+        this.floorPlanManager.updateCanvasCursor();
+        
+        this.isDragging = false;
+        this.dragElements = [];
+        this.startPositions = [];
     }
 }
 
@@ -600,16 +1055,35 @@ class FloorPlanManager {
         };
         this.resizeManager = new ResizeManager(this); // 크기 조절 관리자 추가
         this.snapManager = new SnapManager(); // 스냅 기능 관리자 추가
-        this.zoomManager = new ZoomManager(document.getElementById('canvasContent')); // 확대/축소 관리자 추가
+        
+        // 캔버스 요소가 존재하는지 확인 후 ZoomManager 초기화
+        const canvasElement = document.getElementById('canvasContent');
+        if (canvasElement) {
+            this.zoomManager = new ZoomManager(canvasElement); // 확대/축소 관리자 추가
+        } else {
+            console.warn('⚠️ canvasContent 요소를 찾을 수 없습니다. ZoomManager 초기화를 건너뜁니다.');
+            this.zoomManager = null;
+        }
+        
         this.dragManager = new DragManager(this); // DragManager 인스턴스 추가
         this.unplacedRoomsManager = new UnplacedRoomsManager(this); // 미배치 교실 관리자 추가
+        this.selectionBoxManager = new SelectionBoxManager(this); // 박스 선택 관리자 추가
+        this.multiSelectManager = new MultiSelectManager(this); // 다중 선택 관리자 추가
+        this.groupDragManager = new GroupDragManager(this); // 그룹 드래그 관리자 추가
         
         this.init();
     }
     
     init() {
+        console.log('🚀 FloorPlanManager 초기화 시작');
         this.bindEvents();
         this.setupCanvas();
+        
+        // 기본 모드를 먼저 설정 (layout 모드)
+        this.switchMode('layout');
+        
+        // 기본적으로 select 도구 선택
+        this.selectTool('select');
     }
     
     bindEvents() {
@@ -651,9 +1125,12 @@ class FloorPlanManager {
         }
 
         // PPT 다운로드 버튼
-        document.getElementById('downloadButton').addEventListener('click', () => {
-            this.downloadPPT();
-        });
+        const downloadButtonElement = document.getElementById('downloadButton');
+        if (downloadButtonElement) {
+            downloadButtonElement.addEventListener('click', () => {
+                this.downloadPPT();
+            });
+        }
         
         // 캔버스 이벤트
         this.setupCanvasEvents();
@@ -667,9 +1144,7 @@ class FloorPlanManager {
             return;
         }
         
-        canvas.addEventListener('click', (e) => {
-            this.handleCanvasClick(e);
-        });
+        // click 이벤트 제거 - setupCanvasEvents에서 통합 처리
         canvas.addEventListener('contextmenu', (e) => this.handleRightClick(e));
     }
     
@@ -678,11 +1153,39 @@ class FloorPlanManager {
         document.addEventListener('mousemove', (e) => {
             this.dragManager.handleMouseMove(e);
             this.resizeManager.handleMouseMove(e);
+            this.selectionBoxManager.updateBoxSelection(e);
+            this.groupDragManager.updateGroupDrag(e);
         });
         
         document.addEventListener('mouseup', (e) => {
             this.dragManager.handleMouseUp(e);
             this.resizeManager.handleMouseUp(e);
+            
+            // 박스 선택 완료 처리
+            let boxSelectionOccurred = false;
+            if (this.selectionBoxManager.isBoxSelecting) {
+                const selectedElements = this.selectionBoxManager.endBoxSelection(e);
+                if (selectedElements.length > 0) {
+                    const addToSelection = e.ctrlKey || e.metaKey;
+                    this.multiSelectManager.selectElements(selectedElements, addToSelection);
+                    boxSelectionOccurred = true;
+                }
+            }
+            
+            // 그룹 드래그 완료 처리
+            if (this.groupDragManager.isDragging) {
+                this.groupDragManager.endGroupDrag();
+            }
+            
+            // 박스 선택이나 드래그가 발생하지 않았고, 캔버스 클릭 좌표가 있으면 클릭 처리
+            if (!boxSelectionOccurred && !this.dragManager.isDragging && 
+                !this.groupDragManager.isDragging && this.pendingClickCoords && 
+                e.target.id === 'canvasContent') {
+                this.handleCanvasClickAtCoords(this.pendingClickCoords);
+            }
+            
+            // 대기 중인 클릭 좌표 초기화
+            this.pendingClickCoords = null;
         });
         
         // 터치 이벤트 (모바일 지원)
@@ -690,6 +1193,21 @@ class FloorPlanManager {
         canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
         canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
         canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        
+        // 캔버스 마우스 다운 이벤트 (박스 선택과 그룹 드래그용)
+        canvas.addEventListener('mousedown', (e) => {
+            this.handleCanvasMouseDown(e);
+        });
+        
+        // ESC 키로 선택 해제
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.multiSelectManager.clearSelection();
+                this.clearSelection();
+                this.selectionBoxManager.cancelBoxSelection();
+                this.groupDragManager.cancelGroupDrag();
+            }
+        });
     }
     
     selectSchool(schoolId) {
@@ -728,61 +1246,82 @@ class FloorPlanManager {
     selectTool(tool) {
         this.currentTool = tool;
         
-        // 도구 버튼 활성화
-        document.querySelectorAll('.tool-button').forEach(btn => {
+        // 도구 전환 시 선택 해제
+        this.clearSelection();
+        
+        // 현재 활성화된 toolbar 찾기
+        const activeToolbar = document.querySelector('.toolbar.active');
+        if (!activeToolbar) {
+            console.warn('활성화된 toolbar를 찾을 수 없습니다. 기본 모드가 설정되지 않았을 수 있습니다.');
+            
+            // 기본 모드가 설정되지 않았다면 layout 모드로 설정
+            if (!this.currentMode) {
+                console.log('기본 모드가 없어서 layout 모드로 설정합니다.');
+                this.switchMode('layout');
+                // 다시 시도
+                const retryToolbar = document.querySelector('.toolbar.active');
+                if (retryToolbar) {
+                    this.updateToolButtons(retryToolbar, tool);
+                }
+            }
+        } else {
+            this.updateToolButtons(activeToolbar, tool);
+        }
+        
+        // 캔버스 커서 업데이트
+        this.updateCanvasCursor();
+        
+        // select 도구일 때 박스 선택 활성화
+        if (tool === 'select') {
+            this.selectionBoxManager.isEnabled = true;
+        } else {
+            this.selectionBoxManager.isEnabled = false;
+            this.selectionBoxManager.cancelBoxSelection();
+        }
+    }
+    
+    updateToolButtons(toolbar, tool) {
+        // 해당 toolbar 내의 모든 버튼 비활성화
+        toolbar.querySelectorAll('.tool-button').forEach(btn => {
             btn.classList.remove('active');
         });
         
-        const targetButton = document.querySelector(`[data-tool="${tool}"]`);
-        
-        if (targetButton) {
-            targetButton.classList.add('active');
-        }
-        
-        // 캔버스 커서 변경
-        this.updateCanvasCursor();
-        
-        // 도구 선택 시 안내 메시지 표시
-        switch (tool) {
-            case 'building':
-                this.showNotification('캔버스에서 원하는 위치를 클릭하여 건물을 배치하세요.', 'info');
-                break;
-            case 'room':
-                this.showNotification('캔버스에서 원하는 위치를 클릭하여 교실을 배치하세요.', 'info');
-                break;
-            case 'add-ap':
-                this.showNotification('교실 내부를 클릭하여 무선AP를 배치하세요.', 'info');
-                break;
-            case 'delete':
-                this.showNotification('삭제할 요소를 클릭하세요.', 'info');
-                break;
+        // 해당 toolbar 내의 해당 도구 버튼 활성화
+        const activeButton = toolbar.querySelector(`[data-tool="${tool}"]`);
+        if (activeButton) {
+            activeButton.classList.add('active');
+            console.log(`✅ "${tool}" 도구 버튼이 활성화되었습니다.`);
+        } else {
+            console.warn(`도구 "${tool}"에 해당하는 버튼을 찾을 수 없습니다!`);
         }
     }
     
     updateCanvasCursor() {
         const canvas = document.getElementById('canvasContent');
         
+        // CSS의 고정 커서를 덮어쓰기 위해 !important 스타일 적용
         switch (this.currentTool) {
             case 'select':
-                canvas.style.cursor = 'default';
+                canvas.style.setProperty('cursor', 'default', 'important');
+                console.log('🖱️ 커서를 default로 변경 (select 도구)');
                 break;
             case 'building':
-                canvas.style.cursor = 'crosshair';
+                canvas.style.setProperty('cursor', 'crosshair', 'important');
                 break;
             case 'room':
-                canvas.style.cursor = 'crosshair';
+                canvas.style.setProperty('cursor', 'crosshair', 'important');
                 break;
             case 'add-ap':
-                canvas.style.cursor = 'crosshair';
+                canvas.style.setProperty('cursor', 'crosshair', 'important');
                 break;
             case 'delete':
-                canvas.style.cursor = 'not-allowed';
+                canvas.style.setProperty('cursor', 'not-allowed', 'important');
                 break;
             case 'copy':
-                canvas.style.cursor = 'copy';
+                canvas.style.setProperty('cursor', 'copy', 'important');
                 break;
             default:
-                canvas.style.cursor = 'default';
+                canvas.style.setProperty('cursor', 'default', 'important');
         }
     }
     
@@ -988,24 +1527,84 @@ class FloorPlanManager {
     addElementEvents(element) {
         element.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.selectElement(element);
+            
+            if (this.currentTool === 'select') {
+                const isCtrlClick = e.ctrlKey || e.metaKey;
+                
+                if (isCtrlClick) {
+                    // Ctrl+클릭으로 다중 선택 토글
+                    this.multiSelectManager.toggleElement(element);
+                } else {
+                    // 단일 선택 (기존 다중 선택 해제)
+                    this.multiSelectManager.clearSelection();
+                    this.selectElement(element);
+                }
+            } else if (this.currentTool === 'delete') {
+                element.remove();
+                this.showNotification('요소가 삭제되었습니다.');
+            } else {
+                this.editElement(element);
+            }
         });
         
-        element.addEventListener('dblclick', (e) => {
-            e.stopPropagation();
-            this.editElement(element);
+        element.addEventListener('mousedown', (e) => {
+            if (this.currentTool === 'select') {
+                e.stopPropagation();
+                
+                // 크기 조절 핸들 클릭이 아닌 경우에만 드래그 시작
+                if (e.target.classList.contains('resize-handle')) {
+                    return; // 크기 조절 핸들은 ResizeManager가 처리
+                }
+                
+                // 다중 선택된 요소들 중 하나를 클릭한 경우 그룹 드래그 시작
+                if (this.multiSelectManager.hasSelection() && 
+                    this.multiSelectManager.getSelectedElements().includes(element)) {
+                    this.groupDragManager.startGroupDrag(this.multiSelectManager.getSelectedElements(), e);
+                } else {
+                    // 단일 요소 드래그 - Ctrl 키가 없으면 다중 선택만 해제
+                    if (!e.ctrlKey && !e.metaKey && this.multiSelectManager.hasSelection()) {
+                        this.multiSelectManager.clearSelection();
+                    }
+                    this.dragManager.startDrag(element, e);
+                }
+            }
+        });
+        
+        // mouseup 이벤트 추가 - 그룹 드래그 종료 처리
+        element.addEventListener('mouseup', (e) => {
+            // 그룹 드래그가 진행 중이면 종료 처리
+            if (this.groupDragManager.isDragging) {
+                e.stopPropagation();
+                this.groupDragManager.endGroupDrag();
+            }
         });
         
         // 크기 조절 핸들 추가
         this.resizeManager.addResizeHandles(element);
-        
-        // 드래그 기능을 위한 마우스 이벤트
-        element.addEventListener('mousedown', (e) => {
-            // 크기 조절 핸들 클릭이 아닌 경우에만 드래그 시작
-            if (!e.target.classList.contains('resize-handle')) {
-                this.dragManager.startDrag(element, e);
+    }
+    
+    handleCanvasMouseDown(e) {
+        // 빈 캔버스 공간에서 마우스 다운 시 처리
+        if (e.target.id === 'canvasContent') {
+            if (this.currentTool === 'select') {
+                // Ctrl 키 없이 클릭하면 기존 선택 해제
+                if (!e.ctrlKey && !e.metaKey) {
+                    this.multiSelectManager.clearSelection();
+                    this.clearSelection();
+                }
+                
+                // 박스 선택 시작 시도
+                const started = this.selectionBoxManager.startBoxSelection(e);
+                
+                // 박스 선택이 시작되지 않았다면 클릭 위치 저장 (클릭 처리용)
+                if (!started) {
+                    this.pendingClickCoords = this.getCanvasCoordinates(e);
+                }
+            } else {
+                // select 도구가 아닌 경우 클릭 위치 저장
+                this.pendingClickCoords = this.getCanvasCoordinates(e);
             }
-        });
+        }
     }
     
     handleCanvasClick(e) {
@@ -1014,8 +1613,14 @@ class FloorPlanManager {
             return;
         }
         
+        // 박스 선택이 막 완료된 경우에는 클릭 처리를 건너뜀
+        if (this.selectionBoxManager.justCompletedSelection) {
+            this.selectionBoxManager.justCompletedSelection = false;
+            return;
+        }
+        
         // 새로운 정확한 좌표 계산 메서드 사용
-        const coords = this.zoomManager.getCanvasCoordinates(e);
+        const coords = this.getCanvasCoordinates(e);
         const x = coords.x;
         const y = coords.y;
         
@@ -1072,7 +1677,7 @@ class FloorPlanManager {
                 
             case 'select':
             default:
-                // 선택 해제
+                // 선택 해제 (단일 선택과 다중 선택 모두 해제)
                 this.clearSelection();
                 break;
         }
@@ -1218,10 +1823,16 @@ class FloorPlanManager {
     }
     
     clearSelection() {
+        // 기존 단일 선택 해제
         if (this.selectedElement) {
             this.selectedElement.classList.remove('selected');
+            // 스냅 피드백(파란색 테두리)도 함께 제거
+            this.snapManager.hideSnapFeedback(this.selectedElement);
             this.selectedElement = null;
         }
+        
+        // 다중 선택도 해제
+        this.multiSelectManager.clearSelection();
     }
     
     editElement(element) {
@@ -1494,6 +2105,66 @@ class FloorPlanManager {
         }
     }
 
+    getCanvasCoordinates(e) {
+        // zoomManager가 있으면 그것을 사용하고, 없으면 기본 계산 수행
+        if (this.zoomManager && this.zoomManager.initialized) {
+            return this.zoomManager.getCanvasCoordinates(e);
+        } else {
+            // 기본 좌표 계산 (줌이 적용되지 않은 상태)
+            const canvas = document.getElementById('canvasContent');
+            if (!canvas) {
+                console.warn('캔버스 요소를 찾을 수 없습니다.');
+                return { x: 0, y: 0 };
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            console.log('🎯 기본 좌표 계산:', {
+                mouse: { clientX: e.clientX, clientY: e.clientY },
+                canvasBounds: { left: rect.left, top: rect.top },
+                result: { x, y }
+            });
+            
+            return { x, y };
+        }
+    }
+
+    handleCanvasClickAtCoords(coords) {
+        console.log('🎯 handleCanvasClickAtCoords 호출됨:', { coords, currentTool: this.currentTool });
+        
+        const x = coords.x;
+        const y = coords.y;
+        
+        // 현재 도구에 따른 처리
+        switch (this.currentTool) {
+            case 'building':
+                this.createBuilding(x, y);
+                // 생성 후 select 도구로 자동 변경
+                this.selectTool('select');
+                break;
+                
+            case 'room':
+                this.createRoom(x, y);
+                // 생성 후 select 도구로 자동 변경
+                this.selectTool('select');
+                break;
+                
+            case 'add-ap':
+                if (this.currentMode === 'wireless') {
+                    this.createWirelessAP(x, y);
+                }
+                break;
+                
+            case 'select':
+            default:
+                // 선택 해제 (단일 선택과 다중 선택 모두 해제) - 박스 선택이 아닌 경우에만
+                console.log('🧹 클릭으로 인한 선택 해제');
+                this.clearSelection();
+                break;
+        }
+    }
 }
 
 // 미배치 교실 관리 클래스
@@ -1746,7 +2417,7 @@ class UnplacedRoomsManager {
         document.body.appendChild(marker); // 절대 위치 마커는 body에 추가
         canvas.appendChild(roomOutline); // 교실 아웃라인은 캔버스에 추가
         
-        // 3초 후 마커들 제거
+        // 0.5초 후 마커들 제거
         setTimeout(() => {
             if (marker.parentNode) {
                 marker.parentNode.removeChild(marker);
@@ -1754,7 +2425,7 @@ class UnplacedRoomsManager {
             if (roomOutline.parentNode) {
                 roomOutline.parentNode.removeChild(roomOutline);
             }
-        }, 3000);
+        }, 500);
         
         // 최종 좌표
         const finalX = correctedX;
