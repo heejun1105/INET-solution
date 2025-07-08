@@ -190,10 +190,21 @@
             border-bottom: 1px solid #e5e7eb;
             gap: 1rem;
             flex-wrap: wrap;
+            transition: all 0.3s ease;
         }
 
         .toolbar.active {
             display: flex;
+        }
+
+        /* 스크롤 시 고정되는 상태 */
+        .toolbar.fixed {
+            position: fixed;
+            top: 60px; /* 네비바 높이 */
+            left: 0;
+            right: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
         .tool-group {
@@ -643,6 +654,13 @@
             z-index: 900; /* 네비바(1000)보다 낮게 설정 */
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .zoom-controls.fixed {
+            position: fixed;
+            top: 140px; /* 네비바(60px) + 도구모음 높이(약 80px) */
+            right: 15px;
         }
 
         .zoom-btn {
@@ -713,6 +731,22 @@
             transform: translateX(0); /* 기본은 펼쳐진 상태 */
         }
 
+        .unplaced-rooms-panel.fixed {
+            position: fixed;
+            top: 140px; /* 네비바(60px) + 도구모음 높이(약 80px) */
+            bottom: 0;
+        }
+
+        /* 패널이 고정되었을 때 캔버스 마진 조정 */
+        .unplaced-rooms-panel.fixed ~ .canvas-content,
+        .unplaced-rooms-panel.fixed:not(.collapsed) ~ .canvas-content {
+            margin-left: 270px; /* 패널 너비(250px) + 여백(20px) */
+        }
+
+        .unplaced-rooms-panel.fixed.collapsed ~ .canvas-content {
+            margin-left: 60px; /* 기본값 유지 */
+        }
+
         .unplaced-rooms-panel.collapsed {
             transform: translateX(-220px); /* collapsed 클래스가 있을 때만 숨김 */
         }
@@ -733,8 +767,14 @@
             justify-content: center;
             font-size: 12px;
             transition: all 0.3s ease;
-            z-index: 901; /* 네비바(1000)보다 낮지만 패널보다는 높게 */
+            z-index: 1001; /* 네비바와 동일하게 설정하여 모든 요소보다 위에 */
             box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-toggle.fixed {
+            position: fixed;
+            top: 175px; /* 네비바(60px) + 도구모음 높이(약 80px) + 여유 공간(35px) */
+            left: 250px; /* 명시적으로 left 값도 설정 */
         }
 
         .panel-toggle:hover {
@@ -742,8 +782,14 @@
             transform: scale(1.1);
         }
 
+        /* 패널이 접혀있을 때 토글 버튼 위치 */
         .unplaced-rooms-panel.collapsed + .panel-toggle {
             left: 30px; /* 접힌 상태일 때 버튼 위치 */
+        }
+
+        /* 모바일에서 fixed 상태이면서 패널이 접혀있을 때 토글 버튼 위치 */
+        .unplaced-rooms-panel.collapsed + .panel-toggle.fixed {
+            left: 30px !important; /* 접힌 상태일 때는 고정된 위치에서도 왼쪽으로 */
         }
 
         .unplaced-rooms-panel:not(.collapsed) + .panel-toggle i {
@@ -752,7 +798,7 @@
 
         /* 캔버스 콘텐츠 영역 조정 */
         .canvas-content {
-            margin-left: 280px; /* 기본은 펼쳐진 상태 */
+            margin-left: 280px; /* 기본은 펼쳐진 상태 - 패널 폭(250px) + 여백(30px) */
             transition: margin-left 0.3s ease;
             position: relative;
             min-height: 500px;
@@ -846,8 +892,13 @@
 
         /* 모바일 반응형 */
         @media (max-width: 768px) {
+            .toolbar {
+                top: 60px; /* 모바일에서는 도구모음이 더 얇을 수 있음 */
+                padding: 1rem;
+            }
+            
             .zoom-controls {
-                top: 5px;
+                top: 120px; /* 네비바(60px) + 모바일 도구모음(약 60px) */
                 right: 5px;
                 padding: 3px 6px;
                 gap: 3px;
@@ -866,10 +917,36 @@
             
             .unplaced-rooms-panel {
                 width: 200px;
+                top: 120px; /* 네비바(60px) + 모바일 도구모음(약 60px) */
+            }
+            
+            .panel-toggle {
+                left: 200px; /* 모바일 패널 폭에 맞춤 */
+                top: 15px; /* 패널 내부에서의 상대 위치 */
+                z-index: 1001; /* 모든 요소보다 위에 */
+            }
+
+            .panel-toggle.fixed {
+                top: 155px; /* 네비바(60px) + 모바일 도구모음(약 60px) + 여유 공간(35px) */
+                left: 200px; /* 명시적으로 left 값도 설정 */
+            }
+            
+            .unplaced-rooms-panel.collapsed + .panel-toggle {
+                left: 30px; /* 접힌 상태일 때 버튼 위치 */
             }
             
             .canvas-content {
                 margin-left: 230px; /* 모바일에서 패널 너비 조정 */
+            }
+            
+            /* 모바일에서 패널이 고정되었을 때 캔버스 마진 조정 */
+            .unplaced-rooms-panel.fixed ~ .canvas-content,
+            .unplaced-rooms-panel.fixed:not(.collapsed) ~ .canvas-content {
+                margin-left: 220px; /* 모바일 패널 너비(200px) + 여백(20px) */
+            }
+
+            .unplaced-rooms-panel.fixed.collapsed ~ .canvas-content {
+                margin-left: 50px; /* 모바일 기본값 유지 */
             }
             
             .unplaced-rooms-panel.collapsed ~ .canvas-content {
@@ -1001,8 +1078,11 @@
                         </button>
                     </div>
                     
-                    <div class="canvas-content" id="canvasContent">
-                        <!-- 평면도 요소들이 동적으로 추가됨 -->
+                    <!-- 캔버스 스크롤 전용 래퍼 -->
+                    <div id="canvasWrapper" style="width:100%;height:700px;overflow:auto;position:relative;">
+                        <div class="canvas-content" id="canvasContent">
+                            <!-- 평면도 요소들이 동적으로 추가됨 -->
+                        </div>
                     </div>
                 </div>
 

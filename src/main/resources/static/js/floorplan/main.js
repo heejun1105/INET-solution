@@ -58,52 +58,59 @@ class ResizeManager {
 
     startResize(e, element, direction) {
         e.preventDefault();
-        
         this.isResizing = true;
         this.resizeHandle = direction;
         this.selectedElement = element;
-        
-        this.startPos = { x: e.clientX, y: e.clientY };
-        
-        const rect = element.getBoundingClientRect();
+        // zoomLevel 및 캔버스 기준 좌표계로 변환
+        const zoomLevel = this.floorPlanManager.zoomManager.getCurrentZoom ? this.floorPlanManager.zoomManager.getCurrentZoom() : 1;
         const canvas = document.getElementById('canvasContent');
         const canvasRect = canvas.getBoundingClientRect();
-        
-        this.startElementPos = {
-            x: rect.left - canvasRect.left,
-            y: rect.top - canvasRect.top,
-            width: rect.width,
-            height: rect.height
+        this.startPos = {
+            x: (e.clientX - canvasRect.left) / zoomLevel,
+            y: (e.clientY - canvasRect.top) / zoomLevel
         };
-        
+        this.startElementPos = {
+            x: parseFloat(element.style.left),
+            y: parseFloat(element.style.top),
+            width: parseFloat(element.style.width),
+            height: parseFloat(element.style.height)
+        };
         document.body.style.cursor = getComputedStyle(e.target).cursor;
         document.body.style.userSelect = 'none';
     }
 
     handleMouseMove(e) {
         if (!this.isResizing) return;
-        
-        const deltaX = e.clientX - this.startPos.x;
-        const deltaY = e.clientY - this.startPos.y;
-        
+        const zoomLevel = this.floorPlanManager.zoomManager.getCurrentZoom ? this.floorPlanManager.zoomManager.getCurrentZoom() : 1;
+        const canvas = document.getElementById('canvasContent');
+        const canvasWidth = canvas.clientWidth;
+        const canvasHeight = canvas.clientHeight;
+        const canvasRect = canvas.getBoundingClientRect();
+        const mouseX = (e.clientX - canvasRect.left) / zoomLevel;
+        const mouseY = (e.clientY - canvasRect.top) / zoomLevel;
+        const deltaX = mouseX - this.startPos.x;
+        const deltaY = mouseY - this.startPos.y;
         let newRect = { ...this.startElementPos };
-        
+        let applySnap = false;
         switch (this.resizeHandle) {
             case 'nw':
                 newRect.x += deltaX;
                 newRect.y += deltaY;
                 newRect.width -= deltaX;
                 newRect.height -= deltaY;
+                applySnap = true;
                 break;
             case 'ne':
                 newRect.y += deltaY;
                 newRect.width += deltaX;
                 newRect.height -= deltaY;
+                applySnap = true;
                 break;
             case 'sw':
                 newRect.x += deltaX;
                 newRect.width -= deltaX;
                 newRect.height += deltaY;
+                applySnap = true;
                 break;
             case 'se':
                 newRect.width += deltaX;
@@ -112,6 +119,7 @@ class ResizeManager {
             case 'n':
                 newRect.y += deltaY;
                 newRect.height -= deltaY;
+                applySnap = true;
                 break;
             case 's':
                 newRect.height += deltaY;
@@ -119,12 +127,12 @@ class ResizeManager {
             case 'w':
                 newRect.x += deltaX;
                 newRect.width -= deltaX;
+                applySnap = true;
                 break;
             case 'e':
                 newRect.width += deltaX;
                 break;
         }
-        
         // 최소 크기 제한
         if (newRect.width < this.minSize.width) {
             if (this.resizeHandle.includes('w')) {
@@ -132,22 +140,25 @@ class ResizeManager {
             }
             newRect.width = this.minSize.width;
         }
-        
         if (newRect.height < this.minSize.height) {
             if (this.resizeHandle.includes('n')) {
                 newRect.y = this.startElementPos.y + this.startElementPos.height - this.minSize.height;
             }
             newRect.height = this.minSize.height;
         }
-        
-        // 스냅 기능 적용 (위치 조정만)
-        const snappedPosition = this.floorPlanManager.snapManager.snapElement(
-            this.selectedElement, 
-            newRect.x, 
-            newRect.y
-        );
-        
-        // 크기 변경 적용
+        // 경계 제한 (캔버스 밖으로 못 나가게)
+        newRect.x = Math.max(0, Math.min(newRect.x, canvasWidth - newRect.width));
+        newRect.y = Math.max(0, Math.min(newRect.y, canvasHeight - newRect.height));
+        newRect.width = Math.min(newRect.width, canvasWidth - newRect.x);
+        newRect.height = Math.min(newRect.height, canvasHeight - newRect.y);
+        let snappedPosition = { x: newRect.x, y: newRect.y };
+        if (applySnap) {
+            snappedPosition = this.floorPlanManager.snapManager.snapElement(
+                this.selectedElement, 
+                newRect.x, 
+                newRect.y
+            );
+        }
         this.selectedElement.style.left = snappedPosition.x + 'px';
         this.selectedElement.style.top = snappedPosition.y + 'px';
         this.selectedElement.style.width = newRect.width + 'px';
@@ -348,10 +359,10 @@ class SnapManager {
 class ZoomManager {
     constructor(canvasElement) {
         this.canvas = canvasElement;
-        this.zoomLevel = 1.0;
+        this.zoomLevel = 1.0; // 기본값 100%로 되돌림
         this.minZoom = 0.25; // 최소 25%
         this.maxZoom = 3.0;  // 최대 300%
-        this.zoomStep = 0.25; // 확대/축소 단계
+        this.zoomStep = 0.1; // 확대/축소 단계를 0.1로 변경
         this.initialized = false;
         
         // DOM 요소가 준비된 후에 초기화하도록 지연
@@ -595,22 +606,26 @@ class DragManager {
 
     handleMouseMove(e) {
         if (!this.isDragging || !this.dragElement) return;
-        
+        const canvas = document.getElementById('canvasContent');
+        const canvasWidth = canvas.clientWidth;
+        const canvasHeight = canvas.clientHeight;
+        const elementWidth = parseInt(this.dragElement.style.width) || 100;
+        const elementHeight = parseInt(this.dragElement.style.height) || 80;
         // FloorPlanManager의 안전한 좌표 계산 메서드 사용
         const canvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
-        const targetX = canvasCoords.x - this.offset.x;
-        const targetY = canvasCoords.y - this.offset.y;
-        
+        let targetX = canvasCoords.x - this.offset.x;
+        let targetY = canvasCoords.y - this.offset.y;
+        // 경계 제한
+        targetX = Math.max(0, Math.min(targetX, canvasWidth - elementWidth));
+        targetY = Math.max(0, Math.min(targetY, canvasHeight - elementHeight));
         // 스냅 기능으로 위치 조정
         const snappedPosition = this.floorPlanManager.snapManager.snapElement(
             this.dragElement, 
             targetX, 
             targetY
         );
-        
         this.dragElement.style.left = snappedPosition.x + 'px';
         this.dragElement.style.top = snappedPosition.y + 'px';
-        
         e.preventDefault();
     }
     
@@ -1084,6 +1099,10 @@ class FloorPlanManager {
         
         // 기본적으로 select 도구 선택
         this.selectTool('select');
+        // 페이지 최초 진입 시 70% 배율 적용
+        if (this.zoomManager) {
+            this.zoomManager.setZoom(0.7);
+        }
     }
     
     bindEvents() {
@@ -1241,6 +1260,11 @@ class FloorPlanManager {
         
         // 모드별 캔버스 업데이트
         this.updateCanvasForMode();
+        
+        // 스크롤 고정 관리자 재등록 (toolbar 변경으로 인한 업데이트)
+        if (window.scrollFixManager) {
+            window.scrollFixManager.reregister();
+        }
     }
     
     selectTool(tool) {
@@ -2466,50 +2490,55 @@ class UnplacedRoomsManager {
     }
     
     createRoomOnCanvas(roomData, x, y) {
+        const canvas = document.getElementById('canvasContent');
+        const canvasWidth = canvas.clientWidth;
+        const canvasHeight = canvas.clientHeight;
+        let roomX = x - 50;
+        let roomY = y - 40;
+        // 경계 제한
+        roomX = Math.max(0, Math.min(roomX, canvasWidth - 100));
+        roomY = Math.max(0, Math.min(roomY, canvasHeight - 80));
         const roomInfo = {
             classroomId: roomData.classroomId,
             roomName: roomData.roomName,
             roomType: 'classroom',
-            xCoordinate: x - 50, // 마우스 위치가 교실 중심이 되도록 조정 (너비의 절반)
-            yCoordinate: y - 40, // 마우스 위치가 교실 중심이 되도록 조정 (높이의 절반)
+            xCoordinate: roomX,
+            yCoordinate: roomY,
             width: 100,
             height: 80,
             schoolId: roomData.schoolId
         };
-        
-        // floorPlanData에 추가
         if (!this.floorPlanManager.floorPlanData.rooms) {
             this.floorPlanManager.floorPlanData.rooms = [];
         }
         this.floorPlanManager.floorPlanData.rooms.push(roomInfo);
-        
-        // 교실 렌더링
         this.floorPlanManager.renderRoom(roomInfo);
     }
     
     // 이미 계산된 좌표를 직접 사용하는 메서드
     createRoomOnCanvasWithCoords(roomData, x, y) {
+        const canvas = document.getElementById('canvasContent');
+        const canvasWidth = canvas.clientWidth;
+        const canvasHeight = canvas.clientHeight;
+        let roomX = x - 50;
+        let roomY = y - 40;
+        // 경계 제한
+        roomX = Math.max(0, Math.min(roomX, canvasWidth - 100));
+        roomY = Math.max(0, Math.min(roomY, canvasHeight - 80));
         const roomInfo = {
             classroomId: roomData.classroomId,
             roomName: roomData.roomName,
             roomType: 'classroom',
-            xCoordinate: x - 50, // 마우스 위치가 교실 중심이 되도록 조정 (너비의 절반)
-            yCoordinate: y - 40, // 마우스 위치가 교실 중심이 되도록 조정 (높이의 절반)
+            xCoordinate: roomX,
+            yCoordinate: roomY,
             width: 100,
             height: 80,
             schoolId: roomData.schoolId
         };
-        
-        console.log('📍 실제 생성될 교실 정보:', roomInfo);
-        console.log('📍 좌표 조정: 마우스({x: ' + x + ', y: ' + y + '}) → 교실({x: ' + roomInfo.xCoordinate + ', y: ' + roomInfo.yCoordinate + '})');
-        
-        // floorPlanData에 추가
         if (!this.floorPlanManager.floorPlanData.rooms) {
             this.floorPlanManager.floorPlanData.rooms = [];
         }
         this.floorPlanManager.floorPlanData.rooms.push(roomInfo);
-        
-        // 교실 렌더링
         this.floorPlanManager.renderRoom(roomInfo);
     }
     
@@ -2535,6 +2564,116 @@ class UnplacedRoomsManager {
     }
 }
 
+/**
+ * 스크롤 고정 관리자
+ * 스크롤 시 도구모음, 줌 컨트롤, 패널 등을 동적으로 고정/해제
+ */
+class ScrollFixManager {
+    constructor() {
+        this.elements = [];
+        this.init();
+    }
+
+    init() {
+        // 고정할 요소들을 등록
+        this.registerElement('.toolbar.active', 60); // 네비바 높이만큼 offset
+        this.registerElement('.zoom-controls', 140); // 네비바 + 도구모음 높이
+        this.registerElement('.unplaced-rooms-panel', 140);
+        this.registerElement('.panel-toggle', 175); // 충분한 여유 공간 확보
+
+        // 스크롤 이벤트 리스너 등록 (쓰로틀링 적용)
+        this.throttledHandleScroll = this.throttle(this.handleScroll.bind(this), 10);
+        window.addEventListener('scroll', this.throttledHandleScroll);
+        
+        // 초기 상태 설정
+        this.handleScroll();
+    }
+
+    registerElement(selector, fixedTop) {
+        const element = document.querySelector(selector);
+        if (element) {
+            this.elements.push({
+                element: element,
+                selector: selector,
+                fixedTop: fixedTop,
+                originalTop: this.getElementTop(element),
+                lastCheck: 0
+            });
+        }
+    }
+
+    getElementTop(element) {
+        const rect = element.getBoundingClientRect();
+        return rect.top + window.pageYOffset;
+    }
+
+    handleScroll() {
+        const scrollTop = window.pageYOffset;
+        const now = Date.now();
+
+        this.elements.forEach(item => {
+            // 빈번한 DOM 조회를 줄이기 위한 최적화
+            if (now - item.lastCheck < 50) return;
+            item.lastCheck = now;
+
+            // 현재 요소가 DOM에 있는지 확인 (동적으로 변경될 수 있음)
+            const currentElement = document.querySelector(item.selector);
+            if (!currentElement) return;
+
+            // 요소가 변경되었다면 업데이트
+            if (currentElement !== item.element) {
+                item.element = currentElement;
+            }
+
+            // 원래 위치를 업데이트 (toolbar가 active 상태로 변경될 수 있음)
+            if (!currentElement.classList.contains('fixed')) {
+                const newTop = this.getElementTop(currentElement);
+                // 위치가 크게 변경된 경우에만 업데이트
+                if (Math.abs(newTop - item.originalTop) > 5) {
+                    item.originalTop = newTop;
+                }
+            }
+
+            // 스크롤 위치가 요소의 원래 위치를 넘어섰는지 확인
+            const shouldFix = scrollTop > (item.originalTop - item.fixedTop);
+
+            if (shouldFix && !currentElement.classList.contains('fixed')) {
+                currentElement.classList.add('fixed');
+            } else if (!shouldFix && currentElement.classList.contains('fixed')) {
+                currentElement.classList.remove('fixed');
+            }
+        });
+    }
+
+    // 쓰로틀링 유틸리티 함수
+    throttle(func, limit) {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        }
+    }
+
+    // 요소 재등록 (모드 변경 시 호출)
+    reregister() {
+        this.elements = [];
+        setTimeout(() => {
+            this.init();
+        }, 100); // DOM 업데이트 후 재등록
+    }
+
+    // 리소스 정리
+    destroy() {
+        window.removeEventListener('scroll', this.throttledHandleScroll);
+        this.elements = [];
+    }
+}
+
 // 애플리케이션 초기화
 console.log('JavaScript 파일 로드됨 - DOMContentLoaded 이벤트 대기 중...');
 
@@ -2545,6 +2684,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         window.floorPlanManager = new FloorPlanManager();
         console.log('FloorPlanManager 인스턴스 생성 성공:', window.floorPlanManager);
+        
+        // 스크롤 고정 관리자 초기화
+        window.scrollFixManager = new ScrollFixManager();
+        console.log('ScrollFixManager 인스턴스 생성 성공:', window.scrollFixManager);
         
         window.showNotification = window.floorPlanManager.showNotification.bind(window.floorPlanManager);
         console.log('전역 함수 바인딩 완료');
@@ -2568,3 +2711,280 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('FloorPlanManager 초기화 오류:', error);
     }
 }); 
+
+// ===================== 이름 박스 기능 시작 =====================
+
+// 이름박스 상태 관리 변수
+let activeNameBox = null;
+let activeNameBoxTarget = null;
+let nameBoxMoveMode = false;
+
+// 이름박스 생성 및 중앙정렬 함수
+function createOrUpdateNameBox(element, floorPlanManager, moveMode = false) {
+    // 기존 이름박스 제거
+    const oldBox = document.getElementById('nameBox');
+    if (oldBox) oldBox.remove();
+    // 이름 텍스트
+    let nameTextEl = element.querySelector('.room-name') || element.querySelector('.building-name');
+    let name = nameTextEl?.textContent?.trim() || element.textContent.trim() || '이름 없음';
+    // 캔버스 및 zoomLevel
+    const canvas = document.getElementById('canvasContent');
+    const zoomLevel = floorPlanManager.zoomManager.getCurrentZoom ? floorPlanManager.zoomManager.getCurrentZoom() : 1;
+    // 개체 위치/크기
+    const elLeft = parseFloat(element.style.left);
+    const elTop = parseFloat(element.style.top);
+    const elW = parseFloat(element.style.width) || 100;
+    const elH = parseFloat(element.style.height) || 80;
+    // 이름박스 크기(개체보다 클 수 없음, 2px 패딩)
+    let maxBoxW = Math.max(10, elW - 4);
+    let maxBoxH = Math.max(8, elH - 4);
+    let boxW = Math.min(parseFloat(element.dataset.nameboxW || maxBoxW), maxBoxW);
+    let boxH = Math.min(parseFloat(element.dataset.nameboxH || maxBoxH), maxBoxH);
+    // 중앙 위치 계산(2px 패딩 내에서만)
+    let boxX = element.dataset.nameboxX !== undefined ? parseFloat(element.dataset.nameboxX) : 2 + (maxBoxW/2 - boxW/2);
+    let boxY = element.dataset.nameboxY !== undefined ? parseFloat(element.dataset.nameboxY) : 2 + (maxBoxH/2 - boxH/2);
+    // boxX, boxY가 2보다 작거나, 개체 경계를 넘지 않게 보정
+    boxX = Math.max(2, Math.min(boxX, elW - boxW - 2));
+    boxY = Math.max(2, Math.min(boxY, elH - boxH - 2));
+    // 이름박스 생성
+    const box = document.createElement('div');
+    box.id = 'nameBox';
+    box.className = 'name-box';
+    box.style.position = 'absolute';
+    box.style.left = (elLeft + boxX) + 'px';
+    box.style.top = (elTop + boxY) + 'px';
+    box.style.width = boxW + 'px';
+    box.style.height = boxH + 'px';
+    box.style.background = 'rgba(255,255,255,0.92)';
+    box.style.border = moveMode ? '2px solid #3b82f6' : 'none';
+    box.style.borderRadius = '8px';
+    box.style.boxShadow = '0 2px 10px rgba(59,130,246,0.10)';
+    box.style.display = 'flex';
+    box.style.alignItems = 'center';
+    box.style.justifyContent = 'center';
+    box.style.fontWeight = 'bold';
+    box.style.fontSize = Math.max(0.5, Math.min(1, elH/40)) + 'rem';
+    box.style.zIndex = 9999;
+    box.style.cursor = moveMode ? 'move' : 'default';
+    box.textContent = name;
+    // 이동모드에 따라 pointer-events 설정
+    box.style.pointerEvents = moveMode ? 'auto' : 'none';
+    // 크기조절 핸들(이동모드에서만)
+    if (moveMode) {
+        const resizeHandle = document.createElement('div');
+        resizeHandle.style.position = 'absolute';
+        resizeHandle.style.right = '-8px';
+        resizeHandle.style.bottom = '-8px';
+        resizeHandle.style.width = '16px';
+        resizeHandle.style.height = '16px';
+        resizeHandle.style.background = '#3b82f6';
+        resizeHandle.style.border = '2px solid #fff';
+        resizeHandle.style.borderRadius = '4px';
+        resizeHandle.style.cursor = 'nwse-resize';
+        box.appendChild(resizeHandle);
+        // 드래그 이동
+        let dragOffset = null;
+        box.addEventListener('mousedown', function(e) {
+            if (e.target === resizeHandle) return;
+            dragOffset = { x: e.offsetX, y: e.offsetY };
+            document.body.style.userSelect = 'none';
+        });
+        document.addEventListener('mousemove', function moveBox(e) {
+            if (!nameBoxMoveMode || !dragOffset || activeNameBox !== box) return;
+            const canvasRect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - canvasRect.left) / zoomLevel;
+            const mouseY = (e.clientY - canvasRect.top) / zoomLevel;
+            let newX = mouseX - dragOffset.x;
+            let newY = mouseY - dragOffset.y;
+            // 개체 내부 경계 제한(2px 패딩)
+            newX = Math.max(elLeft + 2, Math.min(newX, elLeft + elW - box.offsetWidth - 2));
+            newY = Math.max(elTop + 2, Math.min(newY, elTop + elH - box.offsetHeight - 2));
+            box.style.left = newX + 'px';
+            box.style.top = newY + 'px';
+        });
+        document.addEventListener('mouseup', function upBox(e) {
+            if (dragOffset && activeNameBox === box) {
+                // 위치 저장 (개체 기준 상대좌표)
+                const left = parseFloat(box.style.left) - elLeft;
+                const top = parseFloat(box.style.top) - elTop;
+                element.dataset.nameboxX = left;
+                element.dataset.nameboxY = top;
+            }
+            dragOffset = null;
+            document.body.style.userSelect = '';
+        });
+        // 크기조절
+        let resizing = false;
+        let resizeStart = null;
+        resizeHandle.addEventListener('mousedown', function(e) {
+            resizing = true;
+            resizeStart = { x: e.clientX, y: e.clientY, w: box.offsetWidth, h: box.offsetHeight };
+            e.stopPropagation();
+            document.body.style.userSelect = 'none';
+        });
+        document.addEventListener('mousemove', function resizeBox(e) {
+            if (!nameBoxMoveMode || !resizing || activeNameBox !== box) return;
+            const dx = (e.clientX - resizeStart.x) / zoomLevel;
+            const dy = (e.clientY - resizeStart.y) / zoomLevel;
+            let newW = Math.max(30, Math.min(resizeStart.w + dx, maxBoxW));
+            let newH = Math.max(16, Math.min(resizeStart.h + dy, maxBoxH));
+            // 개체 내부 경계 제한(2px 패딩)
+            const boxLeft = parseFloat(box.style.left);
+            const boxTop = parseFloat(box.style.top);
+            newW = Math.min(newW, elLeft + elW - boxLeft - 2);
+            newH = Math.min(newH, elTop + elH - boxTop - 2);
+            box.style.width = newW + 'px';
+            box.style.height = newH + 'px';
+            // 폰트 크기도 동적으로 조정
+            box.style.fontSize = Math.max(0.5, Math.min(1, elH/40)) + 'rem';
+        });
+        document.addEventListener('mouseup', function upResize(e) {
+            if (resizing && activeNameBox === box) {
+                element.dataset.nameboxW = box.offsetWidth;
+                element.dataset.nameboxH = box.offsetHeight;
+            }
+            resizing = false;
+            document.body.style.userSelect = '';
+        });
+    }
+    // 이름박스와 개체 연결(개체 이동 시 동기화용)
+    box._targetElement = element;
+    // 상태 전역 저장
+    activeNameBox = box;
+    activeNameBoxTarget = element;
+    nameBoxMoveMode = !!moveMode;
+    canvas.appendChild(box);
+}
+// 이름박스 CSS 추가
+(function(){
+    if (!document.getElementById('nameBoxStyle')) {
+        const style = document.createElement('style');
+        style.id = 'nameBoxStyle';
+        style.textContent = `.name-box { transition: box-shadow 0.2s; pointer-events: auto; } .name-box:active { box-shadow: 0 4px 20px rgba(59,130,246,0.25); }`;
+        document.head.appendChild(style);
+    }
+})();
+// 개체 생성 시 이름박스 자동 생성(중앙, 테두리X)
+const origRenderRoom = FloorPlanManager.prototype.renderRoom;
+FloorPlanManager.prototype.renderRoom = function(room) {
+    origRenderRoom.call(this, room);
+    const canvas = document.getElementById('canvasContent');
+    const elements = canvas.querySelectorAll('.room');
+    elements.forEach(el => {
+        // 이름 텍스트 숨기기
+        const nameTextEl = el.querySelector('.room-name');
+        if (nameTextEl) nameTextEl.style.display = 'none';
+        // 이름박스가 없으면 생성(중앙, moveMode=false)
+        if (!el.dataset.nameboxBound) {
+            createOrUpdateNameBox(el, this, false);
+            el.addEventListener('dblclick', (e) => {
+                createOrUpdateNameBox(el, this, true);
+                e.stopPropagation();
+            });
+            el.dataset.nameboxBound = '1';
+        }
+    });
+};
+const origRenderBuilding = FloorPlanManager.prototype.renderBuilding;
+FloorPlanManager.prototype.renderBuilding = function(building) {
+    origRenderBuilding.call(this, building);
+    const canvas = document.getElementById('canvasContent');
+    const elements = canvas.querySelectorAll('.building');
+    elements.forEach(el => {
+        // 이름 텍스트 숨기기
+        const nameTextEl = el.querySelector('.building-name');
+        if (nameTextEl) nameTextEl.style.display = 'none';
+        // 이름박스가 없으면 생성(중앙, moveMode=false)
+        if (!el.dataset.nameboxBound) {
+            createOrUpdateNameBox(el, this, false);
+            el.addEventListener('dblclick', (e) => {
+                createOrUpdateNameBox(el, this, true);
+                e.stopPropagation();
+            });
+            el.dataset.nameboxBound = '1';
+        }
+    });
+};
+// 캔버스 빈 곳 클릭 시 이름박스 이동모드 종료(테두리 숨김, 이동/크기조절 불가)
+document.addEventListener('mousedown', function(e) {
+    if (!nameBoxMoveMode) return;
+    const box = activeNameBox;
+    if (!box) return;
+    // 이름박스나 개체 내부 클릭이 아니면 이동모드 종료
+    if (!box.contains(e.target) && (!activeNameBoxTarget || !activeNameBoxTarget.contains(e.target))) {
+        // 이동모드 종료: 테두리 숨김, 이동/크기조절 불가
+        createOrUpdateNameBox(activeNameBoxTarget, window.floorPlanManager, false);
+    }
+});
+// DragManager에서 개체 이동 시 이름박스도 같이 이동
+const origDragMove = DragManager.prototype.handleMouseMove;
+DragManager.prototype.handleMouseMove = function(e) {
+    if (!this.isDragging || !this.dragElement) return;
+    const canvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
+    const canvas = document.getElementById('canvasContent');
+    const canvasWidth = canvas.clientWidth;
+    const canvasHeight = canvas.clientHeight;
+    const elementWidth = parseInt(this.dragElement.style.width) || 100;
+    const elementHeight = parseInt(this.dragElement.style.height) || 80;
+    let targetX = canvasCoords.x - this.offset.x;
+    let targetY = canvasCoords.y - this.offset.y;
+    targetX = Math.max(0, Math.min(targetX, canvasWidth - elementWidth));
+    targetY = Math.max(0, Math.min(targetY, canvasHeight - elementHeight));
+    const snappedPosition = this.floorPlanManager.snapManager.snapElement(
+        this.dragElement, 
+        targetX, 
+        targetY
+    );
+    this.dragElement.style.left = snappedPosition.x + 'px';
+    this.dragElement.style.top = snappedPosition.y + 'px';
+    // 이름박스 위치 갱신 코드 완전히 제거
+    e.preventDefault();
+};
+// ===================== 이름 박스 기능 끝 =====================
+
+// 이름박스 동기화 루프 함수 추가
+function startNameBoxSync(box, targetElement) {
+    function sync() {
+        if (!box._targetElement) return;
+        const rect = targetElement.getBoundingClientRect();
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        // 필요시 상대좌표(relX, relY) 더하기
+        box.style.left = (rect.left + scrollLeft) + 'px';
+        box.style.top = (rect.top + scrollTop) + 'px';
+        box._syncId = requestAnimationFrame(sync);
+    }
+    if (box._syncId) cancelAnimationFrame(box._syncId);
+    sync();
+}
+function stopNameBoxSync(box) {
+    if (box._syncId) cancelAnimationFrame(box._syncId);
+    box._syncId = null;
+}
+// 이름박스 생성 시 동기화 루프 시작
+function showNameBox(targetElement) {
+    let box = document.getElementById('nameBox');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'nameBox';
+        box.className = 'name-box';
+        box.textContent = targetElement.dataset.name || '이름없음';
+        box.style.position = 'absolute';
+        box.style.zIndex = 1000;
+        box.style.pointerEvents = 'auto';
+        document.body.appendChild(box);
+    }
+    box._targetElement = targetElement;
+    if (!box._syncId) {
+        startNameBoxSync(box, targetElement);
+    }
+    // 기타 이벤트 바인딩 필요시 여기에 추가
+}
+
+function closeNameBox() {
+    const box = document.getElementById('nameBox');
+    if (box) {
+        stopNameBoxSync(box);
+        box.remove();
+    }
+}
