@@ -208,10 +208,13 @@ export default class FloorPlanManager {
             this.dragManager.handleMouseUp(e);
             this.resizeManager.handleMouseUp(e);
             
-            // 도형 그리기 완료 처리
-            if (this.isDrawingShape && this.shapeStartPoint) {
+            // 도형 그리기 완료 처리 - 캔버스 내부에서만 도형 생성 완료 처리
+            if (this.isDrawingShape && this.shapeStartPoint && this.isMouseEventInsideCanvas(e)) {
                 const endPoint = this.getCanvasCoordinates(e);
                 this.finishShape(endPoint);
+            } else if (this.isDrawingShape) {
+                // 캔버스 외부에서 마우스를 떼면 도형 그리기 취소
+                this.cancelShapeDrawing();
             }
             
             let boxSelectionOccurred = false;
@@ -228,9 +231,10 @@ export default class FloorPlanManager {
                 this.groupDragManager.endGroupDrag();
             }
             
+            // 캔버스 내부 클릭 시에만 handleCanvasClickAtCoords 호출하도록 수정
             if (!boxSelectionOccurred && !this.dragManager.isDragging && 
                 !this.groupDragManager.isDragging && this.pendingClickCoords && 
-                e.target.id === 'canvasContent') {
+                e.target.id === 'canvasContent' && this.isMouseEventInsideCanvas(e)) {
                 this.handleCanvasClickAtCoords(this.pendingClickCoords);
             }
             
@@ -540,12 +544,8 @@ export default class FloorPlanManager {
             }
         });
 
-        // 도형 더블클릭 이벤트 수정 - 도형에 대한 이름 입력 기능 제거
+        // 도형 더블클릭 이벤트 수정 - 모든 도형에 대해 이름 입력 기능 제거
         element.addEventListener('dblclick', (e) => {
-            // 도형이 아닌 경우에만 nameBox 조작 가능
-            if (!element.classList.contains('shape')) {
-                this.nameBoxManager.toggleMoveMode(element);
-            }
             e.stopPropagation();
         });
         
@@ -698,6 +698,12 @@ export default class FloorPlanManager {
     
     editElement(element) {
         const type = element.dataset.type;
+        
+        // 도형인 경우 이름 지정 기능을 비활성화
+        if (type === 'shape' || element.classList.contains('shape')) {
+            return; // 도형에 대한 이름 지정 기능 비활성화
+        }
+        
         const name = prompt(`${type}의 새 이름을 입력하세요:`, element.dataset.name);
         if (name && name.trim()) {
             element.dataset.name = name.trim();
@@ -1053,6 +1059,14 @@ export default class FloorPlanManager {
         this.selectTool('select');
     }
     
+    // 도형 그리기 취소 함수 추가
+    cancelShapeDrawing() {
+        if (this.tempShapeElement && this.tempShapeElement.parentNode) {
+            this.tempShapeElement.parentNode.removeChild(this.tempShapeElement);
+        }
+        this.resetShapeDrawing();
+    }
+    
     // 도형 그리기 상태 초기화
     resetShapeDrawing() {
         this.isDrawingShape = false;
@@ -1316,5 +1330,18 @@ export default class FloorPlanManager {
         this.canvas.appendChild(shapeElement);
         
         return shapeElement;
+    }
+
+    // 마우스 이벤트가 캔버스 내부에 있는지 확인하는 함수 추가
+    isMouseEventInsideCanvas(e) {
+        if (!this.canvas) return false;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        return (
+            e.clientX >= rect.left &&
+            e.clientX <= rect.right &&
+            e.clientY >= rect.top &&
+            e.clientY <= rect.bottom
+        );
     }
 } 
