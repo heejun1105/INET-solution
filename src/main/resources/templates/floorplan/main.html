@@ -195,6 +195,7 @@
 
         .toolbar.active {
             display: flex;
+            align-items: center;
         }
 
         /* 스크롤 시 고정되는 상태 */
@@ -214,6 +215,7 @@
             background: #f8fafc;
             border-radius: 10px;
             flex-wrap: wrap;
+            align-items: center;
         }
 
         .tool-button {
@@ -230,6 +232,9 @@
             align-items: center;
             gap: 0.5rem;
             white-space: nowrap;
+            min-width: 100px;
+            justify-content: center;
+            height: 40px;
         }
 
         .tool-button:hover {
@@ -268,7 +273,10 @@
         }
 
         .canvas-content {
-            margin-left: 60px; /* 기본을 닫힌 상태로 설정 */
+            /* 좌측 패널이 접힌 기본 상태 */
+            box-sizing: border-box;
+            margin-left: 60px;
+            width: calc(100% - 60px); /* margin 과 합쳐 100% 유지 */
             transition: margin-left 0.3s ease;
             position: relative;
             min-height: 500px;
@@ -336,8 +344,12 @@
         .draggable {
             position: absolute;
             cursor: move;
-            border: 2px solid transparent;
             transition: all 0.3s ease;
+        }
+
+        /* 선 타입 도형을 제외한 요소에만 테두리 적용 */
+        .draggable:not(.shape-line):not(.shape-arrow):not(.shape-dashed) {
+            border: 2px solid transparent;
         }
 
         .draggable:hover {
@@ -345,9 +357,19 @@
             box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
         }
 
+        /* 선 타입 도형의 hover 스타일 */
+        .shape-line:hover, .shape-arrow:hover, .shape-dashed:hover {
+            box-shadow: 0 0 0 2px #3b82f6;
+        }
+
         .draggable.selected {
             border-color: #ef4444;
             box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        /* 선 타입 도형의 selected 스타일 */
+        .shape-line.selected, .shape-arrow.selected, .shape-dashed.selected {
+            box-shadow: 0 0 0 2px #ef4444;
         }
 
         /* 다중 선택된 요소 스타일 */
@@ -355,6 +377,11 @@
             border-color: #10b981;
             box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
             background: rgba(16, 185, 129, 0.1);
+        }
+
+        /* 선 타입 도형의 multi-selected 스타일 */
+        .shape-line.multi-selected, .shape-arrow.multi-selected, .shape-dashed.multi-selected {
+            box-shadow: 0 0 0 2px #10b981;
         }
 
         /* 선택 박스 스타일 */
@@ -429,6 +456,12 @@
             border: 2px solid #ef4444 !important;
             box-shadow: 0 0 10px rgba(239, 68, 68, 0.5) !important;
             animation: shake 0.3s ease-in-out;
+        }
+
+        /* 선 타입 도형의 충돌 경고 스타일 */
+        .shape-line.collision-warning, .shape-arrow.collision-warning, .shape-dashed.collision-warning {
+            box-shadow: 0 0 0 2px #ef4444, 0 0 10px rgba(239, 68, 68, 0.5) !important;
+            border: none !important;
         }
 
         @keyframes shake {
@@ -532,7 +565,7 @@
         /* 알림 메시지 */
         .notification {
             position: fixed;
-            top: 20px;
+            top: 80px;
             right: 20px;
             padding: 1rem 1.5rem;
             border-radius: 8px;
@@ -547,6 +580,10 @@
 
         .notification.show {
             transform: translateX(0);
+        }
+
+        .notification.info {
+            background: linear-gradient(135deg, #1c93ca 0%, #0a7997 100%);
         }
 
         .notification.success {
@@ -741,10 +778,12 @@
         .unplaced-rooms-panel.fixed ~ .canvas-content,
         .unplaced-rooms-panel.fixed:not(.collapsed) ~ .canvas-content {
             margin-left: 270px; /* 패널 너비(250px) + 여백(20px) */
+            width: calc(100% - 270px);
         }
 
         .unplaced-rooms-panel.fixed.collapsed ~ .canvas-content {
             margin-left: 60px; /* 기본값 유지 */
+            width: calc(100% - 60px);
         }
 
         .unplaced-rooms-panel.collapsed {
@@ -796,9 +835,11 @@
             transform: rotate(180deg); /* 펼쳐진 상태에서 왼쪽 화살표 */
         }
 
-        /* 캔버스 콘텐츠 영역 조정 */
+        /* 캔버스 콘텐츠 영역 조정 (패널 펼쳐진 상태) */
         .canvas-content {
-            margin-left: 280px; /* 기본은 펼쳐진 상태 - 패널 폭(250px) + 여백(30px) */
+            box-sizing: border-box;
+            margin-left: 280px; /* 패널 폭(250px)+여백(30px) */
+            width: calc(100% - 280px);
             transition: margin-left 0.3s ease;
             position: relative;
             min-height: 500px;
@@ -812,7 +853,8 @@
         }
 
         .unplaced-rooms-panel.collapsed ~ .canvas-content {
-            margin-left: 60px; /* 접힌 상태일 때 캔버스 마진 */
+            margin-left: 60px;
+            width: calc(100% - 60px);
         }
 
         .panel-header {
@@ -943,15 +985,147 @@
             .unplaced-rooms-panel.fixed ~ .canvas-content,
             .unplaced-rooms-panel.fixed:not(.collapsed) ~ .canvas-content {
                 margin-left: 220px; /* 모바일 패널 너비(200px) + 여백(20px) */
+                width: calc(100% - 220px);
             }
 
             .unplaced-rooms-panel.fixed.collapsed ~ .canvas-content {
                 margin-left: 50px; /* 모바일 기본값 유지 */
+                width: calc(100% - 50px);
             }
             
             .unplaced-rooms-panel.collapsed ~ .canvas-content {
                 margin-left: 50px;
+                width: calc(100% - 50px);
             }
+        }
+
+        /* 도구 드롭다운 스타일 */
+        .tool-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: #fff;
+            min-width: 180px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            z-index: 1000;
+            border-radius: 8px;
+            padding: 8px 0;
+            margin-top: 5px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .dropdown-content.show {
+            display: block;
+        }
+        
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 15px;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #333;
+            transition: background-color 0.2s;
+        }
+        
+        .dropdown-item:hover {
+            background-color: #f3f4f6;
+        }
+        
+        .dropdown-item i {
+            margin-right: 8px;
+            width: 16px;
+        }
+        
+        /* 도형 스타일 관련 선택기 */
+        .shape-select {
+            background: white;
+            border: 1px solid #e5e7eb;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #374151;
+            font-size: 0.65rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-left: 0.5rem;
+            height: 40px;
+            min-width: 100px;
+        }
+        
+        .shape-select:hover, .shape-select:focus {
+            border-color: #3b82f6;
+            outline: none;
+        }
+        
+        /* 도형 스타일 클래스들 */
+        .shape {
+            position: absolute;
+            pointer-events: auto;
+            box-sizing: border-box; /* border-box로 설정 */
+        }
+
+        .shape-line {
+            background-color: #000;
+            transform-origin: left center;
+            border: none !important; /* 테두리 없음 강제 적용 */
+            outline: none !important; /* 외곽선 없음 강제 적용 */
+            /* JavaScript에서 완전히 제어 */
+        }
+
+        .shape-dashed {
+            transform-origin: left center;
+            border: none !important; /* 테두리 없음 강제 적용 */
+            outline: none !important; /* 외곽선 없음 강제 적용 */
+            /* JavaScript에서 완전히 제어 */
+        }
+
+        .shape-curve {
+            border: none;
+        }
+
+        .shape-arrow {
+            background-color: #000;
+            transform-origin: left center;
+            border: none !important; /* 테두리 없음 강제 적용 */
+            outline: none !important; /* 외곽선 없음 강제 적용 */
+            /* JavaScript에서 완전히 제어 */
+        }
+
+        .shape-arrow::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            /* top 위치는 JavaScript에서 동적으로 설정 */
+            width: 0;
+            height: 0;
+            /* 화살표 스타일은 JavaScript에서 동적으로 설정 */
+        }
+
+        .shape-circle {
+            border: 2px solid #000;
+            border-radius: 50%;
+        }
+
+        .shape-rect {
+            border: 2px solid #000;
+        }
+
+        .shape-arc {
+            border: 2px solid #000;
+            border-radius: 100% 0 0 0;
+            border-right: none;
+            border-bottom: none;
         }
     </style>
 </head>
@@ -1004,18 +1178,61 @@
                             <i class="fas fa-mouse-pointer"></i> 선택
                         </button>
                         <button class="tool-button" data-tool="building">
-                            <i class="fas fa-building"></i> 건물 하나 추가
+                            <i class="fas fa-building"></i> 건물 추가
                         </button>
                         <button class="tool-button" data-tool="room">
-                            <i class="fas fa-door-open"></i> 교실 하나 추가
+                            <i class="fas fa-door-open"></i> 교실 추가
                         </button>
+                        <div class="tool-dropdown">
+                            <button class="tool-button" data-tool="shape" id="shapeButton">
+                                <i class="fas fa-shapes"></i> 도형
+                                <i class="fas fa-caret-down"></i>
+                            </button>
+                            <div class="dropdown-content" id="shapeDropdown">
+                                <button class="dropdown-item" data-shape="line">
+                                    <i class="fas fa-minus"></i> 직선
+                                </button>
+                                <button class="dropdown-item" data-shape="curve">
+                                    <i class="fas fa-bezier-curve"></i> 곡선
+                                </button>
+                                <button class="dropdown-item" data-shape="arrow">
+                                    <i class="fas fa-long-arrow-alt-right"></i> 화살표
+                                </button>
+                                <button class="dropdown-item" data-shape="circle">
+                                    <i class="far fa-circle"></i> 원
+                                </button>
+                                <button class="dropdown-item" data-shape="rect">
+                                    <i class="far fa-square"></i> 사각형
+                                </button>
+                                <button class="dropdown-item" data-shape="arc">
+                                    <i class="fas fa-draw-polygon"></i> 원호
+                                </button>
+                                <button class="dropdown-item" data-shape="dashed">
+                                    <i class="fas fa-minus"></i> 점선
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tool-group">
+                        <select id="shapeColorSelect" class="shape-select">
+                            <option value="#000000">검정색</option>
+                            <option value="#FF0000">빨간색</option>
+                            <option value="#0000FF">파란색</option>
+                            <option value="#008000">녹색</option>
+                            <option value="#800080">보라색</option>
+                            <option value="#FFA500">주황색</option>
+                        </select>
+                        <select id="shapeThicknessSelect" class="shape-select">
+                            <option value="1">1px</option>
+                            <option value="2" selected>2px</option>
+                            <option value="3">3px</option>
+                            <option value="4">4px</option>
+                            <option value="5">5px</option>
+                        </select>
                     </div>
                     <div class="tool-group">
                         <button class="tool-button" data-tool="delete">
                             <i class="fas fa-trash"></i> 삭제
-                        </button>
-                        <button class="tool-button" data-tool="copy">
-                            <i class="fas fa-copy"></i> 복사
                         </button>
                     </div>
                 </div>

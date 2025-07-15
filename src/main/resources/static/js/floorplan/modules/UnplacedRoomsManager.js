@@ -96,7 +96,33 @@ export default class UnplacedRoomsManager {
             return;
         }
         
-        this.unplacedRooms.forEach(room => {
+        // 교실 이름에 따라 정렬 (한글 지원)
+        const sortedRooms = [...this.unplacedRooms].sort((a, b) => {
+            // 숫자-숫자 형식(예: 1-1) 패턴 추출
+            const roomNumberPatternA = a.roomName.match(/(\d+)-(\d+)/);
+            const roomNumberPatternB = b.roomName.match(/(\d+)-(\d+)/);
+            
+            if (roomNumberPatternA && roomNumberPatternB) {
+                // 학년 비교
+                const gradeA = parseInt(roomNumberPatternA[1]);
+                const gradeB = parseInt(roomNumberPatternB[1]);
+                
+                if (gradeA !== gradeB) {
+                    return gradeA - gradeB;
+                }
+                
+                // 반 비교
+                const classA = parseInt(roomNumberPatternA[2]);
+                const classB = parseInt(roomNumberPatternB[2]);
+                
+                return classA - classB;
+            }
+            
+            // 일반 텍스트 비교 (한글 지원)
+            return a.roomName.localeCompare(b.roomName, 'ko');
+        });
+        
+        sortedRooms.forEach(room => {
             const roomElement = this.createUnplacedRoomElement(room);
             container.appendChild(roomElement);
         });
@@ -345,6 +371,7 @@ export default class UnplacedRoomsManager {
             this.floorPlanManager.floorPlanData.rooms = [];
         }
         this.floorPlanManager.floorPlanData.rooms.push(roomInfo);
+        // 이름 매개변수를 전달하여 수정된 메서드와 호환되도록 함
         this.floorPlanManager.renderRoom(roomInfo);
     }
     
@@ -355,6 +382,19 @@ export default class UnplacedRoomsManager {
     
     // 교실이 평면도에서 제거될 때 미배치 목록에 다시 추가
     addToUnplacedList(roomData) {
+        // 새교실 여부 확인
+        const isNewRoom = 
+            !roomData.classroomId || 
+            roomData.classroomId === 'new' || 
+            (roomData.classroomId && roomData.classroomId.toString().startsWith('temp_')) ||
+            (roomData.roomName && roomData.roomName.includes('새 교실'));
+        
+        // 새교실은 미배치교실로 추가하지 않음
+        if (isNewRoom) {
+            console.log('새 교실은 미배치교실로 이동하지 않습니다:', roomData);
+            return;
+        }
+        
         const unplacedRoom = {
             classroomId: roomData.classroomId || roomData.floorRoomId,
             roomName: roomData.roomName,
@@ -365,7 +405,14 @@ export default class UnplacedRoomsManager {
         const exists = this.unplacedRooms.some(room => room.classroomId === unplacedRoom.classroomId);
         if (!exists) {
             this.unplacedRooms.push(unplacedRoom);
-            this.renderUnplacedRooms();
+            
+            // 미배치교실을 항상 펼쳐서 보이게 함
+            const panel = document.getElementById('unplacedRoomsPanel');
+            if (panel && this.isCollapsed) {
+                this.togglePanel(); // 패널이 접혀있으면 펼침
+            }
+            
+            this.renderUnplacedRooms(); // 정렬된 상태로 다시 렌더링
         }
     }
 } 

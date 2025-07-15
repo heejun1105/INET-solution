@@ -8,6 +8,8 @@ export default class DragManager {
 
     startDrag(element, e) {
         if (this.isDragging) return;
+        if (!this.isValidDraggable(element)) return;
+        
         this.isDragging = true;
         this.dragElement = element;
 
@@ -34,6 +36,14 @@ export default class DragManager {
         
         document.addEventListener('mousemove', this.boundHandleMouseMove);
         document.addEventListener('mouseup', this.boundHandleMouseUp);
+    }
+
+    // 드래그 가능한 객체인지 확인하는 메서드
+    isValidDraggable(element) {
+        return element.classList.contains('building') || 
+               element.classList.contains('room') ||
+               element.classList.contains('wireless-ap') ||
+               element.classList.contains('shape');
     }
 
     handleMouseMove(e) {
