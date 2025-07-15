@@ -4,6 +4,9 @@ import ScrollFixManager from './modules/ScrollFixManager.js';
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 학교 평면도 관리 모듈 초기화');
     
+    // 도형 관련 CSS 스타일 추가
+    addShapeStyles();
+    
     const floorPlanManager = new FloorPlanManager();
 
     // 모드 탭 전환
@@ -84,10 +87,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const dragManager = floorPlanManager.dragManager;
     const originalIsValidDraggable = dragManager.isValidDraggable;
 
-    // 그룹 드래그 관리자 수정
-    const groupDragManager = floorPlanManager.groupDragManager;
-    groupDragManager.floorPlanManager = floorPlanManager;
-
     // 기존의 isValidDraggable 함수를 오버라이드하여 도형도 드래그 가능하게 설정
     dragManager.isValidDraggable = function(element) {
         if (element.classList.contains('shape')) {
@@ -98,6 +97,75 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ 학교 평면도 관리 모듈 초기화 완료');
 });
+
+// 도형 관련 CSS 스타일 추가
+function addShapeStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        /* 도형 요소 공통 스타일 */
+        .shape {
+            position: absolute;
+            box-sizing: border-box;
+            cursor: move;
+            transition: outline 0.15s ease-in-out;
+        }
+        
+        /* 도형 호버 효과 */
+        .shape:hover {
+            outline: 2px dashed #3b82f6;
+            outline-offset: 2px;
+            z-index: 1000 !important;
+        }
+        
+        /* 선택된 도형 스타일 */
+        .shape.selected {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+            z-index: 1001 !important;
+        }
+        
+        /* 복수 선택된 도형 스타일 */
+        .shape.multi-selected {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+            z-index: 1001 !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+        
+        /* 도형 유형별 스타일 */
+        .shape-line, .shape-arrow, .shape-dashed {
+            transform-origin: center;
+        }
+        
+        /* 다중 선택 정보 표시 */
+        #multiSelectInfo {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: none;
+            z-index: 2000;
+            transition: opacity 0.3s ease;
+            max-width: 200px;
+            text-align: center;
+        }
+        
+        #multiSelectInfo.show {
+            display: block;
+        }
+    `;
+    document.head.appendChild(styleElement);
+    
+    // 다중 선택 정보 표시 요소 추가
+    const multiSelectInfo = document.createElement('div');
+    multiSelectInfo.id = 'multiSelectInfo';
+    multiSelectInfo.innerHTML = '<span id="multiSelectText">0개 요소 선택됨</span>';
+    document.body.appendChild(multiSelectInfo);
+}
 
 // 드롭다운 메뉴 초기화
 function initDropdowns() {

@@ -89,3 +89,87 @@ This generated password is for development use only. Your security configuration
 2025-07-15 18:10:44 [http-nio-8082-exec-9] INFO  com.inet.service.SchoolService - Getting all schools
 2025-07-15 18:10:46 [http-nio-8082-exec-6] INFO  com.inet.service.FloorPlanService - 학교 3의 교실 0개 조회 완료
 2025-07-15 18:10:47 [http-nio-8082-exec-1] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 18:38:45 [http-nio-8082-exec-6] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 18:38:48 [http-nio-8082-exec-1] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 18:39:06 [http-nio-8082-exec-8] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 18:39:09 [http-nio-8082-exec-3] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 18:49:39 [http-nio-8082-exec-9] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 18:49:41 [http-nio-8082-exec-2] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 20:09:51 [HikariPool-1 housekeeper] WARN  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=47m37s36ms324µs600ns).
+2025-07-15 20:13:50 [http-nio-8082-exec-10] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 20:13:52 [http-nio-8082-exec-3] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 20:13:55 [http-nio-8082-exec-4] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 20:13:57 [http-nio-8082-exec-8] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 20:16:19 [http-nio-8082-exec-5] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 20:16:21 [http-nio-8082-exec-10] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 20:32:08 [http-nio-8082-exec-6] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 20:32:11 [http-nio-8082-exec-10] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 20:51:19 [http-nio-8082-exec-2] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 20:51:22 [http-nio-8082-exec-9] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 21:00:03 [http-nio-8082-exec-1] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 21:00:06 [http-nio-8082-exec-10] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 21:00:29 [http-nio-8082-exec-2] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 21:00:35 [http-nio-8082-exec-5] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 21:11:40 [http-nio-8082-exec-3] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 21:11:43 [http-nio-8082-exec-10] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 21:12:46 [http-nio-8082-exec-6] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 21:12:48 [http-nio-8082-exec-5] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 21:12:50 [http-nio-8082-exec-7] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 21:23:45 [http-nio-8082-exec-9] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 21:23:47 [http-nio-8082-exec-9] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 21:23:53 [http-nio-8082-exec-6] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 21:23:56 [http-nio-8082-exec-7] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 21:24:24 [http-nio-8082-exec-6] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 21:24:30 [http-nio-8082-exec-2] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 21:25:08 [http-nio-8082-exec-10] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 21:25:57 [http-nio-8082-exec-7] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 21:34:05 [http-nio-8082-exec-9] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 21:34:10 [http-nio-8082-exec-6] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:06:40 [http-nio-8082-exec-7] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:06:43 [http-nio-8082-exec-6] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:19:57 [http-nio-8082-exec-7] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:20:19 [http-nio-8082-exec-7] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:20:36 [http-nio-8082-exec-6] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:21:01 [http-nio-8082-exec-1] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:28:24 [http-nio-8082-exec-9] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:28:27 [http-nio-8082-exec-10] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:29:40 [http-nio-8082-exec-7] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:29:42 [http-nio-8082-exec-5] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:29:50 [http-nio-8082-exec-1] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:29:56 [http-nio-8082-exec-2] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:49:13 [http-nio-8082-exec-3] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:49:16 [http-nio-8082-exec-1] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:49:44 [http-nio-8082-exec-8] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:49:46 [http-nio-8082-exec-7] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:49:46 [http-nio-8082-exec-8] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:49:48 [http-nio-8082-exec-9] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:50:19 [http-nio-8082-exec-6] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:50:21 [http-nio-8082-exec-1] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:50:29 [http-nio-8082-exec-4] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:50:31 [http-nio-8082-exec-6] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 22:59:21 [http-nio-8082-exec-3] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 22:59:25 [http-nio-8082-exec-4] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 23:04:48 [http-nio-8082-exec-5] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:04:52 [http-nio-8082-exec-9] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 23:11:17 [http-nio-8082-exec-8] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:11:19 [http-nio-8082-exec-1] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 23:23:33 [http-nio-8082-exec-3] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:34:14 [http-nio-8082-exec-5] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:34:20 [http-nio-8082-exec-6] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:41:51 [http-nio-8082-exec-10] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:53:20 [http-nio-8082-exec-1] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:53:24 [http-nio-8082-exec-7] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 23:53:27 [http-nio-8082-exec-1] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:53:29 [http-nio-8082-exec-2] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:53:36 [http-nio-8082-exec-7] INFO  com.inet.service.FloorPlanService - 학교 2의 교실 14개 조회 완료
+2025-07-15 23:53:37 [http-nio-8082-exec-3] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:53:39 [http-nio-8082-exec-4] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 23:53:44 [http-nio-8082-exec-1] INFO  com.inet.service.FloorPlanService - 학교 1의 교실 1개 조회 완료
+2025-07-15 23:53:47 [http-nio-8082-exec-10] INFO  com.inet.service.FloorPlanService - 학교 2의 교실 14개 조회 완료
+2025-07-15 23:53:48 [http-nio-8082-exec-9] INFO  com.inet.service.FloorPlanService - 학교 3의 교실 0개 조회 완료
+2025-07-15 23:53:51 [http-nio-8082-exec-8] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:53:51 [http-nio-8082-exec-6] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:53:52 [http-nio-8082-exec-9] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:53:56 [http-nio-8082-exec-8] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료
+2025-07-15 23:54:46 [http-nio-8082-exec-7] INFO  com.inet.service.SchoolService - Getting all schools
+2025-07-15 23:54:50 [http-nio-8082-exec-9] INFO  com.inet.service.FloorPlanService - 학교 4의 교실 79개 조회 완료

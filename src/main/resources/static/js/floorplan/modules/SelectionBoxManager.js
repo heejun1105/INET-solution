@@ -2,18 +2,18 @@ export default class SelectionBoxManager {
     constructor(floorPlanManager) {
         this.floorPlanManager = floorPlanManager;
         this.isBoxSelecting = false;
-        this.selectionBox = null;
         this.startX = 0;
         this.startY = 0;
         this.currentX = 0;
         this.currentY = 0;
-        this.justCompletedSelection = false;
-        this.MIN_DRAG_DISTANCE = 3; // 최소 드래그 거리를 3픽셀로 줄임 (더 쉽게 박스 선택 시작)
-        this.hasActuallyDragged = false; // 실제 드래그 발생 여부
+        this.selectionBox = null;
+        this.hasActuallyDragged = false;
+        this.MIN_DRAG_DISTANCE = 5; // 최소 드래그 거리 (픽셀)
+        this.addToSelection = false; // 기존 선택에 추가할지 여부
     }
 
-    startBoxSelection(e) {
-        console.log('🎯 startBoxSelection 호출됨:', { currentTool: this.floorPlanManager.currentTool });
+    startBoxSelection(e, addToSelection = false) {
+        console.log('🎯 startBoxSelection 호출됨:', { currentTool: this.floorPlanManager.currentTool, addToSelection });
         
         if (this.floorPlanManager.currentTool !== 'select') {
             console.log('❌ select 도구가 아님, 박스 선택 중단');
@@ -29,8 +29,9 @@ export default class SelectionBoxManager {
         this.currentY = this.startY;
         this.isBoxSelecting = true;
         this.hasActuallyDragged = false; // 드래그 상태 초기화
+        this.addToSelection = addToSelection; // 기존 선택에 추가할지 여부 저장
         
-        console.log('📦 박스 선택 준비:', { startX: this.startX, startY: this.startY });
+        console.log('📦 박스 선택 준비:', { startX: this.startX, startY: this.startY, addToSelection });
         
         // 선택 박스 요소는 실제 드래그가 발생했을 때 생성
         this.selectionBox = null;
@@ -114,63 +115,56 @@ export default class SelectionBoxManager {
     }
 
     endBoxSelection(e) {
-        console.log('🏁 endBoxSelection 호출됨:', { 
-            isBoxSelecting: this.isBoxSelecting, 
-            hasActuallyDragged: this.hasActuallyDragged 
-        });
-        
-        if (!this.isBoxSelecting) {
-            console.log('❌ 박스 선택 중이 아님');
-            return [];
-        }
-        
-        // 실제 드래그가 발생하지 않았으면 선택 처리하지 않음
-        if (!this.hasActuallyDragged) {
-            console.log('📦 실제 드래그 없음 - 클릭으로 처리됨');
+        if (!this.isBoxSelecting || !this.hasActuallyDragged) {
             this.isBoxSelecting = false;
-            this.justCompletedSelection = false; // 클릭이므로 플래그 설정 안 함
+            if (this.selectionBox) {
+                this.selectionBox.remove();
+                this.selectionBox = null;
+            }
             return [];
         }
         
+        // 선택 영역 계산
         const left = Math.min(this.startX, this.currentX);
         const top = Math.min(this.startY, this.currentY);
         const right = Math.max(this.startX, this.currentX);
         const bottom = Math.max(this.startY, this.currentY);
         
-        console.log('📦 박스 선택 영역:', { left, top, right, bottom });
-        
-        // 선택 박스 내의 요소들 찾기
-        const elements = document.querySelectorAll('.building, .room');
+        // 선택 영역에 포함된 요소들 찾기
+        const draggableElements = document.querySelectorAll('.draggable');
         const selectedElements = [];
         
-        console.log('🔍 검사할 요소 수:', elements.length);
-        
-        elements.forEach(element => {
-            const rect = {
-                left: parseInt(element.style.left) || 0,
-                top: parseInt(element.style.top) || 0,
-                right: (parseInt(element.style.left) || 0) + (parseInt(element.style.width) || 100),
-                bottom: (parseInt(element.style.top) || 0) + (parseInt(element.style.height) || 80)
-            };
+        draggableElements.forEach(element => {
+            const rect = element.getBoundingClientRect();
+            const canvas = this.floorPlanManager.canvas;
+            const canvasRect = canvas.getBoundingClientRect();
+            const zoom = this.floorPlanManager.zoomManager.getCurrentZoom();
             
-            // 요소가 선택 박스와 겹치는지 확인
-            if (rect.left < right && rect.right > left && rect.top < bottom && rect.bottom > top) {
+            // 요소의 캔버스 내 좌표 계산
+            const elementLeft = (rect.left - canvasRect.left) / zoom;
+            const elementTop = (rect.top - canvasRect.top) / zoom;
+            const elementRight = elementLeft + rect.width / zoom;
+            const elementBottom = elementTop + rect.height / zoom;
+            
+            // 요소가 선택 영역과 교차하는지 확인
+            if (
+                elementRight >= left && 
+                elementLeft <= right && 
+                elementBottom >= top && 
+                elementTop <= bottom
+            ) {
                 selectedElements.push(element);
-                console.log('✅ 선택된 요소:', element.dataset.type, element.textContent?.trim());
             }
         });
         
-        console.log('📦 총 선택된 요소 수:', selectedElements.length);
-        
         // 선택 박스 제거
-        if (this.selectionBox && this.selectionBox.parentNode) {
-            this.selectionBox.parentNode.removeChild(this.selectionBox);
-            console.log('🗑️ 선택 박스 제거됨');
+        if (this.selectionBox) {
+            this.selectionBox.remove();
+            this.selectionBox = null;
         }
-        this.selectionBox = null;
-        this.isBoxSelecting = false;
         
-        this.justCompletedSelection = true;
+        this.isBoxSelecting = false;
+        console.log(`📦 박스 선택 완료: ${selectedElements.length}개 요소 선택됨, 기존 선택에 추가: ${this.addToSelection}`);
         
         return selectedElements;
     }

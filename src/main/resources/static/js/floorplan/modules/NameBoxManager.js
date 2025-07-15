@@ -18,19 +18,43 @@ export default class NameBoxManager {
     }
 
     toggleMoveMode(object) {
-        const nameBox = this.nameBoxes.get(object.dataset.id);
-        if (!nameBox) return;
+        // 객체 ID를 가져옴
+        const objectId = object.dataset.id;
+        if (!objectId) {
+            console.warn('객체에 ID가 없습니다:', object);
+            return;
+        }
+        
+        // 이름박스를 찾음
+        let nameBox = this.nameBoxes.get(objectId);
+        
+        // 이름박스가 없으면 생성
+        if (!nameBox) {
+            this.createOrUpdateNameBox(object);
+            nameBox = this.nameBoxes.get(objectId);
+            if (!nameBox) {
+                console.warn('이름박스를 생성할 수 없습니다:', objectId);
+                return;
+            }
+        }
 
+        // 이미 이동 모드인지 확인
         const isAlreadyMovable = this.movableState.object === object;
 
-        if (this.movableState.object) {
+        // 다른 객체가 이동 모드라면 해제
+        if (this.movableState.object && this.movableState.object !== object) {
             this.disableMoveMode();
         }
 
-        if (!isAlreadyMovable) {
+        // 이동 모드 토글
+        if (isAlreadyMovable) {
+            this.disableMoveMode();
+            console.log('이름박스 이동 모드 해제:', objectId);
+        } else {
             this.movableState.object = object;
             nameBox.classList.add('movable');
             this.addResizeHandles(nameBox);
+            console.log('이름박스 이동 모드 활성화:', objectId);
         }
     }
 
@@ -46,29 +70,45 @@ export default class NameBoxManager {
 
     createOrUpdateNameBox(object) {
         const objectId = object.dataset.id;
+        if (!objectId) {
+            console.warn('객체에 ID가 없습니다:', object);
+            return;
+        }
+        
         let nameBox = this.nameBoxes.get(objectId);
 
         if (!nameBox) {
+            // 새 이름박스 생성
             nameBox = document.createElement('div');
             nameBox.className = 'name-box';
             object.appendChild(nameBox);
             this.nameBoxes.set(objectId, nameBox);
 
+            // 이벤트 리스너 추가
             nameBox.addEventListener('mousedown', e => {
                 if (this.movableState.object === object) {
                     this.startMoving(e, nameBox, object);
                 }
                 e.stopPropagation();
             });
+            
+            console.log('새 이름박스 생성:', objectId);
         }
 
-        nameBox.textContent = object.dataset.name || '';
+        // 이름 업데이트
+        const name = object.dataset.name || '';
+        nameBox.textContent = name;
+        
+        // 이름이 있을 때만 표시
+        nameBox.style.visibility = name ? 'visible' : 'hidden';
 
+        // 수동 위치 지정이 아니면 중앙 정렬
         if (nameBox.dataset.positioned !== 'manual' && (!this.movableState.object || this.movableState.object !== object)) {
             this.centerNameBox(nameBox);
+            console.log('이름박스 중앙 정렬:', objectId);
         }
         
-        nameBox.style.visibility = object.dataset.name ? 'visible' : 'hidden';
+        return nameBox;
     }
 
     centerNameBox(nameBox) {

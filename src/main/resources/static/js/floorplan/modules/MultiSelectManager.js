@@ -12,6 +12,11 @@ export default class MultiSelectManager {
         if (!this.selectedElements.includes(element)) {
             this.selectedElements.push(element);
             element.classList.add('multi-selected');
+            
+            // 선택 시에도 테두리 스타일 유지
+            if (element.classList.contains('building') || element.classList.contains('room')) {
+                this.floorPlanManager.restoreBorderStyle(element);
+            }
         }
         
         this.updateSelectionDisplay();
@@ -26,6 +31,11 @@ export default class MultiSelectManager {
             if (!this.selectedElements.includes(element)) {
                 this.selectedElements.push(element);
                 element.classList.add('multi-selected');
+                
+                // 선택 시에도 테두리 스타일 유지
+                if (element.classList.contains('building') || element.classList.contains('room')) {
+                    this.floorPlanManager.restoreBorderStyle(element);
+                }
             }
         });
         
@@ -37,30 +47,49 @@ export default class MultiSelectManager {
         if (index > -1) {
             this.selectedElements.splice(index, 1);
             element.classList.remove('multi-selected');
+            
+            // 선택 해제 시 테두리 스타일 복원
+            if (element.classList.contains('building') || element.classList.contains('room')) {
+                this.floorPlanManager.restoreBorderStyle(element);
+            }
         }
         
         this.updateSelectionDisplay();
     }
 
     toggleElement(element) {
-        if (this.selectedElements.includes(element)) {
-            this.deselectElement(element);
+        const index = this.selectedElements.indexOf(element);
+        if (index !== -1) {
+            // 이미 선택된 요소라면 선택 해제
+            this.selectedElements.splice(index, 1);
+            element.classList.remove('multi-selected');
+            
+            // 선택 해제 시 테두리 스타일 복원
+            if (element.classList.contains('building') || element.classList.contains('room')) {
+                this.floorPlanManager.restoreBorderStyle(element);
+            }
         } else {
-            this.selectElement(element, true);
+            // 선택되지 않은 요소라면 선택 추가
+            this.selectedElements.push(element);
+            element.classList.add('multi-selected');
+            
+            // 선택 시에도 테두리 스타일 유지
+            if (element.classList.contains('building') || element.classList.contains('room')) {
+                this.floorPlanManager.restoreBorderStyle(element);
+            }
         }
     }
 
     clearSelection() {
-        // 모든 다중 선택된 요소들의 스타일 제거
         this.selectedElements.forEach(element => {
             element.classList.remove('multi-selected');
+            
+            // 선택 해제 시 테두리 스타일 복원
+            if (element.classList.contains('building') || element.classList.contains('room')) {
+                this.floorPlanManager.restoreBorderStyle(element);
+            }
         });
-        
-        // 선택된 요소 배열 초기화
         this.selectedElements = [];
-        
-        // 선택 상태 표시 업데이트
-        this.updateSelectionDisplay();
     }
 
     updateSelectionDisplay() {
@@ -75,7 +104,7 @@ export default class MultiSelectManager {
         }
         
         if (count > 1) {
-            textElement.textContent = `${count}개 요소 선택됨 - Ctrl+드래그로 그룹 이동`;
+            textElement.textContent = `${count}개 요소 선택됨`;
             infoElement.classList.add('show');
         } else {
             infoElement.classList.remove('show');
@@ -83,7 +112,7 @@ export default class MultiSelectManager {
     }
 
     getSelectedElements() {
-        return [...this.selectedElements];
+        return this.selectedElements;
     }
 
     hasSelection() {
@@ -108,5 +137,51 @@ export default class MultiSelectManager {
         });
         
         return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+    }
+
+    // 요소가 선택되었는지 확인하는 메서드 추가
+    isSelected(element) {
+        return this.selectedElements.includes(element);
+    }
+
+    // 선택 목록에 요소 추가하는 메서드 추가
+    addToSelection(element) {
+        if (!this.isSelected(element)) {
+            this.selectedElements.push(element);
+            element.classList.add('multi-selected');
+            
+            // 선택 시에도 테두리 스타일 유지
+            if (element.classList.contains('building') || element.classList.contains('room')) {
+                this.floorPlanManager.restoreBorderStyle(element);
+            }
+            
+            // 도형 요소인 경우 선택 스타일 적용
+            if (element.classList.contains('shape')) {
+                element.classList.add('selected');
+            }
+            
+            this.updateSelectionDisplay();
+        }
+    }
+
+    // 선택 목록에서 요소 제거하는 메서드 수정
+    removeFromSelection(element) {
+        const index = this.selectedElements.indexOf(element);
+        if (index > -1) {
+            this.selectedElements.splice(index, 1);
+            element.classList.remove('multi-selected');
+            
+            // 도형 요소인 경우 선택 스타일 제거
+            if (element.classList.contains('shape')) {
+                element.classList.remove('selected');
+            }
+            
+            // 선택 해제 시 테두리 스타일 복원
+            if (element.classList.contains('building') || element.classList.contains('room')) {
+                this.floorPlanManager.restoreBorderStyle(element);
+            }
+        }
+        
+        this.updateSelectionDisplay();
     }
 } 

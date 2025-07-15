@@ -1555,3 +1555,205 @@ body {
     height: 22px;
     cursor: pointer;
 }
+
+/* 평면도 관리 시스템 - 선택된 요소 스타일 */
+.draggable.selected {
+    outline: 2px solid #ef4444 !important;
+    outline-offset: -1px !important;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5) !important;
+    z-index: 10;
+}
+
+/* 기존 테두리 스타일을 보존하면서 선택 효과 적용 */
+.building.selected,
+.room.selected {
+    /* outline을 사용하여 테두리 위에 선택 표시 추가 */
+    outline: 2px solid #ef4444 !important;
+    outline-offset: -1px !important;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5) !important;
+    z-index: 10;
+    /* border 속성은 수정하지 않음 */
+}
+
+/* 다중 선택된 요소 스타일 */
+.draggable.multi-selected {
+    outline: 2px solid #3b82f6 !important;
+    outline-offset: -1px !important;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.5) !important;
+    z-index: 10;
+}
+
+/* 기존 테두리 스타일을 보존하면서 다중 선택 효과 적용 */
+.building.multi-selected,
+.room.multi-selected {
+    /* outline을 사용하여 테두리 위에 선택 표시 추가 */
+    outline: 2px solid #3b82f6 !important;
+    outline-offset: -1px !important;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.5) !important;
+    z-index: 10;
+    /* border 속성은 수정하지 않음 */
+}
+
+/* 이름박스 스타일 개선 */
+.name-box { 
+    position: absolute;
+    padding: 4px 8px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 4px;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    pointer-events: auto;
+    z-index: 1000;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 14px;
+    color: #1e3a8a;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    min-width: 30px;
+    min-height: 20px;
+}
+
+.name-box.movable { 
+    border: 2px dashed #3b82f6;
+    background-color: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    cursor: move;
+    animation: pulse-border 1.5s infinite;
+}
+
+@keyframes pulse-border {
+    0% { border-color: #3b82f6; }
+    50% { border-color: #60a5fa; }
+    100% { border-color: #3b82f6; }
+}
+
+.name-box.movable:active {
+    cursor: grabbing;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+}
+
+.name-box-resize-handle {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #3b82f6;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.name-box.movable .name-box-resize-handle {
+    opacity: 1;
+}
+
+.name-box-resize-handle.se {
+    bottom: -6px;
+    right: -6px;
+    cursor: se-resize;
+}
+
+/* 평면도 관련 스타일 */
+.canvas-container {
+    position: relative;
+    width: 100%;
+    height: calc(100vh - 180px);
+    min-height: 500px;
+    overflow: hidden;
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+}
+
+#canvasContent {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-origin: 0 0;
+}
+
+.draggable {
+    position: absolute;
+    cursor: move;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+}
+
+.building {
+    background-color: rgba(200, 200, 200, 0.2);
+}
+
+.room {
+    background-color: rgba(16, 185, 129, 0.2);
+    transition: box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+/* 교실 요소 강조 효과 */
+.room:hover {
+    box-shadow: 0 0 0 2px #4f46e5, 0 0 8px rgba(79, 70, 229, 0.6);
+    transform: scale(1.01);
+    z-index: 1000 !important;
+}
+
+/* 건물 내부 교실 강조 효과 */
+.building .room:hover {
+    box-shadow: 0 0 0 3px #ff6b6b, 0 0 12px rgba(255, 107, 107, 0.7);
+    transform: scale(1.02);
+    z-index: 1000 !important;
+}
+
+/* 교실 목록에서 선택된 교실 하이라이트 효과 */
+.highlight-room {
+    animation: pulse-highlight 2s ease;
+    box-shadow: 0 0 0 4px #ff6b6b, 0 0 15px rgba(255, 107, 107, 0.8) !important;
+    z-index: 1000 !important;
+}
+
+@keyframes pulse-highlight {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.8);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(255, 107, 107, 0);
+        transform: scale(1.05);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 107, 107, 0);
+        transform: scale(1);
+    }
+}
+
+/* 선택된 교실 스타일 */
+.room.selected {
+    outline: 2px dashed #4f46e5;
+    outline-offset: 2px;
+    z-index: 900;
+}
+
+/* 도형 요소 스타일 */
+.shape {
+    position: absolute;
+    cursor: move;
+}
+
+.shape.line {
+    height: 0;
+    border-top-style: solid;
+    transform-origin: 0 0;
+}
+
+/* 도형 선택 시 스타일 */
+.shape.selected {
+    outline: 2px dashed #4f46e5;
+    outline-offset: 2px;
+}
+
+/* 도형 호버 효과 */
+.shape:hover {
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.5);
+    z-index: 900;
+}

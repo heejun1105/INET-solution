@@ -1,5 +1,6 @@
 export default class GroupDragManager {
-    constructor() {
+    constructor(floorPlanManager) {
+        this.floorPlanManager = floorPlanManager;
         this.isDragging = false;
         this.elements = [];
         this.startPositions = [];
@@ -26,6 +27,12 @@ export default class GroupDragManager {
         };
         
         this.currentMousePos = { ...this.initialMousePos };
+        
+        // 모든 요소에 높은 z-index 설정
+        for (const element of elements) {
+            element.dataset.originalZIndex = element.style.zIndex || '';
+            element.style.zIndex = '1000'; // 높은 z-index 값
+        }
     }
     
     updateGroupDrag(e) {
@@ -56,25 +63,59 @@ export default class GroupDragManager {
             console.error('줌 레벨 가져오기 실패', e);
         }
         
+        // 캔버스 크기 가져오기
+        const canvasWidth = this.floorPlanManager.canvas.clientWidth;
+        const canvasHeight = this.floorPlanManager.canvas.clientHeight;
+        
         // 각 요소의 위치 조정
         for (let i = 0; i < this.elements.length; i++) {
             const element = this.elements[i];
             const startPos = this.startPositions[i];
             
-            // 도형 요소인 경우 특별 처리 추가
-            const isShape = element.classList.contains('shape');
-            
             // 줌 레벨을 고려한 위치 조정
-            const newX = startPos.x + (deltaX / zoomLevel);
-            const newY = startPos.y + (deltaY / zoomLevel);
+            let newX = startPos.x + (deltaX / zoomLevel);
+            let newY = startPos.y + (deltaY / zoomLevel);
+            
+            // 경계 체크
+            const elementWidth = parseFloat(element.style.width) || 0;
+            const elementHeight = parseFloat(element.style.height) || 0;
+            newX = Math.max(0, Math.min(newX, canvasWidth - elementWidth));
+            newY = Math.max(0, Math.min(newY, canvasHeight - elementHeight));
             
             // 위치 업데이트
             element.style.left = newX + 'px';
             element.style.top = newY + 'px';
+            
+            // 건물 또는 교실 요소인 경우 테두리 스타일 복원
+            if (element.classList.contains('building') || element.classList.contains('room')) {
+                if (this.floorPlanManager && this.floorPlanManager.restoreBorderStyle) {
+                    this.floorPlanManager.restoreBorderStyle(element);
+                }
+            }
         }
     }
     
     endGroupDrag() {
+        if (this.isDragging) {
+            // 드래그 종료 시 모든 요소의 테두리 스타일 복원
+            for (const element of this.elements) {
+                if (element.classList.contains('building') || element.classList.contains('room')) {
+                    if (this.floorPlanManager && this.floorPlanManager.restoreBorderStyle) {
+                        this.floorPlanManager.restoreBorderStyle(element);
+                    }
+                }
+                
+                // z-index 복원 (1초 후)
+                setTimeout(() => {
+                    if (element.dataset.originalZIndex) {
+                        element.style.zIndex = element.dataset.originalZIndex;
+                    } else {
+                        element.style.zIndex = '';
+                    }
+                }, 1000);
+            }
+        }
+        
         this.isDragging = false;
         this.elements = [];
         this.startPositions = [];
@@ -89,6 +130,13 @@ export default class GroupDragManager {
             const startPos = this.startPositions[i];
             element.style.left = startPos.x + 'px';
             element.style.top = startPos.y + 'px';
+            
+            // 테두리 스타일 복원
+            if (element.classList.contains('building') || element.classList.contains('room')) {
+                if (this.floorPlanManager && this.floorPlanManager.restoreBorderStyle) {
+                    this.floorPlanManager.restoreBorderStyle(element);
+                }
+            }
         }
         
         this.endGroupDrag();
