@@ -9,7 +9,7 @@ export default class ResizeManager {
         this.startElementPos = { x: 0, y: 0 };
         this.isDragging = false;
         this.dragOffset = { x: 0, y: 0 };
-        this.minSize = { width: 50, height: 30 }; // 최소 크기
+        this.minSize = { width: 60, height: 40 }; // 최소 크기 (20% 증가)
     }
 
     addResizeHandles(element) {
@@ -163,6 +163,15 @@ export default class ResizeManager {
         // 스냅 피드백 제거
         if (this.selectedElement) {
             this.floorPlanManager.snapManager.hideSnapFeedback(this.selectedElement);
+        }
+        
+        // 교실인 경우 장비정보 다시 계산
+        if (this.selectedElement && this.selectedElement.classList.contains('room')) {
+            const roomId = this.selectedElement.dataset.id;
+            if (roomId) {
+                // 장비정보 다시 로드 및 표시
+                this.floorPlanManager.loadAndDisplayDeviceIcons(roomId, this.selectedElement);
+            }
         }
         
         this.isResizing = false;

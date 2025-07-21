@@ -18,6 +18,7 @@ export default class FloorPlanManager {
         this.isDrawingShape = false; // 도형 그리기 중인지 여부
         this.shapeStartPoint = null; // 도형 그리기 시작점
         this.tempShapeElement = null; // 임시 도형 요소 (그리기 중)
+        this.currentOtherSpaceType = null; // 현재 선택된 기타공간 타입
         this.floorPlanData = {
             buildings: [],
             rooms: [],
@@ -104,11 +105,38 @@ export default class FloorPlanManager {
             });
         }
         
+        // 기타공간 드롭다운 토글 처리
+        const otherSpaceButton = document.getElementById('otherSpaceButton');
+        const otherSpaceDropdown = document.getElementById('otherSpaceDropdown');
+        
+        if (otherSpaceButton && otherSpaceDropdown) {
+            otherSpaceButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                otherSpaceDropdown.classList.toggle('show');
+            });
+            
+            // 드롭다운 외부 클릭 시 닫기
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#otherSpaceButton') && !e.target.closest('#otherSpaceDropdown')) {
+                    otherSpaceDropdown.classList.remove('show');
+                }
+            });
+        }
+        
         // 도형 드롭다운 항목 클릭 이벤트
         document.querySelectorAll('.dropdown-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 const shapeType = e.currentTarget.dataset.shape;
                 this.selectShape(shapeType);
+                e.stopPropagation(); // 이벤트 버블링 방지
+            });
+        });
+        
+        // 기타공간 드롭다운 항목 클릭 이벤트
+        document.querySelectorAll('[data-other-space]').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const otherSpaceType = e.currentTarget.dataset.otherSpace;
+                this.selectOtherSpace(otherSpaceType);
                 e.stopPropagation(); // 이벤트 버블링 방지
             });
         });
@@ -199,6 +227,36 @@ export default class FloorPlanManager {
         this.isDrawingShape = false;
         this.shapeStartPoint = null;
         this.tempShapeElement = null;
+    }
+    
+    // 기타공간 타입 선택 처리
+    selectOtherSpace(otherSpaceType) {
+        this.currentOtherSpaceType = otherSpaceType;
+        this.currentTool = 'other-space';
+        this.showNotification(`${otherSpaceType} 추가 모드입니다. 캔버스에 클릭하여 ${otherSpaceType}을 추가하세요.`, 'info');
+        
+        // 도구 버튼 업데이트
+        document.querySelectorAll('.tool-button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        const otherSpaceButton = document.querySelector('.tool-button[data-tool="other-space"]');
+        if (otherSpaceButton) {
+            otherSpaceButton.classList.add('active');
+        }
+        
+        // 드롭다운 메뉴 닫기
+        const otherSpaceDropdown = document.getElementById('otherSpaceDropdown');
+        if (otherSpaceDropdown) {
+            otherSpaceDropdown.classList.remove('show');
+        }
+        
+        // 커서 스타일 업데이트
+        document.body.style.cursor = 'crosshair';
+        
+        // 선택 해제
+        this.clearSelection();
+        this.multiSelectManager.clearSelection();
     }
     
     // 도형 타입 이름 반환
@@ -369,6 +427,11 @@ export default class FloorPlanManager {
             this.updateToolButtons(activeToolbar, tool);
         }
         
+        // 캔버스에 현재 도구 설정
+        if (this.canvas) {
+            this.canvas.setAttribute('data-tool', tool);
+        }
+        
         this.updateCanvasCursor();
 
         // 도구 선택 시 색상과 굵기 정보 업데이트
@@ -406,16 +469,23 @@ export default class FloorPlanManager {
     }
     
     updateCanvasCursor() {
-        const cursorStyle = {
-            select: 'default',
-            building: 'crosshair',
-            room: 'crosshair',
-            'add-ap': 'crosshair',
-            delete: 'not-allowed',
-            copy: 'copy',
-            shape: 'crosshair'  // 도형 그리기 도구 추가
-        }[this.currentTool] || 'default';
-        this.canvas.style.setProperty('cursor', cursorStyle, 'important');
+        switch (this.currentTool) {
+            case 'building':
+            case 'room':
+            case 'other-space':
+            case 'add-ap':
+                this.canvas.style.cursor = 'crosshair';
+                break;
+            case 'delete':
+                this.canvas.style.cursor = 'not-allowed';
+                break;
+            case 'shape':
+                this.canvas.style.cursor = 'crosshair';
+                break;
+            default:
+                this.canvas.style.cursor = 'default';
+                break;
+        }
     }
     
     async loadFloorPlanData(schoolId) {
@@ -471,50 +541,277 @@ export default class FloorPlanManager {
         });
     }
     
-    async loadAndDisplayDeviceIcons(roomId, roomElement) {
+    // 교실의 장비 정보를 로드하고 아이콘을 표시
+    async loadAndDisplayDeviceIcons(classroomId, roomElement) {
         try {
-            const response = await fetch(`/floorplan/api/room/${roomId}/devices`);
+            console.log('🔧 장비 정보 API 호출 시작:', classroomId);
+            const response = await fetch(`/floorplan/api/classroom/${classroomId}/devices`);
+            
+            console.log('📡 API 응답 상태:', response.status);
+            
             if (response.ok) {
                 const deviceCounts = await response.json();
-                this.displayDeviceIcons(roomElement, deviceCounts);
+                console.log('📊 장비 데이터 수신:', deviceCounts);
+                
+                if (Object.keys(deviceCounts).length === 0) {
+                    console.log('📭 해당 교실에 장비가 없습니다.');
+                } else {
+                    console.log('✅ 장비 아이콘 표시 시작');
+                    this.displayDeviceIcons(deviceCounts, roomElement);
+                }
+            } else {
+                console.error('❌ API 응답 오류:', response.status, response.statusText);
+                // 에러 시에도 빈 데이터로 처리
+                this.displayDeviceIcons({}, roomElement);
             }
         } catch (error) {
-            console.error('장비 정보 로딩 오류:', error);
+            console.error('❌ 장비 정보 로딩 실패:', error);
+            // 에러 시에도 빈 데이터로 처리
+            this.displayDeviceIcons({}, roomElement);
         }
     }
     
-    displayDeviceIcons(roomElement, deviceCounts) {
-        const existingIcons = roomElement.querySelector('.device-icons');
-        if (existingIcons) existingIcons.remove();
+    // 장비 아이콘을 교실 요소에 표시
+    displayDeviceIcons(deviceCounts, roomElement) {
+        // 기존 장비 아이콘 제거
+        const existingDevices = roomElement.querySelector('.room-devices');
+        if (existingDevices) {
+            existingDevices.remove();
+        }
         
-        const iconsContainer = document.createElement('div');
-        iconsContainer.className = 'device-icons';
+        if (!deviceCounts || Object.keys(deviceCounts).length === 0) {
+            this.adjustNameBoxPosition(roomElement, 0);
+            return;
+        }
         
+        // 교실 크기 가져오기
+        const roomWidth = parseInt(roomElement.style.width) || 100;
+        const roomHeight = parseInt(roomElement.style.height) || 105;
+        
+        // 단계별 공간 체크
+        const nameBox = this.nameBoxManager.getNameBoxForElement(roomElement);
+        const nameBoxHeight = nameBox ? 32 : 0;
+        const availableHeight = roomHeight - nameBoxHeight - 12;
+        
+        // 1단계: 매우 작은 크기 (2줄도 불가능) - +N만 표시
+        if (roomWidth < 60 || roomHeight < 40 || availableHeight < 15) {
+            console.log('교실이 매우 작아서 +N 오버플로우만 표시합니다:', roomWidth, 'x', roomHeight);
+            
+            const devicesContainer = document.createElement('div');
+            devicesContainer.className = 'room-devices';
+            devicesContainer.style.position = 'absolute';
+            devicesContainer.style.bottom = '4px';
+            devicesContainer.style.left = '4px';
+            devicesContainer.style.right = '4px';
+            devicesContainer.style.overflow = 'hidden';
+            devicesContainer.style.display = 'flex';
+            devicesContainer.style.flexWrap = 'wrap';
+            devicesContainer.style.gap = '2px';
+            devicesContainer.style.alignItems = 'center';
+            devicesContainer.style.height = '20px';
+            
+            // 모든 장비 데이터 수집
+            const allDeviceData = [];
         Object.entries(deviceCounts).forEach(([type, count]) => {
             if (count > 0) {
-                const iconElement = document.createElement('div');
-                iconElement.className = 'device-icon';
-                iconElement.innerHTML = `${this.getDeviceIcon(type)} ${count}`;
-                iconsContainer.appendChild(iconElement);
+                    const normalizedType = this.normalizeDeviceType(type);
+                    const iconInfo = this.getDeviceIcon(normalizedType);
+                    allDeviceData.push({ type: normalizedType, count, iconInfo });
+                }
+            });
+            
+            // +N 오버플로우 인디케이터만 표시
+            const totalDevices = allDeviceData.reduce((sum, { count }) => sum + count, 0);
+            const overflowElement = this.createOverflowIndicator(totalDevices, allDeviceData);
+            devicesContainer.appendChild(overflowElement);
+            
+            // 교실에 추가
+            roomElement.appendChild(devicesContainer);
+            
+            // 이름박스 위치 조정
+            this.adjustNameBoxPosition(roomElement, 20 + 8);
+            return;
+        }
+        
+        // 2단계: 매우 작은 크기 (1줄도 어려움) - 1줄로 표시하고 나머지는 +N
+        if (roomWidth < 50 || roomHeight < 35 || availableHeight < 12) {
+            console.log('교실이 매우 작아서 1줄 + 오버플로우로 표시합니다:', roomWidth, 'x', roomHeight);
+            
+            const devicesContainer = document.createElement('div');
+            devicesContainer.className = 'room-devices';
+            devicesContainer.style.position = 'absolute';
+            devicesContainer.style.bottom = '4px';
+            devicesContainer.style.left = '4px';
+            devicesContainer.style.right = '4px';
+            devicesContainer.style.overflow = 'hidden';
+            devicesContainer.style.display = 'flex';
+            devicesContainer.style.flexWrap = 'wrap';
+            devicesContainer.style.gap = '2px';
+            devicesContainer.style.alignItems = 'center';
+            devicesContainer.style.height = '20px';
+            
+            // 장비 타입별 개수 집계 (정규화 적용)
+            const normalizedDeviceCounts = {};
+            Object.entries(deviceCounts).forEach(([type, count]) => {
+                if (count > 0) {
+                    const normalizedType = this.normalizeDeviceType(type);
+                    normalizedDeviceCounts[normalizedType] = (normalizedDeviceCounts[normalizedType] || 0) + count;
             }
         });
         
-        roomElement.appendChild(iconsContainer);
-    }
-    
-    getDeviceIcon(deviceType) {
-        const iconMap = {
-            '모니터': '<i class="fas fa-desktop"></i>',
-            '노트북': '<i class="fas fa-laptop"></i>',
-            '태블릿': '<i class="fas fa-tablet-alt"></i>',
-            '프린터': '<i class="fas fa-print"></i>',
-            '스피커': '<i class="fas fa-volume-up"></i>',
-            '카메라': '<i class="fas fa-camera"></i>',
-            '키보드': '<i class="fas fa-keyboard"></i>',
-            '마우스': '<i class="fas fa-mouse"></i>',
-            'default': '<i class="fas fa-microchip"></i>'
-        };
-        return iconMap[deviceType] || iconMap.default;
+            // 장비 아이콘 생성
+            const allDeviceData = [];
+            const deviceElements = [];
+            Object.entries(normalizedDeviceCounts).forEach(([type, count]) => {
+                if (count > 0) {
+                    const iconInfo = this.getDeviceIcon(type);
+                    allDeviceData.push({ type, count, iconInfo });
+                    
+                    const deviceIcon = document.createElement('div');
+                    deviceIcon.className = `device-icon ${iconInfo.class}`;
+                    deviceIcon.innerHTML = `
+                        <i class="${iconInfo.icon}"></i>
+                        <span class="device-count">${count}</span>
+                    `;
+                    deviceIcon.title = `${type}: ${count}개`;
+                    deviceIcon.style.flexShrink = '0';
+                    deviceIcon.style.fontSize = '10px';
+                    deviceIcon.style.lineHeight = '1';
+                    deviceIcon.style.whiteSpace = 'nowrap';
+                    deviceIcon.style.maxWidth = '100%';
+                    deviceIcon.style.overflow = 'hidden';
+                    deviceElements.push(deviceIcon);
+                }
+            });
+            
+            // 1줄에 들어갈 수 있는 아이콘 수 계산
+            const availableWidth = roomWidth - 8;
+            let visibleCount = 0;
+            let currentWidth = 0;
+            const iconWidth = 20; // 예상 아이콘 너비
+            const gap = 2;
+            
+            for (let i = 0; i < deviceElements.length; i++) {
+                const totalWidth = iconWidth + gap;
+                if (currentWidth + totalWidth <= availableWidth - 30) { // +N 공간 확보
+                    visibleCount++;
+                    currentWidth += totalWidth;
+                } else {
+                    break;
+                }
+            }
+            
+            // 보이는 아이콘들 추가
+            for (let i = 0; i < visibleCount; i++) {
+                devicesContainer.appendChild(deviceElements[i]);
+            }
+            
+            // 오버플로우 인디케이터 추가
+            if (visibleCount < deviceElements.length) {
+                const overflowCount = deviceElements.length - visibleCount;
+                const overflowElement = this.createOverflowIndicator(overflowCount, allDeviceData);
+                devicesContainer.appendChild(overflowElement);
+            }
+            
+            // 교실에 추가
+            roomElement.appendChild(devicesContainer);
+            
+            // 이름박스 위치 조정
+            this.adjustNameBoxPosition(roomElement, 20 + 8);
+            return;
+        }
+        
+        const devicesContainer = document.createElement('div');
+        devicesContainer.className = 'room-devices';
+        devicesContainer.style.position = 'absolute';
+        devicesContainer.style.bottom = '4px';
+        devicesContainer.style.left = '4px';
+        devicesContainer.style.right = '4px';
+        devicesContainer.style.overflow = 'hidden'; // 중요: 넘어가는 내용 숨김
+        devicesContainer.style.display = 'flex';
+        devicesContainer.style.flexWrap = 'wrap';
+        devicesContainer.style.gap = '2px';
+        devicesContainer.style.alignItems = 'center';
+        
+        // 장비 타입별 개수 집계 (정규화 적용)
+        const normalizedDeviceCounts = {};
+        Object.entries(deviceCounts).forEach(([type, count]) => {
+            if (count > 0) {
+                const normalizedType = this.normalizeDeviceType(type);
+                normalizedDeviceCounts[normalizedType] = (normalizedDeviceCounts[normalizedType] || 0) + count;
+            }
+        });
+        
+        // 장비 아이콘 생성 (실제 DOM에 추가하지 않고 임시로만 생성)
+        const allDeviceData = [];
+        const tempContainer = document.createElement('div');
+        tempContainer.style.visibility = 'hidden';
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.top = '-9999px';
+        document.body.appendChild(tempContainer);
+        
+        Object.entries(normalizedDeviceCounts).forEach(([type, count]) => {
+            if (count > 0) {
+                const iconInfo = this.getDeviceIcon(type);
+                allDeviceData.push({ type, count, iconInfo });
+            }
+        });
+        
+        // 사용 가능한 높이 계산 (이름박스와 여백을 고려)
+        const maxDeviceHeight = Math.min(availableHeight * 0.7, 80); // 최대 높이 제한
+        
+        // 공간이 부족하면 표시하지 않음
+        if (maxDeviceHeight < 20) {
+            console.log('장비 표시할 공간이 부족합니다:', maxDeviceHeight);
+            document.body.removeChild(tempContainer);
+            this.adjustNameBoxPosition(roomElement, 0);
+            return;
+        }
+        
+        // 실제 장비 요소들 생성
+        const deviceElements = [];
+        allDeviceData.forEach(({ type, count, iconInfo }) => {
+            const deviceIcon = document.createElement('div');
+            deviceIcon.className = `device-icon ${iconInfo.class}`;
+            deviceIcon.innerHTML = `
+                <i class="${iconInfo.icon}"></i>
+                <span class="device-count">${count}</span>
+            `;
+            deviceIcon.title = `${type}: ${count}개`;
+            deviceIcon.style.flexShrink = '0'; // 크기 고정
+            deviceIcon.style.fontSize = '10px';
+            deviceIcon.style.lineHeight = '1';
+            deviceIcon.style.whiteSpace = 'nowrap';
+            deviceIcon.style.maxWidth = '100%';
+            deviceIcon.style.overflow = 'hidden';
+            deviceElements.push(deviceIcon);
+        });
+        
+        // 레이아웃 계산
+        const result = this.calculateDeviceLayout(tempContainer, roomWidth - 8, maxDeviceHeight, deviceElements, allDeviceData);
+        
+        // 임시 컨테이너 제거
+        document.body.removeChild(tempContainer);
+        
+        // 실제 표시할 요소들 추가
+        result.visibleElements.forEach(element => {
+            devicesContainer.appendChild(element);
+        });
+        
+        // 오버플로우 인디케이터 추가
+        if (result.overflowCount > 0) {
+            const overflowElement = this.createOverflowIndicator(result.overflowCount, allDeviceData);
+            devicesContainer.appendChild(overflowElement);
+        }
+        
+        // 컨테이너 크기 설정
+        devicesContainer.style.height = result.deviceHeight + 'px';
+        
+        // 교실에 추가
+        roomElement.appendChild(devicesContainer);
+        
+        // 이름박스 위치 조정 (장비 영역과 겹치지 않도록)
+        this.adjustNameBoxPosition(roomElement, result.deviceHeight + 8);
     }
     
     renderWirelessAPs() {
@@ -738,6 +1035,12 @@ export default class FloorPlanManager {
                     this.selectTool('select');
                 }
                 break;
+            case 'other-space':
+                if (this.currentOtherSpaceType) {
+                    this.createOtherSpace(x, y, this.currentOtherSpaceType);
+                    this.selectTool('select');
+                }
+                break;
             case 'add-ap':
                 if (this.currentMode === 'wireless') this.createWirelessAP(x, y);
                 break;
@@ -784,10 +1087,10 @@ export default class FloorPlanManager {
         const roomData = {
             roomName: name,
             roomType: 'classroom',
-            xCoordinate: x - 50,
-            yCoordinate: y - 40,
-            width: 100,
-            height: 80,
+            xCoordinate: x - 60,
+            yCoordinate: y - 48,
+            width: 120,
+            height: 105,
             classroomId: tempId,
             schoolId: this.currentSchoolId,
             borderColor: this.currentBorderColor,
@@ -799,15 +1102,48 @@ export default class FloorPlanManager {
         this.renderRoom(roomData);
         this.showNotification(`교실 '${name}'이(가) 생성되었습니다.`);
     }
+    
+    createOtherSpace(x, y, spaceType) {
+        if (!this.currentSchoolId) {
+            this.showNotification('먼저 학교를 선택해주세요.', 'error');
+            return;
+        }
+        
+        // 임시 ID 생성
+        const tempId = 'temp_' + Date.now();
+        
+        const roomData = {
+            roomName: spaceType,
+            roomType: 'other-space',
+            xCoordinate: x - 60,
+            yCoordinate: y - 48,
+            width: 120,
+            height: 105,
+            classroomId: tempId,
+            schoolId: this.currentSchoolId,
+            borderColor: this.currentBorderColor,
+            borderThickness: this.currentBorderThickness
+        };
+        
+        if (!this.floorPlanData.rooms) this.floorPlanData.rooms = [];
+        this.floorPlanData.rooms.push(roomData);
+        this.renderRoom(roomData);
+        this.showNotification(`${spaceType}이(가) 생성되었습니다.`);
+    }
 
     renderElement(type, data) {
         const element = document.createElement('div');
         element.className = `draggable ${type}`;
         element.dataset.type = type;
-        element.dataset.id = data.buildingId || data.floorRoomId || this._getTempId();
+        element.dataset.id = data.buildingId || data.floorRoomId || data.classroomId || this._getTempId();
         
         const name = data.buildingName || data.roomName || `새 ${type}`;
         element.dataset.name = name;
+        
+        // 기타공간인 경우 추가 데이터 속성 설정
+        if (type === 'room' && data.roomType === 'other-space') {
+            element.dataset.type = 'other-space';
+        }
 
         // 테두리 색상과 굵기 정보를 명확하게 저장
         if (type === 'building' || type === 'room') {
@@ -853,7 +1189,21 @@ export default class FloorPlanManager {
     }
     
     renderRoom(room) {
-        this.renderElement('room', room);
+        const element = this.renderElement('room', room);
+        
+        // 교실이 데이터베이스에 존재하는 경우 장비 정보 로드
+        // classroomId가 숫자이고 temp_로 시작하지 않는 경우
+        const realClassroomId = room.classroomId || room.id;
+        if (realClassroomId && 
+            !realClassroomId.toString().startsWith('temp_') && 
+            !isNaN(Number(realClassroomId))) {
+            console.log('🔧 교실 장비 로딩 시작:', room.roomName, 'ID:', realClassroomId);
+            this.loadAndDisplayDeviceIcons(realClassroomId, element);
+        } else {
+            console.log('📝 새 교실이므로 장비 로딩 건너뜀:', room.roomName, 'ID:', realClassroomId);
+        }
+        
+        return element;
     }
     
     selectElement(element) {
@@ -1064,6 +1414,8 @@ export default class FloorPlanManager {
             this.showNotification('건물 추가 모드: 캔버스에 클릭하여 건물을 추가하세요.', 'info');
         } else if (tool === 'room') {
             this.showNotification('교실 추가 모드: 캔버스에 클릭하여 교실을 추가하세요.', 'info');
+        } else if (tool === 'other-space') {
+            this.showNotification('기타공간 선택: 화장실, EV, 현관 중 하나를 선택하세요.', 'info');
         }
     }
 
@@ -1863,5 +2215,314 @@ export default class FloorPlanManager {
         if (this.roomSelectorContainer && this.roomSelectorContainer.style.display !== 'none') {
             this.updateRoomSelectorList();
         }
+    }
+
+    // 장비 레이아웃 계산 (다중 행 지원)
+    calculateDeviceLayout(container, roomWidth, maxHeight, deviceElements, allDeviceData) {
+        if (deviceElements.length === 0) {
+            return {
+                visibleElements: [],
+                overflowCount: 0,
+                deviceHeight: 0,
+                rows: 0
+            };
+        }
+        
+        const rowHeight = 20; // 아이콘 높이 + 간격 (축소)
+        const maxRows = Math.max(1, Math.floor(maxHeight / rowHeight));
+        const availableWidth = roomWidth - 8; // 좌우 패딩 고려
+        const padding = 2; // 요소 간 간격 축소
+        
+        // 임시 측정을 위해 컨테이너에 요소들 추가
+        deviceElements.forEach(element => container.appendChild(element));
+        
+        let currentRow = 0;
+        let currentRowWidth = 0;
+        const visibleElements = [];
+        let overflowCount = 0;
+        let needsOverflowIndicator = false;
+        
+        for (let i = 0; i < deviceElements.length; i++) {
+            const element = deviceElements[i];
+            // 실제 요소 크기 측정
+            const elementWidth = element.offsetWidth || 20; // 기본값 축소
+            const totalElementWidth = elementWidth + padding;
+            
+            // 오버플로우 인디케이터가 필요한지 미리 확인
+            const remainingElements = deviceElements.length - i;
+            const overflowIndicatorWidth = remainingElements > 1 ? 28 : 0; // +N 표시 너비 축소
+            
+            // 현재 행에 들어갈 수 있는지 확인
+            if (currentRowWidth + totalElementWidth > availableWidth) {
+                // 다음 행으로 이동
+                currentRow++;
+                currentRowWidth = 0;
+                
+                // 최대 행 수 초과 확인
+                if (currentRow >= maxRows) {
+                    overflowCount = deviceElements.length - i;
+                    needsOverflowIndicator = true;
+                    break;
+                }
+            }
+            
+            // 마지막 행에서 오버플로우 인디케이터 공간 고려
+            if (currentRow === maxRows - 1) {
+                const spaceForOverflow = remainingElements > 1 ? overflowIndicatorWidth : 0;
+                if (currentRowWidth + totalElementWidth + spaceForOverflow > availableWidth) {
+                    overflowCount = deviceElements.length - i;
+                    needsOverflowIndicator = true;
+                    break;
+                }
+            }
+            
+            visibleElements.push(element);
+            currentRowWidth += totalElementWidth;
+        }
+        
+        // 컨테이너에서 모든 요소 제거 (측정용이었음)
+        deviceElements.forEach(element => {
+            if (element.parentNode === container) {
+                container.removeChild(element);
+            }
+        });
+        
+        const actualRows = Math.min(currentRow + 1, maxRows);
+        const deviceHeight = actualRows * rowHeight;
+        
+        return {
+            visibleElements,
+            overflowCount,
+            deviceHeight,
+            rows: actualRows,
+            needsOverflowIndicator
+        };
+    }
+    
+    // 오버플로우 인디케이터 생성
+    createOverflowIndicator(count, allDeviceData) {
+        const overflowElement = document.createElement('div');
+        overflowElement.className = 'device-overflow';
+        overflowElement.textContent = `+${count}`;
+        overflowElement.title = '더 많은 장비 보기 (호버)';
+        overflowElement.style.fontSize = '8px';
+        overflowElement.style.fontWeight = '500';
+        
+        // 호버 이벤트 추가
+        let popup = null;
+        let popupTimeout = null;
+        
+        overflowElement.addEventListener('mouseenter', (e) => {
+            if (popupTimeout) {
+                clearTimeout(popupTimeout);
+                popupTimeout = null;
+            }
+            
+            popup = this.createDevicePopup(allDeviceData, e.target);
+            document.body.appendChild(popup);
+            
+            // DOM에 추가된 후 위치 조정
+            setTimeout(() => {
+                this.positionPopup(popup, e.target);
+            }, 10);
+        });
+        
+        overflowElement.addEventListener('mouseleave', () => {
+            if (popup) {
+                popupTimeout = setTimeout(() => {
+                    if (popup && popup.parentNode) {
+                        popup.remove();
+                    }
+                    popup = null;
+                    popupTimeout = null;
+                }, 200); // 200ms 지연으로 실수로 인한 즉시 사라짐 방지
+            }
+        });
+        
+        return overflowElement;
+    }
+    
+    // 장비 상세 팝업 생성
+    createDevicePopup(allDeviceData, targetElement) {
+        const popup = document.createElement('div');
+        popup.className = 'device-popup';
+        
+        allDeviceData.forEach(({ type, count, iconInfo }) => {
+            const item = document.createElement('div');
+            item.className = 'device-popup-item';
+            item.innerHTML = `
+                <i class="${iconInfo.icon}" style="color: ${this.getIconColor(iconInfo.class)}"></i>
+                <span>${type}: ${count}개</span>
+            `;
+            popup.appendChild(item);
+        });
+        
+        return popup;
+    }
+    
+    // 아이콘 색상 매핑
+    getIconColor(className) {
+        const colorMap = {
+            desktop: '#2563eb',
+            monitor: '#059669',
+            laptop: '#7c3aed',
+            printer: '#dc2626',
+            projector: '#ea580c',
+            tv: '#be185d',
+            speaker: '#0891b2',
+            network: '#65a30d',
+            default: '#6b7280'
+        };
+        return colorMap[className] || colorMap.default;
+    }
+    
+    // 팝업 위치 조정
+    positionPopup(popup, targetElement) {
+        const targetRect = targetElement.getBoundingClientRect();
+        const popupRect = popup.getBoundingClientRect();
+        
+        let left = targetRect.left + (targetRect.width / 2) - (popupRect.width / 2);
+        let top = targetRect.top - popupRect.height - 10;
+        
+        // 화면 경계 체크
+        if (left + popupRect.width > window.innerWidth) {
+            left = window.innerWidth - popupRect.width - 10;
+        }
+        if (left < 10) {
+            left = 10;
+        }
+        if (top < 10) {
+            top = targetRect.bottom + 10;
+        }
+        
+        popup.style.left = left + 'px';
+        popup.style.top = top + 'px';
+    }
+    
+    // 장비 타입 정규화
+    normalizeDeviceType(type) {
+        if (!type) return '기타';
+        
+        const typeStr = type.toString().toLowerCase().trim();
+        
+        // 데스크톱/컴퓨터 관련
+        if (typeStr.includes('데스크톱') || typeStr.includes('데스크탑') || 
+            typeStr.includes('pc') || typeStr.includes('컴퓨터')) {
+            return '데스크톱';
+        }
+        
+        // 모니터 관련
+        if (typeStr.includes('모니터') || typeStr.includes('monitor')) {
+            return '모니터';
+        }
+        
+        // TV 관련
+        if (typeStr.includes('tv') || typeStr.includes('티비') || typeStr.includes('텔레비전')) {
+            return 'TV';
+        }
+        
+        // 노트북 관련
+        if (typeStr.includes('노트북') || typeStr.includes('laptop')) {
+            return '노트북';
+        }
+        
+        // 프린터 관련
+        if (typeStr.includes('프린터') || typeStr.includes('printer')) {
+            return '프린터';
+        }
+        
+        // 프로젝터 관련
+        if (typeStr.includes('프로젝터') || typeStr.includes('projector')) {
+            return '프로젝터';
+        }
+        
+        // 스피커 관련
+        if (typeStr.includes('스피커') || typeStr.includes('speaker')) {
+            return '스피커';
+        }
+        
+        // 네트워크 관련
+        if (typeStr.includes('네트워크') || typeStr.includes('스위치') || 
+            typeStr.includes('라우터') || typeStr.includes('switch') || 
+            typeStr.includes('router') || typeStr.includes('hub')) {
+            return '네트워크';
+        }
+        
+        // 기타
+        return type;
+    }
+    
+    // 장비 아이콘 정보 가져오기
+    getDeviceIcon(type) {
+        const normalizedType = this.normalizeDeviceType(type);
+        
+        const iconMap = {
+            '데스크톱': { icon: 'fas fa-server', class: 'desktop' },
+            '컴퓨터': { icon: 'fas fa-server', class: 'desktop' },
+            'PC': { icon: 'fas fa-server', class: 'desktop' },
+            '모니터': { icon: 'fas fa-tv', class: 'monitor' },
+            'TV': { icon: 'fas fa-television', class: 'tv' },
+            '노트북': { icon: 'fas fa-laptop', class: 'laptop' },
+            '프린터': { icon: 'fas fa-print', class: 'printer' },
+            '프로젝터': { icon: 'fas fa-video', class: 'projector' },
+            '스피커': { icon: 'fas fa-volume-up', class: 'speaker' },
+            '네트워크': { icon: 'fas fa-network-wired', class: 'network' },
+            '태블릿': { icon: 'fas fa-tablet-alt', class: 'default' },
+            '키보드': { icon: 'fas fa-keyboard', class: 'default' },
+            '마우스': { icon: 'fas fa-mouse', class: 'default' },
+            '웹캠': { icon: 'fas fa-camera', class: 'default' },
+            '헤드셋': { icon: 'fas fa-headphones', class: 'default' }
+        };
+        
+        return iconMap[normalizedType] || { icon: 'fas fa-cog', class: 'default' };
+    }
+    
+    // 이름박스 위치 조정 (장비 아이콘과 겹치지 않도록)
+    adjustNameBoxPosition(roomElement, deviceHeight) {
+        const nameBox = this.nameBoxManager.getNameBoxForElement(roomElement);
+        if (!nameBox) return;
+        
+        const roomHeight = parseInt(roomElement.style.height) || 105;
+        const roomWidth = parseInt(roomElement.style.width) || 120;
+        
+        // 이름박스 크기 계산 (실제 크기 또는 예상 크기)
+        const nameBoxRect = nameBox.getBoundingClientRect();
+        const nameBoxHeight = nameBoxRect.height || 24;
+        const nameBoxWidth = nameBoxRect.width || 60;
+        
+        // 장비 영역의 위치 계산 (하단에서부터)
+        const deviceAreaHeight = deviceHeight + 8; // 장비 영역 + 여백
+        const deviceTopY = roomHeight - deviceAreaHeight - 4; // 하단에서 4px 여백
+        
+        // 사용 가능한 영역 계산 (상단부터 장비 영역까지)
+        const availableVerticalSpace = deviceTopY - 8; // 상하 여백 4px씩
+        
+        // 이름박스 배치 전략
+        let finalY;
+        
+        if (deviceHeight === 0) {
+            // 장비가 없으면 중앙 배치
+            finalY = (roomHeight - nameBoxHeight) / 2;
+        } else {
+            // 장비가 있으면 장비 영역 위쪽에 배치
+            if (availableVerticalSpace >= nameBoxHeight + 8) {
+                // 충분한 공간이 있으면 중앙 배치
+                finalY = (availableVerticalSpace - nameBoxHeight) / 2 + 4;
+            } else if (availableVerticalSpace >= nameBoxHeight) {
+                // 최소 공간만 있으면 상단에 배치
+                finalY = 4;
+            } else {
+                // 공간이 부족하면 장비 영역과 겹치지 않는 선에서 최상단 배치
+                finalY = Math.max(4, deviceTopY - nameBoxHeight - 2);
+            }
+        }
+        
+        // 교실 경계 내에 유지
+        finalY = Math.max(4, Math.min(finalY, roomHeight - nameBoxHeight - 4));
+        
+        // 이름박스 위치 업데이트 (X축은 중앙 유지, Y축만 조정)
+        this.nameBoxManager.updateNameBoxPosition(roomElement, null, finalY);
+        
+        console.log(`이름박스 위치 조정: 교실크기(${roomWidth}x${roomHeight}), 장비높이(${deviceHeight}), 이름박스위치(${finalY}), 사용가능공간(${availableVerticalSpace})`);
     }
 } 

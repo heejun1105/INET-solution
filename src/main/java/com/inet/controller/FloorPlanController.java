@@ -4,18 +4,17 @@ import com.inet.service.FloorPlanService;
 import com.inet.service.SchoolService;
 import com.inet.entity.School;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 @Controller
 @RequestMapping("/floorplan")
 @RequiredArgsConstructor
-@Slf4j
 public class FloorPlanController {
     
     private final FloorPlanService floorPlanService;
@@ -44,12 +43,14 @@ public class FloorPlanController {
             floorPlanService.saveFloorPlanData(floorPlanData);
             return ResponseEntity.ok("저장 완료");
         } catch (Exception e) {
-            log.error("평면도 저장 오류", e);
+            System.err.println("평면도 저장 오류: " + e.getMessage());
             return ResponseEntity.internalServerError().body("저장 실패: " + e.getMessage());
         }
     }
     
-    // 교실별 장비 개수 조회 API
+    /**
+     * 교실의 장비 정보를 타입별로 조회 (아이콘 표시용)
+     */
     @GetMapping("/api/room/{roomId}/devices")
     @ResponseBody
     public ResponseEntity<Map<String, Integer>> getRoomDevices(@PathVariable Long roomId) {
@@ -57,7 +58,27 @@ public class FloorPlanController {
             Map<String, Integer> deviceCounts = floorPlanService.getDeviceCountByType(roomId);
             return ResponseEntity.ok(deviceCounts);
         } catch (Exception e) {
-            log.error("교실 장비 정보 조회 오류", e);
+            System.err.println("교실 장비 정보 조회 오류: " + e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * 교실 ID로 장비 정보를 타입별로 조회 (Classroom 기반)
+     */
+    @GetMapping("/api/classroom/{classroomId}/devices")
+    @ResponseBody
+    public ResponseEntity<Map<String, Integer>> getClassroomDevices(@PathVariable Long classroomId) {
+        try {
+            System.out.println("교실 ID " + classroomId + "의 장비 정보 조회 요청");
+            
+            // 실제 데이터베이스에서 장비 정보 조회
+            Map<String, Integer> deviceCounts = floorPlanService.getDeviceCountByClassroom(classroomId);
+            
+            System.out.println("교실 ID " + classroomId + "의 장비 조회 결과: " + deviceCounts);
+            return ResponseEntity.ok(deviceCounts);
+        } catch (Exception e) {
+            System.err.println("교실 장비 정보 조회 오류: " + e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }

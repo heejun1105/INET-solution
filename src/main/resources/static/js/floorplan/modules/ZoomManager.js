@@ -106,7 +106,7 @@ export default class ZoomManager {
         // 확대/축소 시 캔버스 크기 동적 조정
         const container = this.canvas.parentElement;
         const baseWidth = container.offsetWidth;
-        const baseHeight = Math.max(500, container.offsetHeight);
+        const baseHeight = Math.max(500, container.offsetHeight || 500);
         
         // 확대 시 더 큰 영역을 제공하고, 축소 시 작은 영역 제공
         const adjustedWidth = baseWidth / this.zoomLevel;

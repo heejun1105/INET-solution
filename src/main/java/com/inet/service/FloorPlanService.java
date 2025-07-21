@@ -1,17 +1,16 @@
 package com.inet.service;
 
-import com.inet.entity.*;
-import com.inet.repository.*;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.*;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
-import java.util.Optional;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Set;
-import java.util.stream.Collectors;
+
+import com.inet.entity.*;
+import com.inet.repository.*;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -177,6 +176,81 @@ public class FloorPlanService {
         return deviceCounts;
     }
     
+    // 교실 ID로 직접 장비 정보 조회 (Classroom 기반)
+    @Transactional(readOnly = true)
+    public Map<String, Integer> getDeviceCountByClassroom(Long classroomId) {
+        Optional<Classroom> classroom = classroomRepository.findById(classroomId);
+        if (classroom.isEmpty()) {
+            return new HashMap<>();
+        }
+        
+        List<Device> devices = deviceRepository.findByClassroom(classroom.get());
+        Map<String, Integer> deviceCounts = new HashMap<>();
+        
+        for (Device device : devices) {
+            String type = normalizeDeviceType(device.getType());
+            if (type != null && !type.trim().isEmpty()) {
+                deviceCounts.put(type, deviceCounts.getOrDefault(type, 0) + 1);
+            }
+        }
+        
+        return deviceCounts;
+    }
+    
+    // 장비 타입 정규화 (다양한 표기를 통일)
+    private String normalizeDeviceType(String originalType) {
+        if (originalType == null || originalType.trim().isEmpty()) {
+            return null;
+        }
+        
+        String type = originalType.trim().toLowerCase();
+        
+        // 데스크톱/PC 관련
+        if (type.contains("데스크") || type.contains("desktop") || 
+            type.equals("pc") || type.contains("컴퓨터") || type.contains("본체")) {
+            return "데스크톱";
+        }
+        
+        // 모니터 관련
+        if (type.contains("모니터") || type.contains("monitor") || type.contains("디스플레이")) {
+            return "모니터";
+        }
+        
+        // TV 관련
+        if (type.contains("tv") || type.contains("티브이") || type.contains("텔레비전")) {
+            return "TV";
+        }
+        
+        // 노트북 관련
+        if (type.contains("노트북") || type.contains("laptop") || type.contains("notebook")) {
+            return "노트북";
+        }
+        
+        // 프린터 관련
+        if (type.contains("프린터") || type.contains("printer") || type.contains("복합기")) {
+            return "프린터";
+        }
+        
+        // 프로젝터 관련
+        if (type.contains("프로젝터") || type.contains("projector") || type.contains("빔")) {
+            return "프로젝터";
+        }
+        
+        // 스피커 관련
+        if (type.contains("스피커") || type.contains("speaker") || type.contains("사운드")) {
+            return "스피커";
+        }
+        
+        // 네트워크 관련
+        if (type.contains("스위치") || type.contains("라우터") || type.contains("허브") || 
+            type.contains("switch") || type.contains("router") || type.contains("hub")) {
+            return "네트워크";
+        }
+        
+        // 원본 타입 반환 (첫 글자 대문자로)
+        return originalType.substring(0, 1).toUpperCase() + originalType.substring(1);
+    }
+    
     // 평면도 일괄 저장
     @Transactional
     public void saveFloorPlanData(Map<String, Object> floorPlanData) {
@@ -207,7 +281,12 @@ public class FloorPlanService {
         Building building = new Building();
         
         if (buildingData.containsKey("buildingId") && buildingData.get("buildingId") != null) {
-            building.setBuildingId(Long.valueOf(buildingData.get("buildingId").toString()));
+            String idStr = buildingData.get("buildingId").toString();
+            try {
+                building.setBuildingId(Long.valueOf(idStr));
+            } catch (NumberFormatException e) {
+                // 임시 ID(문자열)이면 무시 (신규 엔티티로 저장)
+            }
         }
         
         building.setBuildingName((String) buildingData.get("buildingName"));
@@ -229,7 +308,12 @@ public class FloorPlanService {
         FloorRoom room = new FloorRoom();
         
         if (roomData.containsKey("floorRoomId") && roomData.get("floorRoomId") != null) {
-            room.setFloorRoomId(Long.valueOf(roomData.get("floorRoomId").toString()));
+            String idStr = roomData.get("floorRoomId").toString();
+            try {
+                room.setFloorRoomId(Long.valueOf(idStr));
+            } catch (NumberFormatException e) {
+                // 임시 ID(문자열)이면 무시 (신규 엔티티로 저장)
+            }
         }
         
         room.setRoomName((String) roomData.get("roomName"));
@@ -247,10 +331,15 @@ public class FloorPlanService {
         
         // Building 설정 (독립 교실인 경우 null일 수 있음)
         if (roomData.containsKey("buildingId") && roomData.get("buildingId") != null) {
-            Long buildingId = Long.valueOf(roomData.get("buildingId").toString());
-            Building building = buildingRepository.findById(buildingId)
-                .orElseThrow(() -> new IllegalArgumentException("Building not found"));
-            room.setBuilding(building);
+            String buildingIdStr = roomData.get("buildingId").toString();
+            try {
+                Long buildingId = Long.valueOf(buildingIdStr);
+                Building building = buildingRepository.findById(buildingId)
+                    .orElseThrow(() -> new IllegalArgumentException("Building not found"));
+                room.setBuilding(building);
+            } catch (NumberFormatException e) {
+                // 임시 ID(문자열)이면 무시 (신규 엔티티로 저장)
+            }
         }
         
         floorRoomRepository.save(room);

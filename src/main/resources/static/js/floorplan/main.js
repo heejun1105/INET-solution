@@ -177,4 +177,13 @@ function initDropdowns() {
         // 드롭다운 메뉴 초기 상태 (숨김)
         shapeDropdown.classList.remove('show');
     }
+    
+    // 기타공간 드롭다운 버튼 이벤트 설정
+    const otherSpaceButton = document.getElementById('otherSpaceButton');
+    const otherSpaceDropdown = document.getElementById('otherSpaceDropdown');
+    
+    if (otherSpaceButton && otherSpaceDropdown) {
+        // 드롭다운 메뉴 초기 상태 (숨김)
+        otherSpaceDropdown.classList.remove('show');
+    }
 }

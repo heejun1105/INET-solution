@@ -227,7 +227,6 @@ export default class NameBoxManager {
             .name-box { 
                 position: absolute;
                 padding: 4px 8px;
-                background-color: rgba(240, 240, 240, 0.85);
                 border-radius: 4px;
                 white-space: nowrap;
                 transition: box-shadow 0.2s, background-color 0.2s, border-color 0.2s;
@@ -267,5 +266,25 @@ export default class NameBoxManager {
             }
         `;
         document.head.appendChild(style);
+    }
+    
+    // FloorPlanManager에서 사용할 메서드들 추가
+    getNameBoxForElement(element) {
+        const objectId = element.dataset.id;
+        return this.nameBoxes.get(objectId);
+    }
+    
+    updateNameBoxPosition(element, x = null, y = null) {
+        const nameBox = this.getNameBoxForElement(element);
+        if (!nameBox) return;
+        
+        if (x !== null) {
+            nameBox.style.left = x + 'px';
+        }
+        if (y !== null) {
+            nameBox.style.top = y + 'px';
+            nameBox.style.transform = 'translateX(-50%)'; // X축만 중앙 정렬 유지
+            nameBox.dataset.positioned = 'manual';
+        }
     }
 }

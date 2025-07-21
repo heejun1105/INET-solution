@@ -1598,7 +1598,7 @@ body {
 .name-box { 
     position: absolute;
     padding: 4px 8px;
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: #ffffff;
     border-radius: 4px;
     white-space: nowrap;
     transition: all 0.2s ease;
@@ -1612,7 +1612,6 @@ body {
     font-size: 14px;
     color: #1e3a8a;
     font-weight: 500;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     min-width: 30px;
     min-height: 20px;
 }
@@ -1756,4 +1755,125 @@ body {
 .shape:hover {
     box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.5);
     z-index: 900;
+}
+
+/* 장비 아이콘 스타일 */
+.room-devices {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    right: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    align-items: center;
+    z-index: 10;
+}
+
+.device-icon {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 3px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+    font-size: 10px;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.device-icon i {
+    font-size: 8px;
+    width: 8px;
+    text-align: center;
+}
+
+.device-count {
+    font-size: 8px;
+    font-weight: 500;
+    color: #333;
+}
+
+.device-overflow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px 4px;
+    background-color: rgba(59, 130, 246, 0.9);
+    color: white;
+    border-radius: 3px;
+    font-size: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    flex-shrink: 0;
+    min-width: 16px;
+    height: 16px;
+}
+
+.device-overflow:hover {
+    background-color: rgba(59, 130, 246, 1);
+}
+
+/* 장비 팝업 스타일 */
+.device-popup {
+    position: fixed;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-width: 200px;
+    font-size: 12px;
+}
+
+.device-popup-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.device-popup-item:last-child {
+    border-bottom: none;
+}
+
+.device-popup-item i {
+    width: 12px;
+    text-align: center;
+    font-size: 10px;
+}
+
+/* 장비 아이콘 색상 */
+.device-icon.desktop i { color: #2563eb; }
+.device-icon.monitor i { color: #059669; }
+.device-icon.laptop i { color: #7c3aed; }
+.device-icon.printer i { color: #dc2626; }
+.device-icon.projector i { color: #ea580c; }
+.device-icon.tv i { color: #be185d; }
+.device-icon.speaker i { color: #0891b2; }
+.device-icon.network i { color: #65a30d; }
+.device-icon.default i { color: #6b7280; }
+
+/* 교실 내 장비 영역이 교실 경계를 벗어나지 않도록 */
+.room {
+    position: relative;
+    overflow: hidden;
+}
+
+.room .room-devices {
+    pointer-events: auto;
+}
+
+/* 이름박스가 장비 영역과 겹치지 않도록 */
+.name-box {
+    z-index: 20;
+    pointer-events: auto;
 }

@@ -125,8 +125,8 @@ export default class SnapManager {
         return {
             x: parseInt(style.left) || 0,
             y: parseInt(style.top) || 0,
-            width: parseInt(style.width) || 100,
-            height: parseInt(style.height) || 80,
+            width: parseInt(style.width) || 120,
+            height: parseInt(style.height) || 96,
             get right() { return this.x + this.width; },
             get bottom() { return this.y + this.height; }
         };

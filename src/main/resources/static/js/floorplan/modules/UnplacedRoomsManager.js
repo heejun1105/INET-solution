@@ -325,19 +325,19 @@ export default class UnplacedRoomsManager {
         const canvas = document.getElementById('canvasContent');
         const canvasWidth = canvas.clientWidth;
         const canvasHeight = canvas.clientHeight;
-        let roomX = x - 50;
-        let roomY = y - 40;
+        let roomX = x - 60;
+        let roomY = y - 48;
         // 경계 제한
-        roomX = Math.max(0, Math.min(roomX, canvasWidth - 100));
-        roomY = Math.max(0, Math.min(roomY, canvasHeight - 80));
+        roomX = Math.max(0, Math.min(roomX, canvasWidth - 120));
+        roomY = Math.max(0, Math.min(roomY, canvasHeight - 105));
         const roomInfo = {
             classroomId: roomData.classroomId,
             roomName: roomData.roomName,
             roomType: 'classroom',
             xCoordinate: roomX,
             yCoordinate: roomY,
-            width: 100,
-            height: 80,
+            width: 120,
+            height: 105,
             schoolId: roomData.schoolId
         };
         if (!this.floorPlanManager.floorPlanData.rooms) {
@@ -352,19 +352,19 @@ export default class UnplacedRoomsManager {
         const canvas = document.getElementById('canvasContent');
         const canvasWidth = canvas.clientWidth;
         const canvasHeight = canvas.clientHeight;
-        let roomX = x - 50;
-        let roomY = y - 40;
+        let roomX = x - 60;
+        let roomY = y - 48;
         // 경계 제한
-        roomX = Math.max(0, Math.min(roomX, canvasWidth - 100));
-        roomY = Math.max(0, Math.min(roomY, canvasHeight - 80));
+        roomX = Math.max(0, Math.min(roomX, canvasWidth - 120));
+        roomY = Math.max(0, Math.min(roomY, canvasHeight - 105));
         const roomInfo = {
             classroomId: roomData.classroomId,
             roomName: roomData.roomName,
             roomType: 'classroom',
             xCoordinate: roomX,
             yCoordinate: roomY,
-            width: 100,
-            height: 80,
+            width: 120,
+            height: 105,
             schoolId: roomData.schoolId
         };
         if (!this.floorPlanManager.floorPlanData.rooms) {
