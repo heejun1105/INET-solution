@@ -1745,10 +1745,11 @@ body {
     transform-origin: 0 0;
 }
 
-/* 도형 선택 시 스타일 */
+/* 도형 선택 시 스타일 - 원본 스타일 유지하면서 선택 표시 */
 .shape.selected {
     outline: 2px dashed #4f46e5;
     outline-offset: 2px;
+    /* 도형의 원본 스타일이 유지되도록 함 */
 }
 
 /* 도형 호버 효과 */

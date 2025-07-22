@@ -9,7 +9,7 @@ export default class ResizeManager {
         this.startElementPos = { x: 0, y: 0 };
         this.isDragging = false;
         this.dragOffset = { x: 0, y: 0 };
-        this.minSize = { width: 60, height: 40 }; // 최소 크기 (20% 증가)
+        this.minSize = { width:1, height: 1 }; // 최소 크기 (선 종류는 높이 제한 없음)
     }
 
     addResizeHandles(element) {
@@ -19,7 +19,20 @@ export default class ResizeManager {
         const handlesContainer = document.createElement('div');
         handlesContainer.className = 'resize-handles';
         
-        const handles = ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'];
+        // 선 종류인지 확인
+        const isLineType = element.classList.contains('shape') && 
+                          (element.dataset.shapetype === 'line' || 
+                           element.dataset.shapetype === 'arrow' || 
+                           element.dataset.shapetype === 'dashed');
+        
+        let handles;
+        if (isLineType) {
+            // 선 종류는 가로 방향만 조절 가능
+            handles = ['w', 'e'];
+        } else {
+            // 다른 도형들은 8방향 모두 조절 가능
+            handles = ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'];
+        }
         
         handles.forEach(direction => {
             const handle = document.createElement('div');
@@ -53,6 +66,13 @@ export default class ResizeManager {
         this.isResizing = true;
         this.resizeHandle = direction;
         this.selectedElement = element;
+        
+        // 선 종류인지 확인
+        const isLineType = element.classList.contains('shape') && 
+                          (element.dataset.shapetype === 'line' || 
+                           element.dataset.shapetype === 'arrow' || 
+                           element.dataset.shapetype === 'dashed');
+        
         // zoomLevel 및 캔버스 기준 좌표계로 변환
         const zoomLevel = this.floorPlanManager.zoomManager.getCurrentZoom ? this.floorPlanManager.zoomManager.getCurrentZoom() : 1;
         const canvas = document.getElementById('canvasContent');
@@ -61,12 +81,25 @@ export default class ResizeManager {
             x: (e.clientX - canvasRect.left) / zoomLevel,
             y: (e.clientY - canvasRect.top) / zoomLevel
         };
-        this.startElementPos = {
-            x: parseFloat(element.style.left),
-            y: parseFloat(element.style.top),
-            width: parseFloat(element.style.width),
-            height: parseFloat(element.style.height)
-        };
+        
+        // 선 종류의 경우 원본 높이(굵기)를 저장
+        if (isLineType) {
+            const originalThickness = parseInt(element.dataset.thickness) || 2;
+            this.startElementPos = {
+                x: parseFloat(element.style.left),
+                y: parseFloat(element.style.top),
+                width: parseFloat(element.style.width),
+                height: originalThickness // 원본 굵기 사용
+            };
+        } else {
+            this.startElementPos = {
+                x: parseFloat(element.style.left),
+                y: parseFloat(element.style.top),
+                width: parseFloat(element.style.width),
+                height: parseFloat(element.style.height)
+            };
+        }
+        
         document.body.style.cursor = getComputedStyle(e.target).cursor;
         document.body.style.userSelect = 'none';
     }
@@ -84,47 +117,70 @@ export default class ResizeManager {
         const deltaY = mouseY - this.startPos.y;
         let newRect = { ...this.startElementPos };
         let applySnap = false;
-        switch (this.resizeHandle) {
-            case 'nw':
-                newRect.x += deltaX;
-                newRect.y += deltaY;
-                newRect.width -= deltaX;
-                newRect.height -= deltaY;
-                applySnap = true;
-                break;
-            case 'ne':
-                newRect.y += deltaY;
-                newRect.width += deltaX;
-                newRect.height -= deltaY;
-                applySnap = true;
-                break;
-            case 'sw':
-                newRect.x += deltaX;
-                newRect.width -= deltaX;
-                newRect.height += deltaY;
-                applySnap = true;
-                break;
-            case 'se':
-                newRect.width += deltaX;
-                newRect.height += deltaY;
-                break;
-            case 'n':
-                newRect.y += deltaY;
-                newRect.height -= deltaY;
-                applySnap = true;
-                break;
-            case 's':
-                newRect.height += deltaY;
-                break;
-            case 'w':
-                newRect.x += deltaX;
-                newRect.width -= deltaX;
-                applySnap = true;
-                break;
-            case 'e':
-                newRect.width += deltaX;
-                break;
+        
+        // 선 종류인지 확인
+        const isLineType = this.selectedElement.classList.contains('shape') && 
+                          (this.selectedElement.dataset.shapetype === 'line' || 
+                           this.selectedElement.dataset.shapetype === 'arrow' || 
+                           this.selectedElement.dataset.shapetype === 'dashed');
+        
+        if (isLineType) {
+            // 선 종류는 가로 방향만 조절
+            switch (this.resizeHandle) {
+                case 'w':
+                    newRect.x += deltaX;
+                    newRect.width -= deltaX;
+                    applySnap = true;
+                    break;
+                case 'e':
+                    newRect.width += deltaX;
+                    break;
+            }
+        } else {
+            // 일반 도형은 8방향 모두 조절 가능
+            switch (this.resizeHandle) {
+                case 'nw':
+                    newRect.x += deltaX;
+                    newRect.y += deltaY;
+                    newRect.width -= deltaX;
+                    newRect.height -= deltaY;
+                    applySnap = true;
+                    break;
+                case 'ne':
+                    newRect.y += deltaY;
+                    newRect.width += deltaX;
+                    newRect.height -= deltaY;
+                    applySnap = true;
+                    break;
+                case 'sw':
+                    newRect.x += deltaX;
+                    newRect.width -= deltaX;
+                    newRect.height += deltaY;
+                    applySnap = true;
+                    break;
+                case 'se':
+                    newRect.width += deltaX;
+                    newRect.height += deltaY;
+                    break;
+                case 'n':
+                    newRect.y += deltaY;
+                    newRect.height -= deltaY;
+                    applySnap = true;
+                    break;
+                case 's':
+                    newRect.height += deltaY;
+                    break;
+                case 'w':
+                    newRect.x += deltaX;
+                    newRect.width -= deltaX;
+                    applySnap = true;
+                    break;
+                case 'e':
+                    newRect.width += deltaX;
+                    break;
+            }
         }
+        
         // 최소 크기 제한
         if (newRect.width < this.minSize.width) {
             if (this.resizeHandle.includes('w')) {
@@ -132,17 +188,33 @@ export default class ResizeManager {
             }
             newRect.width = this.minSize.width;
         }
-        if (newRect.height < this.minSize.height) {
+        
+        // 선 종류가 아닌 경우에만 높이에 대한 최소 크기 제한 적용
+        if (!isLineType && newRect.height < this.minSize.height) {
             if (this.resizeHandle.includes('n')) {
                 newRect.y = this.startElementPos.y + this.startElementPos.height - this.minSize.height;
             }
             newRect.height = this.minSize.height;
         }
+        
+        // 선 종류의 경우 높이를 원본 굵기로 강제 유지하고 Y 좌표 고정
+        if (isLineType) {
+            const originalThickness = parseInt(this.selectedElement.dataset.thickness) || 2;
+            newRect.height = originalThickness; // 원본 굵기로 강제 설정
+            newRect.y = this.startElementPos.y; // Y 좌표 고정
+        }
         // 경계 제한 (캔버스 밖으로 못 나가게)
         newRect.x = Math.max(0, Math.min(newRect.x, canvasWidth - newRect.width));
-        newRect.y = Math.max(0, Math.min(newRect.y, canvasHeight - newRect.height));
         newRect.width = Math.min(newRect.width, canvasWidth - newRect.x);
-        newRect.height = Math.min(newRect.height, canvasHeight - newRect.y);
+        
+        if (isLineType) {
+            // 선 종류는 높이에 대한 경계 제한을 적용하지 않음
+            newRect.y = this.startElementPos.y;
+            newRect.height = parseInt(this.selectedElement.dataset.thickness) || 2;
+        } else {
+            newRect.y = Math.max(0, Math.min(newRect.y, canvasHeight - newRect.height));
+            newRect.height = Math.min(newRect.height, canvasHeight - newRect.y);
+        }
         let snappedPosition = { x: newRect.x, y: newRect.y };
         if (applySnap) {
             snappedPosition = this.floorPlanManager.snapManager.snapElement(
@@ -151,10 +223,27 @@ export default class ResizeManager {
                 newRect.y
             );
         }
+        
         this.selectedElement.style.left = snappedPosition.x + 'px';
         this.selectedElement.style.top = snappedPosition.y + 'px';
         this.selectedElement.style.width = newRect.width + 'px';
-        this.selectedElement.style.height = newRect.height + 'px';
+        
+        if (isLineType) {
+            // 선 종류는 높이(굵기)를 변경하지 않음
+            // 원본 굵기로 강제 설정
+            const originalThickness = parseInt(this.selectedElement.dataset.thickness) || 2;
+            this.selectedElement.style.setProperty('height', originalThickness + 'px', 'important');
+            this.selectedElement.style.setProperty('--original-thickness', originalThickness + 'px', 'important');
+            this.maintainShapeStyle(this.selectedElement);
+        } else {
+            // 다른 도형들은 높이도 변경
+            this.selectedElement.style.height = newRect.height + 'px';
+            
+            // 도형인 경우 원본 굵기와 색상 유지
+            if (this.selectedElement.classList.contains('shape')) {
+                this.maintainShapeStyle(this.selectedElement);
+            }
+        }
     }
 
     handleMouseUp(e) {
@@ -181,6 +270,14 @@ export default class ResizeManager {
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
         
+        // 도형인 경우 리사이즈 완료 후 스타일을 다시 한 번 강제 적용
+        if (this.selectedElement && this.selectedElement.classList.contains('shape')) {
+            // 약간의 지연을 두고 스타일 재적용 (CSS 애니메이션 완료 후)
+            setTimeout(() => {
+                this.maintainShapeStyle(this.selectedElement);
+            }, 10);
+        }
+        
         // 크기 조절 완료 후 선택 상태 해제하여 빨간색 테두리 제거
         this.floorPlanManager.clearSelection();
         
@@ -189,5 +286,69 @@ export default class ResizeManager {
             detail: { element: this.selectedElement }
         });
         document.dispatchEvent(resizeCompleteEvent);
+    }
+    
+    maintainShapeStyle(element) {
+        const shapeType = element.dataset.shapetype;
+        const thickness = parseInt(element.dataset.thickness) || 2;
+        const color = element.dataset.color || '#000000';
+        
+        console.log('도형 스타일 유지:', { shapeType, thickness, color });
+        
+        if (shapeType === 'line' || shapeType === 'arrow' || shapeType === 'dashed') {
+            // 선 타입 도형의 경우 높이를 굵기로 강제 유지
+            element.style.setProperty('height', thickness + 'px', 'important');
+            element.style.setProperty('background-color', color, 'important');
+            element.style.setProperty('--original-thickness', thickness + 'px', 'important');
+            
+            if (shapeType === 'dashed') {
+                // 점선 패턴 재적용
+                const dashSize = 5;
+                const gapSize = 5;
+                element.style.setProperty('background', `repeating-linear-gradient(to right, ${color}, ${color} ${dashSize}px, transparent ${dashSize}px, transparent ${dashSize + gapSize}px)`, 'important');
+            } else if (shapeType === 'arrow') {
+                // 화살표 헤드 재적용
+                element.style.setProperty('background-color', color, 'important');
+                const arrowHead = element.querySelector('.arrow-head');
+                if (arrowHead) {
+                    const arrowSize = Math.max(thickness * 3, 8);
+                    arrowHead.style.borderTop = `${arrowSize/2}px solid transparent`;
+                    arrowHead.style.borderBottom = `${arrowSize/2}px solid transparent`;
+                    arrowHead.style.borderLeft = `${arrowSize}px solid ${color}`;
+                    arrowHead.style.marginRight = `-${arrowSize}px`;
+                }
+            }
+        } else if (shapeType === 'rect' || shapeType === 'circle' || shapeType === 'arc') {
+            // 테두리 도형의 경우 테두리 굵기와 색상 유지
+            element.style.borderWidth = thickness + 'px';
+            element.style.borderColor = color;
+            element.style.borderStyle = 'solid';
+            
+            // arc의 경우 특별한 테두리 설정 유지
+            if (shapeType === 'arc') {
+                element.style.borderBottomColor = 'transparent';
+                element.style.borderLeftColor = 'transparent';
+            }
+        } else if (shapeType === 'curve') {
+            // 곡선의 경우 SVG 내부의 stroke-width 유지
+            const svg = element.querySelector('svg');
+            if (svg) {
+                const path = svg.querySelector('path');
+                if (path) {
+                    path.setAttribute('stroke-width', thickness.toString());
+                    path.setAttribute('stroke', color);
+                }
+            }
+        }
+        
+        // !important를 사용하여 스타일 우선순위 높임
+        if (shapeType === 'line' || shapeType === 'arrow' || shapeType === 'dashed') {
+            element.style.setProperty('height', thickness + 'px', 'important');
+            element.style.setProperty('background-color', color, 'important');
+        } else if (shapeType === 'rect' || shapeType === 'circle' || shapeType === 'arc') {
+            element.style.setProperty('border-width', thickness + 'px', 'important');
+            element.style.setProperty('border-color', color, 'important');
+            element.style.setProperty('border-style', 'solid', 'important');
+        }
     }
 } 

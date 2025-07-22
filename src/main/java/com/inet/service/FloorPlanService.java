@@ -1,375 +1,313 @@
 package com.inet.service;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.inet.entity.*;
+import com.inet.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.inet.entity.*;
-import com.inet.repository.*;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class FloorPlanService {
     
-    private final BuildingRepository buildingRepository;
-    private final FloorRoomRepository floorRoomRepository;
-    private final RoomSeatRepository roomSeatRepository;
-    private final DeviceLocationRepository deviceLocationRepository;
-    private final WirelessApLocationRepository wirelessApLocationRepository;
-    private final SchoolRepository schoolRepository;
-    private final DeviceRepository deviceRepository;
-    private final WirelessApRepository wirelessApRepository;
-    private final ClassroomRepository classroomRepository;
+    @Autowired
+    private FloorPlanRepository floorPlanRepository;
     
-    // 학교별 건물 조회
-    public List<Building> getBuildingsBySchool(Long schoolId) {
-        return buildingRepository.findBySchoolIdOrderByName(schoolId);
-    }
+    @Autowired
+    private FloorPlanElementRepository floorPlanElementRepository;
     
-    // 건물별 방 조회 (층 없이 바로 건물에 속한 방들 조회)
-    public List<FloorRoom> getRoomsByBuilding(Long buildingId) {
-        return floorRoomRepository.findByBuildingIdOrderByRoomName(buildingId);
-    }
+    @Autowired
+    private SchoolRepository schoolRepository;
     
-    // 학교의 독립 교실들 조회 (건물에 속하지 않은 교실들)
-    public List<FloorRoom> getIndependentRoomsBySchool(Long schoolId) {
-        return floorRoomRepository.findIndependentRoomsBySchoolId(schoolId);
-    }
+    @Autowired
+    private ClassroomRepository classroomRepository;
     
-    // 학교의 모든 교실들 조회 (건물 안팎 구분 없이)
-    public List<FloorRoom> getAllRoomsBySchool(Long schoolId) {
-        return floorRoomRepository.findBySchoolIdOrderByRoomName(schoolId);
-    }
+    @Autowired
+    private BuildingRepository buildingRepository;
     
-    // 방별 자리 조회
-    public List<RoomSeat> getSeatsByRoom(Long floorRoomId) {
-        return roomSeatRepository.findByFloorRoomIdOrderBySeatName(floorRoomId);
-    }
+    @Autowired
+    private WirelessApRepository wirelessApRepository;
     
-    // 학교 전체 평면도 데이터 조회
-    @Transactional(readOnly = true)
-    public Map<String, Object> getSchoolFloorPlan(Long schoolId) {
-        Map<String, Object> result = new HashMap<>();
-        
-        List<Building> buildings = getBuildingsBySchool(schoolId);
-        result.put("buildings", buildings);
-        
-        // 독립 교실들 (건물에 속하지 않은 교실들)
-        List<FloorRoom> independentRooms = getIndependentRoomsBySchool(schoolId);
-        result.put("rooms", independentRooms);
-        
-        Map<Long, List<FloorRoom>> roomsByBuilding = new HashMap<>();
-        Map<Long, List<RoomSeat>> seatsByRoom = new HashMap<>();
-        Map<Long, List<DeviceLocation>> devicesByRoom = new HashMap<>();
-        Map<Long, List<WirelessApLocation>> apsByRoom = new HashMap<>();
-        
-        // 건물에 속한 교실들 처리
-        for (Building building : buildings) {
-            List<FloorRoom> rooms = getRoomsByBuilding(building.getBuildingId());
-            roomsByBuilding.put(building.getBuildingId(), rooms);
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    
+    /**
+     * 학교별 평면도 저장
+     */
+    @Transactional
+    public boolean saveFloorPlan(Long schoolId, Map<String, Object> floorPlanData) {
+        try {
+            // 학교 존재 확인
+            if (!schoolRepository.existsById(schoolId)) {
+                throw new RuntimeException("학교를 찾을 수 없습니다: " + schoolId);
+            }
             
-            // 건물 안 교실들의 상세 정보
-            for (FloorRoom room : rooms) {
-                List<RoomSeat> seats = getSeatsByRoom(room.getFloorRoomId());
-                seatsByRoom.put(room.getFloorRoomId(), seats);
-                
-                List<DeviceLocation> devices = deviceLocationRepository.findByFloorRoomId(room.getFloorRoomId());
-                devicesByRoom.put(room.getFloorRoomId(), devices);
-                
-                List<WirelessApLocation> aps = wirelessApLocationRepository.findByFloorRoomId(room.getFloorRoomId());
-                apsByRoom.put(room.getFloorRoomId(), aps);
+            // 기존 평면도 조회 또는 새로 생성
+            FloorPlan floorPlan = floorPlanRepository.findBySchoolIdAndActive(schoolId)
+                    .orElse(new FloorPlan());
+            
+            // 평면도 메타데이터 설정
+            floorPlan.setSchoolId(schoolId);
+            floorPlan.setName("평면도_" + schoolId);
+            floorPlan.setDescription("학교 평면도");
+            floorPlan.setCanvasWidth(4000);
+            floorPlan.setCanvasHeight(2500);
+            floorPlan.setZoomLevel(1.0);
+            floorPlan.setIsActive(true);
+            
+            // 평면도 저장
+            floorPlan = floorPlanRepository.save(floorPlan);
+            
+            // 기존 요소들 삭제
+            floorPlanElementRepository.deleteByFloorPlanId(floorPlan.getId());
+            
+            // 새로운 요소들 저장
+            saveFloorPlanElements(floorPlan.getId(), floorPlanData);
+            
+            return true;
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
+     * 평면도 요소들 저장
+     */
+    private void saveFloorPlanElements(Long floorPlanId, Map<String, Object> floorPlanData) {
+        // 교실 요소들 저장
+        if (floorPlanData.containsKey("rooms")) {
+            List<Map<String, Object>> rooms = (List<Map<String, Object>>) floorPlanData.get("rooms");
+            for (Map<String, Object> room : rooms) {
+                saveElement(floorPlanId, "room", room);
             }
         }
         
-        // 독립 교실들의 상세 정보 처리
-        for (FloorRoom room : independentRooms) {
-            List<RoomSeat> seats = getSeatsByRoom(room.getFloorRoomId());
-            seatsByRoom.put(room.getFloorRoomId(), seats);
-            
-            List<DeviceLocation> devices = deviceLocationRepository.findByFloorRoomId(room.getFloorRoomId());
-            devicesByRoom.put(room.getFloorRoomId(), devices);
-            
-            List<WirelessApLocation> aps = wirelessApLocationRepository.findByFloorRoomId(room.getFloorRoomId());
-            apsByRoom.put(room.getFloorRoomId(), aps);
+        // 건물 요소들 저장
+        if (floorPlanData.containsKey("buildings")) {
+            List<Map<String, Object>> buildings = (List<Map<String, Object>>) floorPlanData.get("buildings");
+            for (Map<String, Object> building : buildings) {
+                saveElement(floorPlanId, "building", building);
+            }
         }
         
-        result.put("roomsByBuilding", roomsByBuilding);
-        result.put("seatsByRoom", seatsByRoom);
-        result.put("devicesByRoom", devicesByRoom);
-        result.put("apsByRoom", apsByRoom);
+        // 무선AP 요소들 저장
+        if (floorPlanData.containsKey("wirelessAps")) {
+            List<Map<String, Object>> wirelessAps = (List<Map<String, Object>>) floorPlanData.get("wirelessAps");
+            for (Map<String, Object> wirelessAp : wirelessAps) {
+                saveElement(floorPlanId, "wireless_ap", wirelessAp);
+            }
+        }
+        
+        // 도형 요소들 저장
+        if (floorPlanData.containsKey("shapes")) {
+            List<Map<String, Object>> shapes = (List<Map<String, Object>>) floorPlanData.get("shapes");
+            for (Map<String, Object> shape : shapes) {
+                saveElement(floorPlanId, "shape", shape);
+            }
+        }
+        
+        // 기타공간 요소들 저장
+        if (floorPlanData.containsKey("otherSpaces")) {
+            List<Map<String, Object>> otherSpaces = (List<Map<String, Object>>) floorPlanData.get("otherSpaces");
+            for (Map<String, Object> otherSpace : otherSpaces) {
+                saveElement(floorPlanId, "other_space", otherSpace);
+            }
+        }
+    }
+    
+    /**
+     * 개별 요소 저장
+     */
+    private void saveElement(Long floorPlanId, String elementType, Map<String, Object> elementData) {
+        FloorPlanElement element = new FloorPlanElement();
+        element.setFloorPlanId(floorPlanId);
+        element.setElementType(elementType);
+        
+        // 참조 ID 설정
+        if (elementData.containsKey("classroomId")) {
+            element.setReferenceId(Long.valueOf(elementData.get("classroomId").toString()));
+        } else if (elementData.containsKey("buildingId")) {
+            element.setReferenceId(Long.valueOf(elementData.get("buildingId").toString()));
+        } else if (elementData.containsKey("wirelessApId")) {
+            element.setReferenceId(Long.valueOf(elementData.get("wirelessApId").toString()));
+        } else if (elementData.containsKey("id")) {
+            element.setReferenceId(Long.valueOf(elementData.get("id").toString()));
+        }
+        
+        // 위치 정보 설정
+        element.setXCoordinate(Double.valueOf(elementData.get("xCoordinate").toString()));
+        element.setYCoordinate(Double.valueOf(elementData.get("yCoordinate").toString()));
+        
+        if (elementData.containsKey("width")) {
+            element.setWidth(Double.valueOf(elementData.get("width").toString()));
+        }
+        
+        if (elementData.containsKey("height")) {
+            element.setHeight(Double.valueOf(elementData.get("height").toString()));
+        }
+        
+        if (elementData.containsKey("zIndex")) {
+            element.setZIndex(Integer.valueOf(elementData.get("zIndex").toString()));
+        }
+        
+        // 추가 데이터를 JSON으로 저장
+        try {
+            element.setElementData(objectMapper.writeValueAsString(elementData));
+        } catch (JsonProcessingException e) {
+            element.setElementData("{}");
+        }
+        
+        floorPlanElementRepository.save(element);
+    }
+    
+    /**
+     * 학교별 평면도 로드
+     */
+    public Map<String, Object> loadFloorPlan(Long schoolId) {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // 평면도 메타데이터 조회
+            FloorPlan floorPlan = floorPlanRepository.findBySchoolIdAndActive(schoolId)
+                    .orElse(null);
+            
+            if (floorPlan == null) {
+                result.put("success", false);
+                result.put("message", "저장된 평면도가 없습니다.");
+                return result;
+            }
+            
+            // 평면도 요소들 조회
+            List<FloorPlanElement> elements = floorPlanElementRepository.findByFloorPlanId(floorPlan.getId());
+            
+            // 요소들을 타입별로 분류
+            Map<String, List<FloorPlanElement>> elementsByType = elements.stream()
+                    .collect(Collectors.groupingBy(FloorPlanElement::getElementType));
+            
+            // 결과 데이터 구성
+            result.put("success", true);
+            result.put("floorPlan", convertFloorPlanToMap(floorPlan));
+            result.put("rooms", convertElementsToMap(elementsByType.get("room")));
+            result.put("buildings", convertElementsToMap(elementsByType.get("building")));
+            result.put("wirelessAps", convertElementsToMap(elementsByType.get("wireless_ap")));
+            result.put("shapes", convertElementsToMap(elementsByType.get("shape")));
+            result.put("otherSpaces", convertElementsToMap(elementsByType.get("other_space")));
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("success", false);
+            result.put("message", "평면도 로드 중 오류가 발생했습니다: " + e.getMessage());
+        }
         
         return result;
     }
     
-    // 건물 저장/수정
-    @Transactional
-    public Building saveBuilding(Building building) {
-        return buildingRepository.save(building);
+    /**
+     * FloorPlan 엔티티를 Map으로 변환
+     */
+    private Map<String, Object> convertFloorPlanToMap(FloorPlan floorPlan) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", floorPlan.getId());
+        map.put("schoolId", floorPlan.getSchoolId());
+        map.put("name", floorPlan.getName());
+        map.put("description", floorPlan.getDescription());
+        map.put("canvasWidth", floorPlan.getCanvasWidth());
+        map.put("canvasHeight", floorPlan.getCanvasHeight());
+        map.put("zoomLevel", floorPlan.getZoomLevel());
+        map.put("createdAt", floorPlan.getCreatedAt());
+        map.put("updatedAt", floorPlan.getUpdatedAt());
+        return map;
     }
     
-    // 방 저장/수정
-    @Transactional
-    public FloorRoom saveRoom(FloorRoom room) {
-        return floorRoomRepository.save(room);
-    }
-    
-    // 자리 저장/수정
-    @Transactional
-    public RoomSeat saveSeat(RoomSeat seat) {
-        return roomSeatRepository.save(seat);
-    }
-    
-    // 장비 위치 저장/수정
-    @Transactional
-    public DeviceLocation saveDeviceLocation(DeviceLocation deviceLocation) {
-        return deviceLocationRepository.save(deviceLocation);
-    }
-    
-    // 무선AP 위치 저장/수정
-    @Transactional
-    public WirelessApLocation saveWirelessApLocation(WirelessApLocation apLocation) {
-        return wirelessApLocationRepository.save(apLocation);
-    }
-    
-    // 건물 삭제
-    @Transactional
-    public void deleteBuilding(Long buildingId) {
-        buildingRepository.deleteById(buildingId);
-    }
-    
-    // 방 삭제
-    @Transactional
-    public void deleteRoom(Long floorRoomId) {
-        floorRoomRepository.deleteById(floorRoomId);
-    }
-    
-    // 자리 삭제
-    @Transactional
-    public void deleteSeat(Long seatId) {
-        roomSeatRepository.deleteById(seatId);
-    }
-    
-    // 교실에 배치된 장비 정보 조회 (교실 표시용)
-    @Transactional(readOnly = true)
-    public Map<String, Integer> getDeviceCountByType(Long floorRoomId) {
-        Optional<FloorRoom> room = floorRoomRepository.findById(floorRoomId);
-        if (room.isEmpty() || room.get().getClassroom() == null) {
-            return new HashMap<>();
+    /**
+     * FloorPlanElement 리스트를 Map 리스트로 변환
+     */
+    private List<Map<String, Object>> convertElementsToMap(List<FloorPlanElement> elements) {
+        if (elements == null) {
+            return new ArrayList<>();
         }
         
-        List<Device> devices = deviceRepository.findByClassroom(room.get().getClassroom());
-        Map<String, Integer> deviceCounts = new HashMap<>();
-        
-        for (Device device : devices) {
-            String type = device.getType();
-            if (type != null) {
-                deviceCounts.put(type, deviceCounts.getOrDefault(type, 0) + 1);
-            }
-        }
-        
-        return deviceCounts;
-    }
-    
-    // 교실 ID로 직접 장비 정보 조회 (Classroom 기반)
-    @Transactional(readOnly = true)
-    public Map<String, Integer> getDeviceCountByClassroom(Long classroomId) {
-        Optional<Classroom> classroom = classroomRepository.findById(classroomId);
-        if (classroom.isEmpty()) {
-            return new HashMap<>();
-        }
-        
-        List<Device> devices = deviceRepository.findByClassroom(classroom.get());
-        Map<String, Integer> deviceCounts = new HashMap<>();
-        
-        for (Device device : devices) {
-            String type = normalizeDeviceType(device.getType());
-            if (type != null && !type.trim().isEmpty()) {
-                deviceCounts.put(type, deviceCounts.getOrDefault(type, 0) + 1);
-            }
-        }
-        
-        return deviceCounts;
-    }
-    
-    // 장비 타입 정규화 (다양한 표기를 통일)
-    private String normalizeDeviceType(String originalType) {
-        if (originalType == null || originalType.trim().isEmpty()) {
-            return null;
-        }
-        
-        String type = originalType.trim().toLowerCase();
-        
-        // 데스크톱/PC 관련
-        if (type.contains("데스크") || type.contains("desktop") || 
-            type.equals("pc") || type.contains("컴퓨터") || type.contains("본체")) {
-            return "데스크톱";
-        }
-        
-        // 모니터 관련
-        if (type.contains("모니터") || type.contains("monitor") || type.contains("디스플레이")) {
-            return "모니터";
-        }
-        
-        // TV 관련
-        if (type.contains("tv") || type.contains("티브이") || type.contains("텔레비전")) {
-            return "TV";
-        }
-        
-        // 노트북 관련
-        if (type.contains("노트북") || type.contains("laptop") || type.contains("notebook")) {
-            return "노트북";
-        }
-        
-        // 프린터 관련
-        if (type.contains("프린터") || type.contains("printer") || type.contains("복합기")) {
-            return "프린터";
-        }
-        
-        // 프로젝터 관련
-        if (type.contains("프로젝터") || type.contains("projector") || type.contains("빔")) {
-            return "프로젝터";
-        }
-        
-        // 스피커 관련
-        if (type.contains("스피커") || type.contains("speaker") || type.contains("사운드")) {
-            return "스피커";
-        }
-        
-        // 네트워크 관련
-        if (type.contains("스위치") || type.contains("라우터") || type.contains("허브") || 
-            type.contains("switch") || type.contains("router") || type.contains("hub")) {
-            return "네트워크";
-        }
-        
-        // 원본 타입 반환 (첫 글자 대문자로)
-        return originalType.substring(0, 1).toUpperCase() + originalType.substring(1);
-    }
-    
-    // 평면도 일괄 저장
-    @Transactional
-    public void saveFloorPlanData(Map<String, Object> floorPlanData) {
-        log.info("평면도 데이터 저장 시작");
-        
-        // 건물 데이터 저장
-        if (floorPlanData.containsKey("buildings")) {
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> buildings = (List<Map<String, Object>>) floorPlanData.get("buildings");
-            for (Map<String, Object> buildingData : buildings) {
-                saveOrUpdateBuilding(buildingData);
-            }
-        }
-        
-        // 교실 데이터 저장
-        if (floorPlanData.containsKey("rooms")) {
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> rooms = (List<Map<String, Object>>) floorPlanData.get("rooms");
-            for (Map<String, Object> roomData : rooms) {
-                saveOrUpdateRoom(roomData);
-            }
-        }
-        
-        log.info("평면도 데이터 저장 완료");
-    }
-    
-    private void saveOrUpdateBuilding(Map<String, Object> buildingData) {
-        Building building = new Building();
-        
-        if (buildingData.containsKey("buildingId") && buildingData.get("buildingId") != null) {
-            String idStr = buildingData.get("buildingId").toString();
+        return elements.stream().map(element -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", element.getId());
+            map.put("elementType", element.getElementType());
+            map.put("referenceId", element.getReferenceId());
+            map.put("xCoordinate", element.getXCoordinate());
+            map.put("yCoordinate", element.getYCoordinate());
+            map.put("width", element.getWidth());
+            map.put("height", element.getHeight());
+            map.put("zIndex", element.getZIndex());
+            
+            // JSON 데이터 파싱
             try {
-                building.setBuildingId(Long.valueOf(idStr));
-            } catch (NumberFormatException e) {
-                // 임시 ID(문자열)이면 무시 (신규 엔티티로 저장)
+                if (element.getElementData() != null && !element.getElementData().isEmpty()) {
+                    Map<String, Object> elementData = objectMapper.readValue(element.getElementData(), Map.class);
+                    map.putAll(elementData);
+                }
+            } catch (JsonProcessingException e) {
+                // JSON 파싱 실패 시 기본 데이터만 사용
             }
-        }
-        
-        building.setBuildingName((String) buildingData.get("buildingName"));
-        building.setXCoordinate((Integer) buildingData.get("xCoordinate"));
-        building.setYCoordinate((Integer) buildingData.get("yCoordinate"));
-        building.setWidth((Integer) buildingData.get("width"));
-        building.setHeight((Integer) buildingData.get("height"));
-        building.setColor((String) buildingData.get("color"));
-        
-        Long schoolId = Long.valueOf(buildingData.get("schoolId").toString());
-        School school = schoolRepository.findById(schoolId)
-            .orElseThrow(() -> new IllegalArgumentException("School not found"));
-        building.setSchool(school);
-        
-        buildingRepository.save(building);
+            
+            return map;
+        }).collect(Collectors.toList());
     }
     
-    private void saveOrUpdateRoom(Map<String, Object> roomData) {
-        FloorRoom room = new FloorRoom();
-        
-        if (roomData.containsKey("floorRoomId") && roomData.get("floorRoomId") != null) {
-            String idStr = roomData.get("floorRoomId").toString();
-            try {
-                room.setFloorRoomId(Long.valueOf(idStr));
-            } catch (NumberFormatException e) {
-                // 임시 ID(문자열)이면 무시 (신규 엔티티로 저장)
-            }
-        }
-        
-        room.setRoomName((String) roomData.get("roomName"));
-        room.setRoomType((String) roomData.get("roomType"));
-        room.setXCoordinate((Integer) roomData.get("xCoordinate"));
-        room.setYCoordinate((Integer) roomData.get("yCoordinate"));
-        room.setWidth((Integer) roomData.get("width"));
-        room.setHeight((Integer) roomData.get("height"));
-        
-        // School 설정
-        Long schoolId = Long.valueOf(roomData.get("schoolId").toString());
-        School school = schoolRepository.findById(schoolId)
-            .orElseThrow(() -> new IllegalArgumentException("School not found"));
-        room.setSchool(school);
-        
-        // Building 설정 (독립 교실인 경우 null일 수 있음)
-        if (roomData.containsKey("buildingId") && roomData.get("buildingId") != null) {
-            String buildingIdStr = roomData.get("buildingId").toString();
-            try {
-                Long buildingId = Long.valueOf(buildingIdStr);
-                Building building = buildingRepository.findById(buildingId)
-                    .orElseThrow(() -> new IllegalArgumentException("Building not found"));
-                room.setBuilding(building);
-            } catch (NumberFormatException e) {
-                // 임시 ID(문자열)이면 무시 (신규 엔티티로 저장)
-            }
-        }
-        
-        floorRoomRepository.save(room);
+    /**
+     * 학교별 평면도 존재 여부 확인
+     */
+    public boolean hasFloorPlan(Long schoolId) {
+        return floorPlanRepository.existsBySchoolIdAndActive(schoolId);
     }
     
-    // 미배치 교실 목록 조회 (평면도에 배치되지 않은 교실들)
-    @Transactional(readOnly = true)
-    public List<Map<String, Object>> getUnplacedRooms(Long schoolId) {
-        List<Map<String, Object>> unplacedRooms = new java.util.ArrayList<>();
+    /**
+     * 학교별 평면도 삭제
+     */
+    @Transactional
+    public boolean deleteFloorPlan(Long schoolId) {
+        try {
+            FloorPlan floorPlan = floorPlanRepository.findBySchoolIdAndActive(schoolId).orElse(null);
+            if (floorPlan != null) {
+                // 요소들 삭제
+                floorPlanElementRepository.deleteByFloorPlanId(floorPlan.getId());
+                // 평면도 비활성화
+                floorPlan.setIsActive(false);
+                floorPlanRepository.save(floorPlan);
+            }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
+     * 기존 API 호환성을 위한 학교별 평면도 데이터 조회
+     */
+    public Map<String, Object> getSchoolFloorPlan(Long schoolId) {
+        Map<String, Object> result = new HashMap<>();
         
         try {
-            // 해당 학교의 모든 교실 조회
-            List<Classroom> allClassrooms = classroomRepository.findBySchoolSchoolIdOrderByRoomNameAsc(schoolId);
+            // 학교별 건물 조회
+            List<Building> buildings = buildingRepository.findBySchoolIdOrderByName(schoolId);
+            result.put("buildings", buildings);
             
-            // 실제 교실 데이터를 미배치 교실로 표시 (임시)
-            for (Classroom classroom : allClassrooms) {
-                Map<String, Object> roomData = new HashMap<>();
-                roomData.put("classroomId", classroom.getClassroomId());
-                roomData.put("roomName", classroom.getRoomName());
-                roomData.put("schoolId", schoolId);
-                unplacedRooms.add(roomData);
-            }
+            // 학교별 교실 조회
+            List<Classroom> classrooms = classroomRepository.findBySchoolSchoolIdOrderByRoomNameAsc(schoolId);
+            result.put("rooms", classrooms);
             
-            log.info("학교 {}의 교실 {}개 조회 완료", schoolId, unplacedRooms.size());
+            // 무선AP 조회 (학교별 조회 메서드가 없으므로 빈 리스트로 설정)
+            result.put("wirelessAps", new ArrayList<>());
             
         } catch (Exception e) {
-            log.error("교실 조회 중 오류 발생", e);
-            // 오류 발생 시 빈 리스트 반환
+            e.printStackTrace();
+            result.put("error", "평면도 데이터 조회 중 오류가 발생했습니다: " + e.getMessage());
         }
         
-        return unplacedRooms;
+        return result;
     }
 } 

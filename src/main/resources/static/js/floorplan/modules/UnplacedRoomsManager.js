@@ -59,18 +59,49 @@ export default class UnplacedRoomsManager {
     
     async loadUnplacedRooms(schoolId) {
         try {
-            const response = await fetch(`/floorplan/api/unplaced-rooms/${schoolId}`);
+            // 새로운 API 엔드포인트 사용
+            const response = await fetch(`/floorplan/load?schoolId=${schoolId}`);
             if (response.ok) {
-                this.unplacedRooms = await response.json();
-                this.renderUnplacedRooms();
+                const result = await response.json();
+                if (result.success) {
+                    // 저장된 평면도가 있으면 미배치 교실 목록을 비움
+                    this.unplacedRooms = [];
+                    this.renderUnplacedRooms();
+                } else {
+                    // 저장된 평면도가 없으면 기본 데이터 로드
+                    this.loadDefaultUnplacedRooms(schoolId);
+                }
             } else {
                 console.error('미배치 교실 로딩 실패');
+                this.loadDefaultUnplacedRooms(schoolId);
             }
         } catch (error) {
             console.error('미배치 교실 로딩 오류:', error);
-            // 임시로 더미 데이터 사용
+            this.loadDefaultUnplacedRooms(schoolId);
+        }
+    }
+    
+    // 기본 미배치 교실 데이터 로드
+    async loadDefaultUnplacedRooms(schoolId) {
+        try {
+            // 기존 API에서 교실 목록 가져오기
+            const response = await fetch(`/classroom/api/school/${schoolId}/classrooms`);
+            if (response.ok) {
+                const classrooms = await response.json();
+                this.unplacedRooms = classrooms.map(classroom => ({
+                    classroomId: classroom.classroomId,
+                    roomName: classroom.roomName,
+                    schoolId: schoolId
+                }));
+            } else {
+                // API 실패 시 더미 데이터 사용
+                this.loadDummyUnplacedRooms(schoolId);
+            }
+        } catch (error) {
+            console.error('기본 교실 데이터 로딩 오류:', error);
             this.loadDummyUnplacedRooms(schoolId);
         }
+        this.renderUnplacedRooms();
     }
     
     // 임시 더미 데이터 (실제 API가 없을 때)

@@ -370,7 +370,11 @@ export default class FloorPlanManager {
                 return;
             }
             
-            if (e.target.id === 'canvasContent' && this.pendingClickCoords) {
+            // 개체 생성 도구가 활성화된 경우 캔버스 내의 어디서든 클릭 처리
+            const isCreationTool = this.currentTool === 'building' || this.currentTool === 'room' || 
+                                 this.currentTool === 'other-space' || this.currentTool === 'add-ap';
+            
+            if (this.pendingClickCoords && (e.target.id === 'canvasContent' || isCreationTool)) {
                 this.handleCanvasClickAtCoords(this.pendingClickCoords);
                 this.pendingClickCoords = null;
             }
@@ -388,7 +392,7 @@ export default class FloorPlanManager {
         this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
     }
     
-    selectSchool(schoolId) {
+    async selectSchool(schoolId) {
         if (!schoolId) {
             this.currentSchoolId = null;
             this.clearCanvas();
@@ -401,7 +405,18 @@ export default class FloorPlanManager {
         }
         
         this.currentSchoolId = schoolId;
+        
+        // 저장된 평면도가 있는지 확인
+        const hasSavedFloorPlan = await this.checkFloorPlanExists();
+        
+        if (hasSavedFloorPlan) {
+            // 저장된 평면도가 있으면 로드
+            await this.loadFloorPlan();
+        } else {
+            // 저장된 평면도가 없으면 기본 데이터 로드
         this.loadFloorPlanData(schoolId);
+        }
+        
         this.unplacedRoomsManager.loadUnplacedRooms(schoolId);
     }
     
@@ -448,6 +463,9 @@ export default class FloorPlanManager {
         if (tool !== 'shape') {
             document.body.classList.remove('shape-drawing-mode');
         }
+        
+        // 개체 생성 도구 활성화 시 기존 개체들의 pointer-events 조정
+        this.updateElementPointerEvents();
     }
     
     // 색상과 굵기 선택기 업데이트 메서드 추가
@@ -495,19 +513,86 @@ export default class FloorPlanManager {
         }
     }
     
+    updateElementPointerEvents() {
+        const isCreationTool = this.currentTool === 'building' || this.currentTool === 'room' || 
+                             this.currentTool === 'other-space' || this.currentTool === 'add-ap';
+        
+        // 캔버스 내의 모든 draggable 요소들에 대해 pointer-events 조정
+        const elements = this.canvas.querySelectorAll('.draggable');
+        elements.forEach(element => {
+            if (isCreationTool) {
+                // 개체 생성 도구일 때는 pointer-events를 none으로 설정하여 클릭 이벤트 무시
+                element.style.pointerEvents = 'none';
+            } else {
+                // 그 외의 경우는 pointer-events를 auto로 복원
+                element.style.pointerEvents = 'auto';
+            }
+        });
+    }
+    
     async loadFloorPlanData(schoolId) {
         try {
-            const response = await fetch(`/floorplan/api/school/${schoolId}`);
+            // 새로운 API 엔드포인트 사용
+            const response = await fetch(`/floorplan/load?schoolId=${schoolId}`);
             if (response.ok) {
-                this.floorPlanData = await response.json();
+                const result = await response.json();
+                if (result.success) {
+                    // 저장된 평면도 데이터가 있으면 사용
+                    this.floorPlanData = {
+                        buildings: result.buildings || [],
+                        rooms: result.rooms || [],
+                        shapes: result.shapes || [],
+                        otherSpaces: result.otherSpaces || [],
+                        wirelessApLocations: result.wirelessAps || []
+                    };
                 this.renderFloorPlan();
-                this.showNotification('평면도 데이터를 불러왔습니다.');
+                    this.showNotification('저장된 평면도를 불러왔습니다.');
+                } else {
+                    // 저장된 평면도가 없으면 기본 데이터 로드
+                    this.loadDefaultFloorPlanData(schoolId);
+                }
             } else {
                 this.showNotification('평면도 데이터 로딩에 실패했습니다.', 'error');
+                this.loadDefaultFloorPlanData(schoolId);
             }
         } catch (error) {
             console.error('평면도 데이터 로딩 오류:', error);
             this.showNotification('평면도 데이터 로딩 중 오류가 발생했습니다.', 'error');
+            this.loadDefaultFloorPlanData(schoolId);
+        }
+    }
+    
+    // 기본 평면도 데이터 로드
+    async loadDefaultFloorPlanData(schoolId) {
+        try {
+            // 기존 API에서 기본 데이터 가져오기
+            const response = await fetch(`/floorplan/api/school/${schoolId}`);
+            if (response.ok) {
+                this.floorPlanData = await response.json();
+                this.renderFloorPlan();
+                this.showNotification('기본 평면도 데이터를 불러왔습니다.');
+            } else {
+                // API 실패 시 빈 데이터로 초기화
+                this.floorPlanData = {
+                    buildings: [],
+                    rooms: [],
+                    shapes: [],
+                    otherSpaces: [],
+                    wirelessApLocations: []
+                };
+                this.renderFloorPlan();
+            }
+        } catch (error) {
+            console.error('기본 평면도 데이터 로딩 오류:', error);
+            // 오류 시 빈 데이터로 초기화
+            this.floorPlanData = {
+                buildings: [],
+                rooms: [],
+                shapes: [],
+                otherSpaces: [],
+                wirelessApLocations: []
+            };
+            this.renderFloorPlan();
         }
     }
     
@@ -521,21 +606,32 @@ export default class FloorPlanManager {
         } else if (this.currentMode === 'wireless') {
             this.renderWirelessAPs();
         }
-
-        if (this.floorPlanData.shapes) {
-            this.floorPlanData.shapes.forEach(shape => this.renderShape(shape));
-        }
     }
     
     renderLayoutMode() {
+        // 건물 렌더링
         if (this.floorPlanData.buildings) {
             this.floorPlanData.buildings.forEach(building => this.renderBuilding(building));
         }
+        
+        // 교실 렌더링
         if (this.floorPlanData.rooms) {
             this.floorPlanData.rooms.forEach(room => this.renderRoom(room));
         }
+        
+        // 도형 렌더링
         if (this.floorPlanData.shapes) {
             this.floorPlanData.shapes.forEach(shape => this.renderShape(shape));
+        }
+        
+        // 기타공간 렌더링
+        if (this.floorPlanData.otherSpaces) {
+            this.floorPlanData.otherSpaces.forEach(space => this.renderOtherSpace(space));
+        }
+        
+        // 무선AP 렌더링
+        if (this.floorPlanData.wirelessApLocations) {
+            this.floorPlanData.wirelessApLocations.forEach(ap => this.renderWirelessAP(ap));
         }
     }
     
@@ -854,6 +950,13 @@ export default class FloorPlanManager {
         element.addEventListener('click', (e) => {
             e.stopPropagation();
             
+            // 개체 생성 도구가 활성화된 경우 클릭 이벤트 무시
+            const isCreationTool = this.currentTool === 'building' || this.currentTool === 'room' || 
+                                 this.currentTool === 'other-space' || this.currentTool === 'add-ap';
+            if (isCreationTool) {
+                return;
+            }
+            
             // 선택 도구가 활성화된 경우에만 선택 처리
             if (this.currentTool === 'select') {
                 // Ctrl, Meta 또는 Shift 키를 누르고 있으면 다중 선택에 추가/제거
@@ -872,12 +975,19 @@ export default class FloorPlanManager {
             } else if (this.currentTool === 'delete') {
                 // 삭제 도구가 활성화된 경우 - 공통 삭제 메서드 사용
                 this.deleteElement(element);
-            } else {
-                this.editElement(element);
             }
+            // else 부분 제거 - 이름 변경 기능 비활성화
         });
         
         element.addEventListener('mousedown', (e) => {
+            // 개체 생성 도구가 활성화된 경우 드래그 시작하지 않음
+            const isCreationTool = this.currentTool === 'building' || this.currentTool === 'room' || 
+                                 this.currentTool === 'other-space' || this.currentTool === 'add-ap';
+            if (isCreationTool) {
+                e.stopPropagation(); // 이벤트 전파 중단
+                return;
+            }
+            
             if (this.currentTool === 'select') {
                 e.stopPropagation();
                 if (e.target.classList.contains('resize-handle')) return;
@@ -910,6 +1020,10 @@ export default class FloorPlanManager {
         
         // 호버 이벤트 추가 - 교실과 건물에 대해 마우스 오버 시 z-index 조정
         element.addEventListener('mouseover', (e) => {
+            // 개체 생성 도구가 활성화된 경우 커서 스타일 변경
+            const isCreationTool = this.currentTool === 'building' || this.currentTool === 'room' || 
+                                 this.currentTool === 'other-space' || this.currentTool === 'add-ap';
+            
             // 교실이나 건물인 경우에만 z-index 조정
             if (element.classList.contains('room') || element.classList.contains('building')) {
                 // 교실인 경우 임시로 z-index를 높게 설정
@@ -919,8 +1033,12 @@ export default class FloorPlanManager {
                 }
             }
             
-            // 모든 요소에 대해 커서를 move로 설정
+            // 개체 생성 도구일 때는 crosshair 커서 사용, 그 외에는 move 커서
+            if (isCreationTool) {
+                element.style.cursor = 'crosshair';
+            } else {
             element.style.cursor = 'move';
+            }
             
             // 도형 그리기 모드일 때 도형 위에 있으면 커서 스타일 변경
             if (this.currentTool === 'shape') {
@@ -987,19 +1105,31 @@ export default class FloorPlanManager {
                     }
                 }
             }
-            
+            else if (this.currentTool === 'building' || this.currentTool === 'room' || this.currentTool === 'other-space' || this.currentTool === 'add-ap') {
+                // 건물, 교실, 기타공간, AP 추가 도구가 활성화된 경우
+                // 클릭 좌표를 저장하고 클릭 이벤트에서 처리
             this.pendingClickCoords = this.getCanvasCoordinates(e);
+            }
+            else {
+                // 기타 도구들도 클릭 좌표 저장
+                this.pendingClickCoords = this.getCanvasCoordinates(e);
+            }
         }
     }
     
     handleCanvasClickAtCoords(coords) {
         const { x, y } = coords;
+        console.log('캔버스 클릭 처리:', { x, y, currentTool: this.currentTool });
         switch (this.currentTool) {
             case 'building':
+                console.log('건물 추가 모드에서 클릭됨');
                 const buildingName = prompt('건물 이름을 입력하세요:', '새 건물');
                 if (buildingName !== null) {
+                    console.log('건물 이름 입력됨:', buildingName);
                     this.createBuilding(x, y, buildingName);
                     this.selectTool('select');
+                } else {
+                    console.log('건물 이름 입력 취소됨');
                 }
                 break;
             case 'room':
@@ -1150,6 +1280,12 @@ export default class FloorPlanManager {
             this.showNotification('먼저 학교를 선택해주세요.', 'error');
             return;
         }
+        
+        // buildings 배열이 없으면 초기화
+        if (!this.floorPlanData.buildings) {
+            this.floorPlanData.buildings = [];
+        }
+        
         const buildingData = {
             buildingName: name,
             xCoordinate: x - 100,
@@ -1160,7 +1296,10 @@ export default class FloorPlanManager {
             borderColor: this.currentBorderColor,
             borderThickness: this.currentBorderThickness
         };
+        
+        console.log('건물 생성 시작:', buildingData);
         this.floorPlanData.buildings.push(buildingData);
+        console.log('건물 데이터 추가됨, 현재 건물 수:', this.floorPlanData.buildings.length);
         this.renderBuilding(buildingData);
         this.showNotification(`건물 '${name}'이(가) 생성되었습니다.`);
     }
@@ -1238,6 +1377,14 @@ export default class FloorPlanManager {
                 roomName: data.roomName
             });
         }
+        if (type === 'building') {
+            console.log('건물 요소 생성 - ID 설정:', {
+                elementId: elementId,
+                buildingName: data.buildingName,
+                xCoordinate: data.xCoordinate,
+                yCoordinate: data.yCoordinate
+            });
+        }
         
         const name = data.buildingName || data.roomName || `새 ${type}`;
         element.dataset.name = name;
@@ -1283,22 +1430,26 @@ export default class FloorPlanManager {
         this.addElementEvents(element);
         this.nameBoxManager.createOrUpdateNameBox(element);
         
+        // 새 개체 추가 후 pointer-events 상태 업데이트
+        this.updateElementPointerEvents();
+        
         return element;
     }
     
     renderBuilding(building) {
-        this.renderElement('building', building);
+        const element = this.renderElement('building', building);
+        return element;
     }
     
     renderRoom(room) {
         const element = this.renderElement('room', room);
         
         // 교실이 데이터베이스에 존재하는 경우 장비 정보 로드
-        // classroomId가 숫자이고 temp_로 시작하지 않는 경우
+        // classroomId가 있고 temp_로 시작하지 않는 경우
         const realClassroomId = room.classroomId || room.id;
         if (realClassroomId && 
             !realClassroomId.toString().startsWith('temp_') && 
-            !isNaN(Number(realClassroomId))) {
+            realClassroomId !== 'new') {
             console.log('🔧 교실 장비 로딩 시작:', room.roomName, 'ID:', realClassroomId);
             this.loadAndDisplayDeviceIcons(realClassroomId, element);
         } else {
@@ -1306,6 +1457,10 @@ export default class FloorPlanManager {
         }
         
         return element;
+    }
+    
+    renderOtherSpace(space) {
+        this.renderElement('other-space', space);
     }
     
     selectElement(element) {
@@ -1316,6 +1471,11 @@ export default class FloorPlanManager {
         // 선택 시에도 테두리 스타일 유지
         if (element.classList.contains('building') || element.classList.contains('room')) {
             this.restoreBorderStyle(element);
+        }
+        
+        // 도형인 경우 선택 시에도 스타일 유지
+        if (element.classList.contains('shape')) {
+            this.resizeManager.maintainShapeStyle(element);
         }
     }
     
@@ -1329,12 +1489,22 @@ export default class FloorPlanManager {
                 this.restoreBorderStyle(this.selectedElement);
             }
             
+            // 도형인 경우 선택 해제 시에도 스타일 유지
+            if (this.selectedElement.classList.contains('shape')) {
+                this.resizeManager.maintainShapeStyle(this.selectedElement);
+            }
+            
             this.selectedElement = null;
         }
         this.multiSelectManager.clearSelection();
     }
     
     editElement(element) {
+        // 이름 변경 기능 비활성화
+        return;
+        
+        // 아래 코드는 주석 처리 (기존 기능 보존)
+        /*
         const type = element.dataset.type;
         
         // 도형인 경우 이름 지정 기능을 비활성화
@@ -1348,6 +1518,7 @@ export default class FloorPlanManager {
             this.nameBoxManager.createOrUpdateNameBox(element);
             this.showNotification('이름이 변경되었습니다.');
         }
+        */
     }
     
     handleTouchStart(e) {
@@ -1370,26 +1541,94 @@ export default class FloorPlanManager {
     
     async saveFloorPlan() {
         if (!this.currentSchoolId) {
-            this.showNotification('학교를 먼저 선택해주세요.', 'error');
+            this.showNotification('학교를 선택해주세요.', 'error');
             return;
         }
-        const saveData = this.collectFloorPlanData();
+        
         try {
-            const response = await fetch('/floorplan/api/save', {
+            const floorPlanData = this.collectFloorPlanData();
+            
+            const response = await fetch(`/floorplan/save?schoolId=${this.currentSchoolId}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(saveData)
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(floorPlanData)
             });
-            this.showNotification(response.ok ? '평면도가 저장되었습니다.' : '저장에 실패했습니다.', response.ok ? 'success' : 'error');
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showNotification(result.message);
+            } else {
+                this.showNotification(result.message, 'error');
+            }
         } catch (error) {
-            console.error('저장 오류:', error);
-            this.showNotification('저장 중 오류가 발생했습니다.', 'error');
+            console.error('평면도 저장 오류:', error);
+            this.showNotification('평면도 저장 중 오류가 발생했습니다.', 'error');
+        }
+    }
+    
+    async loadFloorPlan() {
+        if (!this.currentSchoolId) {
+            this.showNotification('학교를 선택해주세요.', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/floorplan/load?schoolId=${this.currentSchoolId}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                // 기존 데이터 초기화
+                this.clearCanvas();
+                this.floorPlanData = {
+                    buildings: [],
+                    rooms: [],
+                    seats: [],
+                    deviceLocations: [],
+                    wirelessApLocations: [],
+                    shapes: []
+                };
+                
+                // 저장된 데이터로 업데이트
+                if (result.rooms) this.floorPlanData.rooms = result.rooms;
+                if (result.buildings) this.floorPlanData.buildings = result.buildings;
+                if (result.wirelessAps) this.floorPlanData.wirelessApLocations = result.wirelessAps;
+                if (result.shapes) this.floorPlanData.shapes = result.shapes;
+                if (result.otherSpaces) this.floorPlanData.otherSpaces = result.otherSpaces;
+                
+                // 평면도 다시 렌더링
+                this.renderFloorPlan();
+                this.showNotification('평면도가 성공적으로 로드되었습니다.');
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            console.error('평면도 로드 오류:', error);
+            this.showNotification('평면도 로드 중 오류가 발생했습니다.', 'error');
+        }
+    }
+    
+    async checkFloorPlanExists() {
+        if (!this.currentSchoolId) {
+            return false;
+        }
+        
+        try {
+            const response = await fetch(`/floorplan/exists?schoolId=${this.currentSchoolId}`);
+            const result = await response.json();
+            return result.success && result.exists;
+        } catch (error) {
+            console.error('평면도 존재 확인 오류:', error);
+            return false;
         }
     }
     
     collectFloorPlanData() {
         const collectElements = (type) => {
-            return Array.from(document.querySelectorAll(`.${type}`)).map(el => ({
+            return Array.from(document.querySelectorAll(`.${type}`)).map(el => {
+                const elementData = {
                 [`${type}Id`]: el.dataset.id !== 'new' ? el.dataset.id : null,
                 [`${type}Name`]: el.dataset.name,
                 xCoordinate: parseInt(el.style.left),
@@ -1398,14 +1637,22 @@ export default class FloorPlanManager {
                 height: parseInt(el.style.height),
                 borderColor: el.style.borderColor || '#000000',
                 borderThickness: parseInt(el.style.borderWidth) || 2,
+                    zIndex: parseInt(el.style.zIndex) || 0,
                 schoolId: this.currentSchoolId
-            }));
+                };
+                
+                // 추가 속성들도 포함
+                if (el.dataset.classroomId) elementData.classroomId = el.dataset.classroomId;
+                if (el.dataset.buildingId) elementData.buildingId = el.dataset.buildingId;
+                if (el.dataset.wirelessApId) elementData.wirelessApId = el.dataset.wirelessApId;
+                
+                return elementData;
+            });
         };
         
         // 도형 요소 수집
         const collectShapes = () => {
             return Array.from(document.querySelectorAll('.shape')).map(el => {
-                // 기본 데이터
                 const shapeData = {
                     id: el.dataset.id,
                     type: el.dataset.shapetype,
@@ -1416,6 +1663,7 @@ export default class FloorPlanManager {
                     transform: el.style.transform,
                     color: el.style.backgroundColor || el.style.borderColor,
                     thickness: parseInt(el.style.height) || parseInt(el.style.borderWidth) || 2,
+                    zIndex: parseInt(el.style.zIndex) || 0,
                     schoolId: this.currentSchoolId
                 };
                 
@@ -1428,11 +1676,41 @@ export default class FloorPlanManager {
             });
         };
         
+        // 기타공간 요소 수집
+        const collectOtherSpaces = () => {
+            return Array.from(document.querySelectorAll('.other-space')).map(el => ({
+                id: el.dataset.id,
+                type: el.dataset.spacetype,
+                xCoordinate: parseInt(el.style.left),
+                yCoordinate: parseInt(el.style.top),
+                width: parseInt(el.style.width),
+                height: parseInt(el.style.height),
+                zIndex: parseInt(el.style.zIndex) || 0,
+                schoolId: this.currentSchoolId
+            }));
+        };
+        
+        // 무선AP 요소 수집
+        const collectWirelessAps = () => {
+            return Array.from(document.querySelectorAll('.wireless-ap')).map(el => ({
+                id: el.dataset.id,
+                wirelessApId: el.dataset.wirelessApId,
+                xCoordinate: parseInt(el.style.left),
+                yCoordinate: parseInt(el.style.top),
+                width: parseInt(el.style.width),
+                height: parseInt(el.style.height),
+                zIndex: parseInt(el.style.zIndex) || 0,
+                schoolId: this.currentSchoolId
+            }));
+        };
+        
         return {
             schoolId: this.currentSchoolId,
             buildings: collectElements('building'),
             rooms: collectElements('room'),
-            shapes: collectShapes()
+            shapes: collectShapes(),
+            otherSpaces: collectOtherSpaces(),
+            wirelessAps: collectWirelessAps()
         };
     }
     
@@ -1738,15 +2016,17 @@ export default class FloorPlanManager {
             schoolId: this.currentSchoolId || 'no_school' // 학교가 선택되지 않았을 경우 기본값 설정
         };
         
+        // 도형 유형별 스타일 설정
+        const thickness = parseInt(this.currentShapeThickness);
+        const color = this.currentShapeColor;
+        
         // 도형 요소 생성
         const shapeElement = document.createElement('div');
         shapeElement.className = `draggable shape shape-${shapeType}`;
         shapeElement.dataset.id = shapeId;
         shapeElement.dataset.type = 'shape';
-        
-        // 도형 유형별 스타일 설정
-        const thickness = parseInt(this.currentShapeThickness);
-        const color = this.currentShapeColor;
+        shapeElement.dataset.thickness = thickness.toString();
+        shapeElement.dataset.color = color;
         
         switch (shapeType) {
             case 'line':
@@ -1762,8 +2042,9 @@ export default class FloorPlanManager {
                 shapeElement.style.left = startX + 'px';
                 shapeElement.style.top = startY + 'px';
                 shapeElement.style.width = length + 'px';
-                shapeElement.style.height = thickness + 'px';
-                shapeElement.style.backgroundColor = color;
+                shapeElement.style.setProperty('height', thickness + 'px', 'important');
+                shapeElement.style.setProperty('background-color', color, 'important');
+                shapeElement.style.setProperty('--original-thickness', thickness + 'px', 'important');
                 shapeElement.style.transformOrigin = '0 50%'; // 왼쪽 중앙을 기준점으로 설정
                 shapeElement.style.transform = `rotate(${angle}deg)`;
                 
@@ -1802,9 +2083,9 @@ export default class FloorPlanManager {
                 shapeElement.style.top = top + 'px';
                 shapeElement.style.width = width + 'px';
                 shapeElement.style.height = height + 'px';
-                shapeElement.style.borderWidth = thickness + 'px';
-                shapeElement.style.borderStyle = 'solid';
-                shapeElement.style.borderColor = color;
+                shapeElement.style.setProperty('border-width', thickness + 'px', 'important');
+                shapeElement.style.setProperty('border-style', 'solid', 'important');
+                shapeElement.style.setProperty('border-color', color, 'important');
                 shapeElement.style.backgroundColor = 'transparent';
                 break;
             case 'circle':
@@ -1819,9 +2100,9 @@ export default class FloorPlanManager {
                 shapeElement.style.top = circleTop + 'px';
                 shapeElement.style.width = circleWidth + 'px';
                 shapeElement.style.height = circleHeight + 'px';
-                shapeElement.style.borderWidth = thickness + 'px';
-                shapeElement.style.borderStyle = 'solid';
-                shapeElement.style.borderColor = color;
+                shapeElement.style.setProperty('border-width', thickness + 'px', 'important');
+                shapeElement.style.setProperty('border-style', 'solid', 'important');
+                shapeElement.style.setProperty('border-color', color, 'important');
                 shapeElement.style.backgroundColor = 'transparent';
                 shapeElement.style.borderRadius = '50%';
                 break;
@@ -1837,13 +2118,13 @@ export default class FloorPlanManager {
                 shapeElement.style.top = arcTop + 'px';
                 shapeElement.style.width = arcWidth + 'px';
                 shapeElement.style.height = arcHeight + 'px';
-                shapeElement.style.borderWidth = thickness + 'px';
-                shapeElement.style.borderStyle = 'solid';
-                shapeElement.style.borderColor = color;
+                shapeElement.style.setProperty('border-width', thickness + 'px', 'important');
+                shapeElement.style.setProperty('border-style', 'solid', 'important');
+                shapeElement.style.setProperty('border-color', color, 'important');
                 shapeElement.style.backgroundColor = 'transparent';
                 shapeElement.style.borderRadius = '50%';
-                shapeElement.style.borderBottomColor = 'transparent';
-                shapeElement.style.borderLeftColor = 'transparent';
+                shapeElement.style.setProperty('border-bottom-color', 'transparent', 'important');
+                shapeElement.style.setProperty('border-left-color', 'transparent', 'important');
                 shapeElement.style.transform = 'rotate(45deg)';
                 break;
             case 'curve':
@@ -1896,6 +2177,8 @@ export default class FloorPlanManager {
         shapeElement.dataset.id = shapeData.id;
         shapeElement.dataset.type = 'shape';
         shapeElement.dataset.shapetype = shapeData.type;
+        shapeElement.dataset.thickness = borderWidth.toString();
+        shapeElement.dataset.color = borderColor;
         
         // 색상 및 굵기 설정
         const borderColor = shapeData.color || '#000000';
@@ -1922,8 +2205,9 @@ export default class FloorPlanManager {
             shapeElement.style.left = startX + 'px';
             shapeElement.style.top = startY + 'px';
             shapeElement.style.width = length + 'px';
-            shapeElement.style.height = borderWidth + 'px';
-            shapeElement.style.backgroundColor = borderColor;
+            shapeElement.style.setProperty('height', borderWidth + 'px', 'important');
+            shapeElement.style.setProperty('background-color', borderColor, 'important');
+            shapeElement.style.setProperty('--original-thickness', borderWidth + 'px', 'important');
             shapeElement.style.transformOrigin = '0 50%'; // 왼쪽 중앙을 기준점으로 설정
             shapeElement.style.transform = `rotate(${angle}deg)`;
             
@@ -1960,9 +2244,9 @@ export default class FloorPlanManager {
             shapeElement.style.top = top + 'px';
             shapeElement.style.width = width + 'px';
             shapeElement.style.height = height + 'px';
-            shapeElement.style.borderWidth = borderWidth + 'px';
-            shapeElement.style.borderStyle = 'solid';
-            shapeElement.style.borderColor = borderColor;
+            shapeElement.style.setProperty('border-width', borderWidth + 'px', 'important');
+            shapeElement.style.setProperty('border-style', 'solid', 'important');
+            shapeElement.style.setProperty('border-color', borderColor, 'important');
             shapeElement.style.backgroundColor = 'transparent';
         } else if (shapeData.type === 'circle') {
             // 원 렌더링
@@ -1975,9 +2259,9 @@ export default class FloorPlanManager {
             shapeElement.style.top = top + 'px';
             shapeElement.style.width = width + 'px';
             shapeElement.style.height = height + 'px';
-            shapeElement.style.borderWidth = borderWidth + 'px';
-            shapeElement.style.borderStyle = 'solid';
-            shapeElement.style.borderColor = borderColor;
+            shapeElement.style.setProperty('border-width', borderWidth + 'px', 'important');
+            shapeElement.style.setProperty('border-style', 'solid', 'important');
+            shapeElement.style.setProperty('border-color', borderColor, 'important');
             shapeElement.style.backgroundColor = 'transparent';
             shapeElement.style.borderRadius = '50%';
         } else if (shapeData.type === 'arc') {
@@ -1991,13 +2275,13 @@ export default class FloorPlanManager {
             shapeElement.style.top = top + 'px';
             shapeElement.style.width = width + 'px';
             shapeElement.style.height = height + 'px';
-            shapeElement.style.borderWidth = borderWidth + 'px';
-            shapeElement.style.borderStyle = 'solid';
-            shapeElement.style.borderColor = borderColor;
+            shapeElement.style.setProperty('border-width', borderWidth + 'px', 'important');
+            shapeElement.style.setProperty('border-style', 'solid', 'important');
+            shapeElement.style.setProperty('border-color', borderColor, 'important');
             shapeElement.style.backgroundColor = 'transparent';
             shapeElement.style.borderRadius = '50%';
-            shapeElement.style.borderBottomColor = 'transparent';
-            shapeElement.style.borderLeftColor = 'transparent';
+            shapeElement.style.setProperty('border-bottom-color', 'transparent', 'important');
+            shapeElement.style.setProperty('border-left-color', 'transparent', 'important');
             shapeElement.style.transform = 'rotate(45deg)';
         } else if (shapeData.type === 'curve') {
             // 곡선 렌더링

@@ -95,6 +95,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return originalIsValidDraggable.call(dragManager, element);
     };
     
+    // 저장 버튼 이벤트 연결
+    const saveButton = document.getElementById('saveButton');
+    if (saveButton) {
+        saveButton.addEventListener('click', () => {
+            floorPlanManager.saveFloorPlan();
+        });
+    }
+    
+    // 다운로드 버튼 이벤트 연결
+    const downloadButton = document.getElementById('downloadButton');
+    if (downloadButton) {
+        downloadButton.addEventListener('click', () => {
+            floorPlanManager.downloadPPT();
+        });
+    }
+    
     console.log('✅ 학교 평면도 관리 모듈 초기화 완료');
 });
 

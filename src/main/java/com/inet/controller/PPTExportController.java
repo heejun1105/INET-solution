@@ -1,10 +1,9 @@
 package com.inet.controller;
 
 import com.inet.service.FloorPlanService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.sl.usermodel.PictureData;
 import org.apache.poi.xslf.usermodel.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,17 +18,16 @@ import java.util.Map;
 
 @Controller
 @RequestMapping("/floorplan")
-@RequiredArgsConstructor
-@Slf4j
 public class PPTExportController {
     
-    private final FloorPlanService floorPlanService;
+    @Autowired
+    private FloorPlanService floorPlanService;
     
     @GetMapping("/api/download-ppt/{schoolId}")
     public ResponseEntity<byte[]> downloadPPT(@PathVariable Long schoolId) {
         try {
             // 평면도 데이터 조회
-            Map<String, Object> floorPlanData = floorPlanService.getSchoolFloorPlan(schoolId);
+            Map<String, Object> floorPlanData = floorPlanService.loadFloorPlan(schoolId);
             
             // PPT 생성
             byte[] pptBytes = createPPTFromFloorPlan(floorPlanData);
@@ -44,7 +42,7 @@ public class PPTExportController {
                     .body(pptBytes);
                     
         } catch (Exception e) {
-            log.error("PPT 생성 오류", e);
+            e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
     }

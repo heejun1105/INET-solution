@@ -364,7 +364,7 @@
 
         /* 선 타입 도형을 제외한 요소에만 테두리 적용 */
         .draggable:not(.shape-line):not(.shape-arrow):not(.shape-dashed) {
-            border: 2px solid transparent;
+            border: 2px solid ;
         }
 
         .draggable:hover {
@@ -465,6 +465,22 @@
         .resize-handle.s { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
         .resize-handle.w { top: 50%; left: -4px; transform: translateY(-50%); cursor: w-resize; }
         .resize-handle.e { top: 50%; right: -4px; transform: translateY(-50%); cursor: e-resize; }
+        
+        /* 선 종류 도형의 경우 가로 방향 핸들만 표시 */
+        .shape[data-shapetype="line"] .resize-handle:not(.w):not(.e),
+        .shape[data-shapetype="arrow"] .resize-handle:not(.w):not(.e),
+        .shape[data-shapetype="dashed"] .resize-handle:not(.w):not(.e) {
+            display: none;
+        }
+        
+        /* 선 종류 도형의 높이를 강제로 고정 */
+        .shape[data-shapetype="line"],
+        .shape[data-shapetype="arrow"],
+        .shape[data-shapetype="dashed"] {
+            height: var(--original-thickness, 2px) !important;
+            min-height: var(--original-thickness, 2px) !important;
+            max-height: var(--original-thickness, 2px) !important;
+        }
 
         /* 충돌 방지 시각적 피드백 */
         .collision-warning {

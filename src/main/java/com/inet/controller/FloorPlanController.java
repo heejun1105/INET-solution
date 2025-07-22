@@ -2,23 +2,32 @@ package com.inet.controller;
 
 import com.inet.service.FloorPlanService;
 import com.inet.service.SchoolService;
+import com.inet.service.DeviceService;
 import com.inet.entity.School;
-import lombok.RequiredArgsConstructor;
+import com.inet.entity.Device;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.http.ResponseEntity;
+
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/floorplan")
-@RequiredArgsConstructor
 public class FloorPlanController {
     
-    private final FloorPlanService floorPlanService;
-    private final SchoolService schoolService;
+    @Autowired
+    private FloorPlanService floorPlanService;
+    
+    @Autowired
+    private SchoolService schoolService;
+    
+    @Autowired
+    private DeviceService deviceService;
     
     // 평면도 메인 페이지
     @GetMapping("")
@@ -28,67 +37,144 @@ public class FloorPlanController {
         return "floorplan/main";
     }
     
-    // 학교별 평면도 데이터 조회 API
+    // 기존 API: 학교별 평면도 데이터 조회 (하위 호환성)
     @GetMapping("/api/school/{schoolId}")
     @ResponseBody
-    public Map<String, Object> getFloorPlanData(@PathVariable Long schoolId) {
-        return floorPlanService.getSchoolFloorPlan(schoolId);
-    }
-    
-    // 평면도 데이터 저장 API
-    @PostMapping("/api/save")
-    @ResponseBody
-    public ResponseEntity<String> saveFloorPlan(@RequestBody Map<String, Object> floorPlanData) {
+    public ResponseEntity<Map<String, Object>> getSchoolFloorPlan(@PathVariable Long schoolId) {
+        Map<String, Object> response = new java.util.HashMap<>();
+        
         try {
-            floorPlanService.saveFloorPlanData(floorPlanData);
-            return ResponseEntity.ok("저장 완료");
+            // 기존 FloorPlanService의 메서드 사용
+            Map<String, Object> floorPlanData = floorPlanService.getSchoolFloorPlan(schoolId);
+            return ResponseEntity.ok(floorPlanData);
         } catch (Exception e) {
-            System.err.println("평면도 저장 오류: " + e.getMessage());
-            return ResponseEntity.internalServerError().body("저장 실패: " + e.getMessage());
+            e.printStackTrace();
+            response.put("error", "평면도 데이터 조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
         }
     }
     
     /**
-     * 교실의 장비 정보를 타입별로 조회 (아이콘 표시용)
+     * 평면도 저장 API
      */
-    @GetMapping("/api/room/{roomId}/devices")
+    @PostMapping("/save")
     @ResponseBody
-    public ResponseEntity<Map<String, Integer>> getRoomDevices(@PathVariable Long roomId) {
+    public ResponseEntity<Map<String, Object>> saveFloorPlan(
+            @RequestParam Long schoolId,
+            @RequestBody Map<String, Object> floorPlanData) {
+        
+        Map<String, Object> response = new java.util.HashMap<>();
+        
         try {
-            Map<String, Integer> deviceCounts = floorPlanService.getDeviceCountByType(roomId);
-            return ResponseEntity.ok(deviceCounts);
+            boolean success = floorPlanService.saveFloorPlan(schoolId, floorPlanData);
+            
+            if (success) {
+                response.put("success", true);
+                response.put("message", "평면도가 성공적으로 저장되었습니다.");
+            } else {
+                response.put("success", false);
+                response.put("message", "평면도 저장에 실패했습니다.");
+            }
+            
         } catch (Exception e) {
-            System.err.println("교실 장비 정보 조회 오류: " + e.getMessage());
-            return ResponseEntity.internalServerError().build();
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("message", "평면도 저장 중 오류가 발생했습니다: " + e.getMessage());
         }
+        
+        return ResponseEntity.ok(response);
     }
     
     /**
-     * 교실 ID로 장비 정보를 타입별로 조회 (Classroom 기반)
+     * 평면도 로드 API
+     */
+    @GetMapping("/load")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> loadFloorPlan(@RequestParam Long schoolId) {
+        
+        Map<String, Object> response = floorPlanService.loadFloorPlan(schoolId);
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * 평면도 존재 여부 확인 API
+     */
+    @GetMapping("/exists")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> checkFloorPlanExists(@RequestParam Long schoolId) {
+        
+        Map<String, Object> response = new java.util.HashMap<>();
+        
+        try {
+            boolean exists = floorPlanService.hasFloorPlan(schoolId);
+            response.put("success", true);
+            response.put("exists", exists);
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("message", "평면도 확인 중 오류가 발생했습니다: " + e.getMessage());
+        }
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * 평면도 삭제 API
+     */
+    @DeleteMapping("/delete")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> deleteFloorPlan(@RequestParam Long schoolId) {
+        
+        Map<String, Object> response = new java.util.HashMap<>();
+        
+        try {
+            boolean success = floorPlanService.deleteFloorPlan(schoolId);
+            
+            if (success) {
+                response.put("success", true);
+                response.put("message", "평면도가 성공적으로 삭제되었습니다.");
+            } else {
+                response.put("success", false);
+                response.put("message", "평면도 삭제에 실패했습니다.");
+            }
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("message", "평면도 삭제 중 오류가 발생했습니다: " + e.getMessage());
+        }
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * 교실별 장비 정보 조회 API
      */
     @GetMapping("/api/classroom/{classroomId}/devices")
     @ResponseBody
     public ResponseEntity<Map<String, Integer>> getClassroomDevices(@PathVariable Long classroomId) {
+        Map<String, Integer> deviceCounts = new HashMap<>();
+        
         try {
-            System.out.println("교실 ID " + classroomId + "의 장비 정보 조회 요청");
+            List<Device> devices = deviceService.findByClassroom(classroomId);
             
-            // 실제 데이터베이스에서 장비 정보 조회
-            Map<String, Integer> deviceCounts = floorPlanService.getDeviceCountByClassroom(classroomId);
+            // 장비 타입별로 개수 집계
+            Map<String, Long> typeCounts = devices.stream()
+                .collect(Collectors.groupingBy(
+                    Device::getType,
+                    Collectors.counting()
+                ));
             
-            System.out.println("교실 ID " + classroomId + "의 장비 조회 결과: " + deviceCounts);
+            // Long을 Integer로 변환
+            typeCounts.forEach((type, count) -> deviceCounts.put(type, count.intValue()));
+            
             return ResponseEntity.ok(deviceCounts);
+            
         } catch (Exception e) {
-            System.err.println("교실 장비 정보 조회 오류: " + e.getMessage());
-            return ResponseEntity.internalServerError().build();
+            e.printStackTrace();
+            return ResponseEntity.ok(deviceCounts); // 빈 맵 반환
         }
-    }
-    
-    /**
-     * 미배치 교실 목록 조회
-     */
-    @GetMapping("/api/unplaced-rooms/{schoolId}")
-    @ResponseBody
-    public List<Map<String, Object>> getUnplacedRooms(@PathVariable Long schoolId) {
-        return floorPlanService.getUnplacedRooms(schoolId);
     }
 } 

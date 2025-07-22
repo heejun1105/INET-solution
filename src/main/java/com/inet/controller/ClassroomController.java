@@ -12,6 +12,8 @@ import com.inet.config.Views;
 import com.fasterxml.jackson.annotation.JsonView;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -22,14 +24,19 @@ import jakarta.servlet.http.HttpSession;
 import java.util.ArrayList;
 import java.util.Optional;
 
-@Slf4j
 @Controller
 @RequestMapping("/classroom")
-@RequiredArgsConstructor
 public class ClassroomController {
 
     private final ClassroomService classroomService;
     private final SchoolService schoolService;
+
+    private static final Logger log = LoggerFactory.getLogger(ClassroomController.class);
+
+    public ClassroomController(ClassroomService classroomService, SchoolService schoolService) {
+        this.classroomService = classroomService;
+        this.schoolService = schoolService;
+    }
 
     /**
      * 교실 관리 메인 페이지
@@ -408,6 +415,25 @@ public class ClassroomController {
                 "success", false,
                 "message", "선택된 교실들을 추가하는 중 오류가 발생했습니다: " + e.getMessage()
             );
+        }
+    }
+
+    /**
+     * 학교별 교실 목록 조회 API (평면도용)
+     */
+    @GetMapping("/api/school/{schoolId}/classrooms")
+    @ResponseBody
+    @JsonView(Views.Summary.class)
+    public List<Classroom> getClassroomsBySchool(@PathVariable Long schoolId) {
+        log.info("학교별 교실 목록 조회 API 호출. schoolId: {}", schoolId);
+        
+        try {
+            List<Classroom> classrooms = classroomService.findBySchoolId(schoolId);
+            log.info("학교 {}의 교실 {}개 조회됨", schoolId, classrooms.size());
+            return classrooms;
+        } catch (Exception e) {
+            log.error("학교별 교실 목록 조회 중 오류: ", e);
+            return new ArrayList<>();
         }
     }
 } 
