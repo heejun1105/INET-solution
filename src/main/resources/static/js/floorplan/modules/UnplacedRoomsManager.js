@@ -122,8 +122,24 @@ export default class UnplacedRoomsManager {
             return a.roomName.localeCompare(b.roomName, 'ko');
         });
         
-        sortedRooms.forEach(room => {
+        sortedRooms.forEach((room, index) => {
             const roomElement = this.createUnplacedRoomElement(room);
+            
+            // 새로 추가된 교실인지 확인 (data-recently-added 속성으로)
+            if (roomElement.dataset.recentlyAdded === 'true') {
+                roomElement.style.animation = 'slideInFromRight 0.5s ease-out';
+                roomElement.style.backgroundColor = '#e8f5e9';
+                roomElement.style.borderLeft = '4px solid #4caf50';
+                
+                // 애니메이션 완료 후 스타일 제거
+                setTimeout(() => {
+                    roomElement.style.animation = '';
+                    roomElement.style.backgroundColor = '';
+                    roomElement.style.borderLeft = '';
+                    roomElement.dataset.recentlyAdded = 'false';
+                }, 2000);
+            }
+            
             container.appendChild(roomElement);
         });
     }
@@ -133,6 +149,11 @@ export default class UnplacedRoomsManager {
         element.className = 'unplaced-room-item';
         element.draggable = true;
         element.dataset.roomId = room.classroomId;
+        
+        // 새로 추가된 교실인지 확인
+        if (room.recentlyAdded) {
+            element.dataset.recentlyAdded = 'true';
+        }
         
         element.innerHTML = `
             <div class="room-info">
@@ -382,12 +403,15 @@ export default class UnplacedRoomsManager {
     
     // 교실이 평면도에서 제거될 때 미배치 목록에 다시 추가
     addToUnplacedList(roomData) {
-        // 새교실 여부 확인
+        console.log('미배치 교실로 이동 시도:', roomData);
+        
+        // 새교실 여부 확인 (임시 ID나 새 교실명 포함)
         const isNewRoom = 
             !roomData.classroomId || 
             roomData.classroomId === 'new' || 
             (roomData.classroomId && roomData.classroomId.toString().startsWith('temp_')) ||
-            (roomData.roomName && roomData.roomName.includes('새 교실'));
+            (roomData.roomName && roomData.roomName.includes('새 교실')) ||
+            (roomData.floorRoomId && roomData.floorRoomId.toString().startsWith('temp_'));
         
         // 새교실은 미배치교실로 추가하지 않음
         if (isNewRoom) {
@@ -395,15 +419,28 @@ export default class UnplacedRoomsManager {
             return;
         }
         
+        // 교실 데이터 정규화
         const unplacedRoom = {
             classroomId: roomData.classroomId || roomData.floorRoomId,
-            roomName: roomData.roomName,
-            schoolId: roomData.schoolId
+            roomName: roomData.roomName || roomData.buildingName || '알 수 없는 교실',
+            schoolId: roomData.schoolId || this.floorPlanManager.currentSchoolId
         };
         
+        // 필수 데이터 검증
+        if (!unplacedRoom.classroomId || !unplacedRoom.roomName) {
+            console.warn('교실 데이터가 불완전하여 미배치 교실로 이동할 수 없습니다:', roomData);
+            return;
+        }
+        
         // 이미 목록에 있는지 확인
-        const exists = this.unplacedRooms.some(room => room.classroomId === unplacedRoom.classroomId);
+        const exists = this.unplacedRooms.some(room => 
+            room.classroomId === unplacedRoom.classroomId || 
+            room.roomName === unplacedRoom.roomName
+        );
+        
         if (!exists) {
+            // 새로 추가된 교실임을 표시
+            unplacedRoom.recentlyAdded = true;
             this.unplacedRooms.push(unplacedRoom);
             
             // 미배치교실을 항상 펼쳐서 보이게 함
@@ -412,7 +449,14 @@ export default class UnplacedRoomsManager {
                 this.togglePanel(); // 패널이 접혀있으면 펼침
             }
             
+            // 교실명으로 정렬
+            this.unplacedRooms.sort((a, b) => a.roomName.localeCompare(b.roomName));
+            
             this.renderUnplacedRooms(); // 정렬된 상태로 다시 렌더링
+            
+            console.log(`"${unplacedRoom.roomName}" 교실이 미배치 교실 목록에 추가되었습니다.`);
+        } else {
+            console.log(`"${unplacedRoom.roomName}" 교실은 이미 미배치 교실 목록에 있습니다.`);
         }
     }
 } 

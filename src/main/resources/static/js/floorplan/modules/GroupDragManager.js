@@ -20,10 +20,11 @@ export default class GroupDragManager {
             y: parseInt(el.style.top) || 0
         }));
         
-        // 초기 마우스 위치 저장
+        // FloorPlanManager의 좌표 계산 메서드를 사용하여 초기 마우스 위치 저장
+        const canvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
         this.initialMousePos = { 
-            x: e.clientX,
-            y: e.clientY
+            x: canvasCoords.x,
+            y: canvasCoords.y
         };
         
         this.currentMousePos = { ...this.initialMousePos };
@@ -38,30 +39,16 @@ export default class GroupDragManager {
     updateGroupDrag(e) {
         if (!this.isDragging) return;
         
-        // 현재 마우스 위치 업데이트
+        // FloorPlanManager의 좌표 계산 메서드를 사용하여 현재 마우스 위치 계산
+        const currentCanvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
         this.currentMousePos = {
-            x: e.clientX,
-            y: e.clientY
+            x: currentCanvasCoords.x,
+            y: currentCanvasCoords.y
         };
         
-        // 마우스 이동 거리 계산
+        // 캔버스 좌표 기준으로 마우스 이동 거리 계산
         const deltaX = (this.currentMousePos.x - this.initialMousePos.x);
         const deltaY = (this.currentMousePos.y - this.initialMousePos.y);
-        
-        // 줌 레벨 고려
-        let zoomLevel = 1;
-        try {
-            const canvas = document.getElementById('canvasContent');
-            const transform = canvas.style.transform;
-            if (transform) {
-                const match = transform.match(/scale\(([0-9.]+)\)/);
-                if (match && match[1]) {
-                    zoomLevel = parseFloat(match[1]);
-                }
-            }
-        } catch (e) {
-            console.error('줌 레벨 가져오기 실패', e);
-        }
         
         // 캔버스 크기 가져오기
         const canvasWidth = this.floorPlanManager.canvas.clientWidth;
@@ -72,9 +59,9 @@ export default class GroupDragManager {
             const element = this.elements[i];
             const startPos = this.startPositions[i];
             
-            // 줌 레벨을 고려한 위치 조정
-            let newX = startPos.x + (deltaX / zoomLevel);
-            let newY = startPos.y + (deltaY / zoomLevel);
+            // 시작 위치에 델타를 더해서 새로운 위치 계산
+            let newX = startPos.x + deltaX;
+            let newY = startPos.y + deltaY;
             
             // 경계 체크
             const elementWidth = parseFloat(element.style.width) || 0;

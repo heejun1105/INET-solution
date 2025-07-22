@@ -31,7 +31,13 @@ export default class SelectionBoxManager {
         this.hasActuallyDragged = false; // 드래그 상태 초기화
         this.addToSelection = addToSelection; // 기존 선택에 추가할지 여부 저장
         
-        console.log('📦 박스 선택 준비:', { startX: this.startX, startY: this.startY, addToSelection });
+        console.log('📦 박스 선택 시작 좌표:', { 
+            startX: this.startX, 
+            startY: this.startY, 
+            mouseClientX: e.clientX,
+            mouseClientY: e.clientY,
+            addToSelection 
+        });
         
         // 선택 박스 요소는 실제 드래그가 발생했을 때 생성
         this.selectionBox = null;
@@ -73,7 +79,13 @@ export default class SelectionBoxManager {
             
             // 큰 드래그만 로그 (너무 많은 로그 방지)
             if (width > 10 || height > 10) {
-                console.log('📦 박스 업데이트:', { left, top, width, height });
+                console.log('📦 박스 업데이트:', { 
+                    left, top, width, height,
+                    startCoords: { x: this.startX, y: this.startY },
+                    currentCoords: { x: this.currentX, y: this.currentY },
+                    mouseClientX: e.clientX,
+                    mouseClientY: e.clientY
+                });
             }
         }
     }

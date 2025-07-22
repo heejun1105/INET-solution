@@ -7,6 +7,10 @@ export default class ZoomManager {
         this.zoomStep = 0.1; // 확대/축소 단계를 0.1로 변경
         this.initialized = false;
         
+        // 고정 캔버스 크기 설정
+        this.canvasWidth = 4000;
+        this.canvasHeight = 2500;
+        
         // DOM 요소가 준비된 후에 초기화하도록 지연
         if (this.canvas) {
             this.delayedInit();
@@ -23,6 +27,7 @@ export default class ZoomManager {
             
             if (zoomIn && zoomOut && zoomReset && zoomLevel) {
                 this.initEventListeners();
+                this.initializeCanvas();
                 this.updateZoomDisplay();
                 this.initialized = true;
                 console.log('✅ ZoomManager 초기화 완료');
@@ -33,6 +38,45 @@ export default class ZoomManager {
         };
         
         checkElements();
+    }
+    
+    initializeCanvas() {
+        // 캔버스를 고정 크기로 설정
+        this.canvas.style.width = `${this.canvasWidth}px`;
+        this.canvas.style.height = `${this.canvasHeight}px`;
+        this.canvas.style.minWidth = `${this.canvasWidth}px`;
+        this.canvas.style.minHeight = `${this.canvasHeight}px`;
+        this.canvas.style.transformOrigin = '0 0';
+        
+        // 캔버스 래퍼의 스크롤 위치를 중앙으로 설정
+        this.centerCanvasView();
+        
+        console.log('🎨 캔버스 고정 크기 설정:', {
+            width: this.canvasWidth,
+            height: this.canvasHeight
+        });
+    }
+    
+    centerCanvasView() {
+        const canvasWrapper = this.canvas.parentElement;
+        if (canvasWrapper) {
+            // 캔버스 중앙 좌표 계산
+            const centerX = (this.canvasWidth - canvasWrapper.offsetWidth) / 2;
+            const centerY = (this.canvasHeight - canvasWrapper.offsetHeight) / 2;
+            
+            // 스크롤 위치 설정 (음수 값 방지)
+            const scrollX = Math.max(0, centerX);
+            const scrollY = Math.max(0, centerY);
+            
+            canvasWrapper.scrollLeft = scrollX;
+            canvasWrapper.scrollTop = scrollY;
+            
+            console.log('🎯 캔버스 중앙 뷰 설정:', {
+                canvasSize: { width: this.canvasWidth, height: this.canvasHeight },
+                wrapperSize: { width: canvasWrapper.offsetWidth, height: canvasWrapper.offsetHeight },
+                scrollPosition: { x: scrollX, y: scrollY }
+            });
+        }
     }
     
     initEventListeners() {
@@ -101,21 +145,38 @@ export default class ZoomManager {
     }
     
     applyZoom() {
+        const canvasWrapper = this.canvas.parentElement;
+        
+        // 줌 변경 전 현재 뷰포트의 중앙 위치 (캔버스 좌표 기준)
+        const viewportCenterX = canvasWrapper.scrollLeft + canvasWrapper.offsetWidth / 2;
+        const viewportCenterY = canvasWrapper.scrollTop + canvasWrapper.offsetHeight / 2;
+        
+        // transform: scale()만 적용하여 줌 효과 구현
         this.canvas.style.transform = `scale(${this.zoomLevel})`;
         
-        // 확대/축소 시 캔버스 크기 동적 조정
-        const container = this.canvas.parentElement;
-        const baseWidth = container.offsetWidth;
-        const baseHeight = Math.max(500, container.offsetHeight || 500);
+        // 줌 변경 후 뷰포트 중앙 위치 유지를 위한 스크롤 조정
+        setTimeout(() => {
+            // 줌 변경 후 같은 캔버스 좌표가 뷰포트 중앙에 오도록 스크롤 조정
+            const newScrollX = viewportCenterX - canvasWrapper.offsetWidth / 2;
+            const newScrollY = viewportCenterY - canvasWrapper.offsetHeight / 2;
+            
+            // 스크롤 위치 설정 (범위 내로 제한)
+            const maxScrollX = Math.max(0, this.canvasWidth * this.zoomLevel - canvasWrapper.offsetWidth);
+            const maxScrollY = Math.max(0, this.canvasHeight * this.zoomLevel - canvasWrapper.offsetHeight);
+            
+            canvasWrapper.scrollLeft = Math.max(0, Math.min(newScrollX, maxScrollX));
+            canvasWrapper.scrollTop = Math.max(0, Math.min(newScrollY, maxScrollY));
+        }, 0);
         
-        // 확대 시 더 큰 영역을 제공하고, 축소 시 작은 영역 제공
-        const adjustedWidth = baseWidth / this.zoomLevel;
-        const adjustedHeight = baseHeight / this.zoomLevel;
-        
-        this.canvas.style.width = `${adjustedWidth}px`;
-        this.canvas.style.height = `${adjustedHeight}px`;
-        this.canvas.style.minWidth = `${adjustedWidth}px`;
-        this.canvas.style.minHeight = `${adjustedHeight}px`;
+        console.log('🔍 뷰포트 중앙 기준 줌 적용:', {
+            zoomLevel: this.zoomLevel,
+            scale: `${this.zoomLevel}`,
+            viewportCenter: { x: viewportCenterX, y: viewportCenterY },
+            canvasSize: {
+                width: this.canvasWidth,
+                height: this.canvasHeight
+            }
+        });
     }
     
     updateZoomDisplay() {
@@ -160,60 +221,45 @@ export default class ZoomManager {
         return this.zoomLevel;
     }
     
-    // 캔버스 좌표 계산 메서드 - 동적 변화를 정확히 반영
+    // 캔버스 좌표 계산 메서드 - 스크롤과 줌을 올바르게 처리
     getCanvasCoordinates(e) {
         const canvas = this.canvas;
         
         // 매번 최신 상태로 getBoundingClientRect() 호출
         const rect = canvas.getBoundingClientRect();
         
-        // 캔버스 내부의 스크롤 상태 확인
-        const scrollLeft = canvas.scrollLeft || 0;
-        const scrollTop = canvas.scrollTop || 0;
+        // 캔버스 래퍼의 스크롤 상태 확인
+        const canvasWrapper = canvas.parentElement;
+        const scrollLeft = canvasWrapper.scrollLeft || 0;
+        const scrollTop = canvasWrapper.scrollTop || 0;
         
-        // 부모 컨테이너들의 스크롤 확인
-        let parentScrollX = 0;
-        let parentScrollY = 0;
-        let parent = canvas.parentElement;
-        while (parent && parent !== document.body) {
-            parentScrollX += parent.scrollLeft || 0;
-            parentScrollY += parent.scrollTop || 0;
-            parent = parent.parentElement;
-        }
-        
-        // 기본 상대 좌표 계산
+        // 마우스 위치에서 캔버스의 뷰포트 상대 위치 계산
         let relativeX = e.clientX - rect.left;
         let relativeY = e.clientY - rect.top;
         
-        // 스크롤 보정
-        relativeX += scrollLeft + parentScrollX;
-        relativeY += scrollTop + parentScrollY;
-        
-        // 줌 레벨 적용
+        // 줌 레벨만 고려한 캔버스 좌표 계산 (스크롤 보정 제거)
+        // 뷰포트 기준 좌표만 줌 레벨로 나누어 실제 캔버스 좌표로 변환
         const adjustedX = relativeX / this.zoomLevel;
         const adjustedY = relativeY / this.zoomLevel;
         
-        console.log('🎯 정밀한 좌표 계산:', {
+        // 디버깅 로그 (문제 해결을 위해 임시 활성화)
+        console.log('🎯 캔버스 좌표 계산:', {
             mouse: { clientX: e.clientX, clientY: e.clientY },
-            canvasBounds: { 
-                left: rect.left, 
-                top: rect.top, 
-                width: rect.width, 
-                height: rect.height 
-            },
-            scrollInfo: {
-                canvas: { left: scrollLeft, top: scrollTop },
-                parent: { x: parentScrollX, y: parentScrollY }
-            },
-            beforeZoom: { x: relativeX, y: relativeY },
+            canvasBounds: { left: rect.left, top: rect.top },
+            scroll: { left: scrollLeft, top: scrollTop },
+            relative: { x: relativeX, y: relativeY },
             zoomLevel: this.zoomLevel,
-            finalCoords: { x: adjustedX, y: adjustedY },
-            existingElements: {
-                buildings: document.querySelectorAll('.building').length,
-                rooms: document.querySelectorAll('.room').length
-            }
+            final: { x: adjustedX, y: adjustedY }
         });
         
         return { x: adjustedX, y: adjustedY };
+    }
+    
+    // 캔버스의 실제 크기 반환 (저장 기능용)
+    getCanvasSize() {
+        return {
+            width: this.canvasWidth,
+            height: this.canvasHeight
+        };
     }
 } 

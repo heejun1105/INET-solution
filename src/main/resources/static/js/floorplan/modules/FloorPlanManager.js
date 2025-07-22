@@ -66,6 +66,10 @@ export default class FloorPlanManager {
 
         if (this.zoomManager) {
             this.zoomManager.setZoom(0.7);
+            // 줌 설정 후 캔버스 중앙 뷰 설정
+            setTimeout(() => {
+                this.zoomManager.centerCanvasView();
+            }, 100);
         }
         
         // 드래그 이벤트 리스너 설정 (교실 선택기 제거)
@@ -373,6 +377,9 @@ export default class FloorPlanManager {
         });
         
         this.canvas.addEventListener('mousedown', this.handleCanvasMouseDown.bind(this));
+        
+        // 키보드 이벤트 (전역)
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         this.canvas.addEventListener('contextmenu', this.handleRightClick.bind(this));
         
         // 터치 이벤트 처리
@@ -863,41 +870,8 @@ export default class FloorPlanManager {
                     this.selectElement(element);
                 }
             } else if (this.currentTool === 'delete') {
-                // 삭제 도구가 활성화된 경우
-                const elementId = element.dataset.id;
-                const isRoom = element.classList.contains('room');
-                const isBuilding = element.classList.contains('building');
-                const isShape = element.classList.contains('shape');
-                
-                element.remove();
-                
-                if (isRoom) {
-                    // 교실인 경우
-                    const roomData = this.floorPlanData.rooms.find(room => 
-                        room.floorRoomId === elementId);
-                    
-                    if (roomData) {
-                        // 미배치 교실 목록에 추가
-                        this.unplacedRoomsManager.addToUnplacedList(roomData);
-                    }
-                    
-                    this.floorPlanData.rooms = this.floorPlanData.rooms.filter(room => 
-                        room.floorRoomId !== elementId);
-                    
-                    this.showNotification('개체가 삭제되었습니다.');
-                } else if (isBuilding) {
-                    // 건물인 경우
-                    this.floorPlanData.buildings = this.floorPlanData.buildings.filter(building => 
-                        building.buildingId !== elementId);
-                    
-                    this.showNotification('개체가 삭제되었습니다.');
-                } else if (isShape) {
-                    // 도형인 경우
-                    this.floorPlanData.shapes = this.floorPlanData.shapes.filter(shape => 
-                        shape.id !== elementId);
-                    
-                    this.showNotification('개체가 삭제되었습니다.');
-                }
+                // 삭제 도구가 활성화된 경우 - 공통 삭제 메서드 사용
+                this.deleteElement(element);
             } else {
                 this.editElement(element);
             }
@@ -1055,6 +1029,122 @@ export default class FloorPlanManager {
         e.preventDefault();
     }
     
+    // 키보드 이벤트 처리
+    handleKeyDown(e) {
+        // Delete 또는 Backspace 키가 눌렸을 때 선택된 요소 삭제
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            
+            // 현재 선택된 요소들 가져오기
+            const selectedElements = this.multiSelectManager.getSelectedElements();
+            
+            if (selectedElements.length > 0) {
+                // 다중 선택된 요소들 삭제
+                selectedElements.forEach(element => {
+                    this.deleteElement(element);
+                });
+                
+                // 선택 해제
+                this.multiSelectManager.clearSelection();
+            } else {
+                // 단일 선택된 요소가 있는지 확인
+                const selectedElement = document.querySelector('.draggable.selected');
+                if (selectedElement) {
+                    this.deleteElement(selectedElement);
+                    this.clearSelection();
+                }
+            }
+        }
+        
+        // ESC 키로 선택 해제
+        if (e.key === 'Escape') {
+            this.multiSelectManager.clearSelection();
+            this.clearSelection();
+            this.cancelShapeDrawing();
+        }
+    }
+    
+    // 요소 삭제 처리 (공통 메서드)
+    deleteElement(element) {
+        const elementId = element.dataset.id;
+        const isRoom = element.classList.contains('room');
+        const isBuilding = element.classList.contains('building');
+        const isShape = element.classList.contains('shape');
+        
+        if (isRoom) {
+            // 교실인 경우 - 삭제 확인 후 미배치 교실로 이동
+            console.log('교실 삭제 시도 - elementId:', elementId);
+            console.log('현재 rooms 데이터:', this.floorPlanData.rooms);
+            
+            // 더 정확한 검색을 위해 각 room의 ID들을 로깅
+            this.floorPlanData.rooms.forEach((room, index) => {
+                console.log(`Room ${index}:`, {
+                    floorRoomId: room.floorRoomId,
+                    classroomId: room.classroomId,
+                    id: room.id,
+                    roomName: room.roomName
+                });
+            });
+            
+            const roomData = this.floorPlanData.rooms.find(room => {
+                // 타입을 맞춰서 비교 (문자열과 숫자 모두 처리)
+                const match = room.floorRoomId == elementId || 
+                             room.classroomId == elementId ||
+                             room.id == elementId;
+                if (match) {
+                    console.log('매칭된 room:', room);
+                }
+                return match;
+            });
+            
+            console.log('찾은 roomData:', roomData);
+            
+            if (roomData) {
+                // 미배치 교실 목록에 추가
+                this.unplacedRoomsManager.addToUnplacedList(roomData);
+                
+                // DOM에서 요소 제거
+                element.remove();
+                
+                // 데이터에서 제거 (모든 가능한 ID 필드 확인)
+                this.floorPlanData.rooms = this.floorPlanData.rooms.filter(room => 
+                    room.floorRoomId != elementId && 
+                    room.classroomId != elementId &&
+                    room.id != elementId
+                );
+                
+                this.showNotification('개체를 삭제했습니다.');
+            } else {
+                // 데이터를 찾을 수 없는 경우 그냥 삭제
+                console.warn('교실 데이터를 찾을 수 없어서 그냥 삭제합니다. elementId:', elementId);
+                element.remove();
+                this.showNotification('개체를 삭제했습니다.');
+            }
+        } else if (isBuilding) {
+            // 건물인 경우 - 삭제 확인
+            const buildingData = this.floorPlanData.buildings.find(building => 
+                building.buildingId === elementId);
+            
+            if (buildingData && confirm(`"${buildingData.buildingName}" 건물을 삭제하시겠습니까?`)) {
+                element.remove();
+                this.floorPlanData.buildings = this.floorPlanData.buildings.filter(building => 
+                    building.buildingId !== elementId);
+                this.showNotification('개체를 삭제했습니다.');
+            }
+        } else if (isShape) {
+            // 도형인 경우 - 삭제 확인
+            const shapeData = this.floorPlanData.shapes.find(shape => 
+                shape.id === elementId);
+            
+            if (shapeData && confirm('이 도형을 삭제하시겠습니까?')) {
+                element.remove();
+                this.floorPlanData.shapes = this.floorPlanData.shapes.filter(shape => 
+                    shape.id !== elementId);
+                this.showNotification('개체를 삭제했습니다.');
+            }
+        }
+    }
+    
     createBuilding(x, y, name) {
         if (!this.currentSchoolId) {
             this.showNotification('먼저 학교를 선택해주세요.', 'error');
@@ -1135,7 +1225,19 @@ export default class FloorPlanManager {
         const element = document.createElement('div');
         element.className = `draggable ${type}`;
         element.dataset.type = type;
-        element.dataset.id = data.buildingId || data.floorRoomId || data.classroomId || this._getTempId();
+        const elementId = data.buildingId || data.floorRoomId || data.classroomId || this._getTempId();
+        element.dataset.id = elementId;
+        
+        // 디버깅을 위한 로그 추가
+        if (type === 'room') {
+            console.log('교실 요소 생성 - ID 설정:', {
+                elementId: elementId,
+                buildingId: data.buildingId,
+                floorRoomId: data.floorRoomId,
+                classroomId: data.classroomId,
+                roomName: data.roomName
+            });
+        }
         
         const name = data.buildingName || data.roomName || `새 ${type}`;
         element.dataset.name = name;
@@ -1409,7 +1511,7 @@ export default class FloorPlanManager {
         
         // 삭제 도구가 선택되었을 때 안내 메시지 표시
         if (tool === 'delete') {
-            this.showNotification('삭제 모드: 삭제하려는 요소를 클릭하세요.', 'info');
+            this.showNotification('삭제 모드: 교실을 클릭하면 미배치 교실로 이동됩니다. (Delete 키로도 삭제 가능)', 'info');
         } else if (tool === 'building') {
             this.showNotification('건물 추가 모드: 캔버스에 클릭하여 건물을 추가하세요.', 'info');
         } else if (tool === 'room') {

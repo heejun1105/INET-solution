@@ -24,10 +24,11 @@ export default class DragManager {
             y: parseInt(element.style.top) || 0
         };
         
-        // 초기 마우스 위치 저장
+        // FloorPlanManager의 좌표 계산 메서드를 사용하여 초기 마우스 위치 저장
+        const canvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
         this.initialMousePos = {
-            x: e.clientX,
-            y: e.clientY
+            x: canvasCoords.x,
+            y: canvasCoords.y
         };
 
         // 교실 요소인 경우 z-index 높게 설정
@@ -61,34 +62,16 @@ export default class DragManager {
     handleMouseMove(e) {
         if (!this.isDragging || !this.dragElement) return;
 
-        // 현재 마우스 위치
-        const currentMousePos = {
-            x: e.clientX,
-            y: e.clientY
-        };
+        // FloorPlanManager의 좌표 계산 메서드를 사용하여 현재 마우스 위치 계산
+        const currentCanvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
         
-        // 마우스 이동 거리 계산
-        const deltaX = currentMousePos.x - this.initialMousePos.x;
-        const deltaY = currentMousePos.y - this.initialMousePos.y;
+        // 캔버스 좌표 기준으로 마우스 이동 거리 계산
+        const deltaX = currentCanvasCoords.x - this.initialMousePos.x;
+        const deltaY = currentCanvasCoords.y - this.initialMousePos.y;
         
-        // 줌 레벨 고려 - GroupDragManager와 동일한 방식으로 계산
-        let zoomLevel = 1;
-        try {
-            const canvas = document.getElementById('canvasContent');
-            const transform = canvas.style.transform;
-            if (transform) {
-                const match = transform.match(/scale\(([0-9.]+)\)/);
-                if (match && match[1]) {
-                    zoomLevel = parseFloat(match[1]);
-                }
-            }
-        } catch (e) {
-            console.error('줌 레벨 가져오기 실패', e);
-        }
-        
-        // 줌 레벨을 고려한 위치 조정
-        let newX = this.startPosition.x + (deltaX / zoomLevel);
-        let newY = this.startPosition.y + (deltaY / zoomLevel);
+        // 시작 위치에 델타를 더해서 새로운 위치 계산
+        let newX = this.startPosition.x + deltaX;
+        let newY = this.startPosition.y + deltaY;
         
         // 스냅 기능 적용
         const snappedPosition = this.floorPlanManager.snapManager.snapElement(
