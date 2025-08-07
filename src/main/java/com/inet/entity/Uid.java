@@ -63,4 +63,36 @@ public class Uid {
         
         return sb.toString();
     }
+    
+    public String getCate() {
+        return this.cate;
+    }
+    
+    public Long getIdNumber() {
+        return this.idNumber;
+    }
+    
+    public void setCate(String cate) {
+        this.cate = cate;
+    }
+    
+    public void setIdNumber(Long idNumber) {
+        this.idNumber = idNumber;
+    }
+    
+    public void setMfgYear(String mfgYear) {
+        this.mfgYear = mfgYear;
+    }
+    
+    public void setSchool(School school) {
+        this.school = school;
+    }
+    
+    public String getMfgYear() {
+        return this.mfgYear;
+    }
+    
+    public School getSchool() {
+        return this.school;
+    }
 } 

@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>권한 관리</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .main-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            margin: 2rem auto;
+            max-width: 1200px;
+            overflow: hidden;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .page-header h2 {
+            margin: 0;
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+        
+        .page-header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .content-area {
+            padding: 2rem;
+        }
+        
+        .user-info {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-left: 5px solid #2196f3;
+        }
+        
+        .user-info h4 {
+            color: #1976d2;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        
+        .user-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .user-detail {
+            background: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .user-detail strong {
+            color: #424242;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        
+        .permission-section {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e0e0e0;
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 3px solid #f0f0f0;
+        }
+        
+        .section-header h3 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .section-header i {
+            font-size: 1.8rem;
+            color: #667eea;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn-control {
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+        
+        .btn-control:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-select-all {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+        }
+        
+        .btn-clear-all {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+        }
+        
+        /* 권한 카드 스타일 - 강화된 CSS */
+        .permissions-grid {
+            display: grid !important;
+            grid-template-columns: repeat(5, 1fr) !important;
+            gap: 1rem !important;
+            margin: 0 !important;
+            padding: 0.5rem !important;
+        }
+        
+        .permission-item {
+            background: #f8f9fa !important;
+            border: 2px solid #dee2e6 !important;
+            border-radius: 12px !important;
+            padding: 1rem !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 0.75rem !important;
+            min-height: 60px !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            position: relative !important;
+        }
+        
+        .permission-item:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+            border-color: #667eea !important;
+        }
+        
+        .permission-item.checked {
+            background: #e8f5e8 !important;
+            border-color: #28a745 !important;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3) !important;
+        }
+        
+        .permission-checkbox {
+            width: 18px !important;
+            height: 18px !important;
+            cursor: pointer !important;
+            flex-shrink: 0 !important;
+            margin: 0 !important;
+        }
+        
+        .permission-icon {
+            font-size: 1.5rem !important;
+            color: #667eea !important;
+            flex-shrink: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        .permission-item.checked .permission-icon {
+            color: #28a745 !important;
+        }
+        
+        .permission-name {
+            font-weight: 600 !important;
+            color: #2c3e50 !important;
+            font-size: 0.85rem !important;
+            line-height: 1.3 !important;
+            text-align: left !important;
+            flex: 1 !important;
+            margin: 0 !important;
+        }
+        
+        .permission-item.checked .permission-name {
+            color: #155724 !important;
+        }
+        
+                 .schools-grid {
+             display: grid !important;
+             grid-template-columns: repeat(5, 1fr) !important;
+             gap: 1rem !important;
+             max-height: 400px !important;
+             overflow-y: auto !important;
+             padding: 0.5rem 0.5rem 0.5rem 0.5rem !important;
+         }
+        
+        .schools-grid::-webkit-scrollbar {
+            width: 8px !important;
+        }
+        
+        .schools-grid::-webkit-scrollbar-track {
+            background: #f1f1f1 !important;
+            border-radius: 4px !important;
+        }
+        
+        .schools-grid::-webkit-scrollbar-thumb {
+            background: #c1c1c1 !important;
+            border-radius: 4px !important;
+        }
+        
+        .schools-grid::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8 !important;
+        }
+        
+        .school-item {
+            background: #f8f9fa !important;
+            border: 2px solid #dee2e6 !important;
+            border-radius: 12px !important;
+            padding: 1rem !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 1rem !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            min-height: 60px !important;
+        }
+        
+        .school-item:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+            border-color: #667eea !important;
+        }
+        
+        .school-item.checked {
+            background: #e8f5e8 !important;
+            border-color: #28a745 !important;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3) !important;
+        }
+        
+        .school-checkbox {
+            width: 18px !important;
+            height: 18px !important;
+            cursor: pointer !important;
+            flex-shrink: 0 !important;
+        }
+        
+        .school-name {
+            font-weight: 600 !important;
+            color: #2c3e50 !important;
+            flex: 1 !important;
+            font-size: 1rem !important;
+            line-height: 1.3 !important;
+        }
+        
+        .school-item.checked .school-name {
+            color: #155724 !important;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn-action {
+            padding: 1rem 2rem;
+            border-radius: 30px;
+            border: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            min-width: 150px;
+            justify-content: center;
+        }
+        
+        .btn-action:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-back {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+        }
+        
+        .alert {
+            border-radius: 12px;
+            margin-top: 1rem;
+            padding: 1rem 1.5rem;
+            font-weight: 500;
+        }
+        
+        .alert-success {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-danger {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        @media (max-width: 1200px) {
+            .permissions-grid {
+                grid-template-columns: repeat(4, 1fr) !important;
+            }
+        }
+        
+        @media (max-width: 992px) {
+            .permissions-grid {
+                grid-template-columns: repeat(3, 1fr) !important;
+            }
+        }
+        
+                 @media (max-width: 768px) {
+             .permissions-grid {
+                 grid-template-columns: repeat(2, 1fr) !important;
+             }
+             
+             .schools-grid {
+                 grid-template-columns: repeat(2, 1fr) !important;
+             }
+             
+             .control-buttons {
+                 flex-direction: column;
+             }
+             
+             .action-buttons {
+                 flex-direction: column;
+             }
+         }
+        
+        @media (max-width: 576px) {
+            .permissions-grid {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .main-container {
+                margin: 1rem;
+            }
+            
+            .content-area {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <h2><i class="fas fa-user-shield"></i> 권한 관리</h2>
+            <p>사용자의 기능 권한과 학교 접근 권한을 관리합니다</p>
+        </div>
+        
+        <div class="content-area">
+            <!-- 사용자 정보 -->
+            <div class="user-info" th:if="${user}">
+                <h4><i class="fas fa-user"></i> 사용자 정보</h4>
+                <div class="user-details">
+                    <div class="user-detail">
+                        <strong>아이디</strong><br>
+                        <span th:text="${user.username}"></span>
+                    </div>
+                    <div class="user-detail">
+                        <strong>이름</strong><br>
+                        <span th:text="${user.name}"></span>
+                    </div>
+                    <div class="user-detail">
+                        <strong>소속</strong><br>
+                        <span th:text="${user.organization}"></span>
+                    </div>
+                    <div class="user-detail">
+                        <strong>역할</strong><br>
+                        <span th:text="${user.role}"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 기능 권한 섹션 -->
+            <div class="permission-section">
+                <div class="section-header">
+                    <i class="fas fa-cogs"></i>
+                    <h3>기능 권한</h3>
+                </div>
+                
+                <div class="control-buttons">
+                    <button type="button" class="btn-control btn-select-all" onclick="selectAllFeatures()">
+                        <i class="fas fa-check-square"></i>
+                        모든 기능 권한 부여
+                    </button>
+                    <button type="button" class="btn-control btn-clear-all" onclick="clearAllFeatures()">
+                        <i class="fas fa-square"></i>
+                        모든 기능 권한 제거
+                    </button>
+                </div>
+                    
+                    <div class="permissions-grid">
+                     <div class="permission-item" th:each="feature : ${features}" 
+                          th:class="${userPermissions.contains(feature.name()) ? 'permission-item checked' : 'permission-item'}"
+                          th:onclick="toggleFeaturePermission(this, '[[${feature.name()}]]')"
+                          style="background: #f8f9fa !important; border: 2px solid #dee2e6 !important; border-radius: 12px !important; padding: 1rem !important; transition: all 0.3s ease !important; cursor: pointer !important; display: flex !important; flex-direction: row !important; align-items: center !important; gap: 0.75rem !important; min-height: 60px !important; box-sizing: border-box !important; margin: 0 !important; position: relative !important;">
+                        <input type="checkbox" class="permission-checkbox" 
+                               th:value="${feature.name()}" 
+                               th:checked="${userPermissions.contains(feature.name())}"
+                               th:onclick="event.stopPropagation(); toggleFeatureCheckbox(this, '[[${feature.name()}]]')"
+                               style="width: 18px !important; height: 18px !important; cursor: pointer !important; flex-shrink: 0 !important; margin: 0 !important;">
+                        <div class="permission-icon" style="font-size: 1.5rem !important; color: #667eea !important; flex-shrink: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important;">
+                            <i th:class="${feature.name() == 'DEVICE_LIST' ? 'fas fa-list' : 
+                                         feature.name() == 'DEVICE_MANAGEMENT' ? 'fas fa-server' :
+                                         feature.name() == 'SCHOOL_MANAGEMENT' ? 'fas fa-school' :
+                                         feature.name() == 'CLASSROOM_MANAGEMENT' ? 'fas fa-chalkboard-teacher' :
+                                         feature.name() == 'FLOORPLAN_MANAGEMENT' ? 'fas fa-map' :
+                                         feature.name() == 'DATA_DELETE' ? 'fas fa-trash' :
+                                         feature.name() == 'WIRELESS_AP_LIST' ? 'fas fa-wifi' :
+                                         feature.name() == 'WIRELESS_AP_MANAGEMENT' ? 'fas fa-broadcast-tower' :
+                                         feature.name() == 'SUBMISSION_FILES' ? 'fas fa-file-upload' : 'fas fa-cog'}"></i>
+                        </div>
+                        <div class="permission-name" th:text="${feature.displayName}" style="font-weight: 600 !important; color: #2c3e50 !important; font-size: 0.85rem !important; line-height: 1.3 !important; text-align: left !important; flex: 1 !important; margin: 0 !important;"></div>
+                        </div>
+                        </div>
+                        </div>
+                        
+            <!-- 학교 권한 섹션 -->
+            <div class="permission-section">
+                <div class="section-header">
+                    <i class="fas fa-school"></i>
+                    <h3>학교 접근 권한</h3>
+                        </div>
+                        
+                <div class="control-buttons">
+                    <button type="button" class="btn-control btn-select-all" onclick="selectAllSchools()">
+                        <i class="fas fa-check-square"></i>
+                        모든 학교 접근권한 부여
+                    </button>
+                    <button type="button" class="btn-control btn-clear-all" onclick="clearAllSchools()">
+                        <i class="fas fa-square"></i>
+                        모든 학교 접근권한 제거
+                    </button>
+                        </div>
+                        
+                                 <div class="schools-grid">
+                     <div class="school-item" th:each="school : ${allSchools}"
+                          th:class="${userSchoolPermissions.contains(school.schoolId) ? 'school-item checked' : 'school-item'}"
+                          th:onclick="toggleSchoolPermission(this, '[[${school.schoolId}]]')"
+                          style="background: #f8f9fa !important; border: 2px solid #dee2e6 !important; border-radius: 12px !important; padding: 1rem !important; display: flex !important; align-items: center !important; gap: 1rem !important; transition: all 0.3s ease !important; cursor: pointer !important; box-sizing: border-box !important; margin: 0 !important; min-height: 60px !important;">
+                        <input type="checkbox" class="school-checkbox" 
+                               th:value="${school.schoolId}" 
+                               th:checked="${userSchoolPermissions.contains(school.schoolId)}"
+                               th:onclick="event.stopPropagation(); toggleSchoolCheckbox(this, '[[${school.schoolId}]]')"
+                               style="width: 18px !important; height: 18px !important; cursor: pointer !important; flex-shrink: 0 !important;">
+                        <div class="school-name" th:text="${school.schoolName}" style="font-weight: 600 !important; color: #2c3e50 !important; flex: 1 !important; font-size: 1rem !important; line-height: 1.3 !important;"></div>
+                    </div>
+                        </div>
+                    </div>
+                    
+            <!-- 저장 버튼 -->
+            <div class="action-buttons">
+                <button type="button" class="btn-action btn-save" onclick="savePermissions()">
+                            <i class="fas fa-save"></i>
+                            권한 저장
+                        </button>
+                <a href="/admin/users" class="btn-action btn-back">
+                            <i class="fas fa-arrow-left"></i>
+                            목록으로
+                        </a>
+                    </div>
+            
+            <!-- 알림 메시지 -->
+            <div id="alertMessage" class="alert" style="display: none;"></div>
+            
+            <!-- 사용자 ID 숨겨진 필드 -->
+            <input type="hidden" id="hiddenUserId" th:value="${user.id}" />
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 콘솔 오류 방지를 위한 에러 핸들링
+        window.addEventListener('error', function(e) {
+            if (e.message.includes('message port closed')) {
+                return false;
+            }
+        });
+        
+        // 사용자 ID 설정
+        let userId = null;
+        
+        // Thymeleaf에서 전달된 사용자 ID
+        const thymeleafUserId = /*[[${user.id}]]*/ null;
+        console.log('Thymeleaf에서 전달된 사용자 ID:', thymeleafUserId);
+        
+        // 숨겨진 필드에서 사용자 ID 가져오기
+        const hiddenUserId = document.getElementById('hiddenUserId');
+        const hiddenUserIdValue = hiddenUserId ? hiddenUserId.value : null;
+        console.log('숨겨진 필드에서 가져온 사용자 ID:', hiddenUserIdValue);
+        
+        if (thymeleafUserId) {
+            userId = thymeleafUserId;
+        } else if (hiddenUserIdValue) {
+            userId = parseInt(hiddenUserIdValue);
+        } else {
+            // URL에서 userId 파라미터 추출
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlUserId = urlParams.get('userId');
+            if (urlUserId) {
+                userId = parseInt(urlUserId);
+                console.log('URL에서 추출한 사용자 ID:', userId);
+            }
+        }
+        
+        console.log('최종 사용자 ID:', userId);
+        
+        // 디버깅을 위한 콘솔 로그
+        console.log('권한관리 페이지 로드됨');
+        console.log('사용자 ID:', userId);
+        console.log('기능 권한 카드 수:', document.querySelectorAll('.permission-item').length);
+        console.log('학교 권한 카드 수:', document.querySelectorAll('.school-item').length);
+        
+        // 페이지 로드 시 권한 카드 스타일 강제 적용
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM 로드 완료');
+            applyStylesToAllItems();
+        });
+        
+        // 모든 아이템에 스타일 적용
+        function applyStylesToAllItems() {
+            console.log('스타일 적용 시작');
+            
+            // 모든 권한 카드에 스타일 강제 적용
+            document.querySelectorAll('.permission-item').forEach((item, index) => {
+                console.log(`권한 카드 ${index + 1} 스타일 적용`);
+                item.style.background = '#f8f9fa';
+                item.style.border = '2px solid #dee2e6';
+                item.style.borderRadius = '12px';
+                item.style.padding = '1rem';
+                item.style.transition = 'all 0.3s ease';
+                item.style.cursor = 'pointer';
+                item.style.position = 'relative';
+                item.style.display = 'flex';
+                item.style.flexDirection = 'row';
+                item.style.alignItems = 'center';
+                item.style.gap = '0.75rem';
+                item.style.minHeight = '60px';
+                item.style.boxSizing = 'border-box';
+                item.style.margin = '0';
+            });
+            
+            // 체크된 권한 카드들에 대한 스타일 적용
+            document.querySelectorAll('.permission-item.checked').forEach((item, index) => {
+                console.log(`체크된 권한 카드 ${index + 1} 스타일 적용`);
+                item.style.background = '#e8f5e8';
+                item.style.borderColor = '#28a745';
+                item.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
+            });
+            
+                         // 모든 학교 카드에 스타일 강제 적용
+             document.querySelectorAll('.school-item').forEach((item, index) => {
+                 console.log(`학교 카드 ${index + 1} 스타일 적용`);
+                 item.style.background = '#f8f9fa';
+                 item.style.border = '2px solid #dee2e6';
+                 item.style.borderRadius = '12px';
+                 item.style.padding = '1rem';
+                 item.style.display = 'flex';
+                 item.style.alignItems = 'center';
+                 item.style.gap = '1rem';
+                 item.style.transition = 'all 0.3s ease';
+                 item.style.cursor = 'pointer';
+                 item.style.position = 'relative';
+                 item.style.boxSizing = 'border-box';
+                 item.style.margin = '0';
+                 item.style.minHeight = '60px';
+             });
+            
+            // 체크된 학교 카드들에 대한 스타일 적용
+            document.querySelectorAll('.school-item.checked').forEach((item, index) => {
+                console.log(`체크된 학교 카드 ${index + 1} 스타일 적용`);
+                item.style.background = '#e8f5e8';
+                item.style.borderColor = '#28a745';
+                item.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
+            });
+            
+            console.log('스타일 적용 완료');
+        }
+        
+        // 기능 권한 토글 (카드 클릭)
+        function toggleFeaturePermission(element, featureName) {
+            console.log('기능 권한 토글:', featureName);
+            const checkbox = element.querySelector('.permission-checkbox');
+            checkbox.checked = !checkbox.checked;
+            updateFeatureItemStyle(element, checkbox.checked);
+        }
+        
+                 // 기능 권한 체크박스 토글 (체크박스 직접 클릭)
+         function toggleFeatureCheckbox(checkbox, featureName) {
+             console.log('기능 권한 체크박스 토글:', featureName);
+             console.log('체크박스 상태:', checkbox.checked);
+             
+             // closest 메서드로 카드 요소 찾기
+             const element = checkbox.closest('.permission-item');
+             console.log('closest 결과:', element);
+             
+             if (element) {
+                 console.log('카드 요소 찾음, 스타일 업데이트');
+                 updateFeatureItemStyle(element, checkbox.checked);
+             } else {
+                 console.log('카드 요소를 찾을 수 없음 - 체크박스:', checkbox);
+                 console.log('체크박스 부모:', checkbox.parentElement);
+             }
+         }
+        
+                 // 기능 권한 아이템 스타일 업데이트
+         function updateFeatureItemStyle(element, isChecked) {
+             console.log('기능 권한 스타일 업데이트:', isChecked);
+             
+             if (!element) {
+                 console.log('요소가 null입니다');
+                 return;
+             }
+             
+             element.classList.toggle('checked', isChecked);
+             
+             if (isChecked) {
+                 element.style.background = '#e8f5e8';
+                 element.style.borderColor = '#28a745';
+                 element.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
+                 console.log('녹색 스타일 적용됨');
+             } else {
+                 element.style.background = '#f8f9fa';
+                 element.style.borderColor = '#dee2e6';
+                 element.style.boxShadow = 'none';
+                 console.log('기본 스타일 적용됨');
+             }
+         }
+        
+        // 학교 권한 토글 (카드 클릭)
+        function toggleSchoolPermission(element, schoolId) {
+            console.log('학교 권한 토글:', schoolId);
+            const checkbox = element.querySelector('.school-checkbox');
+            checkbox.checked = !checkbox.checked;
+            updateSchoolItemStyle(element, checkbox.checked);
+        }
+        
+                 // 학교 권한 체크박스 토글 (체크박스 직접 클릭)
+         function toggleSchoolCheckbox(checkbox, schoolId) {
+             console.log('학교 권한 체크박스 토글:', schoolId);
+             console.log('체크박스 상태:', checkbox.checked);
+             
+             // 부모 요소를 찾는 다른 방법들 시도
+             let element = checkbox.closest('.school-item');
+             
+             if (!element) {
+                 // closest가 실패하면 부모로 올라가면서 찾기
+                 element = checkbox.parentElement;
+                 while (element && !element.classList.contains('school-item')) {
+                     element = element.parentElement;
+                 }
+             }
+             
+             if (element) {
+                 console.log('학교 카드 요소 찾음, 스타일 업데이트');
+                 updateSchoolItemStyle(element, checkbox.checked);
+             } else {
+                 console.log('학교 카드 요소를 찾을 수 없음 - 체크박스:', checkbox);
+                 console.log('체크박스 부모:', checkbox.parentElement);
+                 console.log('체크박스 부모의 부모:', checkbox.parentElement?.parentElement);
+             }
+         }
+        
+                 // 학교 권한 아이템 스타일 업데이트
+         function updateSchoolItemStyle(element, isChecked) {
+             console.log('학교 권한 스타일 업데이트:', isChecked);
+             
+             if (!element) {
+                 console.log('학교 요소가 null입니다');
+                 return;
+             }
+             
+             element.classList.toggle('checked', isChecked);
+             
+             if (isChecked) {
+                 element.style.background = '#e8f5e8';
+                 element.style.borderColor = '#28a745';
+                 element.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
+                 console.log('학교 녹색 스타일 적용됨');
+             } else {
+                 element.style.background = '#f8f9fa';
+                 element.style.borderColor = '#dee2e6';
+                 element.style.boxShadow = 'none';
+                 console.log('학교 기본 스타일 적용됨');
+             }
+         }
+        
+                 // 모든 기능 권한 선택
+         function selectAllFeatures() {
+             console.log('모든 기능 권한 선택');
+             const checkboxes = document.querySelectorAll('.permission-checkbox');
+             console.log('찾은 체크박스 수:', checkboxes.length);
+             
+             checkboxes.forEach((checkbox, index) => {
+                 console.log(`체크박스 ${index + 1} 처리 중`);
+                 checkbox.checked = true;
+                 
+                 // closest로 카드 찾기
+                 const card = checkbox.closest('.permission-item');
+                 if (card) {
+                     console.log(`카드 ${index + 1} 스타일 업데이트`);
+                     updateFeatureItemStyle(card, true);
+                 }
+             });
+         }
+         
+         // 모든 기능 권한 제거
+         function clearAllFeatures() {
+             console.log('모든 기능 권한 제거');
+             const checkboxes = document.querySelectorAll('.permission-checkbox');
+             console.log('찾은 체크박스 수:', checkboxes.length);
+             
+             checkboxes.forEach((checkbox, index) => {
+                 console.log(`체크박스 ${index + 1} 처리 중`);
+                 checkbox.checked = false;
+                 
+                 // closest로 카드 찾기
+                 const card = checkbox.closest('.permission-item');
+                 if (card) {
+                     console.log(`카드 ${index + 1} 스타일 업데이트`);
+                     updateFeatureItemStyle(card, false);
+                 }
+             });
+         }
+         
+         // 모든 학교 권한 선택
+         function selectAllSchools() {
+             console.log('모든 학교 권한 선택');
+             const checkboxes = document.querySelectorAll('.school-checkbox');
+             console.log('찾은 학교 체크박스 수:', checkboxes.length);
+             
+             checkboxes.forEach((checkbox, index) => {
+                 console.log(`학교 체크박스 ${index + 1} 처리 중`);
+                 checkbox.checked = true;
+                 
+                 // 부모 요소를 찾는 다른 방법들 시도
+                 let element = checkbox.closest('.school-item');
+                 if (!element) {
+                     element = checkbox.parentElement;
+                     while (element && !element.classList.contains('school-item')) {
+                         element = element.parentElement;
+                     }
+                 }
+                 
+                 if (element) {
+                     console.log(`학교 카드 ${index + 1} 스타일 업데이트`);
+                     updateSchoolItemStyle(element, true);
+                 } else {
+                     console.log(`학교 카드 ${index + 1}를 찾을 수 없음`);
+                 }
+             });
+         }
+         
+         // 모든 학교 권한 제거
+         function clearAllSchools() {
+             console.log('모든 학교 권한 제거');
+             const checkboxes = document.querySelectorAll('.school-checkbox');
+             console.log('찾은 학교 체크박스 수:', checkboxes.length);
+             
+             checkboxes.forEach((checkbox, index) => {
+                 console.log(`학교 체크박스 ${index + 1} 처리 중`);
+                 checkbox.checked = false;
+                 
+                 // 부모 요소를 찾는 다른 방법들 시도
+                 let element = checkbox.closest('.school-item');
+                 if (!element) {
+                     element = checkbox.parentElement;
+                     while (element && !element.classList.contains('school-item')) {
+                         element = element.parentElement;
+                     }
+                 }
+                 
+                 if (element) {
+                     console.log(`학교 카드 ${index + 1} 스타일 업데이트`);
+                     updateSchoolItemStyle(element, false);
+                 } else {
+                     console.log(`학교 카드 ${index + 1}를 찾을 수 없음`);
+                 }
+             });
+         }
+        
+        // 권한 저장
+        function savePermissions() {
+            const featurePermissions = [];
+            const schoolPermissions = [];
+            
+            // 기능 권한 수집
+            document.querySelectorAll('.permission-checkbox:checked').forEach(checkbox => {
+                featurePermissions.push(checkbox.value);
+            });
+            
+            // 학교 권한 수집
+            document.querySelectorAll('.school-checkbox:checked').forEach(checkbox => {
+                schoolPermissions.push(checkbox.value);
+            });
+            
+            console.log('저장할 기능 권한:', featurePermissions);
+            console.log('저장할 학교 권한:', schoolPermissions);
+            console.log('사용자 ID:', userId);
+            console.log('사용자 ID 타입:', typeof userId);
+            
+            // userId가 null인지 확인
+            if (!userId) {
+                console.error('사용자 ID가 null입니다. 모든 소스를 확인합니다:');
+                console.log('Thymeleaf userId:', /*[[${user.id}]]*/ null);
+                console.log('숨겨진 필드:', document.getElementById('hiddenUserId')?.value);
+                console.log('URL 파라미터:', new URLSearchParams(window.location.search).get('userId'));
+                alert('사용자 ID를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+                return;
+            }
+            
+            // 서버로 전송
+            fetch('/admin/permissions/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: userId,
+                    featurePermissions: featurePermissions,
+                    schoolPermissions: schoolPermissions
+                })
+            })
+            .then(response => {
+                console.log('서버 응답 상태:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('서버 응답 데이터:', data);
+                if (data.success) {
+                    alert('권한이 성공적으로 저장되었습니다.');
+                } else {
+                    alert('권한 저장 중 오류가 발생했습니다: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('권한 저장 오류:', error);
+                alert('권한 저장 중 오류가 발생했습니다: ' + error.message);
+            });
+        }
+        
+        // 알림 메시지 표시 (alert 창 사용)
+        function showAlert(message, type) {
+            alert(message);
+        }
+    </script>
+</body>
+</html> 

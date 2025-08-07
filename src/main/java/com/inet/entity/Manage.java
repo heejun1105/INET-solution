@@ -71,4 +71,24 @@ public class Manage {
         
         return sb.toString();
     }
+    
+    public void setManageCate(String manageCate) {
+        this.manageCate = manageCate;
+    }
+    
+    public void setSchool(School school) {
+        this.school = school;
+    }
+    
+    public Long getManageId() {
+        return this.manageId;
+    }
+    
+    public void setManageNum(Long manageNum) {
+        this.manageNum = manageNum;
+    }
+    
+    public void setYear(Integer year) {
+        this.year = year;
+    }
 } 

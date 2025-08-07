@@ -2,6 +2,7 @@ package com.inet.repository;
 
 import com.inet.entity.FloorPlanElement;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -32,6 +33,7 @@ public interface FloorPlanElementRepository extends JpaRepository<FloorPlanEleme
     /**
      * 평면도 요소 삭제
      */
+    @Modifying
     @Query("DELETE FROM FloorPlanElement fpe WHERE fpe.floorPlanId = :floorPlanId")
     void deleteByFloorPlanId(@Param("floorPlanId") Long floorPlanId);
     

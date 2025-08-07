@@ -115,6 +115,10 @@ public class Device {
         return this.uid;
     }
 
+    public Long getDeviceId() {
+        return this.deviceId;
+    }
+
     // Explicit setter methods
     public void setManage(Manage manage) {
         this.manage = manage;
@@ -134,5 +138,57 @@ public class Device {
 
     public void setSchool(School school) {
         this.school = school;
+    }
+    
+    public String getManufacturer() {
+        return this.manufacturer;
+    }
+    
+    public void setManufacturer(String manufacturer) {
+        this.manufacturer = manufacturer;
+    }
+    
+    public void setNote(String note) {
+        this.note = note;
+    }
+    
+    public void setType(String type) {
+        this.type = type;
+    }
+    
+    public void setPurpose(String purpose) {
+        this.purpose = purpose;
+    }
+    
+    public void setPurchaseDate(LocalDate purchaseDate) {
+        this.purchaseDate = purchaseDate;
+    }
+    
+    public String getPurpose() {
+        return this.purpose;
+    }
+    
+    public String getNote() {
+        return this.note;
+    }
+    
+    public void setModelName(String modelName) {
+        this.modelName = modelName;
+    }
+    
+    public void setIpAddress(String ipAddress) {
+        this.ipAddress = ipAddress;
+    }
+    
+    public void setUnused(Boolean unused) {
+        this.unused = unused;
+    }
+    
+    public void setSetType(String setType) {
+        this.setType = setType;
+    }
+    
+    public Boolean getUnused() {
+        return this.unused;
     }
 } 

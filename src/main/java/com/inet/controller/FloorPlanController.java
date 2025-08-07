@@ -1,15 +1,24 @@
 package com.inet.controller;
 
+import com.inet.entity.Feature;
+import com.inet.entity.User;
 import com.inet.service.FloorPlanService;
 import com.inet.service.SchoolService;
 import com.inet.service.DeviceService;
+import com.inet.service.PermissionService;
+import com.inet.service.SchoolPermissionService;
+import com.inet.service.UserService;
+import com.inet.config.PermissionHelper;
 import com.inet.entity.School;
 import com.inet.entity.Device;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
 import java.util.Map;
@@ -29,11 +38,69 @@ public class FloorPlanController {
     @Autowired
     private DeviceService deviceService;
     
+    @Autowired
+    private PermissionService permissionService;
+    
+    @Autowired
+    private SchoolPermissionService schoolPermissionService;
+    
+    @Autowired
+    private UserService userService;
+    
+    @Autowired
+    private PermissionHelper permissionHelper;
+    
+    // 권한 체크 메서드
+    private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName())
+            .orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkFeaturePermission(user, feature, redirectAttributes);
+    }
+    
+    // 학교 권한 체크 메서드
+    private User checkSchoolPermission(Feature feature, Long schoolId, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName())
+            .orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkSchoolPermission(user, feature, schoolId, redirectAttributes);
+    }
+    
     // 평면도 메인 페이지
     @GetMapping("")
-    public String floorPlanMain(Model model) {
-        List<School> schools = schoolService.getAllSchools();
+    public String floorPlanMain(Model model, RedirectAttributes redirectAttributes) {
+        // 권한 체크
+        User user = checkPermission(Feature.FLOORPLAN_MANAGEMENT, redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
+        
+        List<School> schools = schoolPermissionService.getAccessibleSchools(user);
         model.addAttribute("schools", schools);
+        
+        // 권한 정보 추가
+        permissionHelper.addPermissionAttributes(user, model);
+        
         return "floorplan/main";
     }
     
@@ -42,6 +109,25 @@ public class FloorPlanController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> getSchoolFloorPlan(@PathVariable Long schoolId) {
         Map<String, Object> response = new java.util.HashMap<>();
+        
+        // 권한 체크
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            response.put("error", "로그인이 필요합니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            response.put("error", "사용자를 찾을 수 없습니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
+        if (checkedUser == null) {
+            response.put("error", "해당 학교에 대한 권한이 없습니다.");
+            return ResponseEntity.status(403).body(response);
+        }
         
         try {
             // 기존 FloorPlanService의 메서드 사용
@@ -64,6 +150,25 @@ public class FloorPlanController {
             @RequestBody Map<String, Object> floorPlanData) {
         
         Map<String, Object> response = new java.util.HashMap<>();
+        
+        // 권한 체크
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            response.put("error", "로그인이 필요합니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            response.put("error", "사용자를 찾을 수 없습니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
+        if (checkedUser == null) {
+            response.put("error", "해당 학교에 대한 권한이 없습니다.");
+            return ResponseEntity.status(403).body(response);
+        }
         
         try {
             boolean success = floorPlanService.saveFloorPlan(schoolId, floorPlanData);
@@ -92,6 +197,28 @@ public class FloorPlanController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> loadFloorPlan(@RequestParam Long schoolId) {
         
+        // 권한 체크
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("error", "로그인이 필요합니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("error", "사용자를 찾을 수 없습니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
+        if (checkedUser == null) {
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("error", "해당 학교에 대한 권한이 없습니다.");
+            return ResponseEntity.status(403).body(response);
+        }
+        
         Map<String, Object> response = floorPlanService.loadFloorPlan(schoolId);
         
         return ResponseEntity.ok(response);
@@ -105,6 +232,25 @@ public class FloorPlanController {
     public ResponseEntity<Map<String, Object>> checkFloorPlanExists(@RequestParam Long schoolId) {
         
         Map<String, Object> response = new java.util.HashMap<>();
+        
+        // 권한 체크
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            response.put("error", "로그인이 필요합니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            response.put("error", "사용자를 찾을 수 없습니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
+        if (checkedUser == null) {
+            response.put("error", "해당 학교에 대한 권한이 없습니다.");
+            return ResponseEntity.status(403).body(response);
+        }
         
         try {
             boolean exists = floorPlanService.hasFloorPlan(schoolId);
@@ -128,6 +274,25 @@ public class FloorPlanController {
     public ResponseEntity<Map<String, Object>> deleteFloorPlan(@RequestParam Long schoolId) {
         
         Map<String, Object> response = new java.util.HashMap<>();
+        
+        // 권한 체크
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            response.put("error", "로그인이 필요합니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            response.put("error", "사용자를 찾을 수 없습니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
+        if (checkedUser == null) {
+            response.put("error", "해당 학교에 대한 권한이 없습니다.");
+            return ResponseEntity.status(403).body(response);
+        }
         
         try {
             boolean success = floorPlanService.deleteFloorPlan(schoolId);
@@ -177,4 +342,6 @@ public class FloorPlanController {
             return ResponseEntity.ok(deviceCounts); // 빈 맵 반환
         }
     }
+    
+
 } 

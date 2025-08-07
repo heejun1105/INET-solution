@@ -311,6 +311,15 @@ public class UidService {
         log.info("Getting UID years for schoolId: {} and cate: {}", schoolId, cate);
         List<String> years = uidRepository.findDistinctMfgYearBySchoolSchoolIdAndCateOrderByMfgYear(schoolId, cate);
         log.info("Found years: {}", years);
+        
+        // 데이터가 없으면 현재 연도와 이전 연도 추가
+        if (years == null || years.isEmpty()) {
+            String currentYear = getCurrentTwoDigitYear();
+            String previousYear = String.valueOf(Integer.parseInt(currentYear) - 1);
+            years = List.of(previousYear, currentYear);
+            log.info("No years found, returning default years: {}", years);
+        }
+        
         return years;
     }
 

@@ -5,6 +5,7 @@
     <title>장비 목록</title>
     <link rel="stylesheet" href="/device.css" />
     <link rel="stylesheet" href="/main.css" />
+    <link rel="stylesheet" href="/navbar.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
@@ -54,6 +55,9 @@
                         <a th:href="@{/device/excel(schoolId=${selectedSchoolId}, type=${selectedType}, classroomId=${selectedClassroomId})}" class="btn btn-success">
                             <i class="fas fa-file-excel"></i> 엑셀 다운로드
                         </a>
+                        <a th:href="@{/device/history/list(schoolId=${selectedSchoolId})}" class="btn btn-info">
+                            <i class="fas fa-history"></i> 수정내역
+                        </a>
                     </div>
                 </div>
                 
@@ -69,11 +73,11 @@
                             <th>담당자</th>
                             <th>제조사</th>
                             <th>모델명</th>
-                            <th>구매일자</th>
+                            <th>도입일자</th>
                             <th>IP주소</th>
                             <th>교실</th>
                             <th>용도</th>
-                            <th>세트분류</th>
+                            <th>set분류</th>
                             <th>비고</th>
                             <th>불용</th>
                             <th>관리</th>
@@ -134,7 +138,7 @@
                                 <td data-label="담당자" th:text="${device.operator != null && device.operator.name != null ? device.operator.name : ''}"></td>
                                 <td data-label="제조사" th:text="${device.manufacturer != null ? device.manufacturer : ''}"></td>
                                 <td data-label="모델명" th:text="${device.modelName != null ? device.modelName : ''}"></td>
-                                <td data-label="구매일자" th:text="${device.purchaseDate != null ? device.purchaseDate : ''}"></td>
+                                <td data-label="구매일자" th:text="${device.purchaseDate != null ? #temporals.format(device.purchaseDate, 'yyyy년 MM월') : ''}"></td>
                                 <td data-label="IP주소" class="ip-address" th:text="${device.ipAddress != null ? device.ipAddress : ''}"></td>
                                 <td data-label="교실" th:text="${device.classroom != null && device.classroom.roomName != null ? device.classroom.roomName : ''}"></td>
                                 <td data-label="용도" th:text="${device.purpose != null ? device.purpose : ''}"></td>
@@ -239,7 +243,7 @@
                                 
                                 <div class="card-field" th:if="${device.purchaseDate != null}">
                                     <div class="field-label">구매일자</div>
-                                    <div class="field-value" th:text="${device.purchaseDate}"></div>
+                                    <div class="field-value" th:text="${#temporals.format(device.purchaseDate, 'yyyy년 MM월')}"></div>
                                 </div>
                                 
                                 <div class="card-field" th:if="${device.ipAddress != null && !#strings.isEmpty(device.ipAddress)}">

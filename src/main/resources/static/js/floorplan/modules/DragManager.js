@@ -31,16 +31,10 @@ export default class DragManager {
             y: canvasCoords.y
         };
 
-        // 교실 요소인 경우 z-index 높게 설정
-        if (element.classList.contains('room')) {
+        // z-index 변경 최소화 - 드래그 중에만 임시로 높게 설정
+        if (element.classList.contains('room') || element.classList.contains('shape')) {
             element.dataset.originalZIndex = element.style.zIndex || '';
-            element.style.zIndex = '1000'; // 높은 z-index 값
-        }
-        
-        // 도형 요소인 경우에도 z-index 높게 설정
-        if (element.classList.contains('shape')) {
-            element.dataset.originalZIndex = element.style.zIndex || '';
-            element.style.zIndex = '1000'; // 높은 z-index 값
+            element.style.zIndex = '200'; // 1000 → 200으로 낮춤
         }
 
         // bind(this)를 사용하여 올바른 컨텍스트 유지
@@ -119,7 +113,7 @@ export default class DragManager {
                     clearTimeout(this.zIndexTimeout);
                 }
                 
-                // 1초 후에 z-index 복원
+                // 0.5초 후에 z-index 복원 (1초 → 0.5초로 단축)
                 this.zIndexTimeout = setTimeout(() => {
                     if (this.dragElement) {
                         if (this.dragElement.dataset.originalZIndex) {
@@ -128,7 +122,7 @@ export default class DragManager {
                             this.dragElement.style.zIndex = '';
                         }
                     }
-                }, 1000);
+                }, 500);
             }
             
             // 드래그가 짧은 시간 내에 끝났고 실제로 이동이 거의 없었다면 클릭으로 처리

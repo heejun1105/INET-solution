@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>마이페이지 - I-NET</title>
+    <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="/navbar.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .mypage-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .mypage-header {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 16px;
+            text-align: center;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+        }
+        
+        .mypage-header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .mypage-header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .mypage-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .info-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .card-header h3 {
+            color: #1f2937;
+            font-size: 1.3rem;
+            margin: 0;
+        }
+        
+        .card-header i {
+            color: #3b82f6;
+            font-size: 1.5rem;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+        
+        .info-item {
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-value {
+            color: #1f2937;
+            font-size: 1rem;
+        }
+        
+        .permissions-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        .permissions-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 1.5rem;
+        }
+        
+        .permissions-container.single-column {
+            grid-template-columns: 1fr;
+        }
+        
+        .permission-group {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+        
+        .permission-group h4 {
+            color: #1f2937;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .permission-group.enabled h4 {
+            color: #065f46;
+        }
+        
+        .permission-group.disabled h4 {
+            color: #6b7280;
+        }
+        
+        .permission-list {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+        }
+        
+        .permission-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.75rem;
+            border-radius: 6px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .permission-item.enabled {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+        
+        .permission-item.disabled {
+            border-color: #d1d5db;
+            background: #f9fafb;
+            opacity: 0.6;
+        }
+        
+        .permission-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+        
+        .permission-item.enabled .permission-icon {
+            background: #10b981;
+            color: white;
+        }
+        
+        .permission-item.disabled .permission-icon {
+            background: #9ca3af;
+            color: white;
+        }
+        
+        .permission-name {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .permission-item.enabled .permission-name {
+            color: #065f46;
+        }
+        
+        .permission-item.disabled .permission-name {
+            color: #6b7280;
+        }
+        
+        .permission-type {
+            font-size: 0.7rem;
+            color: #6b7280;
+            margin-top: 0.2rem;
+        }
+        
+        .permission-item.enabled .permission-type {
+            color: #065f46;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        @media (max-width: 1024px) {
+            .info-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .permission-list {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .mypage-container {
+                margin: 1rem auto;
+            }
+            
+            .mypage-header {
+                padding: 1.5rem;
+            }
+            
+            .mypage-header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .info-card, .permissions-section {
+                padding: 1.5rem;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .permissions-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .permission-list {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 네비게이션 바 포함 -->
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+    
+    <div class="mypage-container">
+        <!-- 알림 메시지 -->
+        <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+        <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
+        
+        <!-- 마이페이지 헤더 -->
+        <div class="mypage-header">
+            <h1><i class="fas fa-user-circle"></i> 마이페이지</h1>
+            <p>내 정보를 확인하고 관리하세요</p>
+        </div>
+        
+        <!-- 마이페이지 콘텐츠 -->
+        <div class="mypage-content">
+            <!-- 기본 정보 카드 -->
+            <div class="info-card">
+                <div class="card-header">
+                    <i class="fas fa-user"></i>
+                    <h3>기본 정보</h3>
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">아이디</div>
+                        <div class="info-value" th:text="${user.username}">사용자명</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">이름</div>
+                        <div class="info-value" th:text="${user.name}">이름</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">생년월일</div>
+                        <div class="info-value" th:text="${user.birthDate}">생년월일</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">소속</div>
+                        <div class="info-value" th:text="${user.organization}">소속</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">직위</div>
+                        <div class="info-value" th:text="${user.position}">직위</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">휴대폰번호</div>
+                        <div class="info-value" th:text="${user.phoneNumber}">휴대폰번호</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">이메일</div>
+                        <div class="info-value" th:text="${user.email}">이메일</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">가입일</div>
+                        <div class="info-value" th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}">가입일</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">역할</div>
+                        <div class="info-value" th:text="${user.role.displayName}">권한</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 기능 권한 섹션 -->
+            <div class="permissions-section">
+                <div class="card-header">
+                    <i class="fas fa-cogs"></i>
+                    <h3>기능 권한</h3>
+                </div>
+                <div class="permissions-container">
+                    <!-- 접근가능 권한 -->
+                    <div class="permission-group enabled">
+                        <h4><i class="fas fa-check-circle"></i> 접근가능</h4>
+                        <div class="permission-list">
+                            <div class="permission-item enabled" th:each="permission : ${userPermissions}">
+                                <div class="permission-icon">
+                                    <i class="fas fa-cog"></i>
+                                </div>
+                                <div class="permission-name" th:text="${permission.feature.displayName}">기능명</div>
+                                <div class="permission-type">접근 가능</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 접근불가능 권한 -->
+                    <div class="permission-group disabled">
+                        <h4><i class="fas fa-times-circle"></i> 접근불가</h4>
+                        <div class="permission-list">
+                            <div class="permission-item disabled" th:each="feature : ${T(com.inet.entity.Feature).values()}" 
+                                 th:if="${!#lists.contains(userPermissions.![feature.name()], feature.name())}">
+                                <div class="permission-icon">
+                                    <i class="fas fa-cog"></i>
+                                </div>
+                                <div class="permission-name" th:text="${feature.displayName}">기능명</div>
+                                <div class="permission-type">권한 없음</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 학교 권한 섹션 -->
+            <div class="permissions-section">
+                <div class="card-header">
+                    <i class="fas fa-school"></i>
+                    <h3>학교 권한</h3>
+                </div>
+                <div class="permissions-container single-column">
+                    <!-- 접근가능 학교 -->
+                    <div class="permission-group enabled">
+                        <h4><i class="fas fa-check-circle"></i> 접근가능한 학교</h4>
+                        <div class="permission-list">
+                            <div class="permission-item enabled" th:each="schoolPermission : ${userSchoolPermissions}">
+                                <div class="permission-icon">
+                                    <i class="fas fa-school"></i>
+                                </div>
+                                <div class="permission-name" th:text="${schoolPermission.school.schoolName}">학교명</div>
+                                <div class="permission-type">접근 가능</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+        </div>
+        
+        <!-- 액션 버튼 -->
+        <div class="action-buttons">
+            <a href="/mypage/edit" class="btn btn-primary">
+                <i class="fas fa-edit"></i>
+                정보수정
+            </a>
+            <a href="/mypage/withdraw" class="btn btn-danger">
+                <i class="fas fa-user-times"></i>
+                계정탈퇴
+            </a>
+        </div>
+    </div>
+    
+    <!-- 푸터 포함 -->
+    <div th:replace="~{fragments/footer :: footer}"></div>
+</body>
+</html> 

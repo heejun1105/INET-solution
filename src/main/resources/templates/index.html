@@ -5,11 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>I-NET - 학교 장비 관리 시스템</title>
     <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="/navbar.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <!-- 네비게이션 바 포함 -->
     <div th:replace="~{fragments/navbar :: navbar}"></div>
+    
+    <!-- 권한 거부 메시지 표시 -->
+    <div th:if="${error}" class="alert alert-danger" style="position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #f8d7da; color: #721c24; padding: 15px 20px; border: 1px solid #f5c6cb; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span th:text="${error}"></span>
+        <button onclick="this.parentElement.style.display='none'" style="background: none; border: none; color: #721c24; margin-left: 10px; cursor: pointer; font-size: 16px;">×</button>
+    </div>
+    
+    <!-- 성공 메시지 표시 -->
+    <div th:if="${success}" class="alert alert-success" style="position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #d4edda; color: #155724; padding: 15px 20px; border: 1px solid #c3e6cb; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${success}"></span>
+        <button onclick="this.parentElement.style.display='none'" style="background: none; border: none; color: #155724; margin-left: 10px; cursor: pointer; font-size: 16px;">×</button>
+    </div>
     
     <!-- Hero 섹션 -->
     <section class="hero-section">
@@ -107,7 +122,7 @@
                 <p>I-NET으로 학교 네트워크를 체계적으로 관리하세요</p>
             </div>
             
-            <!-- 상단 주요 기능 카드 (4개) -->
+            <!-- 주요 기능 카드 (9개) -->
             <div class="features-grid">
                 <a href="/device/list" class="feature-card primary">
                     <div class="card-header">
@@ -132,7 +147,7 @@
                 <a href="/device/register" class="feature-card secondary">
                     <div class="card-header">
                         <div class="card-icon">
-                            <i class="fas fa-plus-circle"></i>
+                            <i class="fas fa-desktop"></i>
                         </div>
                     </div>
                     <div class="card-content">
@@ -151,7 +166,7 @@
                 <a href="/ip/iplist" class="feature-card accent">
                     <div class="card-header">
                         <div class="card-icon">
-                            <i class="fas fa-network-wired"></i>
+                            <i class="fas fa-sitemap"></i>
                         </div>
                     </div>
                     <div class="card-content">
@@ -170,7 +185,7 @@
                 <a href="/wireless-ap/list" class="feature-card info">
                     <div class="card-header">
                         <div class="card-icon">
-                            <i class="fas fa-wifi"></i>
+                            <i class="fas fa-broadcast-tower"></i>
                         </div>
                     </div>
                     <div class="card-content">
@@ -185,56 +200,101 @@
                         <i class="fas fa-arrow-right"></i>
                     </div>
                 </a>
-            </div>
-            
-            <!-- 하단 추가 기능 카드 (4개) -->
-            <div class="additional-features">
-                <h3 class="subsection-title">추가 기능</h3>
-                <div class="additional-grid">
-                    <a href="/school/manage" class="additional-card success">
+                
+                <a href="/school/manage" class="feature-card success">
+                    <div class="card-header">
                         <div class="card-icon">
-                            <i class="fas fa-school"></i>
+                            <i class="fas fa-university"></i>
                         </div>
-                        <div class="card-content">
-                            <h4 class="card-title">학교 관리</h4>
-                            <p class="card-description">학교 정보를 관리하고 새로운 학교를 추가합니다.</p>
-                            <span class="status-badge active">사용 가능</span>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">학교 관리</h3>
+                        <p class="card-description">학교 정보를 관리하고 새로운 학교를 추가합니다.</p>
+                        <div class="card-features">
+                            <span class="feature-tag">정보 관리</span>
+                            <span class="feature-tag">학교 추가</span>
                         </div>
-                    </a>
-                    
-                    <a href="/floorplan" class="additional-card info">
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </a>
+                
+                <a href="/classroom/manage" class="feature-card warning">
+                    <div class="card-header">
                         <div class="card-icon">
-                            <i class="fas fa-building"></i>
+                            <i class="fas fa-door-open"></i>
                         </div>
-                        <div class="card-content">
-                            <h4 class="card-title">학교 평면도</h4>
-                            <p class="card-description">학교의 평면도를 설계하고 장비 위치를 관리합니다.</p>
-                            <span class="status-badge active">사용 가능</span>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">교실 관리</h3>
+                        <p class="card-description">교실 정보를 관리하고 새로운 교실을 추가합니다.</p>
+                        <div class="card-features">
+                            <span class="feature-tag">교실 정보</span>
+                            <span class="feature-tag">교실 추가</span>
                         </div>
-                    </a>
-                    
-                    <a href="#" class="additional-card disabled">
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </a>
+                
+                <a href="/floorplan" class="feature-card info">
+                    <div class="card-header">
                         <div class="card-icon">
-                            <i class="fas fa-file-export"></i>
+                            <i class="fas fa-map-marked-alt"></i>
                         </div>
-                        <div class="card-content">
-                            <h4 class="card-title">제출용 파일</h4>
-                            <p class="card-description">제출용 파일을 생성하고 다운로드합니다.</p>
-                            <span class="status-badge coming-soon">준비중</span>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">학교 평면도</h3>
+                        <p class="card-description">학교의 평면도를 설계하고 장비 위치를 관리합니다.</p>
+                        <div class="card-features">
+                            <span class="feature-tag">평면도 설계</span>
+                            <span class="feature-tag">위치 관리</span>
                         </div>
-                    </a>
-
-                    <a href="/data/delete" class="additional-card danger">
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </a>
+                
+                <a href="#" class="feature-card disabled">
+                    <div class="card-header">
                         <div class="card-icon">
-                            <i class="fas fa-trash-alt"></i>
+                            <i class="fas fa-file-alt"></i>
                         </div>
-                        <div class="card-content">
-                            <h4 class="card-title">데이터 삭제</h4>
-                            <p class="card-description">학교별 데이터를 안전하게 삭제합니다.</p>
-                            <span class="status-badge active">사용 가능</span>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">제출용 파일</h3>
+                        <p class="card-description">제출용 파일을 생성하고 다운로드합니다.</p>
+                        <div class="card-features">
+                            <span class="feature-tag">파일 생성</span>
+                            <span class="feature-tag">다운로드</span>
                         </div>
-                    </a>
-                </div>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </a>
+                
+                <a href="/data/delete" class="feature-card danger">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <i class="fas fa-eraser"></i>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">데이터 삭제</h3>
+                        <p class="card-description">학교별 데이터를 안전하게 삭제합니다.</p>
+                        <div class="card-features">
+                            <span class="feature-tag">안전 삭제</span>
+                            <span class="feature-tag">학교별 관리</span>
+                        </div>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </a>
             </div>
         </div>
     </section>

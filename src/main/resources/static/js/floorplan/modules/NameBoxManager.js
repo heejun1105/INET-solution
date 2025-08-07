@@ -75,6 +75,8 @@ export default class NameBoxManager {
             return;
         }
         
+        console.log('이름박스 생성/업데이트 시작:', objectId, object.dataset.name);
+        
         let nameBox = this.nameBoxes.get(objectId);
 
         if (!nameBox) {
@@ -92,7 +94,9 @@ export default class NameBoxManager {
                 e.stopPropagation();
             });
             
-            console.log('새 이름박스 생성:', objectId);
+            console.log('새 이름박스 생성 완료:', objectId);
+        } else {
+            console.log('기존 이름박스 사용:', objectId);
         }
 
         // 이름 업데이트
@@ -101,11 +105,16 @@ export default class NameBoxManager {
         
         // 이름이 있을 때만 표시
         nameBox.style.visibility = name ? 'visible' : 'hidden';
+        console.log('이름박스 텍스트 설정:', name, '가시성:', nameBox.style.visibility);
 
-        // 수동 위치 지정이 아니면 중앙 정렬
-        if (nameBox.dataset.positioned !== 'manual' && (!this.movableState.object || this.movableState.object !== object)) {
+        // 수동 위치 지정이 아니고, 이름박스 데이터가 없는 경우에만 중앙 정렬
+        if (nameBox.dataset.positioned !== 'manual' && 
+            (!this.movableState.object || this.movableState.object !== object) &&
+            !object.nameBoxData) { // 이름박스 데이터가 없는 경우에만 중앙 정렬
             this.centerNameBox(nameBox);
             console.log('이름박스 중앙 정렬:', objectId);
+        } else {
+            console.log('이름박스 수동 위치 유지 또는 데이터 있음:', objectId);
         }
         
         return nameBox;
@@ -113,7 +122,7 @@ export default class NameBoxManager {
 
     centerNameBox(nameBox) {
         nameBox.style.left = '50%';
-        nameBox.style.top = '50%';
+        nameBox.style.top = '30%'; 
         nameBox.style.width = ''; 
         nameBox.style.height = '';
         nameBox.style.fontSize = ''; // 폰트 크기 초기화 (CSS 기본값 적용)
@@ -134,6 +143,9 @@ export default class NameBoxManager {
 
         nameBox.style.transform = '';
         nameBox.dataset.positioned = 'manual';
+        
+        // 미배치교실 배치 시 중앙 정렬 보호 플래그 해제 (사용자가 수동으로 이동할 때)
+        delete nameBox.dataset.centeredForUnplaced;
     }
     
     stopActions() {
@@ -276,15 +288,107 @@ export default class NameBoxManager {
     
     updateNameBoxPosition(element, x = null, y = null) {
         const nameBox = this.getNameBoxForElement(element);
+        if (!nameBox) {
+            console.warn(`이름박스를 찾을 수 없음: ${element.dataset.name}`);
+            return;
+        }
+        
+        // 미배치교실 배치 시 중앙 정렬 보호
+        if (nameBox.dataset.centeredForUnplaced === 'true') {
+            console.log(`미배치교실 이름박스 위치 변경 방지: ${element.dataset.name}`);
+            return;
+        }
+        
+        // null 값 체크 및 로깅
+        if (x === null || y === null) {
+            console.warn(`이름박스 위치 복원 실패 (null 값): ${element.dataset.name} -> x: ${x}, y: ${y}`);
+            return;
+        }
+        // undefined 값 체크
+        if (x === undefined || y === undefined) {
+            console.warn(`이름박스 위치 복원 실패 (undefined 값): ${element.dataset.name} -> x: ${x}, y: ${y}`);
+            return;
+        }
+        // 유효한 숫자인지 체크
+        if (isNaN(x) || isNaN(y)) {
+            console.warn(`이름박스 위치 복원 실패 (NaN 값): ${element.dataset.name} -> x: ${x}, y: ${y}`);
+            return;
+        }
+        
+        // 위치 설정
+        nameBox.style.left = x + 'px';
+        nameBox.style.top = y + 'px';
+        nameBox.style.transform = ''; // transform 초기화 (중앙 정렬 제거)
+        nameBox.dataset.positioned = 'manual';
+        
+        console.log(`이름박스 위치 복원 성공: ${element.dataset.name}`, { x, y });
+    }
+    
+    updateNameBoxSize(element, width = null, height = null) {
+        const nameBox = this.getNameBoxForElement(element);
         if (!nameBox) return;
         
-        if (x !== null) {
-            nameBox.style.left = x + 'px';
+        if (width !== null && height !== null) {
+            nameBox.style.width = width + 'px';
+            nameBox.style.height = height + 'px';
+            
+            // 크기 변경 후 폰트 크기 자동 조정 비활성화
+            nameBox.dataset.fontSizeLocked = 'true';
+            
+            console.log(`이름박스 크기 복원: ${element.dataset.name}`, { width, height });
+        } else if (width !== null) {
+            nameBox.style.width = width + 'px';
+            console.log(`이름박스 너비만 복원: ${element.dataset.name}`, { width });
+        } else if (height !== null) {
+            nameBox.style.height = height + 'px';
+            console.log(`이름박스 높이만 복원: ${element.dataset.name}`, { height });
         }
-        if (y !== null) {
-            nameBox.style.top = y + 'px';
-            nameBox.style.transform = 'translateX(-50%)'; // X축만 중앙 정렬 유지
-            nameBox.dataset.positioned = 'manual';
+    }
+    
+    updateNameBoxFontSize(element, fontSize = null) {
+        const nameBox = this.getNameBoxForElement(element);
+        if (!nameBox) return;
+        
+        if (fontSize !== null) {
+            nameBox.style.fontSize = fontSize + 'px';
+            // 폰트 크기 수동 설정 표시
+            nameBox.dataset.fontSizeLocked = 'true';
         }
+        
+        console.log(`이름박스 폰트 크기 복원: ${element.dataset.name}`, { fontSize });
+    }
+    
+    // 특정 요소의 이름박스를 중앙에 정렬
+    centerNameBoxForElement(element) {
+        const nameBox = this.getNameBoxForElement(element);
+        if (!nameBox) return;
+        
+        // 기존 위치 및 크기 정보 제거
+        nameBox.style.left = '';
+        nameBox.style.top = '';
+        nameBox.style.width = '';
+        nameBox.style.height = '';
+        nameBox.style.fontSize = '';
+        nameBox.style.transform = '';
+        
+        // 중앙 정렬 적용
+        this.centerNameBox(nameBox);
+        
+        // 수동 위치 설정 표시 제거 (자동 정렬로 복원)
+        delete nameBox.dataset.positioned;
+        delete nameBox.dataset.fontSizeLocked;
+        
+        // 미배치교실 배치 시 중앙 정렬 보호 플래그 설정
+        nameBox.dataset.centeredForUnplaced = 'true';
+        
+        console.log(`이름박스 중앙 정렬: ${element.dataset.name}`);
+        
+        // 추가 보호: 0.5초 후에도 중앙 정렬 유지
+        setTimeout(() => {
+            if (nameBox.dataset.centeredForUnplaced === 'true') {
+                this.centerNameBox(nameBox);
+                console.log(`이름박스 중앙 정렬 유지: ${element.dataset.name}`);
+            }
+        }, 600);
     }
 }

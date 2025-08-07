@@ -23,6 +23,14 @@ import java.util.stream.Collectors;
 import jakarta.servlet.http.HttpSession;
 import java.util.ArrayList;
 import java.util.Optional;
+import com.inet.entity.Feature;
+import com.inet.entity.User;
+import com.inet.service.PermissionService;
+import com.inet.service.SchoolPermissionService;
+import com.inet.service.UserService;
+import com.inet.config.PermissionHelper;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Controller
 @RequestMapping("/classroom")
@@ -30,24 +38,83 @@ public class ClassroomController {
 
     private final ClassroomService classroomService;
     private final SchoolService schoolService;
+    private final PermissionService permissionService;
+    private final SchoolPermissionService schoolPermissionService;
+    private final UserService userService;
+    private final PermissionHelper permissionHelper;
 
     private static final Logger log = LoggerFactory.getLogger(ClassroomController.class);
 
-    public ClassroomController(ClassroomService classroomService, SchoolService schoolService) {
+    public ClassroomController(ClassroomService classroomService, SchoolService schoolService, 
+                             PermissionService permissionService, SchoolPermissionService schoolPermissionService, 
+                             UserService userService, PermissionHelper permissionHelper) {
         this.classroomService = classroomService;
         this.schoolService = schoolService;
+        this.permissionService = permissionService;
+        this.schoolPermissionService = schoolPermissionService;
+        this.userService = userService;
+        this.permissionHelper = permissionHelper;
+    }
+
+    // 권한 체크 메서드
+    private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName())
+            .orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkFeaturePermission(user, feature, redirectAttributes);
+    }
+    
+    // 학교 권한 체크 메서드
+    private User checkSchoolPermission(Feature feature, Long schoolId, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName())
+            .orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkSchoolPermission(user, feature, schoolId, redirectAttributes);
     }
 
     /**
      * 교실 관리 메인 페이지
      */
     @GetMapping("/manage")
-    public String managePage(@RequestParam(value = "schoolId", required = false) Long schoolId, Model model, HttpSession session) {
+    public String managePage(@RequestParam(value = "schoolId", required = false) Long schoolId, Model model, HttpSession session, RedirectAttributes redirectAttributes) {
+        // 권한 체크 (학교별 권한 체크는 schoolId가 있을 때만)
+        User user;
+        if (schoolId != null) {
+            user = checkSchoolPermission(Feature.CLASSROOM_MANAGEMENT, schoolId, redirectAttributes);
+        } else {
+            user = checkPermission(Feature.CLASSROOM_MANAGEMENT, redirectAttributes);
+        }
+        if (user == null) {
+            return "redirect:/";
+        }
         log.info("교실 관리 페이지 요청. schoolId: {}", schoolId);
         
-        List<School> schools = schoolService.getAllSchools();
+        List<School> schools = schoolPermissionService.getAccessibleSchools(user);
         model.addAttribute("schools", schools);
         log.info("전체 학교 수: {}", schools.size());
+        
+        // 권한 정보 추가
+        permissionHelper.addPermissionAttributes(user, model);
         
         if (schoolId != null) {
             return manageClassrooms(schoolId, model, session);
@@ -107,6 +174,12 @@ public class ClassroomController {
     public String addClassroom(@RequestParam("schoolId") Long schoolId,
                               @RequestParam("roomName") String roomName,
                               RedirectAttributes redirectAttributes) {
+        // 권한 체크 (학교별 권한 체크)
+        User user = checkSchoolPermission(Feature.CLASSROOM_MANAGEMENT, schoolId, redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
+        
         try {
             School school = schoolService.getSchoolById(schoolId)
                     .orElseThrow(() -> new RuntimeException("School not found with id: " + schoolId));
@@ -138,6 +211,12 @@ public class ClassroomController {
                                  @RequestParam("roomName") String roomName,
                                  @RequestParam("schoolId") Long schoolId,
                                  RedirectAttributes redirectAttributes) {
+        // 권한 체크 (학교별 권한 체크)
+        User user = checkSchoolPermission(Feature.CLASSROOM_MANAGEMENT, schoolId, redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
+        
         try {
             Classroom classroom = classroomService.getClassroomById(classroomId)
                     .orElseThrow(() -> new RuntimeException("Classroom not found with id: " + classroomId));
@@ -162,6 +241,12 @@ public class ClassroomController {
     public String deleteClassroom(@RequestParam("classroomId") Long classroomId,
                                  @RequestParam("schoolId") Long schoolId,
                                  RedirectAttributes redirectAttributes) {
+        // 권한 체크 (학교별 권한 체크)
+        User user = checkSchoolPermission(Feature.CLASSROOM_MANAGEMENT, schoolId, redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
+        
         try {
             classroomService.deleteClassroom(classroomId);
             redirectAttributes.addFlashAttribute("success", "교실이 성공적으로 삭제되었습니다.");
@@ -187,6 +272,12 @@ public class ClassroomController {
                                  @RequestParam("schoolId") Long schoolId,
                                  RedirectAttributes redirectAttributes,
                                  HttpSession session) {
+        // 권한 체크 (학교별 권한 체크)
+        User user = checkSchoolPermission(Feature.CLASSROOM_MANAGEMENT, schoolId, redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
+        
         try {
             classroomService.mergeClassrooms(targetId, sourceIds, newRoomName);
             

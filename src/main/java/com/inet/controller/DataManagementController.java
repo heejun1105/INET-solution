@@ -13,6 +13,14 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.util.ArrayList;
 import java.util.List;
+import com.inet.entity.Feature;
+import com.inet.entity.User;
+import com.inet.service.PermissionService;
+import com.inet.service.SchoolPermissionService;
+import com.inet.service.UserService;
+import com.inet.config.PermissionHelper;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Controller
 @RequestMapping("/data")
@@ -20,16 +28,71 @@ public class DataManagementController {
     
     private final SchoolService schoolService;
     private final DataManagementService dataManagementService;
+    private final PermissionService permissionService;
+    private final SchoolPermissionService schoolPermissionService;
+    private final UserService userService;
+    private final PermissionHelper permissionHelper;
 
     @Autowired
-    public DataManagementController(SchoolService schoolService, DataManagementService dataManagementService) {
+    public DataManagementController(SchoolService schoolService, DataManagementService dataManagementService,
+                                  PermissionService permissionService, SchoolPermissionService schoolPermissionService,
+                                  UserService userService, PermissionHelper permissionHelper) {
         this.schoolService = schoolService;
         this.dataManagementService = dataManagementService;
+        this.permissionService = permissionService;
+        this.schoolPermissionService = schoolPermissionService;
+        this.userService = userService;
+        this.permissionHelper = permissionHelper;
+    }
+
+    // 권한 체크 메서드
+    private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName())
+            .orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkFeaturePermission(user, feature, redirectAttributes);
+    }
+    
+    // 학교 권한 체크 메서드
+    private User checkSchoolPermission(Feature feature, Long schoolId, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName())
+            .orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkSchoolPermission(user, feature, schoolId, redirectAttributes);
     }
 
     @GetMapping("/delete")
-    public String showDeleteForm(Model model) {
-        model.addAttribute("schools", schoolService.getAllSchools());
+    public String showDeleteForm(Model model, RedirectAttributes redirectAttributes) {
+        // 권한 체크
+        User user = checkPermission(Feature.DATA_DELETE, redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
+        model.addAttribute("schools", schoolPermissionService.getAccessibleSchools(user));
+        
+        // 권한 정보 추가
+        permissionHelper.addPermissionAttributes(user, model);
+        
         return "data/delete";
     }
 
@@ -43,6 +106,21 @@ public class DataManagementController {
                                  @RequestParam(value = "deleteManages", required = false, defaultValue = "false") boolean deleteManages,
                                  @RequestParam(value = "deleteUids", required = false, defaultValue = "false") boolean deleteUids,
                                  RedirectAttributes redirectAttributes) {
+        
+        // 권한 체크 (학교별 권한 체크)
+        User user = checkPermission(Feature.DATA_DELETE, redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
+        
+        // 선택된 학교들에 대한 권한 체크
+        for (Long schoolId : schoolIds) {
+            User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.DATA_DELETE, schoolId, null);
+            if (checkedUser == null) {
+                redirectAttributes.addFlashAttribute("error", "ID가 " + schoolId + "인 학교에 대한 권한이 없습니다.");
+                return "redirect:/data/delete";
+            }
+        }
         
         if (schoolIds == null || schoolIds.isEmpty()) {
             redirectAttributes.addFlashAttribute("error", "삭제할 학교를 하나 이상 선택해주세요.");

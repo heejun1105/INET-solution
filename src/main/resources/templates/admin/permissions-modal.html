@@ -1,0 +1,399 @@
+<!-- 권한 설정 모달 내용 -->
+<div class="permissions-form">
+    <div class="permissions-info">
+        <h3><i class="fas fa-info-circle"></i> 권한 설정 안내</h3>
+        <p>사용자가 접근할 수 있는 기능을 선택하세요. 선택된 기능만 사용자가 이용할 수 있습니다.</p>
+    </div>
+    
+    <form id="permissionsForm" th:action="@{/admin/users/update-permissions}" method="post">
+        <input type="hidden" name="userId" th:value="${userId}">
+        <input type="hidden" id="permissionsInput" name="permissions" th:value="${permissions}">
+        
+        <div class="permissions-grid">
+            <div class="permission-item" data-permission="device">
+                <i class="fas fa-desktop"></i>
+                <div class="permission-name">장비 관리</div>
+                <div class="permission-desc">장비 등록, 수정, 삭제</div>
+            </div>
+            
+            <div class="permission-item" data-permission="school">
+                <i class="fas fa-university"></i>
+                <div class="permission-name">학교 관리</div>
+                <div class="permission-desc">학교 정보 관리</div>
+            </div>
+            
+            <div class="permission-item" data-permission="classroom">
+                <i class="fas fa-door-open"></i>
+                <div class="permission-name">교실 관리</div>
+                <div class="permission-desc">교실 정보 관리</div>
+            </div>
+            
+            <div class="permission-item" data-permission="wireless-ap">
+                <i class="fas fa-broadcast-tower"></i>
+                <div class="permission-name">무선 AP</div>
+                <div class="permission-desc">무선 AP 관리</div>
+            </div>
+            
+            <div class="permission-item" data-permission="ip">
+                <i class="fas fa-network-wired"></i>
+                <div class="permission-name">IP 대장</div>
+                <div class="permission-desc">IP 주소 관리</div>
+            </div>
+            
+            <div class="permission-item" data-permission="floorplan">
+                <i class="fas fa-map-marked-alt"></i>
+                <div class="permission-name">학교 평면도</div>
+                <div class="permission-desc">평면도 관리</div>
+            </div>
+            
+            <div class="permission-item" data-permission="data">
+                <i class="fas fa-eraser"></i>
+                <div class="permission-name">데이터 삭제</div>
+                <div class="permission-desc">데이터 삭제 기능</div>
+            </div>
+        </div>
+        
+        <div class="form-buttons">
+            <button type="submit" class="btn btn-primary" id="savePermissionsBtn">
+                <i class="fas fa-save"></i>
+                권한 저장
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="closePermissionsModal()">
+                <i class="fas fa-times"></i>
+                취소
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+    .permissions-form {
+        padding: 20px;
+    }
+    
+    .permissions-info {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .permissions-info h3 {
+        margin: 0 0 10px 0;
+        color: #0369a1;
+        font-size: 1.1rem;
+    }
+    
+    .permissions-info p {
+        margin: 0;
+        color: #0c4a6e;
+        font-size: 0.9rem;
+    }
+    
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .permission-item {
+        background: #f9fafb;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 15px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .permission-item:hover {
+        border-color: #10b981;
+        background: #f0fdf4;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+    }
+    
+    .permission-item.selected {
+        border-color: #10b981;
+        background: #d1fae5;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    
+    .permission-item i {
+        font-size: 1.5rem;
+        margin-bottom: 8px;
+        color: #6b7280;
+        transition: color 0.3s ease;
+    }
+    
+    .permission-item.selected i {
+        color: #10b981;
+    }
+    
+    .permission-name {
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+    }
+    
+    .permission-desc {
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+    
+    .form-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 20px;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+    }
+    
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background: #4b5563;
+        transform: translateY(-1px);
+    }
+    
+    .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+</style>
+
+<script th:inline="javascript">
+    // 현재 권한 설정 불러오기
+    const currentPermissions = /*[[${permissions}]]*/ '[]';
+    let selectedPermissions = [];
+    
+    console.log('=== 권한 설정 모달 디버깅 시작 ===');
+    console.log('서버에서 받은 권한 데이터:', currentPermissions);
+    console.log('권한 데이터 타입:', typeof currentPermissions);
+    
+    try {
+        if (currentPermissions && currentPermissions !== 'null' && currentPermissions !== '') {
+            selectedPermissions = JSON.parse(currentPermissions);
+        } else {
+            selectedPermissions = [];
+        }
+        console.log('파싱된 권한 배열:', selectedPermissions);
+        console.log('권한 배열 길이:', selectedPermissions.length);
+    } catch (e) {
+        console.error('권한 파싱 오류:', e);
+        selectedPermissions = [];
+    }
+    
+    // 권한 토글 함수
+    function togglePermission(element, permission) {
+        console.log('=== 권한 토글 함수 호출 ===');
+        console.log('클릭된 요소:', element);
+        console.log('권한:', permission);
+        console.log('현재 선택된 권한들:', selectedPermissions);
+        
+        if (element.classList.contains('selected')) {
+            // 선택 해제
+            element.classList.remove('selected');
+            selectedPermissions = selectedPermissions.filter(p => p !== permission);
+            console.log('권한 해제됨:', permission);
+        } else {
+            // 선택
+            element.classList.add('selected');
+            selectedPermissions.push(permission);
+            console.log('권한 선택됨:', permission);
+        }
+        
+        console.log('업데이트된 권한 배열:', selectedPermissions);
+        
+        // hidden input 업데이트
+        const permissionsInput = document.getElementById('permissionsInput');
+        if (permissionsInput) {
+            permissionsInput.value = JSON.stringify(selectedPermissions);
+            console.log('hidden input 업데이트됨:', permissionsInput.value);
+        } else {
+            console.error('permissionsInput을 찾을 수 없습니다!');
+        }
+    }
+    
+    // 이벤트 리스너 등록 함수
+    function setupEventListeners() {
+        console.log('=== 이벤트 리스너 등록 시작 ===');
+        
+        const permissionItems = document.querySelectorAll('.permission-item');
+        console.log('찾은 권한 아이템 개수:', permissionItems.length);
+        
+        // 권한 아이템 클릭 이벤트 등록
+        permissionItems.forEach((item, index) => {
+            const permission = item.dataset.permission;
+            console.log(`권한 아이템 ${index + 1}:`, permission);
+            
+            // 기존 이벤트 리스너 제거
+            item.removeEventListener('click', item.clickHandler);
+            
+            // 새 이벤트 리스너 등록
+            item.clickHandler = function() {
+                console.log('권한 아이템 클릭됨:', permission);
+                togglePermission(this, permission);
+            };
+            
+            item.addEventListener('click', item.clickHandler);
+            console.log(`권한 아이템 ${index + 1} 이벤트 리스너 등록 완료`);
+        });
+        
+        // 폼 제출 이벤트 등록
+        const form = document.getElementById('permissionsForm');
+        if (form) {
+            console.log('폼 찾음, 제출 이벤트 등록');
+            
+            // 기존 이벤트 리스너 제거
+            form.removeEventListener('submit', form.submitHandler);
+            
+            // 새 이벤트 리스너 등록
+            form.submitHandler = function(e) {
+                e.preventDefault();
+                console.log('폼 제출됨');
+                
+                const saveBtn = document.getElementById('savePermissionsBtn');
+                if (saveBtn) {
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
+                }
+                
+                console.log('저장할 권한:', selectedPermissions);
+                
+                // 폼 데이터 준비
+                const formData = new FormData(this);
+                formData.set('permissions', JSON.stringify(selectedPermissions));
+                
+                // AJAX로 권한 저장
+                fetch('/admin/users/update-permissions', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    console.log('서버 응답 상태:', response.status);
+                    if (!response.ok) {
+                        throw new Error('권한 저장 실패');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    console.log('권한 저장 성공:', data);
+                    alert('권한이 성공적으로 저장되었습니다.');
+                    
+                    // 부모 페이지 새로고침
+                    if (window.parent && window.parent.location) {
+                        window.parent.location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('권한 저장 오류:', error);
+                    alert('권한 저장 중 오류가 발생했습니다.');
+                })
+                .finally(() => {
+                    if (saveBtn) {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = '<i class="fas fa-save"></i> 권한 저장';
+                    }
+                });
+            };
+            
+            form.addEventListener('submit', form.submitHandler);
+        } else {
+            console.error('폼을 찾을 수 없습니다!');
+        }
+        
+        console.log('=== 이벤트 리스너 등록 완료 ===');
+    }
+    
+    // 페이지 로드 시 초기화
+    function initializePermissions() {
+        console.log('=== 권한 설정 초기화 시작 ===');
+        
+        // 현재 권한 표시
+        console.log('표시할 권한들:', selectedPermissions);
+        selectedPermissions.forEach(permission => {
+            const item = document.querySelector(`[data-permission="${permission}"]`);
+            if (item) {
+                item.classList.add('selected');
+                console.log(`권한 선택 표시됨: ${permission}`);
+            } else {
+                console.error(`권한 아이템을 찾을 수 없음: ${permission}`);
+            }
+        });
+        
+        // hidden input 초기화
+        const permissionsInput = document.getElementById('permissionsInput');
+        if (permissionsInput) {
+            permissionsInput.value = JSON.stringify(selectedPermissions);
+            console.log('hidden input 초기화됨:', permissionsInput.value);
+        } else {
+            console.error('permissionsInput을 찾을 수 없습니다!');
+        }
+        
+        // 이벤트 리스너 등록
+        setupEventListeners();
+        
+        console.log('=== 권한 설정 초기화 완료 ===');
+    }
+    
+    // DOM 로드 완료 시 초기화
+    console.log('DOM 상태:', document.readyState);
+    if (document.readyState === 'loading') {
+        console.log('DOM 로딩 중, DOMContentLoaded 이벤트 대기');
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded 이벤트 발생');
+            initializePermissions();
+        });
+    } else {
+        console.log('DOM 이미 로드됨, 즉시 초기화');
+        initializePermissions();
+    }
+    
+    // 모달 닫기 함수
+    function closePermissionsModal() {
+        console.log('모달 닫기 함수 호출');
+        if (window.parent && window.parent.closePermissionsModal) {
+            window.parent.closePermissionsModal();
+        }
+    }
+    
+    // 전역 함수로 노출
+    window.togglePermission = togglePermission;
+    window.closePermissionsModal = closePermissionsModal;
+    window.initializePermissions = initializePermissions;
+    
+    console.log('=== 권한 설정 모달 스크립트 로드 완료 ===');
+</script> 

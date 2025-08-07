@@ -6,6 +6,7 @@
     <title>장비 등록</title>
     <link rel="stylesheet" href="/device.css">
     <link rel="stylesheet" href="/main.css" />
+    <link rel="stylesheet" href="/navbar.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* 전체 컨테이너 스타일 */
@@ -863,14 +864,28 @@
                     const yearSelect = document.getElementById('uidYear');
                     yearSelect.innerHTML = '<option value="">연도 선택</option>';
                     
-                    // years가 배열인지 확인
-                    if (Array.isArray(years)) {
+                    // years가 배열인지 확인하고 모든 연도 표시
+                    if (Array.isArray(years) && years.length > 0) {
                         years.forEach(year => {
                             const option = document.createElement('option');
                             option.value = year;
                             option.textContent = year;
                             yearSelect.appendChild(option);
                         });
+                    } else {
+                        // 데이터가 없는 경우 현재 연도와 이전 연도 추가
+                        const currentYear = new Date().getFullYear().toString().slice(-2);
+                        const previousYear = (parseInt(currentYear) - 1).toString();
+                        
+                        const currentOption = document.createElement('option');
+                        currentOption.value = currentYear;
+                        currentOption.textContent = currentYear;
+                        yearSelect.appendChild(currentOption);
+                        
+                        const previousOption = document.createElement('option');
+                        previousOption.value = previousYear;
+                        previousOption.textContent = previousYear;
+                        yearSelect.appendChild(previousOption);
                     }
                     
                     const customOption = document.createElement('option');
@@ -903,6 +918,9 @@
                 url = `/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}?year=${year}`;
             }
             
+            console.log('=== 고유번호 번호 로드 시작 ===');
+            console.log('URL:', url);
+            
             fetch(url)
                 .then(response => {
                     console.log('고유번호 번호 API 응답 상태:', response.status);
@@ -917,16 +935,18 @@
                     const numSelect = document.getElementById('uidNum');
                     numSelect.innerHTML = '<option value="">번호 선택</option>';
                     
-                    // nums가 배열인지 확인
+                    // nums가 배열인지 확인하고 마지막 번호+1 표시
                     if (Array.isArray(nums) && nums.length > 0) {
-                        // 마지막 번호+1만 표시
-                        const lastNum = nums[nums.length - 1]; // 마지막 번호 (신규)
+                        // 마지막 번호+1을 신규 번호로 표시
+                        const nextNum = nums[nums.length - 1]; // API에서 이미 다음 번호를 반환
                         
                         const option = document.createElement('option');
-                        option.value = lastNum;
-                        option.textContent = lastNum + ' (신규)';
+                        option.value = nextNum;
+                        option.textContent = nextNum + ' (신규)';
                         option.selected = true; // 기본 선택
                         numSelect.appendChild(option);
+                        
+                        console.log('신규 번호 설정:', nextNum);
                     } else {
                         // 번호가 없는 경우 1번을 신규로 추가
                         const option = document.createElement('option');
@@ -934,12 +954,16 @@
                         option.textContent = '1 (신규)';
                         option.selected = true;
                         numSelect.appendChild(option);
+                        
+                        console.log('기본 번호 설정: 1');
                     }
                     
                     const customOption = document.createElement('option');
                     customOption.value = 'custom';
                     customOption.textContent = '직접입력';
                     numSelect.appendChild(customOption);
+                    
+                    console.log('고유번호 번호 옵션 추가 완료');
                 })
                 .catch(error => {
                     console.error('고유번호 번호 로드 중 오류:', error);

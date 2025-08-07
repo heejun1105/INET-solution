@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>장비 엑셀 업로드</title>
     <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="/navbar.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* 전체 컨테이너 스타일 */
@@ -598,7 +599,7 @@
                                 <i class="fas fa-school"></i>
                                 학교 선택
                             </label>
-                    <select name="schoolId" required>
+                    <select name="schoolId" required style="z-index: 1000; position: relative;">
                         <option value="">학교를 선택하세요</option>
                         <option th:each="school : ${schools}" th:value="${school.schoolId}" th:text="${school.schoolName}"></option>
                     </select>
@@ -614,11 +615,7 @@
                     </div>
                 </form>
 
-                <!-- 알림 메시지 -->
-                <div th:if="${message}" class="alert alert-success">
-                    <i class="fas fa-check-circle"></i>
-                    <span>[[${message}]]</span>
-                </div>
+                <!-- 오류 메시지만 표시 -->
                 <div th:if="${error}" class="alert alert-danger">
                     <i class="fas fa-exclamation-circle"></i>
                     <span>[[${error}]]</span>
@@ -709,6 +706,30 @@
     <div th:replace="~{fragments/footer :: footer}"></div>
 
     <script>
+        // 디버깅: 학교 선택 셀렉트 확인
+        document.addEventListener('DOMContentLoaded', function() {
+            const schoolSelect = document.querySelector('select[name="schoolId"]');
+            console.log('학교 선택 셀렉트 요소:', schoolSelect);
+            console.log('학교 옵션 개수:', schoolSelect ? schoolSelect.options.length : '요소 없음');
+            
+            if (schoolSelect) {
+                console.log('학교 옵션들:');
+                for (let i = 0; i < schoolSelect.options.length; i++) {
+                    console.log(`옵션 ${i}:`, schoolSelect.options[i].text, schoolSelect.options[i].value);
+                }
+                
+                // 클릭 이벤트 테스트
+                schoolSelect.addEventListener('click', function(e) {
+                    console.log('학교 선택 셀렉트 클릭됨');
+                });
+                
+                // 포커스 이벤트 테스트
+                schoolSelect.addEventListener('focus', function(e) {
+                    console.log('학교 선택 셀렉트 포커스됨');
+                });
+            }
+        });
+        
         // 폼 업로드 로딩 처리
         document.getElementById('uploadForm').addEventListener('submit', function(e) {
             const fileInput = document.querySelector('input[name="file"]');
@@ -812,6 +833,12 @@
         });
     </script>
 
+    <script th:if="${message}">
+        // 성공 메시지를 alert으로 표시
+        var successMessage = /*[[${message}]]*/ "업로드가 성공했습니다.";
+        alert(successMessage);
+    </script>
+    
     <script th:if="${error}">
         // 오류 메시지에 따라 적절한 메시지를 표시
         var errorMessage = /*[[${error}]]*/ "오류가 발생했습니다.";

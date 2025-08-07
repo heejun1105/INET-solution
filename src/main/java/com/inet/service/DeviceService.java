@@ -15,6 +15,9 @@ import com.inet.service.OperatorService;
 import com.inet.service.ClassroomService;
 import com.inet.entity.Uid;
 import com.inet.service.UidService;
+import com.inet.entity.DeviceHistory;
+import com.inet.entity.User;
+import com.inet.service.DeviceHistoryService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,6 +64,7 @@ public class DeviceService {
     private final ManageRepository manageRepository;
     private final ClassroomService classroomService;
     private final UidService uidService;
+    private final DeviceHistoryService deviceHistoryService;
     
     @PersistenceContext
     private EntityManager entityManager;
@@ -93,6 +97,103 @@ public class DeviceService {
     public Device updateDevice(Device device) {
         System.out.println("Updating device: " + device);
         return deviceRepository.save(device);
+    }
+    
+    /**
+     * 장비 수정 시 히스토리 저장
+     */
+    @Transactional
+    public void updateDeviceWithHistory(Device originalDevice, Device updatedDevice, User modifiedBy) {
+        // 각 필드별로 변경사항 확인 및 히스토리 저장
+        if (!equals(originalDevice.getType(), updatedDevice.getType())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "type", 
+                originalDevice.getType(), updatedDevice.getType(), modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getManufacturer(), updatedDevice.getManufacturer())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "manufacturer", 
+                originalDevice.getManufacturer(), updatedDevice.getManufacturer(), modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getModelName(), updatedDevice.getModelName())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "modelName", 
+                originalDevice.getModelName(), updatedDevice.getModelName(), modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getPurchaseDate(), updatedDevice.getPurchaseDate())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "purchaseDate", 
+                originalDevice.getPurchaseDate() != null ? originalDevice.getPurchaseDate().toString() : null,
+                updatedDevice.getPurchaseDate() != null ? updatedDevice.getPurchaseDate().toString() : null, modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getIpAddress(), updatedDevice.getIpAddress())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "ipAddress", 
+                originalDevice.getIpAddress(), updatedDevice.getIpAddress(), modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getPurpose(), updatedDevice.getPurpose())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "purpose", 
+                originalDevice.getPurpose(), updatedDevice.getPurpose(), modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getSetType(), updatedDevice.getSetType())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "setType", 
+                originalDevice.getSetType(), updatedDevice.getSetType(), modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getUnused(), updatedDevice.getUnused())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "unused", 
+                originalDevice.getUnused() != null ? originalDevice.getUnused().toString() : null,
+                updatedDevice.getUnused() != null ? updatedDevice.getUnused().toString() : null, modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getNote(), updatedDevice.getNote())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "note", 
+                originalDevice.getNote(), updatedDevice.getNote(), modifiedBy);
+        }
+        
+        // 연관 엔티티 변경사항 확인
+        if (!equals(originalDevice.getSchool(), updatedDevice.getSchool())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "school", 
+                originalDevice.getSchool() != null ? originalDevice.getSchool().getSchoolName() : null,
+                updatedDevice.getSchool() != null ? updatedDevice.getSchool().getSchoolName() : null, modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getClassroom(), updatedDevice.getClassroom())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "classroom", 
+                originalDevice.getClassroom() != null ? originalDevice.getClassroom().getRoomName() : null,
+                updatedDevice.getClassroom() != null ? updatedDevice.getClassroom().getRoomName() : null, modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getOperator(), updatedDevice.getOperator())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "operator", 
+                originalDevice.getOperator() != null ? originalDevice.getOperator().getName() : null,
+                updatedDevice.getOperator() != null ? updatedDevice.getOperator().getName() : null, modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getManage(), updatedDevice.getManage())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "manage", 
+                originalDevice.getManage() != null ? originalDevice.getManage().getManageNum().toString() : null,
+                updatedDevice.getManage() != null ? updatedDevice.getManage().getManageNum().toString() : null, modifiedBy);
+        }
+        
+        if (!equals(originalDevice.getUid(), updatedDevice.getUid())) {
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "uid", 
+                originalDevice.getUid() != null ? originalDevice.getUid().getIdNumber().toString() : null,
+                updatedDevice.getUid() != null ? updatedDevice.getUid().getIdNumber().toString() : null, modifiedBy);
+        }
+        
+        // 장비 저장
+        deviceRepository.save(updatedDevice);
+    }
+    
+    /**
+     * 두 객체가 같은지 비교 (null 안전)
+     */
+    private boolean equals(Object obj1, Object obj2) {
+        if (obj1 == obj2) return true;
+        if (obj1 == null || obj2 == null) return false;
+        return obj1.equals(obj2);
     }
     
     // Delete
@@ -257,7 +358,11 @@ public class DeviceService {
                         cell.setCellValue(i + 1);
                         break;
                     case 1: // 고유번호
-                        cell.setCellValue(device.getUid() != null ? device.getUid().getCate() + device.getUid().getIdNumber() : "");
+                        String uidDisplay = "";
+                        if (device.getUid() != null && device.getSchool() != null) {
+                            uidDisplay = device.getSchool().getSchoolId() + device.getUid().getDisplayId();
+                        }
+                        cell.setCellValue(uidDisplay);
                         break;
                     case 2: // 관리번호
                         String manageNo = "";
@@ -530,9 +635,24 @@ public class DeviceService {
                         modelName = getCellString(row.getCell(6));
                         
                         Cell dateCell = row.getCell(7); // 도입일자 컬럼
+                        System.out.println("=== DATE CELL PROCESSING ===");
+                        System.out.println("Row: " + rowCount + ", Cell index: 7");
+                        System.out.println("Cell: " + dateCell);
+                        System.out.println("Cell type: " + (dateCell != null ? dateCell.getCellType() : "null"));
+                        System.out.println("Cell value: " + (dateCell != null ? getCellString(dateCell) : "null"));
+                        
+                        // 모든 셀 정보 출력 (디버깅용)
+                        System.out.println("=== ALL CELLS INFO ===");
+                        for (int i = 0; i < 13; i++) {
+                            Cell cell = row.getCell(i);
+                            System.out.println("Cell[" + i + "]: " + (cell != null ? getCellString(cell) : "null"));
+                        }
+                        
                         if (dateCell != null && dateCell.getCellType() != CellType.BLANK) {
                             purchaseDate = parseLocalDate(dateCell);
                             System.out.println(rowCount + "번째 행 도입일자 파싱 결과: " + purchaseDate);
+                        } else {
+                            System.out.println("도입일자 셀이 비어있습니다");
                         }
                         
                         ipAddress = getCellString(row.getCell(8));
@@ -782,10 +902,23 @@ public class DeviceService {
                     return cell.getStringCellValue().trim();
                 case NUMERIC:
                     if (DateUtil.isCellDateFormatted(cell)) {
-                        return cell.getLocalDateTimeCellValue().toString();
+                        return cell.getLocalDateTimeCellValue().toLocalDate().toString();
                     } else {
-                        // 숫자를 문자열로 변환 (소수점 제거)
+                        // 숫자 값이 날짜일 가능성 체크 (Excel 날짜는 1부터 시작)
                         double numValue = cell.getNumericCellValue();
+                        if (numValue > 1 && numValue < 100000) { // Excel 날짜 범위
+                            try {
+                                // Excel 날짜를 LocalDate로 변환
+                                java.util.Date date = DateUtil.getJavaDate(numValue);
+                                java.time.LocalDate localDate = date.toInstant()
+                                    .atZone(java.time.ZoneId.systemDefault())
+                                    .toLocalDate();
+                                return localDate.toString();
+                            } catch (Exception e) {
+                                System.out.println("Excel date conversion failed: " + e.getMessage());
+                            }
+                        }
+                        // 일반 숫자 처리
                         if (numValue == Math.floor(numValue)) {
                             return String.format("%.0f", numValue);
                         } else {
@@ -804,9 +937,23 @@ public class DeviceService {
                             return cell.getStringCellValue().trim();
                         } else if (cachedFormulaResultType == CellType.NUMERIC) {
                             if (DateUtil.isCellDateFormatted(cell)) {
-                                return cell.getLocalDateTimeCellValue().toString();
+                                return cell.getLocalDateTimeCellValue().toLocalDate().toString();
                             } else {
+                                // 숫자 값이 날짜일 가능성 체크 (Excel 날짜는 1부터 시작)
                                 double numValue = cell.getNumericCellValue();
+                                if (numValue > 1 && numValue < 100000) { // Excel 날짜 범위
+                                    try {
+                                        // Excel 날짜를 LocalDate로 변환
+                                        java.util.Date date = DateUtil.getJavaDate(numValue);
+                                        java.time.LocalDate localDate = date.toInstant()
+                                            .atZone(java.time.ZoneId.systemDefault())
+                                            .toLocalDate();
+                                        return localDate.toString();
+                                    } catch (Exception e) {
+                                        System.out.println("Excel date conversion failed: " + e.getMessage());
+                                    }
+                                }
+                                // 일반 숫자 처리
                                 if (numValue == Math.floor(numValue)) {
                                     return String.format("%.0f", numValue);
                                 } else {
@@ -858,14 +1005,40 @@ public class DeviceService {
     }
 
     private LocalDate parseLocalDate(Cell cell) {
-        String value = getCellString(cell);
-        if (value == null || value.isBlank()) return null;
+        System.out.println("=== PARSE LOCAL DATE CALLED ===");
+        System.out.println("Cell: " + cell);
+        if (cell == null) {
+            System.out.println("Cell is null");
+            return null;
+        }
         
         try {
-            // 셀이 날짜 형식인 경우 직접 변환
+            // 1. Excel의 날짜 형식인 경우 직접 변환 (가장 우선)
             if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+                System.out.println("Excel 날짜 형식 감지됨: " + cell.getLocalDateTimeCellValue());
                 return cell.getLocalDateTimeCellValue().toLocalDate();
             }
+            
+            // 2. FORMULA 셀이면서 날짜 결과인 경우
+            if (cell.getCellType() == CellType.FORMULA) {
+                try {
+                    CellType cachedType = cell.getCachedFormulaResultType();
+                    if (cachedType == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+                        System.out.println("Excel 날짜 공식 결과 감지됨: " + cell.getLocalDateTimeCellValue());
+                        return cell.getLocalDateTimeCellValue().toLocalDate();
+                    }
+                } catch (Exception e) {
+                    System.out.println("공식 셀 날짜 처리 중 오류: " + e.getMessage());
+                }
+            }
+            
+            // 3. 문자열로 변환하여 처리
+            String value = getCellString(cell);
+            if (value == null || value.isBlank()) return null;
+            
+            System.out.println("String date processing: " + value);
+            System.out.println("Original cell type: " + cell.getCellType());
+            System.out.println("Cell value: " + cell.toString());
             
             // 문자열 전처리 - 다양한 구분자와 형식 정규화
             value = value.trim()
@@ -874,17 +1047,23 @@ public class DeviceService {
                     .replaceAll("--", "-").replaceAll("-$", "");
             
             // 다양한 날짜 형식 처리
+            System.out.println("날짜 형식 매칭 시도: " + value);
+            
             if (value.matches("\\d{4}-\\d{1,2}-\\d{1,2}")) {
                 // YYYY-MM-DD 형식
+                System.out.println("YYYY-MM-DD 형식 매칭됨: " + value);
                 return LocalDate.parse(value, DateTimeFormatter.ofPattern("yyyy-M-d"));
             } else if (value.matches("\\d{4}-\\d{1,2}")) {
                 // YYYY-MM 형식 (일은 1일로 설정)
+                System.out.println("YYYY-MM 형식 매칭됨: " + value);
                 return LocalDate.parse(value + "-01", DateTimeFormatter.ofPattern("yyyy-M-d"));
             } else if (value.matches("\\d{4}")) {
                 // YYYY 형식 (월과 일은 1월 1일로 설정)
+                System.out.println("YYYY 형식 매칭됨: " + value);
                 return LocalDate.parse(value + "-01-01", DateTimeFormatter.ofPattern("yyyy-M-d"));
             } else if (value.matches("\\d{2}-\\d{1,2}")) {
                 // YY-MM 형식 (현재 세기에 맞춰 연도 해석, 일은 1일로 설정)
+                System.out.println("YY-MM 형식 매칭됨: " + value);
                 int currentCentury = LocalDate.now().getYear() / 100 * 100;
                 int year = Integer.parseInt(value.split("-")[0]);
                 if (year > LocalDate.now().getYear() % 100) {
@@ -895,6 +1074,7 @@ public class DeviceService {
                         DateTimeFormatter.ofPattern("yyyy-M-d"));
             } else if (value.matches("\\d{2}")) {
                 // YY 형식 (현재 세기에 맞춰 연도 해석, 월과 일은 1월 1일로 설정)
+                System.out.println("YY 형식 매칭됨: " + value);
                 int currentCentury = LocalDate.now().getYear() / 100 * 100;
                 int year = Integer.parseInt(value);
                 if (year > LocalDate.now().getYear() % 100) {
@@ -904,9 +1084,32 @@ public class DeviceService {
                 return LocalDate.parse((currentCentury + year) + "-01-01", 
                         DateTimeFormatter.ofPattern("yyyy-M-d"));
             }
+            
+            // 4. 추가 날짜 형식 처리 (MM/DD/YYYY, DD/MM/YYYY 등)
+            if (value.matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+                // MM/DD/YYYY 또는 DD/MM/YYYY 형식
+                String[] parts = value.split("/");
+                if (parts.length == 3) {
+                    int first = Integer.parseInt(parts[0]);
+                    int second = Integer.parseInt(parts[1]);
+                    int year = Integer.parseInt(parts[2]);
+                    
+                    // 첫 번째 숫자가 12 이하면 월로 해석, 아니면 일로 해석
+                    if (first <= 12) {
+                        // MM/DD/YYYY 형식
+                        return LocalDate.of(year, first, second);
+                    } else {
+                        // DD/MM/YYYY 형식
+                        return LocalDate.of(year, second, first);
+                    }
+                }
+            }
+            
         } catch (DateTimeParseException | NumberFormatException e) {
             // 날짜 파싱 실패 시 null 반환 (오류 메시지 없이 계속 진행)
-            System.out.println("날짜 파싱 오류: " + value + " - " + e.getMessage());
+            System.out.println("날짜 파싱 오류: " + (cell != null ? getCellString(cell) : "null") + " - " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("날짜 처리 중 예상치 못한 오류: " + e.getMessage());
         }
         
         // 어떤 형식으로도 파싱할 수 없는 경우 null 반환 (오류 발생 없이 빈 값으로 처리)

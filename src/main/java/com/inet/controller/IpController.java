@@ -3,13 +3,22 @@ package com.inet.controller;
 import com.inet.entity.Device;
 import com.inet.entity.School;
 import com.inet.entity.Manage;
+import com.inet.entity.Feature;
+import com.inet.entity.User;
 import com.inet.service.DeviceService;
 import com.inet.service.SchoolService;
+import com.inet.service.PermissionService;
+import com.inet.service.SchoolPermissionService;
+import com.inet.service.UserService;
+import com.inet.config.PermissionHelper;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.poi.ss.usermodel.*;
@@ -40,6 +49,46 @@ public class IpController {
     private static final Logger logger = LoggerFactory.getLogger(IpController.class);
     private final DeviceService deviceService;
     private final SchoolService schoolService;
+    private final PermissionService permissionService;
+    private final SchoolPermissionService schoolPermissionService;
+    private final UserService userService;
+    private final PermissionHelper permissionHelper;
+    
+    // 권한 체크 메서드
+    private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName())
+            .orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkFeaturePermission(user, feature, redirectAttributes);
+    }
+    
+    // 학교 권한 체크 메서드
+    private User checkSchoolPermission(Feature feature, Long schoolId, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName())
+            .orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkSchoolPermission(user, feature, schoolId, redirectAttributes);
+    }
 
     // IP 주소 유효성 검사 메서드
     private boolean isValidIpAddress(String ipAddress) {
@@ -83,10 +132,24 @@ public class IpController {
     @GetMapping("/iplist")
     public String ipList(@RequestParam(required = false) Long schoolId, 
                         @RequestParam(required = false) String secondOctet,
-                        Model model) {
-        // 학교 목록 조회
-        List<School> schools = schoolService.getAllSchools();
+                        Model model, RedirectAttributes redirectAttributes) {
+        // 권한 체크 (학교별 권한 체크는 schoolId가 있을 때만)
+        User user;
+        if (schoolId != null) {
+            user = checkSchoolPermission(Feature.DEVICE_LIST, schoolId, redirectAttributes);
+        } else {
+            user = checkPermission(Feature.DEVICE_LIST, redirectAttributes);
+        }
+        if (user == null) {
+            return "redirect:/";
+        }
+        
+        // 학교 목록 조회 (권한이 있는 학교만)
+        List<School> schools = schoolPermissionService.getAccessibleSchools(user);
         model.addAttribute("schools", schools);
+        
+        // 권한 정보 추가
+        permissionHelper.addPermissionAttributes(user, model);
 
         School selectedSchool = null;
         if (schoolId != null) {
@@ -178,6 +241,25 @@ public class IpController {
     @GetMapping("/download")
     public void downloadExcel(@RequestParam Long schoolId, @RequestParam(required = false) String secondOctet, 
                             HttpServletResponse response) throws IOException {
+        
+        // 권한 체크
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "로그인이 필요합니다.");
+            return;
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "사용자를 찾을 수 없습니다.");
+            return;
+        }
+        
+        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.DEVICE_LIST, schoolId, null);
+        if (checkedUser == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "해당 학교에 대한 권한이 없습니다.");
+            return;
+        }
         School school = schoolService.getSchoolById(schoolId)
             .orElseThrow(() -> new RuntimeException("School not found with id: " + schoolId));
 

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입 - I-NET</title>
+    <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="/navbar.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .signup-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .signup-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .signup-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .signup-header h1 {
+            color: white;
+            font-size: 2rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .signup-header p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: white;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #10b981;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+        
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .password-requirements {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .password-requirements ul {
+            margin: 5px 0 0 0;
+            padding-left: 20px;
+        }
+        
+        .signup-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        .signup-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+        }
+        
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: block;
+            cursor: pointer;
+        }
+        
+        .login-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #10b981;
+            color: white;
+            transform: translateY(-1px);
+        }
+        
+        .login-btn .login-text {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .login-btn .login-link-text {
+            color: #10b981;
+            font-weight: 600;
+        }
+        
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+        
+        .back-home {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-decoration: none;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-home:hover {
+            color: #10b981;
+            transform: translateX(-5px);
+        }
+        
+        @media (max-width: 768px) {
+            .signup-card {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-home">
+        <i class="fas fa-arrow-left"></i>
+        홈으로 돌아가기
+    </a>
+    
+    <div class="signup-container">
+        <div class="signup-card">
+            <div class="signup-header">
+                <h1>회원가입</h1>
+                <p>I-NET 시스템에 가입하세요</p>
+            </div>
+            
+            <!-- 에러 메시지 -->
+            <div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
+            
+            <form th:action="@{/signup}" method="post">
+                <div class="form-group">
+                    <label for="username">아이디 *</label>
+                    <input type="text" id="username" name="username" required 
+                           placeholder="아이디를 입력하세요">
+                </div>
+                
+                <div class="form-group">
+                    <label for="name">이름 *</label>
+                    <input type="text" id="name" name="name" required 
+                           placeholder="이름을 입력하세요">
+                </div>
+                
+                <div class="form-group">
+                    <label for="birthYear">생년월일 *</label>
+                    <div style="display: flex; gap: 10px;">
+                                            <select id="birthYear" name="birthYear" required style="flex: 1; padding: 12px 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; background: rgba(255, 255, 255, 0.1); color: white; font-size: 1rem;">
+                        <option value="" style="color: #374151;">년도</option>
+                    </select>
+                    <select id="birthMonth" name="birthMonth" required style="flex: 1; padding: 12px 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; background: rgba(255, 255, 255, 0.1); color: white; font-size: 1rem;">
+                        <option value="" style="color: #374151;">월</option>
+                    </select>
+                    <select id="birthDay" name="birthDay" required style="flex: 1; padding: 12px 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; background: rgba(255, 255, 255, 0.1); color: white; font-size: 1rem;">
+                        <option value="" style="color: #374151;">일</option>
+                    </select>
+                    </div>
+                    <input type="hidden" id="birthDate" name="birthDate">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">비밀번호 *</label>
+                    <input type="password" id="password" name="password" required 
+                           placeholder="비밀번호를 입력하세요">
+                    <div class="password-requirements">
+                        <strong>비밀번호 요구사항:</strong>
+                        <ul>
+                            <li>7자 이상</li>
+                            <li>특수문자 포함 (!@#$%^&* 등)</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">비밀번호 확인 *</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required 
+                           placeholder="비밀번호를 다시 입력하세요">
+                </div>
+                
+                <div class="form-group">
+                    <label for="organization">소속 *</label>
+                    <input type="text" id="organization" name="organization" required 
+                           placeholder="소속을 입력하세요">
+                </div>
+                
+                <div class="form-group">
+                    <label for="position">직위 *</label>
+                    <input type="text" id="position" name="position" required 
+                           placeholder="직위를 입력하세요">
+                </div>
+                
+                <div class="form-group">
+                    <label for="phoneNumber">휴대폰번호 *</label>
+                    <input type="tel" id="phoneNumber" name="phoneNumber" required 
+                           placeholder="휴대폰번호를 입력하세요 (예: 010-1234-5678)">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">이메일 *</label>
+                    <input type="email" id="email" name="email" required 
+                           placeholder="이메일을 입력하세요">
+                </div>
+                
+                <div class="form-group">
+                    <label for="securityQuestion">보안 질문 *</label>
+                    <select id="securityQuestion" name="securityQuestion" required style="width: 100%; padding: 12px 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 10px; background: rgba(255, 255, 255, 0.1); color: white; font-size: 1rem;">
+                        <option value="" style="color: #374151;">보안 질문을 선택하세요</option>
+                        <option value="가장 좋아하는 색깔은?" style="color: #374151;">가장 좋아하는 색깔은?</option>
+                        <option value="첫 번째 반려동물의 이름은?" style="color: #374151;">첫 번째 반려동물의 이름은?</option>
+                        <option value="졸업한 초등학교는?" style="color: #374151;">졸업한 초등학교는?</option>
+                        <option value="가장 좋아하는 음식은?" style="color: #374151;">가장 좋아하는 음식은?</option>
+                        <option value="태어난 도시는?" style="color: #374151;">태어난 도시는?</option>
+                        <option value="가장 좋아하는 영화는?" style="color: #374151;">가장 좋아하는 영화는?</option>
+                        <option value="첫 번째 차량의 모델명은?" style="color: #374151;">첫 번째 차량의 모델명은?</option>
+                        <option value="가장 좋아하는 스포츠는?" style="color: #374151;">가장 좋아하는 스포츠는?</option>
+                        <option value="어린 시절 별명은?" style="color: #374151;">어린 시절 별명은?</option>
+                        <option value="가장 좋아하는 노래는?" style="color: #374151;">가장 좋아하는 노래는?</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="securityAnswer">보안 답변 *</label>
+                    <input type="text" id="securityAnswer" name="securityAnswer" required 
+                           placeholder="보안 질문의 답변을 입력하세요">
+                </div>
+                
+                <button type="submit" class="signup-btn">
+                    <i class="fas fa-user-plus"></i>
+                    회원가입
+                </button>
+            </form>
+            
+            <div class="login-link">
+                <a href="/login" class="login-btn">
+                    <span class="login-text">이미 계정이 있으신가요? </span>
+                    <span class="login-link-text">로그인</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 페이지 로드 시 년, 월, 일 옵션 생성
+        document.addEventListener('DOMContentLoaded', function() {
+            // 년도 옵션 생성 (1950년 ~ 현재년도)
+            const birthYear = document.getElementById('birthYear');
+            const currentYear = new Date().getFullYear();
+            for (let year = currentYear; year >= 1950; year--) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year + '년';
+                option.style.color = '#374151';
+                birthYear.appendChild(option);
+            }
+            
+            // 월 옵션 생성
+            const birthMonth = document.getElementById('birthMonth');
+            for (let month = 1; month <= 12; month++) {
+                const option = document.createElement('option');
+                option.value = month.toString().padStart(2, '0');
+                option.textContent = month + '월';
+                option.style.color = '#374151';
+                birthMonth.appendChild(option);
+            }
+            
+            // 일 옵션 생성 (기본 31일)
+            updateDays();
+            
+            // 월 변경 시 일 옵션 업데이트
+            birthMonth.addEventListener('change', updateDays);
+            birthYear.addEventListener('change', updateDays);
+        });
+        
+        // 일 옵션 업데이트 함수
+        function updateDays() {
+            const birthYear = document.getElementById('birthYear');
+            const birthMonth = document.getElementById('birthMonth');
+            const birthDay = document.getElementById('birthDay');
+            
+            // 기존 일 옵션 제거
+            birthDay.innerHTML = '<option value="">일</option>';
+            
+            if (birthYear.value && birthMonth.value) {
+                const year = parseInt(birthYear.value);
+                const month = parseInt(birthMonth.value);
+                const daysInMonth = new Date(year, month, 0).getDate();
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const option = document.createElement('option');
+                    option.value = day.toString().padStart(2, '0');
+                    option.textContent = day + '일';
+                    option.style.color = '#374151';
+                    birthDay.appendChild(option);
+                }
+            }
+        }
+        
+        // 폼 제출 시 생년월일 합치기
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const birthYear = document.getElementById('birthYear').value;
+            const birthMonth = document.getElementById('birthMonth').value;
+            const birthDay = document.getElementById('birthDay').value;
+            
+            if (birthYear && birthMonth && birthDay) {
+                const birthDate = birthYear + '-' + birthMonth + '-' + birthDay;
+                document.getElementById('birthDate').value = birthDate;
+            } else {
+                e.preventDefault();
+                alert('생년월일을 모두 선택해주세요.');
+                return false;
+            }
+        });
+        
+        // 비밀번호 확인 실시간 검증
+        document.getElementById('confirmPassword').addEventListener('input', function() {
+            const password = document.getElementById('password').value;
+            const confirmPassword = this.value;
+            
+            if (password !== confirmPassword) {
+                this.style.borderColor = '#ef4444';
+            } else {
+                this.style.borderColor = '#10b981';
+            }
+        });
+        
+        // 비밀번호 요구사항 실시간 검증
+        document.getElementById('password').addEventListener('input', function() {
+            const password = this.value;
+            const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+            const isLongEnough = password.length >= 7;
+            
+            if (hasSpecialChar && isLongEnough) {
+                this.style.borderColor = '#10b981';
+            } else {
+                this.style.borderColor = '#ef4444';
+            }
+        });
+        
+        // 이메일 중복 체크 (실시간)
+        document.getElementById('email').addEventListener('blur', function() {
+            const email = this.value;
+            if (email) {
+                // 이메일 형식 검증
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    this.style.borderColor = '#ef4444';
+                    return;
+                }
+                
+                // 서버에 중복 체크 요청 (실제 구현 시 필요)
+                // fetch('/check-email?email=' + encodeURIComponent(email))
+                //     .then(response => response.json())
+                //     .then(data => {
+                //         if (data.exists) {
+                //             this.style.borderColor = '#ef4444';
+                //             alert('이미 사용 중인 이메일입니다.');
+                //         } else {
+                //             this.style.borderColor = '#10b981';
+                //         }
+                //     });
+            }
+        });
+        
+        // 아이디 중복 체크 (실시간)
+        document.getElementById('username').addEventListener('blur', function() {
+            const username = this.value;
+            if (username) {
+                // 서버에 중복 체크 요청 (실제 구현 시 필요)
+                // fetch('/check-username?username=' + encodeURIComponent(username))
+                //     .then(response => response.json())
+                //     .then(data => {
+                //         if (data.exists) {
+                //             this.style.borderColor = '#ef4444';
+                //             alert('이미 사용 중인 아이디입니다.');
+                //         } else {
+                //             this.style.borderColor = '#10b981';
+                //         }
+                //     });
+            }
+        });
+    </script>
+</body>
+</html> 

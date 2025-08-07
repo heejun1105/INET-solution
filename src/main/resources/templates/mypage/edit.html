@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>정보수정 - I-NET</title>
+    <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="/navbar.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .edit-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .edit-header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 16px;
+            text-align: center;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.3);
+        }
+        
+        .edit-header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .edit-header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .edit-form {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        .form-section {
+            margin-bottom: 2rem;
+        }
+        
+        .form-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .form-section h3 {
+            color: #1f2937;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .form-input.error {
+            border-color: #ef4444;
+        }
+        
+        .form-help {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+        
+        .form-error {
+            font-size: 0.875rem;
+            color: #ef4444;
+            margin-top: 0.25rem;
+        }
+        
+        .password-requirements {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        
+        .password-requirements h4 {
+            color: #374151;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .requirement-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: #6b7280;
+            margin-bottom: 0.25rem;
+        }
+        
+        .requirement-item.valid {
+            color: #059669;
+        }
+        
+        .requirement-item.invalid {
+            color: #dc2626;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+            transform: translateY(-2px);
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        @media (max-width: 768px) {
+            .edit-container {
+                margin: 1rem auto;
+            }
+            
+            .edit-header {
+                padding: 1.5rem;
+            }
+            
+            .edit-header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .edit-form {
+                padding: 1.5rem;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 네비게이션 바 포함 -->
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+    
+    <div class="edit-container">
+        <!-- 알림 메시지 -->
+        <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+        <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
+        
+        <!-- 정보수정 헤더 -->
+        <div class="edit-header">
+            <h1><i class="fas fa-edit"></i> 정보수정</h1>
+            <p>내 정보를 수정하고 비밀번호를 변경하세요</p>
+        </div>
+        
+        <!-- 정보수정 폼 -->
+        <form class="edit-form" th:action="@{/mypage/edit}" method="post" th:object="${user}">
+            <!-- 기본 정보 섹션 -->
+            <div class="form-section">
+                <h3><i class="fas fa-user"></i> 기본 정보</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">아이디</label>
+                    <input type="text" class="form-input" th:value="${user.username}" readonly>
+                    <div class="form-help">아이디는 변경할 수 없습니다.</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">이름</label>
+                    <input type="text" class="form-input" th:field="*{name}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">생년월일</label>
+                    <input type="date" class="form-input" th:field="*{birthDate}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">소속</label>
+                    <input type="text" class="form-input" th:field="*{organization}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">직위</label>
+                    <input type="text" class="form-input" th:field="*{position}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">휴대폰번호</label>
+                    <input type="tel" class="form-input" th:field="*{phoneNumber}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">이메일</label>
+                    <input type="email" class="form-input" th:field="*{email}" required>
+                </div>
+            </div>
+            
+            <!-- 비밀번호 변경 섹션 -->
+            <div class="form-section">
+                <h3><i class="fas fa-key"></i> 비밀번호 변경</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">새 비밀번호</label>
+                    <input type="password" class="form-input" name="newPassword" id="newPassword">
+                    <div class="form-help">변경하지 않으려면 비워두세요.</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">새 비밀번호 확인</label>
+                    <input type="password" class="form-input" name="confirmPassword" id="confirmPassword">
+                </div>
+                
+                <div class="password-requirements">
+                    <h4>비밀번호 요구사항</h4>
+                    <div class="requirement-item" id="length-req">
+                        <i class="fas fa-circle"></i>
+                        <span>7자 이상</span>
+                    </div>
+                    <div class="requirement-item" id="special-req">
+                        <i class="fas fa-circle"></i>
+                        <span>특수문자 포함</span>
+                    </div>
+                    <div class="requirement-item" id="match-req">
+                        <i class="fas fa-circle"></i>
+                        <span>비밀번호 일치</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 버튼 그룹 -->
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    정보수정
+                </button>
+                <a href="/mypage" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    돌아가기
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- 푸터 포함 -->
+    <div th:replace="~{fragments/footer :: footer}"></div>
+    
+    <script>
+        // 비밀번호 유효성 검사
+        const newPassword = document.getElementById('newPassword');
+        const confirmPassword = document.getElementById('confirmPassword');
+        
+        function validatePassword() {
+            const password = newPassword.value;
+            const confirm = confirmPassword.value;
+            
+            // 길이 검사
+            const lengthValid = password.length >= 7;
+            document.getElementById('length-req').className = 
+                `requirement-item ${lengthValid ? 'valid' : 'invalid'}`;
+            document.getElementById('length-req').innerHTML = 
+                `<i class="fas fa-${lengthValid ? 'check' : 'times'}"></i><span>7자 이상</span>`;
+            
+            // 특수문자 검사
+            const specialValid = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+            document.getElementById('special-req').className = 
+                `requirement-item ${specialValid ? 'valid' : 'invalid'}`;
+            document.getElementById('special-req').innerHTML = 
+                `<i class="fas fa-${specialValid ? 'check' : 'times'}"></i><span>특수문자 포함</span>`;
+            
+            // 일치 검사
+            const matchValid = password === confirm && password.length > 0;
+            document.getElementById('match-req').className = 
+                `requirement-item ${matchValid ? 'valid' : 'invalid'}`;
+            document.getElementById('match-req').innerHTML = 
+                `<i class="fas fa-${matchValid ? 'check' : 'times'}"></i><span>비밀번호 일치</span>`;
+        }
+        
+        newPassword.addEventListener('input', validatePassword);
+        confirmPassword.addEventListener('input', validatePassword);
+    </script>
+</body>
+</html> 

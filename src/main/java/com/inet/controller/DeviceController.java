@@ -36,6 +36,15 @@ import com.fasterxml.jackson.annotation.JsonView;
 import com.inet.entity.Manage;
 import com.inet.service.UidService;
 import com.inet.entity.Uid;
+import com.inet.entity.Feature;
+import com.inet.entity.User;
+import com.inet.service.PermissionService;
+import com.inet.service.SchoolPermissionService;
+import com.inet.service.UserService;
+import com.inet.config.PermissionHelper;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +65,46 @@ public class DeviceController {
     private final ClassroomService classroomService;
     private final ManageService manageService;
     private final UidService uidService;
+    private final PermissionService permissionService;
+    private final SchoolPermissionService schoolPermissionService;
+    private final UserService userService;
+    private final PermissionHelper permissionHelper;
+
+    // 권한 체크 메서드
+    private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName())
+            .orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkFeaturePermission(user, feature, redirectAttributes);
+    }
+    
+    // 학교 권한 체크 메서드
+    private User checkSchoolPermission(Feature feature, Long schoolId, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName())
+            .orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkSchoolPermission(user, feature, schoolId, redirectAttributes);
+    }
 
     @GetMapping("/list")
     public String list(@RequestParam(required = false) Long schoolId,
@@ -64,11 +113,26 @@ public class DeviceController {
                       @RequestParam(required = false) String classroomName,
                       @RequestParam(defaultValue = "1") int page,
                       @RequestParam(defaultValue = "16") int size,
-                      Model model) {
+                      Model model,
+                      RedirectAttributes redirectAttributes) {
         
-        // 학교 목록
-        List<School> schools = schoolService.getAllSchools();
+        // 권한 체크 (학교별 권한 체크는 schoolId가 있을 때만)
+        User user;
+        if (schoolId != null) {
+            user = checkSchoolPermission(Feature.DEVICE_LIST, schoolId, redirectAttributes);
+        } else {
+            user = checkPermission(Feature.DEVICE_LIST, redirectAttributes);
+        }
+        if (user == null) {
+            return "redirect:/";
+        }
+        
+        // 사용자가 접근 가능한 학교 목록만 표시
+        List<School> schools = schoolPermissionService.getAccessibleSchools(user);
         model.addAttribute("schools", schools);
+        
+        // 권한 정보 추가
+        permissionHelper.addPermissionAttributes(user, model);
         
         // 선택된 학교에 따른 교실 목록
         List<Classroom> classrooms;
@@ -200,18 +264,34 @@ public class DeviceController {
     }
 
     @GetMapping("/register")
-    public String registerForm(Model model) {
+    public String registerForm(Model model, RedirectAttributes redirectAttributes) {
+        // 권한 체크
+        User user = checkPermission(Feature.DEVICE_MANAGEMENT, redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
         model.addAttribute("device", new Device());
-        model.addAttribute("schools", schoolService.getAllSchools());
+        model.addAttribute("schools", schoolPermissionService.getAccessibleSchools(user));
         model.addAttribute("classrooms", classroomService.getAllClassrooms());
         model.addAttribute("types", deviceService.getAllTypes());
+        
+        // 권한 정보 추가
+        permissionHelper.addPermissionAttributes(user, model);
+        
         return "device/register";
     }
 
     @PostMapping("/register")
     public String register(Device device, String operatorName, String operatorPosition, String location, String locationCustom,
                           String manageCate, String manageCateCustom, String manageYear, String manageYearCustom, String manageNum, String manageNumCustom,
-                          String uidCate, String uidCateCustom, String uidYear, String uidYearCustom, String uidNum, String uidNumCustom) {
+                          String uidCate, String uidCateCustom, String uidYear, String uidYearCustom, String uidNum, String uidNumCustom,
+                          RedirectAttributes redirectAttributes) {
+        
+        // 권한 체크 (학교별 권한 체크)
+        User user = checkSchoolPermission(Feature.DEVICE_MANAGEMENT, device.getSchool().getSchoolId(), redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
         
         log.info("Registering device: {}", device);
         log.info("Operator: {}, {}", operatorName, operatorPosition);
@@ -277,9 +357,21 @@ public class DeviceController {
     }
 
     @GetMapping("/modify/{id}")
-    public String modifyForm(@PathVariable Long id, Model model) {
+    public String modifyForm(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
+        // 장비 조회
+        Device device = deviceService.getDeviceById(id)
+                .orElseThrow(() -> new RuntimeException("Device not found with id: " + id));
+        
+        // 권한 체크 (학교별 권한 체크)
+        User user = checkSchoolPermission(Feature.DEVICE_MANAGEMENT, device.getSchool().getSchoolId(), redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
+        
+        // 권한 정보 추가
+        permissionHelper.addPermissionAttributes(user, model);
         model.addAttribute("device", deviceService.getDeviceById(id).orElseThrow());
-        model.addAttribute("schools", schoolService.getAllSchools());
+        model.addAttribute("schools", schoolPermissionService.getAccessibleSchools(user));
         model.addAttribute("classrooms", classroomService.getAllClassrooms());
         model.addAttribute("types", deviceService.getAllTypes());
         return "device/modify";
@@ -289,7 +381,13 @@ public class DeviceController {
     public String modify(Device device, String operatorName, String operatorPosition, String location, String locationCustom,
                         String manageCate, String manageCateCustom, String manageYear, String manageYearCustom, String manageNum, String manageNumCustom,
                         String uidCate, String uidCateCustom, String uidYear, String uidYearCustom, String uidNum, String uidNumCustom,
-                        Long idNumber) {
+                        Long idNumber, RedirectAttributes redirectAttributes) {
+        
+        // 권한 체크 (학교별 권한 체크)
+        User user = checkSchoolPermission(Feature.DEVICE_MANAGEMENT, device.getSchool().getSchoolId(), redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
         log.info("Modifying device: {}", device);
 
         // 담당자 정보 처리
@@ -346,12 +444,26 @@ public class DeviceController {
             }
         }
 
-        deviceService.updateDevice(device);
+        // 원본 장비 정보 조회
+        Device originalDevice = deviceService.getDeviceById(device.getDeviceId())
+                .orElseThrow(() -> new RuntimeException("Device not found with id: " + device.getDeviceId()));
+        
+        // 장비 수정 및 히스토리 저장
+        deviceService.updateDeviceWithHistory(originalDevice, device, user);
         return "redirect:/device/list";
     }
 
     @PostMapping("/remove")
-    public String remove(@RequestParam("device_id") Long deviceId) {
+    public String remove(@RequestParam("device_id") Long deviceId, RedirectAttributes redirectAttributes) {
+        // 장비 조회
+        Device device = deviceService.getDeviceById(deviceId)
+                .orElseThrow(() -> new RuntimeException("Device not found with id: " + deviceId));
+        
+        // 권한 체크 (학교별 권한 체크)
+        User user = checkSchoolPermission(Feature.DEVICE_MANAGEMENT, device.getSchool().getSchoolId(), redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
         log.info("Removing device: {}", deviceId);
         deviceService.deleteDevice(deviceId);
         return "redirect:/device/list";
@@ -363,6 +475,33 @@ public class DeviceController {
             @RequestParam(required = false) String type,
             @RequestParam(required = false) Long classroomId,
             HttpServletResponse response) throws IOException {
+        
+        // 권한 체크 (학교별 권한 체크는 schoolId가 있을 때만)
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "로그인이 필요합니다.");
+            return;
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "사용자를 찾을 수 없습니다.");
+            return;
+        }
+        
+        if (schoolId != null) {
+            User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.DEVICE_LIST, schoolId, null);
+            if (checkedUser == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "해당 학교에 대한 권한이 없습니다.");
+                return;
+            }
+        } else {
+            User checkedUser = permissionHelper.checkFeaturePermission(user, Feature.DEVICE_LIST, null);
+            if (checkedUser == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "장비 목록 조회 권한이 없습니다.");
+                return;
+            }
+        }
         List<Device> devices;
         
         if (schoolId != null && type != null && !type.isEmpty() && classroomId != null) {

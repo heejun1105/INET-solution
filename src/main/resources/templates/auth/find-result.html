@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>찾기 결과 - I-NET</title>
+    <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="/navbar.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .auth-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .auth-header h1 {
+            color: #1e3a8a;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        
+        .auth-header p {
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
+        
+        .result-box {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        
+        .result-box.success {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+        
+        .result-box.error {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+        
+        .result-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        
+        .result-icon.success {
+            color: #10b981;
+        }
+        
+        .result-icon.error {
+            color: #ef4444;
+        }
+        
+        .result-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #1f2937;
+        }
+        
+        .result-message {
+            color: #6b7280;
+            font-size: 1rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+        
+        .username-list {
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .username-item {
+            padding: 10px;
+            background: #f9fafb;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .temp-password {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #92400e;
+            text-align: center;
+        }
+        
+        .warning-box {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .warning-box h4 {
+            color: #92400e;
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+        
+        .warning-box p {
+            color: #92400e;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+        
+        .btn-primary {
+            width: 100%;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-secondary {
+            width: 100%;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(107, 114, 128, 0.3);
+        }
+        
+        .auth-links {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .auth-links a {
+            color: #3b82f6;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        
+        .auth-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- 네비게이션 바 포함 -->
+    <div th:replace="fragments/navbar :: navbar"></div>
+    
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1><i class="fas fa-search"></i> 찾기 결과</h1>
+            <p>요청하신 정보의 결과입니다</p>
+        </div>
+        
+        <!-- 성공 결과 -->
+        <div th:if="${successMessage}" class="result-box success">
+            <div class="result-icon success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="result-title">찾기 완료</div>
+            <div class="result-message" th:text="${successMessage}"></div>
+            
+            <!-- 아이디 찾기 결과 -->
+            <div th:if="${usernames}" class="username-list">
+                <h4>찾은 아이디:</h4>
+                <div th:each="username : ${usernames}" class="username-item" th:text="${username}"></div>
+            </div>
+            
+            <!-- 비밀번호 찾기 결과 -->
+            <div th:if="${temporaryPassword}" class="temp-password">
+                <h4>임시 비밀번호:</h4>
+                <div th:text="${temporaryPassword}"></div>
+            </div>
+            
+            <div th:if="${temporaryPassword}" class="warning-box">
+                <h4><i class="fas fa-exclamation-triangle"></i> 중요 안내</h4>
+                <p>임시 비밀번호로 로그인 후 반드시 새 비밀번호로 변경해주세요.</p>
+            </div>
+        </div>
+        
+        <!-- 오류 결과 -->
+        <div th:if="${errorMessage}" class="result-box error">
+            <div class="result-icon error">
+                <i class="fas fa-times-circle"></i>
+            </div>
+            <div class="result-title">찾기 실패</div>
+            <div class="result-message" th:text="${errorMessage}"></div>
+        </div>
+        
+        <!-- 버튼들 -->
+        <div th:if="${successMessage}">
+            <a href="/login" class="btn-primary">
+                <i class="fas fa-sign-in-alt"></i> 로그인하기
+            </a>
+        </div>
+        
+        <div th:if="${errorMessage}">
+            <a href="/find-id" class="btn-primary">
+                <i class="fas fa-search"></i> 아이디 찾기
+            </a>
+            <a href="/find-password" class="btn-secondary">
+                <i class="fas fa-key"></i> 비밀번호 찾기
+            </a>
+        </div>
+        
+        <div class="auth-links">
+            <a href="/login">로그인</a>
+            <a href="/find-id">아이디 찾기</a>
+            <a href="/find-password">비밀번호 찾기</a>
+            <a href="/signup">회원가입</a>
+        </div>
+    </div>
+</body>
+</html> 

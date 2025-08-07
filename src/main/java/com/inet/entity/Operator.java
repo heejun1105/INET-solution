@@ -32,4 +32,24 @@ public class Operator {
     @ManyToOne
     @JoinColumn(name = "school_id")
     private School school;
+    
+    public String getName() {
+        return this.name;
+    }
+    
+    public String getPosition() {
+        return this.position;
+    }
+    
+    public void setSchool(School school) {
+        this.school = school;
+    }
+    
+    public void setName(String name) {
+        this.name = name;
+    }
+    
+    public void setPosition(String position) {
+        this.position = position;
+    }
 } 

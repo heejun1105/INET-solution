@@ -5,17 +5,65 @@
 </head>
 <body>
     <nav th:fragment="navbar" class="navbar">
-        <a href="/" class="navbar-logo">I-NET</a>
-        <ul class="navbar-menu">
-            <li><a href="/device/list">장비목록</a></li>
-            <li><a href="/device/register">장비등록</a></li>
-            <li><a href="/ip/iplist">IP대장</a></li>
-            <li><a href="/wireless-ap/list">무선AP</a></li>
-            <li><a href="/school/manage">학교관리</a></li>
-            <li><a href="/classroom/manage">교실관리</a></li>
-            <li><a href="/floorplan">학교평면도</a></li>
-            <li><a href="#" class="disabled">제출용파일</a></li>
-        </ul>
+        <div class="navbar-container">
+            <!-- 로고 -->
+            <a href="/" class="navbar-logo">
+                I-NET
+            </a>
+            
+            <!-- 메인 메뉴 (인증된 사용자만) -->
+            <ul class="navbar-menu" th:if="${#authorization.expression('isAuthenticated()')}">
+                <li th:if="${hasDeviceListPermission}"><a href="/device/list"><i class="fas fa-list"></i> 장비목록</a></li>
+                <li><a href="/ip/iplist"><i class="fas fa-network-wired"></i> IP대장</a></li>
+                <li th:if="${hasWirelessApListPermission}"><a href="/wireless-ap/list"><i class="fas fa-wifi"></i> 무선AP</a></li>
+                <li th:if="${hasFloorplanManagementPermission}"><a href="/floorplan"><i class="fas fa-map"></i> 학교평면도</a></li>
+                
+                <!-- 관리자 전용 메뉴 -->
+                <li th:if="${#authorization.expression('hasRole(''ADMIN'')')}">
+                    <a href="/admin/dashboard"><i class="fas fa-users-cog"></i> 관리자페이지</a>
+                </li>
+            </ul>
+            
+            <!-- 사용자 메뉴 -->
+            <div class="user-menu" th:if="${#authorization.expression('isAuthenticated()')}">
+                <div class="user-dropdown">
+                    <button class="user-dropdown-btn">
+                        <i class="fas fa-user-circle"></i>
+                        <span th:text="${#authentication.name + '님'}">사용자</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="user-dropdown-content">
+                        <div class="user-info">
+                            <i class="fas fa-user"></i>
+                            <span th:text="${#authentication.name}">사용자</span>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <a href="/mypage">
+                            <i class="fas fa-user-circle"></i>
+                            마이페이지
+                        </a>
+                        <a href="/logout" class="logout-link">
+                            <i class="fas fa-sign-out-alt"></i>
+                            로그아웃
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 비인증 사용자를 위한 로그인 링크 -->
+            <div class="auth-links" th:if="${#authorization.expression('!isAuthenticated()')}">
+                <a href="/login" class="login-link">
+                    <i class="fas fa-sign-in-alt"></i>
+                    로그인
+                </a>
+                <a href="/signup" class="signup-link">
+                    <i class="fas fa-user-plus"></i>
+                    회원가입
+                </a>
+            </div>
+        </div>
     </nav>
-</body>
-</html> 
+    
+
+        
+ 
