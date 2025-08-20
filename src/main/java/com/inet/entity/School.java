@@ -56,4 +56,16 @@ public class School {
     public List<Operator> getOperators() {
         return this.operators;
     }
+    
+    public void setSchoolId(Long schoolId) {
+        this.schoolId = schoolId;
+    }
+    
+    public void setSchoolName(String schoolName) {
+        this.schoolName = schoolName;
+    }
+    
+    public void setIp(Integer ip) {
+        this.ip = ip;
+    }
 } 

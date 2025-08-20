@@ -111,7 +111,7 @@ public class ManageService {
         return manageRepository.findAll().stream()
             .filter(m -> m.getSchool().equals(school) && 
                         m.getManageCate().equals(cate) && 
-                        (year == null ? m.getYear() == null : m.getYear().equals(year)) && 
+                        (year == null ? m.getYear() == null : (m.getYear() != null && m.getYear().equals(year))) && 
                         m.getManageNum().equals(num))
             .findFirst()
             .orElseGet(() -> {

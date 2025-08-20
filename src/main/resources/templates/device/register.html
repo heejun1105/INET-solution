@@ -207,6 +207,18 @@
             box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
         }
 
+        /* 오류 상태 스타일 */
+        .form-group-modern.has-error input,
+        .form-group-modern.has-error select,
+        .form-group-modern.has-error textarea {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        }
+
+        .form-group-modern.has-error label {
+            color: #ef4444;
+        }
+
         .form-group-modern input::placeholder,
         .form-group-modern textarea::placeholder {
             color: #9ca3af;
@@ -352,6 +364,91 @@
             }
         }
 
+        /* 오류 및 성공 알림 스타일 */
+        .error-alert, .success-alert {
+            margin-bottom: 2rem;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            animation: slideInFromTop 0.6s ease-out;
+        }
+
+        .error-alert {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border: 2px solid #ef4444;
+        }
+
+        .success-alert {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            border: 2px solid #10b981;
+        }
+
+        .error-header, .success-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .error-header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .success-header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .error-header i, .success-header i {
+            font-size: 1.2rem;
+        }
+
+        .error-close, .success-close {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .error-close:hover, .success-close:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .error-content, .success-content {
+            padding: 1.5rem;
+        }
+
+        .error-content p, .success-content p {
+            margin: 0 0 1rem 0;
+            font-weight: 500;
+        }
+
+        .error-content details {
+            margin-top: 1rem;
+        }
+
+        .error-content summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #dc2626;
+            margin-bottom: 0.5rem;
+        }
+
+        .error-content pre {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
         /* 반응형 디자인 */
         @media (max-width: 768px) {
             .main-container {
@@ -414,6 +511,38 @@
                         <i class="fas fa-list"></i>
                         장비 목록
                     </a>
+                </div>
+            </div>
+
+            <!-- 오류 메시지 표시 -->
+            <div th:if="${errorMessage}" class="error-alert" id="errorAlert">
+                <div class="error-header">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>등록 오류</span>
+                    <button type="button" class="error-close" onclick="closeErrorAlert()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="error-content">
+                    <p th:text="${errorMessage}"></p>
+                    <details th:if="${errorDetails}">
+                        <summary>상세 오류 정보</summary>
+                        <pre th:text="${errorDetails}"></pre>
+                    </details>
+                </div>
+            </div>
+
+            <!-- 성공 메시지 표시 -->
+            <div th:if="${successMessage}" class="success-alert" id="successAlert">
+                <div class="success-header">
+                    <i class="fas fa-check-circle"></i>
+                    <span>등록 성공</span>
+                    <button type="button" class="success-close" onclick="closeSuccessAlert()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="success-content">
+                    <p th:text="${successMessage}"></p>
                 </div>
             </div>
 
@@ -782,7 +911,7 @@
             console.log('=== 고유번호 카테고리 로드 시작 ===');
             console.log('학교 ID:', schoolId);
             
-            fetch(`/api/uids/cates/${schoolId}`)
+            fetch(`/device/api/uids/cates/${schoolId}`)
                 .then(response => {
                     console.log('API 응답 상태:', response.status);
                     if (response.status === 404) {
@@ -850,7 +979,7 @@
             console.log('학교 ID:', schoolId);
             console.log('카테고리:', uidCate);
             
-            fetch(`/api/uids/years/${schoolId}/${encodeURIComponent(uidCate)}`)
+            fetch(`/device/api/uids/years/${schoolId}/${encodeURIComponent(uidCate)}`)
                 .then(response => {
                     console.log('연도 API 응답 상태:', response.status);
                     if (response.status === 404) {
@@ -888,6 +1017,8 @@
                         yearSelect.appendChild(previousOption);
                     }
                     
+
+                    
                     const customOption = document.createElement('option');
                     customOption.value = 'custom';
                     customOption.textContent = '직접입력';
@@ -913,9 +1044,9 @@
         function loadUidNums(schoolId, uidCate, year) {
             if (uidCate === 'custom') return;
             
-            let url = `/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}`;
+            let url = `/device/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}`;
             if (year && year !== 'custom') {
-                url = `/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}?year=${year}`;
+                url = `/device/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}?year=${year}`;
             }
             
             console.log('=== 고유번호 번호 로드 시작 ===');
@@ -1183,9 +1314,16 @@
             requiredFields.forEach(field => {
                 if (!field.value) {
                     isValid = false;
-                    field.closest('.form-group').classList.add('has-error');
+                    // form-group-modern 클래스 사용
+                    const formGroup = field.closest('.form-group-modern');
+                    if (formGroup) {
+                        formGroup.classList.add('has-error');
+                    }
                 } else {
-                    field.closest('.form-group').classList.remove('has-error');
+                    const formGroup = field.closest('.form-group-modern');
+                    if (formGroup) {
+                        formGroup.classList.remove('has-error');
+                    }
                 }
             });
             
@@ -1245,6 +1383,32 @@
                     locationSelect.appendChild(customOption);
                 });
         }
+
+        // 오류 알림 닫기
+        function closeErrorAlert() {
+            const errorAlert = document.getElementById('errorAlert');
+            if (errorAlert) {
+                errorAlert.style.display = 'none';
+            }
+        }
+
+        // 성공 알림 닫기
+        function closeSuccessAlert() {
+            const successAlert = document.getElementById('successAlert');
+            if (successAlert) {
+                successAlert.style.display = 'none';
+            }
+        }
+
+        // 자동으로 성공 메시지 숨기기 (5초 후)
+        document.addEventListener('DOMContentLoaded', function() {
+            const successAlert = document.getElementById('successAlert');
+            if (successAlert) {
+                setTimeout(() => {
+                    successAlert.style.display = 'none';
+                }, 5000);
+            }
+        });
     </script>
 </body>
 </html> 

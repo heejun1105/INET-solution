@@ -95,4 +95,12 @@ public class Uid {
     public School getSchool() {
         return this.school;
     }
+    
+    public Long getUidId() {
+        return this.uidId;
+    }
+    
+    public void setUidId(Long uidId) {
+        this.uidId = uidId;
+    }
 } 

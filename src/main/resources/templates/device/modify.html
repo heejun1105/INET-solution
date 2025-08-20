@@ -292,7 +292,7 @@
             console.log('=== 고유번호 카테고리 로드 시작 ===');
             console.log('학교 ID:', schoolId);
             
-            fetch(`/api/uids/cates/${schoolId}`)
+            fetch(`/device/api/uids/cates/${schoolId}`)
                 .then(response => {
                     console.log('API 응답 상태:', response.status);
                     if (response.status === 404) {
@@ -360,7 +360,7 @@
             console.log('학교 ID:', schoolId);
             console.log('카테고리:', uidCate);
             
-            fetch(`/api/uids/years/${schoolId}/${encodeURIComponent(uidCate)}`)
+            fetch(`/device/api/uids/years/${schoolId}/${encodeURIComponent(uidCate)}`)
                 .then(response => {
                     console.log('연도 API 응답 상태:', response.status);
                     if (response.status === 404) {
@@ -420,9 +420,9 @@
         function loadUidNums(schoolId, uidCate, year) {
             if (uidCate === 'custom') return;
             
-            let url = `/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}`;
+            let url = `/device/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}`;
             if (year && year !== 'custom') {
-                url = `/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}?year=${year}`;
+                url = `/device/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}?year=${year}`;
             }
             
             fetch(url)

@@ -309,18 +309,34 @@ public class UidService {
      */
     public List<String> getUidYearsBySchoolAndCate(Long schoolId, String cate) {
         log.info("Getting UID years for schoolId: {} and cate: {}", schoolId, cate);
-        List<String> years = uidRepository.findDistinctMfgYearBySchoolSchoolIdAndCateOrderByMfgYear(schoolId, cate);
-        log.info("Found years: {}", years);
         
-        // 데이터가 없으면 현재 연도와 이전 연도 추가
-        if (years == null || years.isEmpty()) {
+        try {
+            List<String> years = uidRepository.findDistinctMfgYearBySchoolSchoolIdAndCateOrderByMfgYear(schoolId, cate);
+            log.info("Found years: {}", years);
+            
+            // null 값과 빈 값 처리
+            if (years != null) {
+                years = years.stream()
+                    .filter(year -> year != null && !year.trim().isEmpty())
+                    .sorted()
+                    .toList();
+            }
+            
+            // 데이터가 없으면 현재 연도와 이전 연도 추가
+            if (years == null || years.isEmpty()) {
+                String currentYear = getCurrentTwoDigitYear();
+                String previousYear = String.valueOf(Integer.parseInt(currentYear) - 1);
+                years = List.of(previousYear, currentYear);
+                log.info("No years found, returning default years: {}", years);
+            }
+            
+            return years;
+        } catch (Exception e) {
+            log.error("Error in getUidYearsBySchoolAndCate: ", e);
             String currentYear = getCurrentTwoDigitYear();
             String previousYear = String.valueOf(Integer.parseInt(currentYear) - 1);
-            years = List.of(previousYear, currentYear);
-            log.info("No years found, returning default years: {}", years);
+            return List.of(previousYear, currentYear);
         }
-        
-        return years;
     }
 
     /**
@@ -333,22 +349,33 @@ public class UidService {
     public List<Long> getUidNumsWithNext(Long schoolId, String cate, String year) {
         log.info("Getting uid nums with next by schoolId: {}, cate: {}, year: {}", schoolId, cate, year);
         
-        School school = new School();
-        school.setSchoolId(schoolId);
-        
-        Long nextNumber;
-        if (year != null && !year.trim().isEmpty()) {
-            // 연도가 지정된 경우
-            nextNumber = getLastIdNumberBySchoolAndMfgYear(school, cate, year) + 1;
-        } else {
-            // 연도가 지정되지 않은 경우
-            nextNumber = getLastIdNumberBySchool(cate, school) + 1;
+        try {
+            // School 객체 생성 (순환 의존성 방지)
+            School school = new School();
+            school.setSchoolId(schoolId);
+            
+            Long nextNumber;
+            if (year != null && !year.trim().isEmpty() && !year.equals("custom")) {
+                // 연도가 지정된 경우 (학교, 카테고리, 연도 조합)
+                nextNumber = getLastIdNumberBySchoolAndMfgYear(school, cate, year) + 1;
+                log.info("Using year-specific logic. Last number: {}, Next number: {}", 
+                        getLastIdNumberBySchoolAndMfgYear(school, cate, year), nextNumber);
+            } else {
+                // 연도가 지정되지 않은 경우 (학교, 카테고리 조합)
+                nextNumber = getLastIdNumberBySchool(cate, school) + 1;
+                log.info("Using school-category logic. Last number: {}, Next number: {}", 
+                        getLastIdNumberBySchool(cate, school), nextNumber);
+            }
+            
+            List<Long> result = new ArrayList<>();
+            result.add(nextNumber);
+            
+            log.info("Returning next number: {}", nextNumber);
+            return result;
+        } catch (Exception e) {
+            log.error("Error in getUidNumsWithNext: ", e);
+            return List.of(1L);
         }
-        
-        List<Long> result = new ArrayList<>();
-        result.add(nextNumber);
-        
-        return result;
     }
 
     /**
@@ -358,7 +385,31 @@ public class UidService {
      */
     public List<String> getUidCatesBySchool(Long schoolId) {
         log.info("Getting distinct UID categories for schoolId: {}", schoolId);
-        return uidRepository.findDistinctCateBySchoolSchoolIdOrderByCate(schoolId);
+        
+        try {
+            // 먼저 해당 학교의 모든 Uid 데이터 확인
+            List<Uid> allUidsForSchool = uidRepository.findBySchoolSchoolId(schoolId);
+            log.info("Total UIDs for school {}: {}", schoolId, allUidsForSchool.size());
+            
+            if (!allUidsForSchool.isEmpty()) {
+                log.info("Sample UID data: {}", allUidsForSchool.get(0));
+            }
+            
+            List<String> cates = uidRepository.findDistinctCateBySchoolSchoolIdOrderByCate(schoolId);
+            log.info("Found categories: {}", cates);
+            
+            // 데이터가 없으면 기본 카테고리 반환
+            if (cates == null || cates.isEmpty()) {
+                log.info("No categories found, returning default categories");
+                return List.of("DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET");
+            }
+            
+            return cates;
+        } catch (Exception e) {
+            log.error("Error in getUidCatesBySchool: ", e);
+            e.printStackTrace(); // 스택 트레이스 출력
+            return List.of("DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET");
+        }
     }
     
     /**
