@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,20 +109,38 @@ public class ManageService {
 
     @Transactional
     public Manage findOrCreate(School school, String cate, Integer year, Long num) {
-        return manageRepository.findAll().stream()
-            .filter(m -> m.getSchool().equals(school) && 
-                        m.getManageCate().equals(cate) && 
-                        (year == null ? m.getYear() == null : (m.getYear() != null && m.getYear().equals(year))) && 
-                        m.getManageNum().equals(num))
-            .findFirst()
-            .orElseGet(() -> {
-                Manage m = new Manage();
-                m.setSchool(school);
-                m.setManageCate(cate);
-                m.setYear(year);
-                m.setManageNum(num);
-                return manageRepository.save(m);
-            });
+        log.info("=== findOrCreate 호출 ===");
+        log.info("학교: {}, 카테고리: {}, 연도: {}, 번호: {}", 
+                school.getSchoolName(), cate, year, num);
+        
+        // 학교별로 정확한 검색 수행
+        Optional<Manage> existingManage = manageRepository
+            .findBySchoolAndManageCateAndYearAndManageNum(school, cate, year, num);
+        
+        if (existingManage.isPresent()) {
+            log.info("기존 Manage 찾음: ID={}, 학교={}, 카테고리={}, 연도={}, 번호={}", 
+                    existingManage.get().getManageId(), 
+                    existingManage.get().getSchool().getSchoolName(),
+                    existingManage.get().getManageCate(),
+                    existingManage.get().getYear(),
+                    existingManage.get().getManageNum());
+            return existingManage.get();
+        }
+        
+        // 새로운 Manage 생성
+        log.info("새로운 Manage 생성: 학교={}, 카테고리={}, 연도={}, 번호={}", 
+                school.getSchoolName(), cate, year, num);
+        
+        Manage newManage = new Manage();
+        newManage.setSchool(school);
+        newManage.setManageCate(cate);
+        newManage.setYear(year);
+        newManage.setManageNum(num);
+        
+        Manage savedManage = manageRepository.save(newManage);
+        log.info("새로운 Manage 저장 완료: ID={}", savedManage.getManageId());
+        
+        return savedManage;
     }
 
     // 학교별 Manage 목록 조회 (Device 기반)

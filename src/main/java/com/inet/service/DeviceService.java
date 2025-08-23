@@ -18,6 +18,7 @@ import com.inet.service.UidService;
 import com.inet.entity.DeviceHistory;
 import com.inet.entity.User;
 import com.inet.service.DeviceHistoryService;
+import com.inet.service.ManageService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,6 +66,7 @@ public class DeviceService {
     private final ClassroomService classroomService;
     private final UidService uidService;
     private final DeviceHistoryService deviceHistoryService;
+    private final ManageService manageService;
     
     @PersistenceContext
     private EntityManager entityManager;
@@ -559,24 +561,8 @@ public class DeviceService {
                             System.out.println(rowCount + "번째 행 관리번호 파싱 결과: 카테고리=" + 
                                     mn.manageCate + ", 연도=" + mn.year + ", 번호=" + mn.manageNum);
                             
-                            manage = manageRepository.findByManageCateAndYearAndManageNum(mn.manageCate, mn.year, mn.manageNum)
-                                .map(existingManage -> {
-                                    // 이미 존재하는 Manage 엔티티인 경우 학교 정보 업데이트
-                                    if (existingManage.getSchool() == null) {
-                                        existingManage.setSchool(school);
-                                        return manageRepository.save(existingManage);
-                                    }
-                                    return existingManage;
-                                })
-                                .orElseGet(() -> {
-                                    // 새로운 Manage 엔티티 생성
-                                    Manage m = new Manage();
-                                    m.setManageCate(mn.manageCate);
-                                    m.setYear(mn.year);
-                                    m.setManageNum(mn.manageNum);
-                                    m.setSchool(school); // 학교 정보 설정
-                                    return manageRepository.save(m);
-                                });
+                            // ManageService.findOrCreate()을 사용하여 학교별로 정확한 관리번호 생성
+                            manage = manageService.findOrCreate(school, mn.manageCate, mn.year, mn.manageNum);
                             
                             System.out.println(rowCount + "번째 행 Manage 엔티티 처리 완료: ID=" + manage.getManageId());
                         } catch (Exception e) {

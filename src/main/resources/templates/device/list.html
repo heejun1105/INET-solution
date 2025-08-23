@@ -7,6 +7,46 @@
     <link rel="stylesheet" href="/main.css" />
     <link rel="stylesheet" href="/navbar.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        
+        .alert-dismissible {
+            position: relative;
+        }
+        
+        .btn-close {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 2;
+            padding: 15px;
+            background: transparent;
+            border: 0;
+            font-size: 20px;
+            cursor: pointer;
+            color: #155724;
+        }
+        
+        .btn-close:hover {
+            color: #0f5132;
+        }
+        
+        .alert i {
+            margin-right: 8px;
+        }
+    </style>
 </head>
 <body>
     <!-- 네비게이션 바 포함 -->
@@ -14,6 +54,13 @@
     
     <div class="container">
         <div class="device-list-container">
+            <!-- 성공 메시지 표시 -->
+            <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="fas fa-check-circle"></i>
+                <span th:text="${successMessage}"></span>
+                <button type="button" class="btn-close" onclick="this.parentElement.style.display='none'"></button>
+            </div>
+            
             <div class="title">
                 <div class="subject">장비 목록</div>
                 <div class="subtitle">학교별, 유형별로 장비를 관리하세요!</div>
@@ -391,6 +438,14 @@
         document.addEventListener('DOMContentLoaded', function() {
             const schoolSelect = document.getElementById('schoolSelect');
             updateClassrooms(schoolSelect.value);
+            
+            // 성공 메시지 자동 숨김 (5초 후)
+            const successAlert = document.querySelector('.alert-success');
+            if (successAlert) {
+                setTimeout(() => {
+                    successAlert.style.display = 'none';
+                }, 5000);
+            }
         });
     </script>
 </body>

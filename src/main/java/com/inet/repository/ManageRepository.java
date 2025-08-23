@@ -60,4 +60,13 @@ public interface ManageRepository extends JpaRepository<Manage, Long> {
 
     @Query("SELECT m FROM Manage m WHERE m.school.schoolId = :schoolId")
     List<Manage> findBySchoolSchoolId(Long schoolId);
+
+    @Query("SELECT m FROM Manage m WHERE m.school = :school AND m.manageCate = :manageCate AND " +
+           "(CASE WHEN :year IS NULL THEN m.year IS NULL ELSE m.year = :year END) AND m.manageNum = :manageNum")
+    Optional<Manage> findBySchoolAndManageCateAndYearAndManageNum(
+        @Param("school") School school, 
+        @Param("manageCate") String manageCate, 
+        @Param("year") Integer year, 
+        @Param("manageNum") Long manageNum
+    );
 } 

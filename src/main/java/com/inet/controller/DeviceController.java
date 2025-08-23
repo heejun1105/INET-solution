@@ -23,6 +23,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.ArrayList;
@@ -286,77 +287,109 @@ public class DeviceController {
     public String register(Device device, String operatorName, String operatorPosition, String location, String locationCustom,
                           String manageCate, String manageCateCustom, String manageYear, String manageYearCustom, String manageNum, String manageNumCustom,
                           String uidCate, String uidCateCustom, String uidYear, String uidYearCustom, String uidNum, String uidNumCustom,
-                          RedirectAttributes redirectAttributes) {
+                          String purchaseYear, String purchaseMonth, RedirectAttributes redirectAttributes) {
         
         try {
-            // 권한 체크 (학교별 권한 체크)
-            User user = checkSchoolPermission(Feature.DEVICE_MANAGEMENT, device.getSchool().getSchoolId(), redirectAttributes);
-            if (user == null) {
-                return "redirect:/";
-            }
-            
-            log.info("Registering device: {}", device);
-            log.info("Operator: {}, {}", operatorName, operatorPosition);
-            log.info("Location: {}, LocationCustom: {}", location, locationCustom);
-            log.info("고유번호: cate={}, year={}, num={}", uidCate, uidYear, uidNum);
+        // 권한 체크 (학교별 권한 체크)
+        User user = checkSchoolPermission(Feature.DEVICE_MANAGEMENT, device.getSchool().getSchoolId(), redirectAttributes);
+        if (user == null) {
+            return "redirect:/";
+        }
+        
+        log.info("Registering device: {}", device);
+        log.info("Operator: {}, {}", operatorName, operatorPosition);
+        log.info("Location: {}, LocationCustom: {}", location, locationCustom);
+        log.info("고유번호: cate={}, year={}, num={}", uidCate, uidYear, uidNum);
 
-            // 담당자 정보 처리
-            if (operatorName != null && !operatorName.trim().isEmpty() && 
-                operatorPosition != null && !operatorPosition.trim().isEmpty()) {
-                Operator operator = operatorService.findByNameAndPositionAndSchool(operatorName, operatorPosition, device.getSchool())
-                    .orElseGet(() -> {
-                        Operator op = new Operator();
-                        op.setName(operatorName);
-                        op.setPosition(operatorPosition);
-                        op.setSchool(device.getSchool());
-                        return operatorService.saveOperator(op);
-                    });
-                device.setOperator(operator);
-            }
+        // 담당자 정보 처리
+        if (operatorName != null && !operatorName.trim().isEmpty() && 
+            operatorPosition != null && !operatorPosition.trim().isEmpty()) {
+            Operator operator = operatorService.findByNameAndPositionAndSchool(operatorName, operatorPosition, device.getSchool())
+                .orElseGet(() -> {
+                    Operator op = new Operator();
+                    op.setName(operatorName);
+                    op.setPosition(operatorPosition);
+                    op.setSchool(device.getSchool());
+                    return operatorService.saveOperator(op);
+                });
+            device.setOperator(operator);
+        }
 
-            // 교실 정보 처리
-            String finalLocation = ("CUSTOM".equals(location)) ? locationCustom : location;
-            Classroom classroom = null;
-            if (finalLocation != null && !finalLocation.trim().isEmpty()) {
-                // 학교와 교실명으로 검색
-                classroom = classroomService.findByRoomNameAndSchool(finalLocation, device.getSchool().getSchoolId())
-                    .orElseGet(() -> {
-                        // 교실이 없으면 새로 생성
-                        Classroom newClassroom = new Classroom();
-                        newClassroom.setRoomName(finalLocation);
-                        newClassroom.setSchool(device.getSchool());
-                        newClassroom.setXCoordinate(0);
-                        newClassroom.setYCoordinate(0);
-                        newClassroom.setWidth(100);
-                        newClassroom.setHeight(100);
-                        return classroomService.saveClassroom(newClassroom);
-                    });
-            }
-            device.setClassroom(classroom);
-
-            // 관리번호(Manage) 처리
-            String cate = ("custom".equals(manageCate)) ? manageCateCustom : manageCate;
-            Integer year = ("custom".equals(manageYear)) ? Integer.valueOf(manageYearCustom) : Integer.valueOf(manageYear);
-            Long num = ("custom".equals(manageNum)) ? Long.valueOf(manageNumCustom) : Long.valueOf(manageNum);
-            Manage manage = manageService.findOrCreate(device.getSchool(), cate, year, num);
-            device.setManage(manage);
-
-            // 고유번호(Uid) 처리
-            String finalUidCate = ("custom".equals(uidCate)) ? uidCateCustom : uidCate;
-            String finalUidYear = ("custom".equals(uidYear)) ? uidYearCustom : uidYear;
-            Long finalUidNum = ("custom".equals(uidNum)) ? Long.valueOf(uidNumCustom) : Long.valueOf(uidNum);
-            
-            if (finalUidCate != null && !finalUidCate.trim().isEmpty()) {
-                if (finalUidNum != null) {
-                    deviceService.setDeviceUidWithNumber(device, finalUidCate, finalUidNum);
+        // 도입일자 처리 (년/월을 LocalDate로 변환)
+        if (purchaseYear != null && !purchaseYear.trim().isEmpty() && 
+            purchaseMonth != null && !purchaseMonth.trim().isEmpty()) {
+            try {
+                int year = Integer.parseInt(purchaseYear.trim());
+                int month = Integer.parseInt(purchaseMonth.trim());
+                
+                // 월 유효성 검사 (1-12)
+                if (month >= 1 && month <= 12) {
+                    LocalDate purchaseDate = LocalDate.of(year, month, 1); // 1일로 설정
+                    device.setPurchaseDate(purchaseDate);
+                    log.info("도입일자 설정: {}년 {}월", year, month);
                 } else {
-                    deviceService.setDeviceUid(device, finalUidCate);
+                    log.warn("잘못된 월 입력: {}", month);
                 }
+            } catch (NumberFormatException e) {
+                log.warn("도입일자 파싱 오류: 년={}, 월={}", purchaseYear, purchaseMonth);
             }
+        }
 
-            deviceService.saveDevice(device);
-            redirectAttributes.addFlashAttribute("successMessage", "장비가 성공적으로 등록되었습니다.");
-            return "redirect:/device/list";
+        // 교실 정보 처리
+        String finalLocation = ("CUSTOM".equals(location)) ? locationCustom : location;
+        Classroom classroom = null;
+        if (finalLocation != null && !finalLocation.trim().isEmpty()) {
+            // 학교와 교실명으로 검색
+            classroom = classroomService.findByRoomNameAndSchool(finalLocation, device.getSchool().getSchoolId())
+                .orElseGet(() -> {
+                    // 교실이 없으면 새로 생성
+                    Classroom newClassroom = new Classroom();
+                    newClassroom.setRoomName(finalLocation);
+                    newClassroom.setSchool(device.getSchool());
+                    newClassroom.setXCoordinate(0);
+                    newClassroom.setYCoordinate(0);
+                    newClassroom.setWidth(100);
+                    newClassroom.setHeight(100);
+                    return classroomService.saveClassroom(newClassroom);
+                });
+        }
+        device.setClassroom(classroom);
+
+        // 관리번호(Manage) 처리
+        String cate = ("custom".equals(manageCate)) ? manageCateCustom : manageCate;
+        Integer year = null;
+        if ("custom".equals(manageYear)) {
+            if (manageYearCustom != null && !manageYearCustom.trim().isEmpty()) {
+                year = Integer.valueOf(manageYearCustom.trim());
+            }
+        } else if (manageYear != null && !manageYear.trim().isEmpty() && !"없음".equals(manageYear)) {
+            year = Integer.valueOf(manageYear);
+        }
+        Long num = ("custom".equals(manageNum)) ? Long.valueOf(manageNumCustom) : Long.valueOf(manageNum);
+        Manage manage = manageService.findOrCreate(device.getSchool(), cate, year, num);
+        device.setManage(manage);
+
+        // 고유번호(Uid) 처리
+        String finalUidCate = ("custom".equals(uidCate)) ? uidCateCustom : uidCate;
+        String finalUidYear = null;
+        if ("custom".equals(uidYear)) {
+            finalUidYear = uidYearCustom;
+        } else if (uidYear != null && !uidYear.trim().isEmpty() && !"XX".equals(uidYear)) {
+            finalUidYear = uidYear;
+        }
+        Long finalUidNum = ("custom".equals(uidNum)) ? Long.valueOf(uidNumCustom) : Long.valueOf(uidNum);
+        
+        if (finalUidCate != null && !finalUidCate.trim().isEmpty()) {
+            if (finalUidNum != null) {
+                deviceService.setDeviceUidWithNumber(device, finalUidCate, finalUidNum);
+            } else {
+                deviceService.setDeviceUid(device, finalUidCate);
+            }
+        }
+
+        deviceService.saveDevice(device);
+        redirectAttributes.addFlashAttribute("successMessage", "장비가 성공적으로 등록되었습니다.");
+        return "redirect:/device/list";
             
         } catch (Exception e) {
             log.error("장비 등록 중 오류 발생: ", e);
@@ -392,7 +425,7 @@ public class DeviceController {
     public String modify(Device device, String operatorName, String operatorPosition, String location, String locationCustom,
                         String manageCate, String manageCateCustom, String manageYear, String manageYearCustom, String manageNum, String manageNumCustom,
                         String uidCate, String uidCateCustom, String uidYear, String uidYearCustom, String uidNum, String uidNumCustom,
-                        Long idNumber, RedirectAttributes redirectAttributes) {
+                        String purchaseYear, String purchaseMonth, Long idNumber, RedirectAttributes redirectAttributes) {
         
         // 권한 체크 (학교별 권한 체크)
         User user = checkSchoolPermission(Feature.DEVICE_MANAGEMENT, device.getSchool().getSchoolId(), redirectAttributes);
@@ -413,6 +446,26 @@ public class DeviceController {
                     return operatorService.saveOperator(op);
                 });
             device.setOperator(operator);
+        }
+
+        // 도입일자 처리 (년/월을 LocalDate로 변환)
+        if (purchaseYear != null && !purchaseYear.trim().isEmpty() && 
+            purchaseMonth != null && !purchaseMonth.trim().isEmpty()) {
+            try {
+                int year = Integer.parseInt(purchaseYear.trim());
+                int month = Integer.parseInt(purchaseMonth.trim());
+                
+                // 월 유효성 검사 (1-12)
+                if (month >= 1 && month <= 12) {
+                    LocalDate purchaseDate = LocalDate.of(year, month, 1); // 1일로 설정
+                    device.setPurchaseDate(purchaseDate);
+                    log.info("도입일자 설정: {}년 {}월", year, month);
+                } else {
+                    log.warn("잘못된 월 입력: {}", month);
+                }
+            } catch (NumberFormatException e) {
+                log.warn("도입일자 파싱 오류: 년={}, 월={}", purchaseYear, purchaseMonth);
+            }
         }
 
         // 교실 정보 처리
@@ -437,14 +490,26 @@ public class DeviceController {
 
         // 관리번호(Manage) 처리
         String cate = ("custom".equals(manageCate)) ? manageCateCustom : manageCate;
-        Integer year = ("custom".equals(manageYear)) ? Integer.valueOf(manageYearCustom) : Integer.valueOf(manageYear);
+        Integer year = null;
+        if ("custom".equals(manageYear)) {
+            if (manageYearCustom != null && !manageYearCustom.trim().isEmpty()) {
+                year = Integer.valueOf(manageYearCustom.trim());
+            }
+        } else if (manageYear != null && !manageYear.trim().isEmpty() && !"없음".equals(manageYear)) {
+            year = Integer.valueOf(manageYear);
+        }
         Long num = ("custom".equals(manageNum)) ? Long.valueOf(manageNumCustom) : Long.valueOf(manageNum);
         Manage manage = manageService.findOrCreate(device.getSchool(), cate, year, num);
         device.setManage(manage);
 
         // 고유번호(Uid) 처리
         String finalUidCate = ("custom".equals(uidCate)) ? uidCateCustom : uidCate;
-        String finalUidYear = ("custom".equals(uidYear)) ? uidYearCustom : uidYear;
+        String finalUidYear = null;
+        if ("custom".equals(uidYear)) {
+            finalUidYear = uidYearCustom;
+        } else if (uidYear != null && !uidYear.trim().isEmpty() && !"XX".equals(uidYear)) {
+            finalUidYear = uidYear;
+        }
         Long finalUidNum = ("custom".equals(uidNum)) ? Long.valueOf(uidNumCustom) : Long.valueOf(uidNum);
         
         if (finalUidCate != null && !finalUidCate.trim().isEmpty()) {
@@ -461,6 +526,7 @@ public class DeviceController {
         
         // 장비 수정 및 히스토리 저장
         deviceService.updateDeviceWithHistory(originalDevice, device, user);
+        redirectAttributes.addFlashAttribute("successMessage", "장비가 성공적으로 수정되었습니다.");
         return "redirect:/device/list";
     }
 
