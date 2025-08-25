@@ -321,6 +321,69 @@
             flex: 1;
         }
 
+        /* 장비 수정내역 기간 설정 토글 */
+        .history-period-toggle {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .period-dropdown-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .period-dropdown {
+            padding: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .period-dropdown:focus {
+            outline: none;
+            border-color: #10b981;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .period-dropdown option {
+            background: #1e3a8a;
+            color: #ffffff;
+        }
+
+        .history-date-input {
+            margin-top: 0.5rem;
+        }
+
+        .history-date-field {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .history-date-field:focus {
+            outline: none;
+            border-color: #10b981;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .history-date-field::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
         /* 액션 버튼 */
         .action-section-modern {
             text-align: center;
@@ -504,39 +567,60 @@
                         </div>
 
                         <div class="checkbox-grid-modern" id="selectiveOptions">
-                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteDevices', event)">
+                                                        <div class="checkbox-item-modern" data-checkbox-id="deleteDevices" onclick="handleCardClick(event, 'deleteDevices')">
                                 <input type="checkbox" name="deleteDevices" id="deleteDevices" value="true" onclick="event.stopPropagation()">
                                 <i class="fas fa-desktop"></i>
                                 <label for="deleteDevices">장비</label>
                             </div>
-                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteWirelessAps', event)">
+                            <div class="checkbox-item-modern" data-checkbox-id="deleteWirelessAps" onclick="handleCardClick(event, 'deleteWirelessAps')">
                                 <input type="checkbox" name="deleteWirelessAps" id="deleteWirelessAps" value="true" onclick="event.stopPropagation()">
                                 <i class="fas fa-wifi"></i>
                                 <label for="deleteWirelessAps">무선 AP</label>
                             </div>
-                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteClassrooms', event)">
+                            <div class="checkbox-item-modern" data-checkbox-id="deleteClassrooms" onclick="handleCardClick(event, 'deleteClassrooms')">
                                 <input type="checkbox" name="deleteClassrooms" id="deleteClassrooms" value="true" onclick="event.stopPropagation()">
                                 <i class="fas fa-door-open"></i>
                                 <label for="deleteClassrooms">교실</label>
                             </div>
-                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteOperators', event)">
+                            <div class="checkbox-item-modern" data-checkbox-id="deleteOperators" onclick="handleCardClick(event, 'deleteOperators')">
                                 <input type="checkbox" name="deleteOperators" id="deleteOperators" value="true" onclick="event.stopPropagation()">
                                 <i class="fas fa-user-tie"></i>
                                 <label for="deleteOperators">운영자</label>
                             </div>
-                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteManages', event)">
+                            <div class="checkbox-item-modern" data-checkbox-id="deleteManages" onclick="handleCardClick(event, 'deleteManages')">
                                 <input type="checkbox" name="deleteManages" id="deleteManages" value="true" onclick="event.stopPropagation()">
                                 <i class="fas fa-clipboard-list"></i>
                                 <label for="deleteManages">관리번호</label>
-                    </div>
-                            <div class="checkbox-item-modern" onclick="toggleCheckbox('deleteUids', event)">
+                            </div>
+                            <div class="checkbox-item-modern" data-checkbox-id="deleteUids" onclick="handleCardClick(event, 'deleteUids')">
                                 <input type="checkbox" name="deleteUids" id="deleteUids" value="true" onclick="event.stopPropagation()">
                                 <i class="fas fa-id-card"></i>
                                 <label for="deleteUids">고유번호</label>
-                    </div>
-                    </div>
+                            </div>
+                            <div class="checkbox-item-modern" data-checkbox-id="deleteDeviceHistory" onclick="handleCardClick(event, 'deleteDeviceHistory')">
+                                <input type="checkbox" name="deleteDeviceHistory" id="deleteDeviceHistory" value="true" onclick="event.stopPropagation()">
+                                <i class="fas fa-history"></i>
+                                <label for="deleteDeviceHistory">장비 수정내역</label>
+                                
+                                <!-- 장비 수정내역 기간 설정 토글 -->
+                                <div class="history-period-toggle" id="historyPeriodToggle" style="display: none;" onclick="event.stopPropagation()">
+                                    <div class="period-dropdown-container">
+                                        <select id="historyPeriodType" name="periodType" class="period-dropdown" onchange="toggleHistoryDateInput()" onclick="event.stopPropagation()">
+                                            <option value="all">전체 기간</option>
+                                            <option value="before">특정 날짜 이전</option>
+                                        </select>
+                                        
+                                        <div id="historyDateInput" class="history-date-input" style="display: none;">
+                                            <input type="date" id="deleteBeforeDate" name="deleteBeforeDate" class="history-date-field" placeholder="날짜 선택" onclick="event.stopPropagation()">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+
 
                 <!-- 액션 버튼 -->
                 <div class="action-section-modern">
@@ -590,28 +674,110 @@
         function toggleSelectiveOptions() {
             const selectiveOptions = document.getElementById('selectiveOptions');
             const isSelective = document.getElementById('deleteSelective').checked;
+            
             selectiveOptions.style.display = isSelective ? 'grid' : 'none';
+            
             updateDeleteButtonState();
         }
 
-        function toggleCheckbox(checkboxId, event) {
-            // 체크박스 직접 클릭인 경우에는 처리하지 않음
-            if (event && event.target.type === 'checkbox') {
+        function handleCardClick(event, checkboxId) {
+            // 이벤트 전파 중단
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // 클릭된 요소 확인
+            const target = event.target;
+            console.log('Card clicked:', checkboxId, 'Target:', target.tagName, target.className);
+            
+            // 체크박스, 드롭다운, 입력 필드, 기간 설정 토글을 클릭한 경우 처리하지 않음
+            if (target.type === 'checkbox' || 
+                target.tagName === 'SELECT' || 
+                target.tagName === 'INPUT' ||
+                target.closest('.history-period-toggle')) {
+                console.log('Ignoring click on form element');
                 return;
             }
             
+            // 체크박스 찾기
             const checkbox = document.getElementById(checkboxId);
+            if (!checkbox) {
+                console.error(`Checkbox with id '${checkboxId}' not found`);
+                return;
+            }
+            
+            // 카드 컨테이너 찾기
             const container = checkbox.closest('.checkbox-item-modern');
+            if (!container) {
+                console.error(`Container for checkbox '${checkboxId}' not found`);
+                return;
+            }
             
-            checkbox.checked = !checkbox.checked;
+            // 체크박스 상태 토글
+            const newState = !checkbox.checked;
+            checkbox.checked = newState;
             
-            if (checkbox.checked) {
+            // UI 상태 업데이트
+            if (newState) {
                 container.classList.add('checked');
             } else {
                 container.classList.remove('checked');
             }
             
+            // 장비 수정내역 체크박스 특별 처리
+            if (checkboxId === 'deleteDeviceHistory') {
+                toggleHistoryPeriodToggle();
+            }
+            
             updateDeleteButtonState();
+            
+            // 디버깅 로그
+            console.log(`Checkbox ${checkboxId} toggled to: ${newState}`);
+        }
+
+        function toggleCheckbox(checkboxId, event) {
+            // 이벤트 객체가 있고, 체크박스나 관련 요소를 클릭한 경우 처리하지 않음
+            if (event) {
+                const target = event.target;
+                if (target.type === 'checkbox' || 
+                    target.tagName === 'SELECT' || 
+                    target.tagName === 'INPUT' ||
+                    target.closest('.history-period-toggle')) {
+                    return;
+                }
+            }
+            
+            const checkbox = document.getElementById(checkboxId);
+            if (!checkbox) {
+                console.error(`Checkbox with id '${checkboxId}' not found`);
+                return;
+            }
+            
+            const container = checkbox.closest('.checkbox-item-modern');
+            if (!container) {
+                console.error(`Container for checkbox '${checkboxId}' not found`);
+                return;
+            }
+            
+            // 체크박스 상태 토글
+            const newState = !checkbox.checked;
+            checkbox.checked = newState;
+            
+            // UI 상태 업데이트
+            if (newState) {
+                container.classList.add('checked');
+            } else {
+                container.classList.remove('checked');
+            }
+            
+            // 장비 수정내역 체크박스 특별 처리
+            if (checkboxId === 'deleteDeviceHistory') {
+                toggleHistoryPeriodToggle();
+            }
+            
+            updateDeleteButtonState();
+            
+            // 디버깅 로그
+            console.log(`Checkbox ${checkboxId} toggled to: ${newState}`);
         }
 
         function getSelectedSchools() {
@@ -644,6 +810,28 @@
             
             deleteButton.disabled = !(schoolSelected && (isAll || (isSelective && selectiveOptionChecked)));
         }
+
+        function toggleHistoryPeriodToggle() {
+            const historyPeriodToggle = document.getElementById('historyPeriodToggle');
+            const deleteDeviceHistory = document.getElementById('deleteDeviceHistory');
+            
+            if (deleteDeviceHistory.checked) {
+                historyPeriodToggle.style.display = 'block';
+            } else {
+                historyPeriodToggle.style.display = 'none';
+            }
+        }
+
+        function toggleHistoryDateInput() {
+            const historyDateInput = document.getElementById('historyDateInput');
+            const periodType = document.getElementById('historyPeriodType').value;
+            
+            if (periodType === 'before') {
+                historyDateInput.style.display = 'block';
+            } else {
+                historyDateInput.style.display = 'none';
+            }
+        }
         
         function confirmDelete() {
             const selectedSchools = getSelectedSchools();
@@ -664,15 +852,28 @@
                     const label = document.querySelector(`label[for='${cb.id}']`);
                     selectedTypes.push(label.innerText.trim());
                 });
-                if (selectedTypes.length === 0) {
-                     alert("삭제할 데이터 유형을 하나 이상 선택해주세요.");
-                     return false;
-                }
-                message += `${selectedTypes.join(', ')} 데이터를 삭제하시겠습니까?`;
+                            if (selectedTypes.length === 0) {
+                 alert("삭제할 데이터 유형을 하나 이상 선택해주세요.");
+                 return false;
             }
+            message += `${selectedTypes.join(', ')} 데이터를 삭제하시겠습니까?`;
             
-            message += "\n\n이 작업은 되돌릴 수 없습니다.";
-            return confirm(message);
+            // 장비 수정내역 기간 정보 추가
+            if (deleteDeviceHistory) {
+                const periodType = document.getElementById('historyPeriodType').value;
+                if (periodType === 'before') {
+                    const deleteDate = document.getElementById('deleteBeforeDate').value;
+                    if (!deleteDate) {
+                        alert("장비 수정내역 삭제 날짜를 선택해주세요.");
+                        return false;
+                    }
+                    message += `\n\n수정내역 삭제 기간: ${deleteDate} 이전`;
+                }
+            }
+        }
+        
+        message += "\n\n이 작업은 되돌릴 수 없습니다.";
+        return confirm(message);
         }
 
         // 체크박스 상태에 따른 UI 업데이트
@@ -684,6 +885,12 @@
                 } else {
                     container.classList.remove('checked');
                 }
+                
+                // 장비 수정내역 체크박스 특별 처리
+                if (this.id === 'deleteDeviceHistory') {
+                    toggleHistoryPeriodToggle();
+                }
+                
                 updateDeleteButtonState();
             });
         });

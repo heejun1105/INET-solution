@@ -178,7 +178,7 @@
                             <!-- 장비 데이터 행 -->
                             <tr th:class="${device.setType != null and !device.setType.isEmpty() ? 'set-group-item' : 'operator-group-item'}">
                                 <td data-label="학교" th:text="${device.school != null ? device.school.schoolName : '미지정'}"></td>
-                                <td data-label="고유번호" th:text="${device.uid != null ? device.school.schoolId + device.uid.displayId : ''}"></td>
+                                <td data-label="고유번호" th:text="${device.uid != null ? device.uid.displayUid : ''}"></td>
                                 <td data-label="관리번호" th:text="${device.manage != null ? device.manage.displayId : ''}"></td>
                                 <td data-label="유형" class="device-type" th:text="${device.type != null ? device.type : ''}"></td>
                                 <td data-label="직위" th:text="${device.operator != null && device.operator.position != null ? device.operator.position : ''}"></td>
@@ -258,9 +258,9 @@
                             </div>
                             
                             <div class="card-content">
-                                <div class="card-field" th:if="${device.uid != null && device.uid.displayId != null && !#strings.isEmpty(device.uid.displayId)}">
+                                <div class="card-field" th:if="${device.uid != null && device.uid.displayUid != null && !#strings.isEmpty(device.uid.displayUid)}">
                                     <div class="field-label">고유번호</div>
-                                    <div class="field-value" th:text="${device.school.schoolId + device.uid.displayId}"></div>
+                                    <div class="field-value" th:text="${device.uid.displayUid}"></div>
                                 </div>
                                 
                                 <div class="card-field" th:if="${device.manage != null && device.manage.displayId != null && !#strings.isEmpty(device.manage.displayId)}">

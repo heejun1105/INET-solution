@@ -27,6 +27,7 @@ public class DataManagementService {
     private final OperatorRepository operatorRepository;
     private final UidRepository uidRepository;
     private final WirelessApRepository wirelessApRepository;
+    private final DeviceHistoryRepository deviceHistoryRepository;
     private final EntityManager entityManager;
     private final SchoolRepository schoolRepository;
 
@@ -38,6 +39,7 @@ public class DataManagementService {
             OperatorRepository operatorRepository,
             UidRepository uidRepository,
             WirelessApRepository wirelessApRepository,
+            DeviceHistoryRepository deviceHistoryRepository,
             EntityManager entityManager,
             SchoolRepository schoolRepository) {
         this.deviceRepository = deviceRepository;
@@ -46,6 +48,7 @@ public class DataManagementService {
         this.operatorRepository = operatorRepository;
         this.uidRepository = uidRepository;
         this.wirelessApRepository = wirelessApRepository;
+        this.deviceHistoryRepository = deviceHistoryRepository;
         this.entityManager = entityManager;
         this.schoolRepository = schoolRepository;
     }
@@ -74,9 +77,10 @@ public class DataManagementService {
             long operatorCount = operatorRepository.countBySchoolSchoolId(schoolId);
             long manageCount = manageRepository.countBySchoolSchoolId(schoolId);
             long uidCount = uidRepository.countBySchoolSchoolId(schoolId);
+            long deviceHistoryCount = deviceHistoryRepository.countByDeviceSchoolSchoolId(schoolId);
             
-            logger.info("Found records to delete - Devices: {}, WirelessAPs: {}, Classrooms: {}, Operators: {}, Manages: {}, UIDs: {}", 
-                deviceCount, wirelessApCount, classroomCount, operatorCount, manageCount, uidCount);
+            logger.info("Found records to delete - Devices: {}, WirelessAPs: {}, Classrooms: {}, Operators: {}, Manages: {}, UIDs: {}, DeviceHistory: {}", 
+                deviceCount, wirelessApCount, classroomCount, operatorCount, manageCount, uidCount, deviceHistoryCount);
 
             // 3. 외래키 제약조건 비활성화
             entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 0").executeUpdate();
@@ -112,6 +116,11 @@ public class DataManagementService {
                 totalRecordsDeleted += deletedManages;
                 logger.debug("Deleted {} manages", deletedManages);
                 
+                // 10. 장비 수정내역 삭제
+                int deletedDeviceHistory = deviceHistoryRepository.deleteByDeviceSchoolSchoolId(schoolId);
+                totalRecordsDeleted += deletedDeviceHistory;
+                logger.debug("Deleted {} device history records", deletedDeviceHistory);
+                
             } finally {
                 // 10. 외래키 제약조건 다시 활성화
                 entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 1").executeUpdate();
@@ -124,12 +133,13 @@ public class DataManagementService {
             long remainingOperators = operatorRepository.countBySchoolSchoolId(schoolId);
             long remainingManages = manageRepository.countBySchoolSchoolId(schoolId);
             long remainingUids = uidRepository.countBySchoolSchoolId(schoolId);
+            long remainingDeviceHistory = deviceHistoryRepository.countByDeviceSchoolSchoolId(schoolId);
 
             if (remainingDevices > 0 || remainingWirelessAps > 0 || remainingClassrooms > 0 || remainingOperators > 0 || 
-                remainingManages > 0 || remainingUids > 0) {
+                remainingManages > 0 || remainingUids > 0 || remainingDeviceHistory > 0) {
                 String errorMsg = String.format(
-                    "데이터 삭제가 완전하지 않습니다. 남은 레코드 - Devices: %d, WirelessAPs: %d, Classrooms: %d, Operators: %d, Manages: %d, UIDs: %d",
-                    remainingDevices, remainingWirelessAps, remainingClassrooms, remainingOperators, remainingManages, remainingUids);
+                    "데이터 삭제가 완전하지 않습니다. 남은 레코드 - Devices: %d, WirelessAPs: %d, Classrooms: %d, Operators: %d, Manages: %d, UIDs: %d, DeviceHistory: %d",
+                    remainingDevices, remainingWirelessAps, remainingClassrooms, remainingOperators, remainingManages, remainingUids, remainingDeviceHistory);
                 logger.error(errorMsg);
                 throw new RuntimeException(errorMsg);
             }
@@ -215,12 +225,42 @@ public class DataManagementService {
         logger.info("Successfully deleted {} records for school: {}", totalDeleted, school.getSchoolName());
     }
 
+    /**
+     * 학교별 장비 수정내역 삭제 (기간 설정 적용)
+     */
+    @Transactional
+    public int deleteDeviceHistoryBySchool(Long schoolId, String periodType, String deleteBeforeDate) {
+        logger.info("Deleting device history for school: {} with period type: {}", schoolId, periodType);
+        
+        int deletedCount = 0;
+        
+        if ("all".equals(periodType)) {
+            // 전체 기간 삭제
+            deletedCount = deviceHistoryRepository.deleteByDeviceSchoolSchoolId(schoolId);
+            logger.info("Deleted all {} device history records for school: {}", deletedCount, schoolId);
+        } else if ("before".equals(periodType) && deleteBeforeDate != null) {
+            // 특정 날짜 이전 삭제
+            try {
+                java.time.LocalDate beforeDate = java.time.LocalDate.parse(deleteBeforeDate);
+                java.time.LocalDateTime beforeDateTime = beforeDate.atStartOfDay();
+                deletedCount = deviceHistoryRepository.deleteByDeviceSchoolSchoolIdAndModifiedAtBefore(schoolId, beforeDateTime);
+                logger.info("Deleted {} device history records before {} for school: {}", deletedCount, deleteBeforeDate, schoolId);
+            } catch (Exception e) {
+                logger.error("Error parsing date: {}", deleteBeforeDate, e);
+                throw new IllegalArgumentException("잘못된 날짜 형식입니다: " + deleteBeforeDate);
+            }
+        }
+        
+        return deletedCount;
+    }
+
     @Transactional
     public void deleteSelectedDataTypes(Long schoolId, boolean deleteDevices, boolean deleteWirelessAps, 
                                        boolean deleteClassrooms, boolean deleteOperators, 
-                                       boolean deleteManages, boolean deleteUids) {
-        logger.info("Deleting selected data types for school: {} (devices: {}, wirelessAPs: {}, classrooms: {}, operators: {}, manages: {}, uids: {})", 
-                   schoolId, deleteDevices, deleteWirelessAps, deleteClassrooms, deleteOperators, deleteManages, deleteUids);
+                                       boolean deleteManages, boolean deleteUids, boolean deleteDeviceHistory,
+                                       String periodType, String deleteBeforeDate) {
+        logger.info("Deleting selected data types for school: {} (devices: {}, wirelessAPs: {}, classrooms: {}, operators: {}, manages: {}, uids: {}, history: {}, period: {})", 
+                   schoolId, deleteDevices, deleteWirelessAps, deleteClassrooms, deleteOperators, deleteManages, deleteUids, deleteDeviceHistory, periodType);
         
         School school = schoolRepository.findById(schoolId)
             .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 학교입니다: " + schoolId));
@@ -263,6 +303,13 @@ public class DataManagementService {
             int deletedClassrooms = classroomRepository.deleteBySchoolSchoolId(schoolId);
             totalDeleted += deletedClassrooms;
             logger.debug("Deleted {} classrooms", deletedClassrooms);
+        }
+        
+        // 장비 수정내역 삭제 (기간 설정 적용)
+        if (deleteDeviceHistory) {
+            int deletedHistory = deleteDeviceHistoryBySchool(schoolId, periodType, deleteBeforeDate);
+            totalDeleted += deletedHistory;
+            logger.debug("Deleted {} device history records", deletedHistory);
         }
         
         logger.info("Successfully deleted {} records for school: {}", totalDeleted, school.getSchoolName());

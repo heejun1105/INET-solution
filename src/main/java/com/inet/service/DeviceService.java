@@ -22,7 +22,8 @@ import com.inet.service.ManageService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
@@ -53,10 +54,10 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 @Transactional
 public class DeviceService {
+    
+    private static final Logger log = LoggerFactory.getLogger(DeviceService.class);
     
     private final DeviceRepository deviceRepository;
     private final SchoolRepository schoolRepository;
@@ -68,12 +69,43 @@ public class DeviceService {
     private final DeviceHistoryService deviceHistoryService;
     private final ManageService manageService;
     
+    public DeviceService(DeviceRepository deviceRepository, SchoolRepository schoolRepository, 
+                        ClassroomRepository classroomRepository, OperatorService operatorService,
+                        ManageRepository manageRepository, ClassroomService classroomService,
+                        UidService uidService, DeviceHistoryService deviceHistoryService,
+                        ManageService manageService) {
+        this.deviceRepository = deviceRepository;
+        this.schoolRepository = schoolRepository;
+        this.classroomRepository = classroomRepository;
+        this.operatorService = operatorService;
+        this.manageRepository = manageRepository;
+        this.classroomService = classroomService;
+        this.uidService = uidService;
+        this.deviceHistoryService = deviceHistoryService;
+        this.manageService = manageService;
+    }
+    
     @PersistenceContext
     private EntityManager entityManager;
     
     // Create
     public Device saveDevice(Device device) {
         System.out.println("Saving device: " + device);
+        
+        // 고유번호 중복 검증
+        if (device.getUid() != null && isUidDuplicate(device.getUid(), null)) {
+            throw new RuntimeException("동일한 고유번호가 이미 존재합니다: " + 
+                device.getUid().getCate() + "-" + device.getUid().getMfgYear() + "-" + 
+                String.format("%04d", device.getUid().getIdNumber()));
+        }
+        
+        // 관리번호 중복 검증
+        if (device.getManage() != null && isManageDuplicate(device.getManage(), null)) {
+            throw new RuntimeException("동일한 관리번호가 이미 존재합니다: " + 
+                device.getManage().getManageCate() + "-" + device.getManage().getYear() + "-" + 
+                device.getManage().getManageNum());
+        }
+        
         return deviceRepository.save(device);
     }
     
@@ -105,87 +137,244 @@ public class DeviceService {
      * 장비 수정 시 히스토리 저장
      */
     @Transactional
-    public void updateDeviceWithHistory(Device originalDevice, Device updatedDevice, User modifiedBy) {
+    public void updateDeviceWithHistory(Device updatedDevice, User modifiedBy) {
+        log.info("=== 장비 수정 히스토리 저장 시작 ===");
+        log.info("장비 ID: {}", updatedDevice.getDeviceId());
+        log.info("수정자: {}", modifiedBy.getName());
+        
+        // 데이터베이스에서 원본 장비 정보를 다시 조회 (JPA 영속성 컨텍스트 문제 방지)
+        Device originalDevice = deviceRepository.findById(updatedDevice.getDeviceId())
+                .orElseThrow(() -> new RuntimeException("원본 장비를 찾을 수 없습니다: " + updatedDevice.getDeviceId()));
+        
+        log.info("원본 장비 (DB에서 조회): type={}, manufacturer={}, model={}", 
+                originalDevice.getType(), originalDevice.getManufacturer(), originalDevice.getModelName());
+        log.info("수정된 장비: type={}, manufacturer={}, model={}", 
+                updatedDevice.getType(), updatedDevice.getManufacturer(), updatedDevice.getModelName());
+        
+        int changeCount = 0;
+        
         // 각 필드별로 변경사항 확인 및 히스토리 저장
         if (!equals(originalDevice.getType(), updatedDevice.getType())) {
+            changeCount++;
+            log.info("Type 변경: {} -> {}", originalDevice.getType(), updatedDevice.getType());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "type", 
                 originalDevice.getType(), updatedDevice.getType(), modifiedBy);
         }
         
         if (!equals(originalDevice.getManufacturer(), updatedDevice.getManufacturer())) {
+            changeCount++;
+            log.info("Manufacturer 변경: {} -> {}", originalDevice.getManufacturer(), updatedDevice.getManufacturer());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "manufacturer", 
                 originalDevice.getManufacturer(), updatedDevice.getManufacturer(), modifiedBy);
         }
         
         if (!equals(originalDevice.getModelName(), updatedDevice.getModelName())) {
+            changeCount++;
+            log.info("ModelName 변경: {} -> {}", originalDevice.getModelName(), updatedDevice.getModelName());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "modelName", 
                 originalDevice.getModelName(), updatedDevice.getModelName(), modifiedBy);
         }
         
         if (!equals(originalDevice.getPurchaseDate(), updatedDevice.getPurchaseDate())) {
+            changeCount++;
+            log.info("PurchaseDate 변경: {} -> {}", originalDevice.getPurchaseDate(), updatedDevice.getPurchaseDate());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "purchaseDate", 
                 originalDevice.getPurchaseDate() != null ? originalDevice.getPurchaseDate().toString() : null,
                 updatedDevice.getPurchaseDate() != null ? updatedDevice.getPurchaseDate().toString() : null, modifiedBy);
         }
         
         if (!equals(originalDevice.getIpAddress(), updatedDevice.getIpAddress())) {
+            changeCount++;
+            log.info("IpAddress 변경: {} -> {}", originalDevice.getIpAddress(), updatedDevice.getIpAddress());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "ipAddress", 
                 originalDevice.getIpAddress(), updatedDevice.getIpAddress(), modifiedBy);
         }
         
         if (!equals(originalDevice.getPurpose(), updatedDevice.getPurpose())) {
+            changeCount++;
+            log.info("Purpose 변경: {} -> {}", originalDevice.getPurpose(), updatedDevice.getPurpose());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "purpose", 
                 originalDevice.getPurpose(), updatedDevice.getPurpose(), modifiedBy);
         }
         
         if (!equals(originalDevice.getSetType(), updatedDevice.getSetType())) {
+            changeCount++;
+            log.info("SetType 변경: {} -> {}", originalDevice.getSetType(), updatedDevice.getSetType());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "setType", 
                 originalDevice.getSetType(), updatedDevice.getSetType(), modifiedBy);
         }
         
         if (!equals(originalDevice.getUnused(), updatedDevice.getUnused())) {
+            changeCount++;
+            log.info("Unused 변경: {} -> {}", originalDevice.getUnused(), updatedDevice.getUnused());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "unused", 
                 originalDevice.getUnused() != null ? originalDevice.getUnused().toString() : null,
                 updatedDevice.getUnused() != null ? updatedDevice.getUnused().toString() : null, modifiedBy);
         }
         
         if (!equals(originalDevice.getNote(), updatedDevice.getNote())) {
+            changeCount++;
+            log.info("Note 변경: {} -> {}", originalDevice.getNote(), updatedDevice.getNote());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "note", 
                 originalDevice.getNote(), updatedDevice.getNote(), modifiedBy);
         }
         
         // 연관 엔티티 변경사항 확인
         if (!equals(originalDevice.getSchool(), updatedDevice.getSchool())) {
+            changeCount++;
+            log.info("School 변경: {} -> {}", 
+                originalDevice.getSchool() != null ? originalDevice.getSchool().getSchoolName() : null,
+                updatedDevice.getSchool() != null ? updatedDevice.getSchool().getSchoolName() : null);
             deviceHistoryService.saveDeviceHistory(updatedDevice, "school", 
                 originalDevice.getSchool() != null ? originalDevice.getSchool().getSchoolName() : null,
                 updatedDevice.getSchool() != null ? updatedDevice.getSchool().getSchoolName() : null, modifiedBy);
         }
         
         if (!equals(originalDevice.getClassroom(), updatedDevice.getClassroom())) {
+            changeCount++;
+            log.info("Classroom 변경: {} -> {}", 
+                originalDevice.getClassroom() != null ? originalDevice.getClassroom().getRoomName() : null,
+                updatedDevice.getClassroom() != null ? updatedDevice.getClassroom().getRoomName() : null);
             deviceHistoryService.saveDeviceHistory(updatedDevice, "classroom", 
                 originalDevice.getClassroom() != null ? originalDevice.getClassroom().getRoomName() : null,
                 updatedDevice.getClassroom() != null ? updatedDevice.getClassroom().getRoomName() : null, modifiedBy);
         }
         
         if (!equals(originalDevice.getOperator(), updatedDevice.getOperator())) {
+            changeCount++;
+            log.info("Operator 변경: {} -> {}", 
+                originalDevice.getOperator() != null ? originalDevice.getOperator().getName() : null,
+                updatedDevice.getOperator() != null ? updatedDevice.getOperator().getName() : null);
             deviceHistoryService.saveDeviceHistory(updatedDevice, "operator", 
                 originalDevice.getOperator() != null ? originalDevice.getOperator().getName() : null,
                 updatedDevice.getOperator() != null ? updatedDevice.getOperator().getName() : null, modifiedBy);
         }
         
-        if (!equals(originalDevice.getManage(), updatedDevice.getManage())) {
-            deviceHistoryService.saveDeviceHistory(updatedDevice, "manage", 
-                originalDevice.getManage() != null ? originalDevice.getManage().getManageNum().toString() : null,
-                updatedDevice.getManage() != null ? updatedDevice.getManage().getManageNum().toString() : null, modifiedBy);
+        // 관리번호 변경 감지 (ID 기반 비교)
+        boolean manageChanged = false;
+        String originalManageInfo = null;
+        String updatedManageInfo = null;
+        
+        if (originalDevice.getManage() != null && updatedDevice.getManage() != null) {
+            Manage origManage = originalDevice.getManage();
+            Manage updatedManage = updatedDevice.getManage();
+            
+            // 각 필드별로 비교
+            if (!equals(origManage.getManageCate(), updatedManage.getManageCate()) ||
+                !equals(origManage.getYear(), updatedManage.getYear()) ||
+                !equals(origManage.getManageNum(), updatedManage.getManageNum())) {
+                manageChanged = true;
+            }
+        } else if (originalDevice.getManage() != null || updatedDevice.getManage() != null) {
+            // 하나는 null이고 하나는 null이 아닌 경우
+            manageChanged = true;
         }
         
-        if (!equals(originalDevice.getUid(), updatedDevice.getUid())) {
-            deviceHistoryService.saveDeviceHistory(updatedDevice, "uid", 
-                originalDevice.getUid() != null ? originalDevice.getUid().getIdNumber().toString() : null,
-                updatedDevice.getUid() != null ? updatedDevice.getUid().getIdNumber().toString() : null, modifiedBy);
+        if (manageChanged) {
+            changeCount++;
+            
+            // 관리번호 상세 정보 생성
+            if (originalDevice.getManage() != null) {
+                Manage origManage = originalDevice.getManage();
+                originalManageInfo = String.format("%s-%s-%d", 
+                    origManage.getManageCate() != null ? origManage.getManageCate() : "",
+                    origManage.getYear() != null ? origManage.getYear().toString() : "없음",
+                    origManage.getManageNum());
+            }
+            
+            if (updatedDevice.getManage() != null) {
+                Manage updatedManage = updatedDevice.getManage();
+                updatedManageInfo = String.format("%s-%s-%d", 
+                    updatedManage.getManageCate() != null ? updatedManage.getManageCate() : "",
+                    updatedManage.getYear() != null ? updatedManage.getYear().toString() : "없음",
+                    updatedManage.getManageNum());
+            }
+            
+            System.out.println("관리번호 변경 감지됨!");
+            System.out.println("원본 관리번호: " + originalManageInfo);
+            System.out.println("수정된 관리번호: " + updatedManageInfo);
+            System.out.println("관리번호 변경: " + originalManageInfo + " -> " + updatedManageInfo);
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "manage", originalManageInfo, updatedManageInfo, modifiedBy);
+        } else {
+            System.out.println("관리번호 변경 없음 - 원본: " + 
+                (originalDevice.getManage() != null ? "있음" : "없음") + 
+                ", 수정: " + (updatedDevice.getManage() != null ? "있음" : "없음"));
         }
         
-        // 장비 저장
+        // 고유번호 변경 감지 (ID 기반 비교)
+        boolean uidChanged = false;
+        String originalUidInfo = null;
+        String updatedUidInfo = null;
+        
+        if (originalDevice.getUid() != null && updatedDevice.getUid() != null) {
+            Uid origUid = originalDevice.getUid();
+            Uid updatedUid = updatedDevice.getUid();
+            
+            // 각 필드별로 비교
+            if (!equals(origUid.getCate(), updatedUid.getCate()) ||
+                !equals(origUid.getMfgYear(), updatedUid.getMfgYear()) ||
+                !equals(origUid.getIdNumber(), updatedUid.getIdNumber())) {
+                uidChanged = true;
+            }
+        } else if (originalDevice.getUid() != null || updatedDevice.getUid() != null) {
+            // 하나는 null이고 하나는 null이 아닌 경우
+            uidChanged = true;
+        }
+        
+        if (uidChanged) {
+            changeCount++;
+            
+            // 고유번호 상세 정보 생성
+            if (originalDevice.getUid() != null) {
+                Uid origUid = originalDevice.getUid();
+                originalUidInfo = String.format("%s-%s-%04d", 
+                    origUid.getCate() != null ? origUid.getCate() : "",
+                    origUid.getMfgYear() != null ? origUid.getMfgYear() : "XX",
+                    origUid.getIdNumber());
+            }
+            
+            if (updatedDevice.getUid() != null) {
+                Uid updatedUid = updatedDevice.getUid();
+                updatedUidInfo = String.format("%s-%s-%04d", 
+                    updatedUid.getCate() != null ? updatedUid.getCate() : "",
+                    updatedUid.getMfgYear() != null ? updatedUid.getMfgYear() : "XX",
+                    updatedUid.getIdNumber());
+            }
+            
+            System.out.println("고유번호 변경 감지됨!");
+            System.out.println("원본 고유번호: " + originalUidInfo);
+            System.out.println("수정된 고유번호: " + updatedUidInfo);
+            System.out.println("고유번호 변경: " + originalUidInfo + " -> " + updatedUidInfo);
+            deviceHistoryService.saveDeviceHistory(updatedDevice, "uid", originalUidInfo, updatedUidInfo, modifiedBy);
+        } else {
+            System.out.println("고유번호 변경 없음 - 원본: " + 
+                (originalDevice.getUid() != null ? "있음" : "없음") + 
+                ", 수정: " + (updatedDevice.getUid() != null ? "있음" : "없음"));
+        }
+        
+        log.info("=== 장비 수정 히스토리 저장 완료 ===");
+        log.info("총 변경사항 수: {}", changeCount);
+        
+        // 고유번호 중복 검증 (자기 자신 제외)
+        if (updatedDevice.getUid() != null && isUidDuplicate(updatedDevice.getUid(), updatedDevice.getDeviceId())) {
+            throw new RuntimeException("동일한 고유번호가 이미 존재합니다: " + 
+                updatedDevice.getUid().getCate() + "-" + updatedDevice.getUid().getMfgYear() + "-" + 
+                String.format("%04d", updatedDevice.getUid().getIdNumber()));
+        }
+        
+        // 관리번호 중복 검증 (자기 자신 제외)
+        System.out.println("=== 관리번호 중복 검증 호출 ===");
+        System.out.println("수정할 장비 ID: " + updatedDevice.getDeviceId());
+        System.out.println("수정할 관리번호: " + (updatedDevice.getManage() != null ? 
+            updatedDevice.getManage().getManageCate() + "-" + updatedDevice.getManage().getYear() + "-" + updatedDevice.getManage().getManageNum() : "null"));
+        
+        if (updatedDevice.getManage() != null && isManageDuplicate(updatedDevice.getManage(), updatedDevice.getDeviceId())) {
+            throw new RuntimeException("동일한 관리번호가 이미 존재합니다: " + 
+                updatedDevice.getManage().getManageCate() + "-" + updatedDevice.getManage().getYear() + "-" + 
+                updatedDevice.getManage().getManageNum());
+        }
+        
+        // 히스토리 저장 후에 장비 저장
         deviceRepository.save(updatedDevice);
     }
     
@@ -197,6 +386,54 @@ public class DeviceService {
         if (obj1 == null || obj2 == null) return false;
         return obj1.equals(obj2);
     }
+    
+    /**
+     * 고유번호 중복 검증
+     */
+    public boolean isUidDuplicate(Uid uid, Long excludeDeviceId) {
+        if (uid == null) return false;
+        
+        // 같은 학교 내에서 동일한 고유번호가 있는지 확인
+        List<Device> devicesWithSameUid = deviceRepository.findBySchoolAndUidCateAndUidMfgYearAndUidIdNumber(
+            uid.getSchool(), uid.getCate(), uid.getMfgYear(), uid.getIdNumber());
+        
+        // excludeDeviceId가 있으면 해당 장비는 제외
+        return devicesWithSameUid.stream()
+            .anyMatch(device -> !device.getDeviceId().equals(excludeDeviceId));
+    }
+    
+    /**
+     * 관리번호 중복 검증
+     */
+    public boolean isManageDuplicate(Manage manage, Long excludeDeviceId) {
+        if (manage == null) return false;
+        
+        System.out.println("=== 관리번호 중복 검증 시작 ===");
+        System.out.println("검증할 관리번호: " + manage.getManageCate() + "-" + manage.getYear() + "-" + manage.getManageNum());
+        System.out.println("제외할 장비ID: " + excludeDeviceId);
+        
+        // 같은 학교 내에서 동일한 관리번호가 있는지 확인
+        List<Device> devicesWithSameManage = deviceRepository.findBySchoolAndManageManageCateAndManageYearAndManageManageNum(
+            manage.getSchool(), manage.getManageCate(), manage.getYear(), manage.getManageNum());
+        
+        System.out.println("동일한 관리번호를 가진 장비 수: " + devicesWithSameManage.size());
+        
+        // excludeDeviceId가 있으면 해당 장비는 제외
+        boolean hasDuplicate = devicesWithSameManage.stream()
+            .anyMatch(device -> !device.getDeviceId().equals(excludeDeviceId));
+        
+        System.out.println("중복 여부: " + hasDuplicate);
+        if (hasDuplicate) {
+            devicesWithSameManage.stream()
+                .filter(device -> !device.getDeviceId().equals(excludeDeviceId))
+                .forEach(device -> System.out.println("중복 장비: ID=" + device.getDeviceId() + ", 관리번호=" + 
+                    (device.getManage() != null ? device.getManage().getManageCate() + "-" + device.getManage().getYear() + "-" + device.getManage().getManageNum() : "null")));
+        }
+        
+        return hasDuplicate;
+    }
+    
+
     
     // Delete
     @Transactional
@@ -859,6 +1096,8 @@ public class DeviceService {
                     
                     // UID 생성 및 설정
                     Uid uid = uidService.createUidWithMfgYear(cate, idNumber, mfgYear, school);
+                    // displayUid 자동 생성
+                    uid.generateDisplayUid();
                     device.setUid(uid);
                     
                     System.out.println("장비에 UID 설정: 카테고리=" + cate + 
@@ -1133,7 +1372,7 @@ public class DeviceService {
         }
         
         device.setUid(uid);
-        return deviceRepository.save(device);
+        return device;
     }
     
     /**
@@ -1169,8 +1408,10 @@ public class DeviceService {
                     .orElseGet(() -> uidService.createUid(cate, idNumber));
         }
         
+        // displayUid 자동 생성
+        uid.generateDisplayUid();
         device.setUid(uid);
-        return deviceRepository.save(device);
+        return device;
     }
 
     // 빈 행 여부 체크

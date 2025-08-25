@@ -160,30 +160,63 @@
         }
         
         .pagination {
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        .pagination ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-top: 30px;
-            gap: 10px;
+            gap: 0.5rem;
+        }
+        
+        .pagination li {
+            margin: 0;
         }
         
         .pagination a {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
+            display: inline-block;
+            padding: 0.5rem 1rem;
             text-decoration: none;
             color: #007bff;
-            border-radius: 3px;
+            border: 1px solid #007bff;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            min-width: 2.5rem;
+            text-align: center;
         }
         
         .pagination a:hover {
-            background: #007bff;
+            background-color: #007bff;
             color: white;
+            text-decoration: none;
         }
         
-        .pagination .current {
-            background: #007bff;
+        .pagination .active {
+            background-color: #007bff;
             color: white;
             border-color: #007bff;
+        }
+        
+        .pagination .disabled a {
+            color: #6c757d;
+            border-color: #6c757d;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        
+        .pagination .disabled a:hover {
+            background-color: transparent;
+            color: #6c757d;
+        }
+        
+        .pagination-container {
+            margin: 2rem 0;
+            text-align: center;
         }
         
         .message {
@@ -208,6 +241,12 @@
         .modified-by {
             font-weight: 500;
             color: #007bff;
+        }
+        
+        .uid-info {
+            font-weight: 500;
+            color: #495057;
+            text-align: center;
         }
         
         .modified-date {
@@ -248,7 +287,12 @@
                 
                 <input type="text" name="searchKeyword" 
                        th:value="${searchKeyword}" 
-                       placeholder="모델명, 제조사, IP주소 검색" />
+                       placeholder="모델명, 제조사, IP주소, 고유번호(예: 2DW180001) 검색" />
+                <div class="search-hint">
+                    <small style="color: #666; font-size: 12px;">
+                        고유번호 검색 예시: 2DW180001, 1PC240005
+                    </small>
+                </div>
                 
                 <button type="submit">
                     <i class="fas fa-search"></i> 검색
@@ -269,12 +313,15 @@
         <!-- 메시지 표시 -->
         <div th:if="${message}" class="message" th:text="${message}"></div>
         
+
+        
         <!-- 수정내역 테이블 -->
         <div th:if="${historyPage != null and !historyPage.empty}">
             <table class="history-table">
                 <thead>
                     <tr>
                         <th>수정일시</th>
+                        <th>고유번호</th>
                         <th>장비정보</th>
                         <th>수정필드</th>
                         <th>변경내용</th>
@@ -284,9 +331,20 @@
                 <tbody>
                     <tr th:each="history : ${historyPage.content}">
                         <td class="modified-date" th:text="${#temporals.format(history.modifiedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td class="uid-info">
+                            <div th:if="${history.device != null and history.device.uid != null}" 
+                                 th:text="${history.device.school.schoolId + history.device.uid.displayId}">
+                            </div>
+                            <div th:if="${history.device == null or history.device.uid == null}" style="color: #999; font-style: italic;">-</div>
+                        </td>
                         <td class="device-info">
-                            <div th:text="${history.device.type} + ' - ' + ${history.device.manufacturer} + ' ' + ${history.device.modelName}"></div>
-                            <div th:if="${history.device.ipAddress}" th:text="'IP: ' + ${history.device.ipAddress}" style="font-size: 0.9em; color: #666;"></div>
+                            <div th:if="${history.device != null}" 
+                                 th:text="${(history.device.type != null ? history.device.type : '') + ' - ' + (history.device.manufacturer != null ? history.device.manufacturer : '') + ' ' + (history.device.modelName != null ? history.device.modelName : '')}">
+                            </div>
+                            <div th:if="${history.device == null}" style="color: #999; font-style: italic;">-</div>
+                            <div th:if="${history.device != null and history.device.ipAddress != null}" 
+                                 th:text="'IP: ' + ${history.device.ipAddress}" style="font-size: 0.9em; color: #666;">
+                            </div>
                         </td>
                         <td th:text="${@deviceHistoryService.getFieldNameInKorean(history.fieldName)}"></td>
                         <td>
@@ -296,31 +354,49 @@
                                 <span class="after-value" th:text="${history.afterValue != null ? history.afterValue : '-'}"></span>
                             </div>
                         </td>
-                        <td class="modified-by" th:text="${history.modifiedBy.name}"></td>
+                        <td class="modified-by" th:text="${history.modifiedBy != null and history.modifiedBy.name != null ? history.modifiedBy.name : '-'}"></td>
                     </tr>
                 </tbody>
             </table>
             
-            <!-- 페이징 -->
-            <div class="pagination" th:if="${historyPage.totalPages > 1}">
-                <a th:if="${historyPage.hasPrevious()}" 
-                   th:href="@{/device/history/list(schoolId=${schoolId}, searchType=${searchType}, searchKeyword=${searchKeyword}, page=${historyPage.number})}">
-                    이전
-                </a>
-                
-                <span th:each="pageNum : ${#numbers.sequence(1, historyPage.totalPages)}">
-                    <a th:if="${pageNum != historyPage.number + 1}" 
-                       th:href="@{/device/history/list(schoolId=${schoolId}, searchType=${searchType}, searchKeyword=${searchKeyword}, page=${pageNum})}"
-                       th:text="${pageNum}"></a>
-                    <span th:if="${pageNum == historyPage.number + 1}" 
-                          class="current" th:text="${pageNum}"></span>
-                </span>
-                
-                <a th:if="${historyPage.hasNext()}" 
-                   th:href="@{/device/history/list(schoolId=${schoolId}, searchType=${searchType}, searchKeyword=${searchKeyword}, page=${historyPage.number + 2})}">
-                    다음
-                </a>
-            </div>
+            <!-- 페이징 네비게이션 -->
+            <nav class="pagination-container">
+                <!-- 페이징 네비게이션 (항상 표시) -->
+                <ul class="pagination">
+                    <li th:classappend="${historyPage.number == 0} ? 'disabled'">
+                        <a th:if="${historyPage.number != 0}" 
+                           th:href="@{/device/history/list(
+                               page=${historyPage.number},
+                               schoolId=${schoolId != null ? schoolId : null},
+                               searchType=${searchType != null and searchType != '' ? searchType : null},
+                               searchKeyword=${searchKeyword != null and searchKeyword != '' ? searchKeyword : null}
+                           )}"
+                           th:text="'이전'"></a>
+                        <a th:if="${historyPage.number == 0}" href="javascript:void(0);" th:text="'이전'"></a>
+                    </li>
+                    <li th:each="pageNum : ${#numbers.sequence(1, historyPage.totalPages)}">
+                        <a th:href="@{/device/history/list(
+                               page=${pageNum},
+                               schoolId=${schoolId != null ? schoolId : null},
+                               searchType=${searchType != null and searchType != '' ? searchType : null},
+                               searchKeyword=${searchKeyword != null and searchKeyword != '' ? searchKeyword : null}
+                           )}"
+                           th:text="${pageNum}"
+                           th:classappend="${pageNum == historyPage.number + 1} ? 'active'"></a>
+                    </li>
+                    <li th:classappend="${historyPage.number + 1 == historyPage.totalPages} ? 'disabled'">
+                        <a th:if="${historyPage.number + 1 != historyPage.totalPages}" 
+                           th:href="@{/device/history/list(
+                               page=${historyPage.number + 2},
+                               schoolId=${schoolId != null ? schoolId : null},
+                               searchType=${searchType != null and searchType != '' ? searchType : null},
+                               searchKeyword=${searchKeyword != null and searchKeyword != '' ? searchKeyword : null}
+                           )}"
+                           th:text="'다음'"></a>
+                        <a th:if="${historyPage.number + 1 == historyPage.totalPages}" href="javascript:void(0);" th:text="'다음'"></a>
+                    </li>
+                </ul>
+            </nav>
         </div>
         
         <!-- 데이터가 없을 때 -->

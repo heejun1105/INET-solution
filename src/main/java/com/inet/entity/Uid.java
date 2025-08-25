@@ -35,6 +35,9 @@ public class Uid {
     @Column(name = "mfg_year")
     private String mfgYear;
 
+    @Column(name = "display_uid")
+    private String displayUid;
+
     @ManyToOne
     @JoinColumn(name = "school_id")
     private School school;
@@ -62,6 +65,35 @@ public class Uid {
         sb.append(String.format("%04d", idNumber));
         
         return sb.toString();
+    }
+
+    /**
+     * 전체 고유번호를 반환합니다.
+     * 형식: 학교ID + 카테고리 + 제조연도 + ID번호
+     */
+    public String getFullDisplayId() {
+        if (school == null || cate == null || idNumber == null) {
+            return "";
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append(school.getSchoolId());
+        sb.append(cate);
+        
+        if (mfgYear != null && !mfgYear.isEmpty()) {
+            sb.append(mfgYear);
+        }
+        
+        sb.append(String.format("%04d", idNumber));
+        
+        return sb.toString();
+    }
+
+    /**
+     * displayUid를 자동 생성합니다.
+     */
+    public void generateDisplayUid() {
+        this.displayUid = getFullDisplayId();
     }
     
     public String getCate() {
@@ -102,5 +134,13 @@ public class Uid {
     
     public void setUidId(Long uidId) {
         this.uidId = uidId;
+    }
+
+    public String getDisplayUid() {
+        return this.displayUid;
+    }
+
+    public void setDisplayUid(String displayUid) {
+        this.displayUid = displayUid;
     }
 } 

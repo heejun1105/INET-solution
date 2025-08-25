@@ -520,14 +520,16 @@ public class DeviceController {
             }
         }
 
-        // 원본 장비 정보 조회
-        Device originalDevice = deviceService.getDeviceById(device.getDeviceId())
-                .orElseThrow(() -> new RuntimeException("Device not found with id: " + device.getDeviceId()));
-        
-        // 장비 수정 및 히스토리 저장
-        deviceService.updateDeviceWithHistory(originalDevice, device, user);
-        redirectAttributes.addFlashAttribute("successMessage", "장비가 성공적으로 수정되었습니다.");
-        return "redirect:/device/list";
+        try {
+            // 장비 수정 및 히스토리 저장 (원본 장비는 서비스에서 조회)
+            deviceService.updateDeviceWithHistory(device, user);
+            redirectAttributes.addFlashAttribute("successMessage", "장비가 성공적으로 수정되었습니다.");
+            return "redirect:/device/list";
+        } catch (RuntimeException e) {
+            log.error("장비 수정 중 오류 발생: {}", e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/device/modify/" + device.getDeviceId();
+        }
     }
 
     @PostMapping("/remove")

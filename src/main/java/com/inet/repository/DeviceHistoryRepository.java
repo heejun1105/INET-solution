@@ -4,9 +4,11 @@ import com.inet.entity.DeviceHistory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -17,19 +19,25 @@ public interface DeviceHistoryRepository extends JpaRepository<DeviceHistory, Lo
     List<DeviceHistory> findByDeviceOrderByModifiedAtDesc(com.inet.entity.Device device);
     
     // 학교별 수정내역 조회 (페이징)
-    @Query("SELECT dh FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId ORDER BY dh.modifiedAt DESC")
+    @Query("SELECT dh FROM DeviceHistory dh " +
+           "WHERE dh.device.school.schoolId = :schoolId " +
+           "ORDER BY dh.modifiedAt DESC")
     Page<DeviceHistory> findBySchoolId(@Param("schoolId") Long schoolId, Pageable pageable);
     
     // 학교별 수정내역 조회 (전체)
-    @Query("SELECT dh FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId ORDER BY dh.modifiedAt DESC")
+    @Query("SELECT dh FROM DeviceHistory dh " +
+           "WHERE dh.device.school.schoolId = :schoolId " +
+           "ORDER BY dh.modifiedAt DESC")
     List<DeviceHistory> findBySchoolId(@Param("schoolId") Long schoolId);
     
     // 검색 조건으로 수정내역 조회
-    @Query("SELECT dh FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId " +
+    @Query("SELECT dh FROM DeviceHistory dh " +
+           "WHERE dh.device.school.schoolId = :schoolId " +
            "AND (:searchType IS NULL OR dh.device.type = :searchType) " +
            "AND (:searchKeyword IS NULL OR dh.device.modelName LIKE %:searchKeyword% " +
            "OR dh.device.manufacturer LIKE %:searchKeyword% " +
-           "OR dh.device.ipAddress LIKE %:searchKeyword%) " +
+           "OR dh.device.ipAddress LIKE %:searchKeyword% " +
+           "OR dh.device.uid.displayUid LIKE %:searchKeyword%) " +
            "ORDER BY dh.modifiedAt DESC")
     Page<DeviceHistory> findBySchoolIdAndSearchConditions(
         @Param("schoolId") Long schoolId,
@@ -41,4 +49,20 @@ public interface DeviceHistoryRepository extends JpaRepository<DeviceHistory, Lo
     // 모든 장비 유형 조회
     @Query("SELECT DISTINCT dh.device.type FROM DeviceHistory dh WHERE dh.device.type IS NOT NULL ORDER BY dh.device.type")
     List<String> findAllDeviceTypes();
+    
+    // 학교별 장비 수정내역 삭제
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId")
+    int deleteByDeviceSchoolSchoolId(@Param("schoolId") Long schoolId);
+    
+    // 학교별 특정 날짜 이전 장비 수정내역 삭제
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId AND dh.modifiedAt < :beforeDateTime")
+    int deleteByDeviceSchoolSchoolIdAndModifiedAtBefore(@Param("schoolId") Long schoolId, @Param("beforeDateTime") java.time.LocalDateTime beforeDateTime);
+    
+    // 학교별 장비 수정내역 개수 조회
+    @Query("SELECT COUNT(dh) FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId")
+    long countByDeviceSchoolSchoolId(@Param("schoolId") Long schoolId);
 }

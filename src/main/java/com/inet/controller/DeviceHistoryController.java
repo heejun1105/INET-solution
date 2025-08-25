@@ -22,7 +22,6 @@ import java.util.List;
 
 @Controller
 @RequestMapping("/device/history")
-@RequiredArgsConstructor
 @Slf4j
 public class DeviceHistoryController {
     
@@ -30,6 +29,16 @@ public class DeviceHistoryController {
     private final SchoolService schoolService;
     private final UserService userService;
     private final PermissionHelper permissionHelper;
+    
+    public DeviceHistoryController(DeviceHistoryService deviceHistoryService, 
+                                 SchoolService schoolService, 
+                                 UserService userService, 
+                                 PermissionHelper permissionHelper) {
+        this.deviceHistoryService = deviceHistoryService;
+        this.schoolService = schoolService;
+        this.userService = userService;
+        this.permissionHelper = permissionHelper;
+    }
     
     /**
      * 장비수정내역 목록 페이지
@@ -39,7 +48,7 @@ public class DeviceHistoryController {
                       @RequestParam(required = false) String searchType,
                       @RequestParam(required = false) String searchKeyword,
                       @RequestParam(defaultValue = "1") int page,
-                      @RequestParam(defaultValue = "20") int size,
+                      @RequestParam(defaultValue = "12") int size,
                       Model model,
                       RedirectAttributes redirectAttributes) {
         
@@ -84,6 +93,8 @@ public class DeviceHistoryController {
         
         // 선택된 학교 정보
         School selectedSchool = schoolService.getSchoolById(schoolId).orElse(null);
+        
+
         
         model.addAttribute("historyPage", historyPage);
         model.addAttribute("selectedSchool", selectedSchool);

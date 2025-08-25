@@ -4,8 +4,8 @@ import com.inet.entity.Device;
 import com.inet.entity.DeviceHistory;
 import com.inet.entity.User;
 import com.inet.repository.DeviceHistoryRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -15,11 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class DeviceHistoryService {
     
+    private static final Logger log = LoggerFactory.getLogger(DeviceHistoryService.class);
+    
     private final DeviceHistoryRepository deviceHistoryRepository;
+    
+    public DeviceHistoryService(DeviceHistoryRepository deviceHistoryRepository) {
+        this.deviceHistoryRepository = deviceHistoryRepository;
+    }
     
     /**
      * 장비 수정내역 저장
@@ -50,7 +54,44 @@ public class DeviceHistoryService {
      */
     public Page<DeviceHistory> getDeviceHistoryBySchool(Long schoolId, int page, int size) {
         Pageable pageable = PageRequest.of(page - 1, size);
-        return deviceHistoryRepository.findBySchoolId(schoolId, pageable);
+        Page<DeviceHistory> historyPage = deviceHistoryRepository.findBySchoolId(schoolId, pageable);
+        
+        // 연관 엔티티를 별도로 로딩
+        historyPage.getContent().forEach(history -> {
+            if (history.getDevice() != null) {
+                // Device의 연관 엔티티들을 초기화
+                history.getDevice().getSchool();
+                if (history.getDevice().getClassroom() != null) {
+                    history.getDevice().getClassroom().getRoomName();
+                }
+                if (history.getDevice().getOperator() != null) {
+                    history.getDevice().getOperator().getName();
+                }
+                if (history.getDevice().getManage() != null) {
+                    history.getDevice().getManage().getManageCate();
+                    history.getDevice().getManage().getYear();
+                    history.getDevice().getManage().getManageNum();
+                }
+                if (history.getDevice().getUid() != null) {
+                    // UID의 모든 속성을 강제로 접근하여 초기화
+                    String cate = history.getDevice().getUid().getCate();
+                    String mfgYear = history.getDevice().getUid().getMfgYear();
+                    Long idNumber = history.getDevice().getUid().getIdNumber();
+                    // displayUid가 없으면 자동 생성
+                    if (history.getDevice().getUid().getDisplayUid() == null) {
+                        history.getDevice().getUid().generateDisplayUid();
+                    }
+                    // 로깅으로 확인
+                    log.info("UID 초기화: cate={}, mfgYear={}, idNumber={}, displayUid={}", 
+                            cate, mfgYear, idNumber, history.getDevice().getUid().getDisplayUid());
+                }
+            }
+            if (history.getModifiedBy() != null) {
+                history.getModifiedBy().getName();
+            }
+        });
+        
+        return historyPage;
     }
     
     /**
@@ -59,14 +100,76 @@ public class DeviceHistoryService {
     public Page<DeviceHistory> getDeviceHistoryBySchoolAndSearch(Long schoolId, String searchType, 
                                                                String searchKeyword, int page, int size) {
         Pageable pageable = PageRequest.of(page - 1, size);
-        return deviceHistoryRepository.findBySchoolIdAndSearchConditions(schoolId, searchType, searchKeyword, pageable);
+        Page<DeviceHistory> historyPage = deviceHistoryRepository.findBySchoolIdAndSearchConditions(schoolId, searchType, searchKeyword, pageable);
+        
+        // 연관 엔티티를 별도로 로딩
+        historyPage.getContent().forEach(history -> {
+            if (history.getDevice() != null) {
+                // Device의 연관 엔티티들을 초기화
+                history.getDevice().getSchool();
+                if (history.getDevice().getClassroom() != null) {
+                    history.getDevice().getClassroom().getRoomName();
+                }
+                if (history.getDevice().getOperator() != null) {
+                    history.getDevice().getOperator().getName();
+                }
+                if (history.getDevice().getManage() != null) {
+                    history.getDevice().getManage().getManageCate();
+                    history.getDevice().getManage().getYear();
+                    history.getDevice().getManage().getManageNum();
+                }
+                if (history.getDevice().getUid() != null) {
+                    history.getDevice().getUid().getCate();
+                    history.getDevice().getUid().getMfgYear();
+                    history.getDevice().getUid().getIdNumber();
+                    // displayUid가 없으면 자동 생성
+                    if (history.getDevice().getUid().getDisplayUid() == null) {
+                        history.getDevice().getUid().generateDisplayUid();
+                    }
+                }
+            }
+            if (history.getModifiedBy() != null) {
+                history.getModifiedBy().getName();
+            }
+        });
+        
+        return historyPage;
     }
     
     /**
      * 학교별 전체 수정내역 조회 (엑셀 다운로드용)
      */
     public List<DeviceHistory> getAllDeviceHistoryBySchool(Long schoolId) {
-        return deviceHistoryRepository.findBySchoolId(schoolId);
+        List<DeviceHistory> histories = deviceHistoryRepository.findBySchoolId(schoolId);
+        
+        // 연관 엔티티를 별도로 로딩
+        histories.forEach(history -> {
+            if (history.getDevice() != null) {
+                // Device의 연관 엔티티들을 초기화
+                history.getDevice().getSchool();
+                if (history.getDevice().getClassroom() != null) {
+                    history.getDevice().getClassroom().getRoomName();
+                }
+                if (history.getDevice().getOperator() != null) {
+                    history.getDevice().getOperator().getName();
+                }
+                if (history.getDevice().getManage() != null) {
+                    history.getDevice().getManage().getManageCate();
+                    history.getDevice().getManage().getYear();
+                    history.getDevice().getManage().getManageNum();
+                }
+                if (history.getDevice().getUid() != null) {
+                    history.getDevice().getUid().getCate();
+                    history.getDevice().getUid().getMfgYear();
+                    history.getDevice().getUid().getIdNumber();
+                }
+            }
+            if (history.getModifiedBy() != null) {
+                history.getModifiedBy().getName();
+            }
+        });
+        
+        return histories;
     }
     
     /**
@@ -77,7 +180,7 @@ public class DeviceHistoryService {
             case "type": return "장비구분";
             case "manufacturer": return "제조사";
             case "modelName": return "모델명";
-            case "purchaseDate": return "구매일자";
+            case "purchaseDate": return "도입일자";
             case "ipAddress": return "IP주소";
             case "purpose": return "용도";
             case "setType": return "설치형태";

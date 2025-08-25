@@ -60,4 +60,20 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
     // 통계용 메서드 추가
     long countByUnusedFalseOrUnusedIsNull();
+    
+    // 중복 검증용 메서드
+    @Query("SELECT d FROM Device d WHERE d.school = :school AND d.uid.cate = :cate AND d.uid.mfgYear = :mfgYear AND d.uid.idNumber = :idNumber")
+    List<Device> findBySchoolAndUidCateAndUidMfgYearAndUidIdNumber(
+        @org.springframework.data.repository.query.Param("school") School school,
+        @org.springframework.data.repository.query.Param("cate") String cate,
+        @org.springframework.data.repository.query.Param("mfgYear") String mfgYear,
+        @org.springframework.data.repository.query.Param("idNumber") Long idNumber);
+    
+    @Query("SELECT d FROM Device d WHERE d.school = :school AND d.manage.manageCate = :manageCate AND d.manage.manageNum = :manageNum " +
+           "AND (d.manage.year = :year OR (d.manage.year IS NULL AND :year IS NULL))")
+    List<Device> findBySchoolAndManageManageCateAndManageYearAndManageManageNum(
+        @org.springframework.data.repository.query.Param("school") School school,
+        @org.springframework.data.repository.query.Param("manageCate") String manageCate,
+        @org.springframework.data.repository.query.Param("year") Integer year,
+        @org.springframework.data.repository.query.Param("manageNum") Long manageNum);
 } 

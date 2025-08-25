@@ -246,6 +246,9 @@ public class UidService {
         uid.setMfgYear(mfgYear);
         uid.setSchool(school);
         
+        // displayUid 자동 생성
+        uid.generateDisplayUid();
+        
         return uidRepository.save(uid);
     }
 

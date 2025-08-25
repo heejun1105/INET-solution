@@ -105,6 +105,9 @@ public class DataManagementController {
                                  @RequestParam(value = "deleteOperators", required = false, defaultValue = "false") boolean deleteOperators,
                                  @RequestParam(value = "deleteManages", required = false, defaultValue = "false") boolean deleteManages,
                                  @RequestParam(value = "deleteUids", required = false, defaultValue = "false") boolean deleteUids,
+                                 @RequestParam(value = "deleteDeviceHistory", required = false, defaultValue = "false") boolean deleteDeviceHistory,
+                                 @RequestParam(value = "periodType", required = false, defaultValue = "all") String periodType,
+                                 @RequestParam(value = "deleteBeforeDate", required = false) String deleteBeforeDate,
                                  RedirectAttributes redirectAttributes) {
         
         // 권한 체크 (학교별 권한 체크)
@@ -138,7 +141,8 @@ public class DataManagementController {
                     dataManagementService.deleteSchoolData(schoolId);
                 } else if ("selective".equals(deleteType)) {
                     dataManagementService.deleteSelectedDataTypes(schoolId, deleteDevices, deleteWirelessAps, 
-                                                                 deleteClassrooms, deleteOperators, deleteManages, deleteUids);
+                                                                 deleteClassrooms, deleteOperators, deleteManages, deleteUids, 
+                                                                 deleteDeviceHistory, periodType, deleteBeforeDate);
                 }
             }
             
@@ -149,7 +153,7 @@ public class DataManagementController {
                 message = schoolsStr + "의 모든 데이터가 성공적으로 삭제되었습니다.";
             } else if ("selective".equals(deleteType)) {
                 if (!deleteDevices && !deleteWirelessAps && !deleteClassrooms && 
-                    !deleteOperators && !deleteManages && !deleteUids) {
+                    !deleteOperators && !deleteManages && !deleteUids && !deleteDeviceHistory) {
                     redirectAttributes.addFlashAttribute("error", "삭제할 데이터 유형을 하나 이상 선택해주세요.");
                     return "redirect:/data/delete";
                 }
@@ -162,6 +166,7 @@ public class DataManagementController {
                 if (deleteOperators) dataTypes.add("운영자");
                 if (deleteManages) dataTypes.add("관리번호");
                 if (deleteUids) dataTypes.add("고유번호");
+                if (deleteDeviceHistory) dataTypes.add("장비 수정내역");
                 
                 messageBuilder.append(String.join(", ", dataTypes));
                 messageBuilder.append(" 데이터가 성공적으로 삭제되었습니다.");
