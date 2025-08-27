@@ -69,32 +69,38 @@ public class DeviceHistoryController {
         // 권한 정보 추가
         permissionHelper.addPermissionAttributes(user, model);
         
-        // 학교 선택 여부 확인
-        if (schoolId == null) {
-            model.addAttribute("message", "학교를 선택해주세요.");
-            return "device/history";
-        }
-        
-        // 학교 권한 체크
-        user = checkSchoolPermission(Feature.DEVICE_LIST, schoolId, redirectAttributes);
-        if (user == null) {
-            return "redirect:/device/list";
-        }
-        
-        // 수정내역 조회
+        // 학교 선택 여부에 따른 처리
         Page<DeviceHistory> historyPage;
-        if (searchType != null && !searchType.isEmpty() || 
-            searchKeyword != null && !searchKeyword.trim().isEmpty()) {
-            historyPage = deviceHistoryService.getDeviceHistoryBySchoolAndSearch(
-                schoolId, searchType, searchKeyword, page, size);
+        School selectedSchool = null;
+        
+        if (schoolId != null) {
+            // 학교 권한 체크
+            user = checkSchoolPermission(Feature.DEVICE_LIST, schoolId, redirectAttributes);
+            if (user == null) {
+                return "redirect:/device/list";
+            }
+            
+            // 특정 학교의 수정내역 조회
+            if (searchType != null && !searchType.isEmpty() || 
+                searchKeyword != null && !searchKeyword.trim().isEmpty()) {
+                historyPage = deviceHistoryService.getDeviceHistoryBySchoolAndSearch(
+                    schoolId, searchType, searchKeyword, page, size);
+            } else {
+                historyPage = deviceHistoryService.getDeviceHistoryBySchool(schoolId, page, size);
+            }
+            
+            // 선택된 학교 정보
+            selectedSchool = schoolService.getSchoolById(schoolId).orElse(null);
         } else {
-            historyPage = deviceHistoryService.getDeviceHistoryBySchool(schoolId, page, size);
+            // 모든 학교의 수정내역 조회 (권한이 있는 학교들만)
+            if (searchType != null && !searchType.isEmpty() || 
+                searchKeyword != null && !searchKeyword.trim().isEmpty()) {
+                historyPage = deviceHistoryService.getAllDeviceHistoryBySchoolAndSearch(
+                    searchType, searchKeyword, page, size, user);
+            } else {
+                historyPage = deviceHistoryService.getAllDeviceHistoryBySchool(page, size, user);
+            }
         }
-        
-        // 선택된 학교 정보
-        School selectedSchool = schoolService.getSchoolById(schoolId).orElse(null);
-        
-
         
         model.addAttribute("historyPage", historyPage);
         model.addAttribute("selectedSchool", selectedSchool);

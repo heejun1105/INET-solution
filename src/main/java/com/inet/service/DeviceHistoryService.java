@@ -99,8 +99,26 @@ public class DeviceHistoryService {
      */
     public Page<DeviceHistory> getDeviceHistoryBySchoolAndSearch(Long schoolId, String searchType, 
                                                                String searchKeyword, int page, int size) {
+        // 검색 조건 정리
+        String cleanSearchType = (searchType != null && !searchType.trim().isEmpty()) ? searchType.trim() : null;
+        String cleanSearchKeyword = (searchKeyword != null && !searchKeyword.trim().isEmpty()) ? searchKeyword.trim() : null;
+        
+        log.info("검색 조건: schoolId={}, searchType={}, searchKeyword={}, page={}, size={}", 
+                schoolId, cleanSearchType, cleanSearchKeyword, page, size);
+        log.info("검색 조건 정리 후: searchType='{}', searchKeyword='{}'", cleanSearchType, cleanSearchKeyword);
+        
         Pageable pageable = PageRequest.of(page - 1, size);
-        Page<DeviceHistory> historyPage = deviceHistoryRepository.findBySchoolIdAndSearchConditions(schoolId, searchType, searchKeyword, pageable);
+        Page<DeviceHistory> historyPage = deviceHistoryRepository.findBySchoolIdAndSearchConditions(schoolId, cleanSearchType, cleanSearchKeyword, pageable);
+        
+        log.info("검색 결과: 총 {}건, 현재 페이지 {}건", historyPage.getTotalElements(), historyPage.getContent().size());
+        
+        // 검색 결과가 없을 때 디버깅 정보 로깅
+        if (historyPage.getTotalElements() == 0) {
+            log.warn("검색 결과가 없습니다. 검색 조건을 확인해보세요.");
+            log.warn("검색 키워드: '{}'", searchKeyword);
+            log.warn("학교 ID: {}", schoolId);
+            log.warn("검색 타입: {}", searchType);
+        }
         
         // 연관 엔티티를 별도로 로딩
         historyPage.getContent().forEach(history -> {
@@ -162,6 +180,10 @@ public class DeviceHistoryService {
                     history.getDevice().getUid().getCate();
                     history.getDevice().getUid().getMfgYear();
                     history.getDevice().getUid().getIdNumber();
+                    // displayUid가 없으면 자동 생성
+                    if (history.getDevice().getUid().getDisplayUid() == null) {
+                        history.getDevice().getUid().generateDisplayUid();
+                    }
                 }
             }
             if (history.getModifiedBy() != null) {
@@ -200,5 +222,110 @@ public class DeviceHistoryService {
      */
     public List<String> getAllDeviceTypes() {
         return deviceHistoryRepository.findAllDeviceTypes();
+    }
+    
+    /**
+     * 사용자가 권한을 가진 모든 학교의 수정내역 조회 (페이징)
+     */
+    public Page<DeviceHistory> getAllDeviceHistoryBySchool(int page, int size, User user) {
+        Pageable pageable = PageRequest.of(page - 1, size);
+        Page<DeviceHistory> historyPage = deviceHistoryRepository.findAllByUserPermissions(pageable);
+        
+        // 연관 엔티티를 별도로 로딩
+        historyPage.getContent().forEach(history -> {
+            if (history.getDevice() != null) {
+                history.getDevice().getSchool();
+                if (history.getDevice().getClassroom() != null) {
+                    history.getDevice().getClassroom().getRoomName();
+                }
+                if (history.getDevice().getOperator() != null) {
+                    history.getDevice().getOperator().getName();
+                }
+                if (history.getDevice().getManage() != null) {
+                    history.getDevice().getManage().getManageCate();
+                    history.getDevice().getManage().getYear();
+                    history.getDevice().getManage().getManageNum();
+                }
+                if (history.getDevice().getUid() != null) {
+                    history.getDevice().getUid().getCate();
+                    history.getDevice().getUid().getMfgYear();
+                    history.getDevice().getUid().getIdNumber();
+                    if (history.getDevice().getUid().getDisplayUid() == null) {
+                        history.getDevice().getUid().generateDisplayUid();
+                    }
+                }
+            }
+            if (history.getModifiedBy() != null) {
+                history.getModifiedBy().getName();
+            }
+        });
+        
+        return historyPage;
+    }
+    
+    /**
+     * 사용자가 권한을 가진 모든 학교의 수정내역 검색 (페이징)
+     */
+    public Page<DeviceHistory> getAllDeviceHistoryBySchoolAndSearch(String searchType, String searchKeyword, int page, int size, User user) {
+        // 검색 조건 정리
+        String cleanSearchType = (searchType != null && !searchType.trim().isEmpty()) ? searchType.trim() : null;
+        String cleanSearchKeyword = (searchKeyword != null && !searchKeyword.trim().isEmpty()) ? searchKeyword.trim() : null;
+        
+        log.info("전체 학교 검색 조건: searchType={}, searchKeyword={}, page={}, size={}", 
+                cleanSearchType, cleanSearchKeyword, page, size);
+        
+        Pageable pageable = PageRequest.of(page - 1, size);
+        Page<DeviceHistory> historyPage = deviceHistoryRepository.findAllByUserPermissionsAndSearch(cleanSearchType, cleanSearchKeyword, pageable);
+        
+        log.info("전체 학교 검색 결과: 총 {}건, 현재 페이지 {}건", historyPage.getTotalElements(), historyPage.getContent().size());
+        
+        // 연관 엔티티를 별도로 로딩
+        historyPage.getContent().forEach(history -> {
+            if (history.getDevice() != null) {
+                history.getDevice().getSchool();
+                if (history.getDevice().getClassroom() != null) {
+                    history.getDevice().getClassroom().getRoomName();
+                }
+                if (history.getDevice().getOperator() != null) {
+                    history.getDevice().getOperator().getName();
+                }
+                if (history.getDevice().getManage() != null) {
+                    history.getDevice().getManage().getManageCate();
+                    history.getDevice().getManage().getYear();
+                    history.getDevice().getManage().getManageNum();
+                }
+                if (history.getDevice().getUid() != null) {
+                    history.getDevice().getUid().getCate();
+                    history.getDevice().getUid().getMfgYear();
+                    history.getDevice().getUid().getIdNumber();
+                    if (history.getDevice().getUid().getDisplayUid() == null) {
+                        history.getDevice().getUid().generateDisplayUid();
+                    }
+                }
+            }
+            if (history.getModifiedBy() != null) {
+                history.getModifiedBy().getName();
+            }
+        });
+        
+        return historyPage;
+    }
+    
+    /**
+     * 검색 키워드를 HTML 하이라이트 태그로 감싸기
+     */
+    public String highlightSearchKeyword(String text, String searchKeyword) {
+        if (text == null || searchKeyword == null || searchKeyword.trim().isEmpty()) {
+            return text;
+        }
+        
+        String cleanKeyword = searchKeyword.trim();
+        if (cleanKeyword.isEmpty()) {
+            return text;
+        }
+        
+        // 대소문자 구분 없이 검색 키워드 강조
+        String regex = "(?i)(" + java.util.regex.Pattern.quote(cleanKeyword) + ")";
+        return text.replaceAll(regex, "<mark class='search-highlight'>$1</mark>");
     }
 }

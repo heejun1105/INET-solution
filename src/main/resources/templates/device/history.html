@@ -46,7 +46,8 @@
         }
         
         .filter-form select,
-        .filter-form input {
+        .filter-form input,
+        .filter-form .btn {
             padding: 10px 15px;
             border: 1px solid #ddd;
             border-radius: 5px;
@@ -100,6 +101,22 @@
             color: white;
         }
         
+        /* 검색 키워드 강조 표시 스타일 */
+        .search-highlight {
+            background-color: transparent;
+            color: #d32f2f;
+            font-weight: bold;
+            text-shadow: 0 0 1px rgba(255, 255, 255, 0.8);
+        }
+        
+        .search-highlight:hover {
+            color: #b71c1c;
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.9);
+            transition: all 0.2s ease;
+        }
+        
+
+        
         .btn:hover {
             opacity: 0.8;
         }
@@ -145,7 +162,7 @@
         }
         
         .before-value {
-            color: #dc3545;
+            color: #ff9800;
             font-weight: 500;
         }
         
@@ -276,7 +293,7 @@
                     </option>
                 </select>
                 
-                <select name="searchType">
+                <select name="searchType" id="searchTypeSelect" onchange="this.form.submit()">
                     <option value="">전체 유형</option>
                     <option th:each="type : ${types}"
                             th:value="${type}"
@@ -287,27 +304,17 @@
                 
                 <input type="text" name="searchKeyword" 
                        th:value="${searchKeyword}" 
-                       placeholder="모델명, 제조사, IP주소, 고유번호(예: 2DW180001) 검색" />
-                <div class="search-hint">
-                    <small style="color: #666; font-size: 12px;">
-                        고유번호 검색 예시: 2DW180001, 1PC240005
-                    </small>
-                </div>
+                       placeholder="모델명, 제조사, IP주소, 고유번호 검색" />
                 
                 <button type="submit">
                     <i class="fas fa-search"></i> 검색
                 </button>
-            </form>
-            
-            <div class="action-buttons" th:if="${schoolId != null}">
+                
                 <a th:href="@{/device/history/excel(schoolId=${schoolId}, searchType=${searchType}, searchKeyword=${searchKeyword})}" 
                    class="btn btn-success">
                     <i class="fas fa-file-excel"></i> 엑셀 다운로드
                 </a>
-                <a href="/device/list" class="btn btn-primary">
-                    <i class="fas fa-arrow-left"></i> 장비목록으로
-                </a>
-            </div>
+            </form>
         </div>
         
         <!-- 메시지 표시 -->
@@ -333,28 +340,28 @@
                         <td class="modified-date" th:text="${#temporals.format(history.modifiedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="uid-info">
                             <div th:if="${history.device != null and history.device.uid != null}" 
-                                 th:text="${history.device.school.schoolId + history.device.uid.displayId}">
+                                 th:utext="${@deviceHistoryService.highlightSearchKeyword(history.device.school.schoolId + history.device.uid.displayId, searchKeyword)}">
                             </div>
                             <div th:if="${history.device == null or history.device.uid == null}" style="color: #999; font-style: italic;">-</div>
                         </td>
                         <td class="device-info">
                             <div th:if="${history.device != null}" 
-                                 th:text="${(history.device.type != null ? history.device.type : '') + ' - ' + (history.device.manufacturer != null ? history.device.manufacturer : '') + ' ' + (history.device.modelName != null ? history.device.modelName : '')}">
+                                 th:utext="${@deviceHistoryService.highlightSearchKeyword((history.device.type != null ? history.device.type : '') + ' - ' + (history.device.manufacturer != null ? history.device.manufacturer : '') + ' ' + (history.device.modelName != null ? history.device.modelName : ''), searchKeyword)}">
                             </div>
                             <div th:if="${history.device == null}" style="color: #999; font-style: italic;">-</div>
                             <div th:if="${history.device != null and history.device.ipAddress != null}" 
-                                 th:text="'IP: ' + ${history.device.ipAddress}" style="font-size: 0.9em; color: #666;">
+                                 th:utext="${@deviceHistoryService.highlightSearchKeyword('IP: ' + history.device.ipAddress, searchKeyword)}" style="font-size: 0.9em; color: #666;">
                             </div>
                         </td>
-                        <td th:text="${@deviceHistoryService.getFieldNameInKorean(history.fieldName)}"></td>
+                        <td th:utext="${@deviceHistoryService.highlightSearchKeyword(@deviceHistoryService.getFieldNameInKorean(history.fieldName), searchKeyword)}"></td>
                         <td>
                             <div class="field-change">
-                                <span class="before-value" th:text="${history.beforeValue != null ? history.beforeValue : '-'}"></span>
+                                <span class="before-value" th:utext="${@deviceHistoryService.highlightSearchKeyword(history.beforeValue != null ? history.beforeValue : '-', searchKeyword)}"></span>
                                 <span class="arrow">→</span>
-                                <span class="after-value" th:text="${history.afterValue != null ? history.afterValue : '-'}"></span>
+                                <span class="after-value" th:utext="${@deviceHistoryService.highlightSearchKeyword(history.afterValue != null ? history.afterValue : '-', searchKeyword)}"></span>
                             </div>
                         </td>
-                        <td class="modified-by" th:text="${history.modifiedBy != null and history.modifiedBy.name != null ? history.modifiedBy.name : '-'}"></td>
+                        <td class="modified-by" th:utext="${@deviceHistoryService.highlightSearchKeyword(history.modifiedBy != null and history.modifiedBy.name != null ? history.modifiedBy.name : '-', searchKeyword)}"></td>
                     </tr>
                 </tbody>
             </table>
@@ -409,9 +416,12 @@
     <script>
         // 학교 선택 시 자동 제출
         document.getElementById('schoolSelect').addEventListener('change', function() {
-            if (this.value) {
-                this.form.submit();
-            }
+            this.form.submit();
+        });
+        
+        // 유형 선택 시 자동 제출
+        document.getElementById('searchTypeSelect').addEventListener('change', function() {
+            this.form.submit();
         });
     </script>
 </body>

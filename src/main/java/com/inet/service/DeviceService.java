@@ -1487,4 +1487,66 @@ public class DeviceService {
     public List<Device> findByClassroomNameAndType(String classroomName, String type) {
         return deviceRepository.findByClassroomRoomNameAndType(classroomName, type);
     }
+    
+    /**
+     * 검색 키워드로 장비 검색
+     */
+    public List<Device> searchDevices(Long schoolId, String type, Long classroomId, String searchKeyword) {
+        List<Device> devices = findFiltered(schoolId, type, classroomId);
+        
+        if (searchKeyword == null || searchKeyword.trim().isEmpty()) {
+            return devices;
+        }
+        
+        String keyword = searchKeyword.trim().toLowerCase();
+        
+        return devices.stream()
+            .filter(device -> {
+                // 모델명 검색
+                if (device.getModelName() != null && 
+                    device.getModelName().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // 제조사 검색
+                if (device.getManufacturer() != null && 
+                    device.getManufacturer().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // IP주소 검색
+                if (device.getIpAddress() != null && 
+                    device.getIpAddress().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // 고유번호 검색
+                if (device.getUid() != null && device.getUid().getDisplayUid() != null) {
+                    if (device.getUid().getDisplayUid().toLowerCase().contains(keyword)) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            })
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * 검색 키워드를 HTML 하이라이트 태그로 감싸기
+     */
+    public String highlightSearchKeyword(String text, String searchKeyword) {
+        if (text == null || searchKeyword == null || searchKeyword.trim().isEmpty()) {
+            return text;
+        }
+        
+        String cleanKeyword = searchKeyword.trim();
+        if (cleanKeyword.isEmpty()) {
+            return text;
+        }
+        
+        // 대소문자 구분 없이 검색 키워드 강조
+        String regex = "(?i)(" + java.util.regex.Pattern.quote(cleanKeyword) + ")";
+        return text.replaceAll(regex, "<mark class='search-highlight'>$1</mark>");
+    }
 } 

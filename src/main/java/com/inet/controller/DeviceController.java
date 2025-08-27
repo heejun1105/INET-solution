@@ -56,7 +56,6 @@ import java.util.Comparator;
 
 @Controller
 @RequestMapping("/device")
-@RequiredArgsConstructor
 public class DeviceController {
 
     private static final Logger log = LoggerFactory.getLogger(DeviceController.class);
@@ -71,6 +70,23 @@ public class DeviceController {
     private final SchoolPermissionService schoolPermissionService;
     private final UserService userService;
     private final PermissionHelper permissionHelper;
+
+    public DeviceController(DeviceService deviceService, SchoolService schoolService, 
+                          OperatorService operatorService, ClassroomService classroomService, 
+                          ManageService manageService, UidService uidService, 
+                          PermissionService permissionService, SchoolPermissionService schoolPermissionService, 
+                          UserService userService, PermissionHelper permissionHelper) {
+        this.deviceService = deviceService;
+        this.schoolService = schoolService;
+        this.operatorService = operatorService;
+        this.classroomService = classroomService;
+        this.manageService = manageService;
+        this.uidService = uidService;
+        this.permissionService = permissionService;
+        this.schoolPermissionService = schoolPermissionService;
+        this.userService = userService;
+        this.permissionHelper = permissionHelper;
+    }
 
     // 권한 체크 메서드
     private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
@@ -113,6 +129,7 @@ public class DeviceController {
                       @RequestParam(required = false) String type,
                       @RequestParam(required = false) Long classroomId,
                       @RequestParam(required = false) String classroomName,
+                      @RequestParam(required = false) String searchKeyword,
                       @RequestParam(defaultValue = "1") int page,
                       @RequestParam(defaultValue = "16") int size,
                       Model model,
@@ -165,6 +182,7 @@ public class DeviceController {
         model.addAttribute("selectedType", type);
         model.addAttribute("selectedClassroomId", classroomId);
         model.addAttribute("selectedClassroomName", classroomName);
+        model.addAttribute("searchKeyword", searchKeyword);
 
         // 모든 장비를 가져와서 교실별로 정렬
         List<Device> allDevices;
@@ -193,6 +211,11 @@ public class DeviceController {
             }
         } else {
             allDevices = deviceService.findFiltered(null, type, null);
+        }
+        
+        // 검색 키워드가 있으면 검색 실행
+        if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
+            allDevices = deviceService.searchDevices(schoolId, type, classroomId, searchKeyword);
         }
         
         // 교실별로 정렬 (교실명 기준)

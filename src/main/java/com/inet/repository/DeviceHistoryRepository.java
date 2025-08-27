@@ -37,7 +37,10 @@ public interface DeviceHistoryRepository extends JpaRepository<DeviceHistory, Lo
            "AND (:searchKeyword IS NULL OR dh.device.modelName LIKE %:searchKeyword% " +
            "OR dh.device.manufacturer LIKE %:searchKeyword% " +
            "OR dh.device.ipAddress LIKE %:searchKeyword% " +
-           "OR dh.device.uid.displayUid LIKE %:searchKeyword%) " +
+           "OR dh.device.uid.displayUid LIKE %:searchKeyword% " +
+           "OR dh.device.uid.cate LIKE %:searchKeyword% " +
+           "OR dh.device.uid.mfgYear LIKE %:searchKeyword% " +
+           "OR CAST(dh.device.uid.idNumber AS string) LIKE %:searchKeyword%) " +
            "ORDER BY dh.modifiedAt DESC")
     Page<DeviceHistory> findBySchoolIdAndSearchConditions(
         @Param("schoolId") Long schoolId,
@@ -65,4 +68,26 @@ public interface DeviceHistoryRepository extends JpaRepository<DeviceHistory, Lo
     // 학교별 장비 수정내역 개수 조회
     @Query("SELECT COUNT(dh) FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId")
     long countByDeviceSchoolSchoolId(@Param("schoolId") Long schoolId);
+    
+    // 사용자가 권한을 가진 모든 학교의 수정내역 조회 (페이징)
+    @Query("SELECT dh FROM DeviceHistory dh " +
+           "ORDER BY dh.modifiedAt DESC")
+    Page<DeviceHistory> findAllByUserPermissions(Pageable pageable);
+    
+    // 사용자가 권한을 가진 모든 학교의 수정내역 검색 (페이징)
+    @Query("SELECT dh FROM DeviceHistory dh " +
+           "WHERE (:searchType IS NULL OR dh.device.type = :searchType) " +
+           "AND (:searchKeyword IS NULL OR dh.device.modelName LIKE %:searchKeyword% " +
+           "OR dh.device.manufacturer LIKE %:searchKeyword% " +
+           "OR dh.device.ipAddress LIKE %:searchKeyword% " +
+           "OR dh.device.uid.displayUid LIKE %:searchKeyword% " +
+           "OR dh.device.uid.cate LIKE %:searchKeyword% " +
+           "OR dh.device.uid.mfgYear LIKE %:searchKeyword% " +
+           "OR CAST(dh.device.uid.idNumber AS string) LIKE %:searchKeyword%) " +
+           "ORDER BY dh.modifiedAt DESC")
+    Page<DeviceHistory> findAllByUserPermissionsAndSearch(
+        @Param("searchType") String searchType,
+        @Param("searchKeyword") String searchKeyword,
+        Pageable pageable
+    );
 }

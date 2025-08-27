@@ -46,6 +46,80 @@
         .alert i {
             margin-right: 8px;
         }
+        
+        /* 검색 기능 스타일 */
+        .search-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+            padding: 0 20px;
+        }
+        
+        .search-form {
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        .search-input-group {
+            display: flex;
+            align-items: center;
+            background: white;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .search-input-group:hover {
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            background: transparent;
+        }
+        
+        .search-input::placeholder {
+            color: #999;
+            font-style: italic;
+        }
+        
+        .search-btn {
+            padding: 15px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 16px;
+        }
+        
+        .search-btn:hover {
+            background: #0056b3;
+        }
+        
+        .search-btn i {
+            font-size: 18px;
+        }
+        
+        /* 검색 키워드 강조 표시 스타일 */
+        .search-highlight {
+            background-color: transparent;
+            color: #d32f2f;
+            font-weight: bold;
+            text-shadow: 0 0 1px rgba(255, 255, 255, 0.8);
+        }
+        
+        .search-highlight:hover {
+            color: #b71c1c;
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.9);
+            transition: all 0.2s ease;
+        }
     </style>
 </head>
 <body>
@@ -64,6 +138,27 @@
             <div class="title">
                 <div class="subject">장비 목록</div>
                 <div class="subtitle">학교별, 유형별로 장비를 관리하세요!</div>
+            </div>
+            
+            <!-- 검색 기능 -->
+            <div class="search-container">
+                <form th:action="@{/device/list}" method="get" class="search-form">
+                    <input type="hidden" name="schoolId" th:value="${selectedSchoolId}" />
+                    <input type="hidden" name="classroomId" th:value="${selectedClassroomId}" />
+                    <input type="hidden" name="type" th:value="${selectedType}" />
+                    <input type="hidden" name="page" value="1" />
+                    <input type="hidden" name="size" th:value="${pageSize}" />
+                    
+                    <div class="search-input-group">
+                        <input type="text" name="searchKeyword" 
+                               th:value="${searchKeyword}" 
+                               placeholder="모델명, 제조사, IP주소, 고유번호로 검색" 
+                               class="search-input" />
+                        <button type="submit" class="search-btn">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </form>
             </div>
             <div class="main">
                 <div class="filter-container">
@@ -178,15 +273,15 @@
                             <!-- 장비 데이터 행 -->
                             <tr th:class="${device.setType != null and !device.setType.isEmpty() ? 'set-group-item' : 'operator-group-item'}">
                                 <td data-label="학교" th:text="${device.school != null ? device.school.schoolName : '미지정'}"></td>
-                                <td data-label="고유번호" th:text="${device.uid != null ? device.uid.displayUid : ''}"></td>
+                                <td data-label="고유번호" th:utext="${device.uid != null ? @deviceService.highlightSearchKeyword(device.uid.displayUid, searchKeyword) : ''}"></td>
                                 <td data-label="관리번호" th:text="${device.manage != null ? device.manage.displayId : ''}"></td>
                                 <td data-label="유형" class="device-type" th:text="${device.type != null ? device.type : ''}"></td>
                                 <td data-label="직위" th:text="${device.operator != null && device.operator.position != null ? device.operator.position : ''}"></td>
                                 <td data-label="담당자" th:text="${device.operator != null && device.operator.name != null ? device.operator.name : ''}"></td>
-                                <td data-label="제조사" th:text="${device.manufacturer != null ? device.manufacturer : ''}"></td>
-                                <td data-label="모델명" th:text="${device.modelName != null ? device.modelName : ''}"></td>
+                                <td data-label="제조사" th:utext="${device.manufacturer != null ? @deviceService.highlightSearchKeyword(device.manufacturer, searchKeyword) : ''}"></td>
+                                <td data-label="모델명" th:utext="${device.modelName != null ? @deviceService.highlightSearchKeyword(device.modelName, searchKeyword) : ''}"></td>
                                 <td data-label="구매일자" th:text="${device.purchaseDate != null ? #temporals.format(device.purchaseDate, 'yyyy년 MM월') : ''}"></td>
-                                <td data-label="IP주소" class="ip-address" th:text="${device.ipAddress != null ? device.ipAddress : ''}"></td>
+                                <td data-label="IP주소" class="ip-address" th:utext="${device.ipAddress != null ? @deviceService.highlightSearchKeyword(device.ipAddress, searchKeyword) : ''}"></td>
                                 <td data-label="교실" th:text="${device.classroom != null && device.classroom.roomName != null ? device.classroom.roomName : ''}"></td>
                                 <td data-label="용도" th:text="${device.purpose != null ? device.purpose : ''}"></td>
                                 <td data-label="세트분류" th:text="${device.setType != null ? device.setType : ''}"></td>
@@ -260,7 +355,7 @@
                             <div class="card-content">
                                 <div class="card-field" th:if="${device.uid != null && device.uid.displayUid != null && !#strings.isEmpty(device.uid.displayUid)}">
                                     <div class="field-label">고유번호</div>
-                                    <div class="field-value" th:text="${device.uid.displayUid}"></div>
+                                    <div class="field-value" th:utext="${@deviceService.highlightSearchKeyword(device.uid.displayUid, searchKeyword)}"></div>
                                 </div>
                                 
                                 <div class="card-field" th:if="${device.manage != null && device.manage.displayId != null && !#strings.isEmpty(device.manage.displayId)}">
@@ -280,12 +375,12 @@
                                 
                                 <div class="card-field" th:if="${device.manufacturer != null && !#strings.isEmpty(device.manufacturer)}">
                                     <div class="field-label">제조사</div>
-                                    <div class="field-value" th:text="${device.manufacturer}"></div>
+                                    <div class="field-value" th:utext="${@deviceService.highlightSearchKeyword(device.manufacturer, searchKeyword)}"></div>
                                 </div>
                                 
                                 <div class="card-field full-width" th:if="${device.modelName != null && !#strings.isEmpty(device.modelName)}">
                                     <div class="field-label">모델명</div>
-                                    <div class="field-value" th:text="${device.modelName}"></div>
+                                    <div class="field-value" th:utext="${@deviceService.highlightSearchKeyword(device.modelName, searchKeyword)}"></div>
                                 </div>
                                 
                                 <div class="card-field" th:if="${device.purchaseDate != null}">
@@ -295,7 +390,7 @@
                                 
                                 <div class="card-field" th:if="${device.ipAddress != null && !#strings.isEmpty(device.ipAddress)}">
                                     <div class="field-label">IP주소</div>
-                                    <div class="field-value" th:text="${device.ipAddress}"></div>
+                                    <div class="field-value" th:utext="${@deviceService.highlightSearchKeyword(device.ipAddress, searchKeyword)}"></div>
                                 </div>
                                 
                                 <div class="card-field" th:if="${device.classroom != null && device.classroom.roomName != null && !#strings.isEmpty(device.classroom.roomName)}">
