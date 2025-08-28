@@ -122,20 +122,22 @@ public class WirelessApService {
                 }
                 ap.setLocation(classroom);
 
-                // 나머지 필드들 설정
-                ap.setNewLabelNumber(getCellValueAsString(row.getCell(1)));
-                ap.setDeviceNumber(getCellValueAsString(row.getCell(2)));
+                // 새로운 순서에 맞게 필드 설정
+                // location(0), classroomType(1), newLabelNumber(2), deviceNumber(3), APYear(4), manufacturer(5), model(6), macAddress(7), prevLocation(8), prevLabelNumber(9), speed(10)
+                ap.setClassroomType(getCellValueAsString(row.getCell(1))); // 교실구분
+                ap.setNewLabelNumber(getCellValueAsString(row.getCell(2))); // 신규라벨번호
+                ap.setDeviceNumber(getCellValueAsString(row.getCell(3))); // 장비번호
                 
-                LocalDate apYear = getCellValueAsLocalDate(row.getCell(3));
+                LocalDate apYear = getCellValueAsLocalDate(row.getCell(4)); // 도입년도
                 ap.setAPYear(apYear);
                 log.debug("Row {}: APYear = {}", i, apYear);
                 
-                ap.setManufacturer(getCellValueAsString(row.getCell(4)));
-                ap.setModel(getCellValueAsString(row.getCell(5)));
-                ap.setMacAddress(getCellValueAsString(row.getCell(6)));
-                ap.setPrevLocation(getCellValueAsString(row.getCell(7)));
-                ap.setPrevLabelNumber(getCellValueAsString(row.getCell(8)));
-                ap.setNote(getCellValueAsString(row.getCell(9)));
+                ap.setManufacturer(getCellValueAsString(row.getCell(5))); // 제조사
+                ap.setModel(getCellValueAsString(row.getCell(6))); // 모델
+                ap.setMacAddress(getCellValueAsString(row.getCell(7))); // mac주소
+                ap.setPrevLocation(getCellValueAsString(row.getCell(8))); // 기존위치
+                ap.setPrevLabelNumber(getCellValueAsString(row.getCell(9))); // 기존라벨번호
+                ap.setSpeed(getCellValueAsString(row.getCell(10))); // 속도
 
                 wirelessAps.add(ap);
                 processedRows++;

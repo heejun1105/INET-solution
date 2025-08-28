@@ -62,8 +62,11 @@ public class WirelessAp {
     @Column(name = "prev_label_number")
     private String prevLabelNumber;
 
-    @Column(name = "note")
-    private String note;
+    @Column(name = "classroom_type")
+    private String classroomType;
+    
+    @Column(name = "speed")
+    private String speed;
 
     // Manual setter methods for compilation
     public void setAPId(Long APId) {
@@ -110,8 +113,12 @@ public class WirelessAp {
         this.prevLabelNumber = prevLabelNumber;
     }
 
-    public void setNote(String note) {
-        this.note = note;
+    public void setClassroomType(String classroomType) {
+        this.classroomType = classroomType;
+    }
+    
+    public void setSpeed(String speed) {
+        this.speed = speed;
     }
 
     // Manual getter methods for compilation
@@ -159,7 +166,11 @@ public class WirelessAp {
         return this.prevLabelNumber;
     }
 
-    public String getNote() {
-        return this.note;
+    public String getClassroomType() {
+        return this.classroomType;
+    }
+    
+    public String getSpeed() {
+        return this.speed;
     }
 } 

@@ -420,6 +420,21 @@
                             <div class="form-help">무선 AP가 설치될 교실을 선택하세요.</div>
                         </div>
 
+                        <!-- 교실구분 -->
+                        <div class="form-group-modern">
+                            <label>
+                                <i class="fas fa-chalkboard"></i>
+                                교실구분
+                            </label>
+                            <select th:field="*{classroomType}">
+                                <option value="">교실구분을 선택하세요</option>
+                                <option value="1">1(일반교실)</option>
+                                <option value="2">2(기타)</option>
+                                <option value="3">3(지원공간)</option>
+                            </select>
+                            <div class="form-help">교실의 용도나 구분을 선택하세요.</div>
+                        </div>
+
                         <!-- 새 라벨 번호 -->
                         <div class="form-group-modern">
                             <label>
@@ -528,24 +543,17 @@
                                    placeholder="이전 라벨 번호">
                             <div class="form-help">이전에 사용하던 라벨 번호입니다.</div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- 비고 섹션 -->
-                <div class="form-card">
-                    <div class="section-header-modern">
-                        <i class="fas fa-sticky-note"></i>
-                        <h3>추가 정보</h3>
-                    </div>
-                    
-                    <div class="form-group-modern full-width">
-                        <label>
-                            <i class="fas fa-sticky-note"></i>
-                            비고
-                        </label>
-                        <textarea th:field="*{note}" rows="4" 
-                                  placeholder="추가 정보나 특이사항을 입력하세요..."></textarea>
-                        <div class="form-help">특이사항, 설정 정보, 문제점 등을 기록하세요.</div>
+                        <!-- 속도 -->
+                        <div class="form-group-modern">
+                            <label>
+                                <i class="fas fa-tachometer-alt"></i>
+                                속도
+                            </label>
+                            <input type="text" th:field="*{speed}" 
+                                   placeholder="예: 100Mbps, 1Gbps">
+                            <div class="form-help">무선 AP의 네트워크 속도를 입력하세요.</div>
+                        </div>
                     </div>
                 </div>
 
