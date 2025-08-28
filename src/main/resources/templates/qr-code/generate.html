@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR 코드 생성 - I-NET</title>
+    <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="/navbar.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* 전체 컨테이너 스타일 */
+        .qr-page-container {
+            background-color: #f8f9fa;
+            min-height: calc(100vh - 140px);
+            padding: 2rem 0;
+            position: relative;
+        }
+
+        .main-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* 헤더 섹션 */
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .page-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #495057;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .qr-icon-header {
+            font-size: 2.5rem;
+            color: #6f42c1;
+        }
+
+        .page-header .subtitle {
+            font-size: 1.1rem;
+            color: #6c757d;
+            margin-bottom: 0;
+            font-weight: 500;
+        }
+
+        /* 메인 생성 카드 */
+        .qr-card {
+            background: white;
+            border: 2px dashed rgba(111, 66, 193, 0.3);
+            border-radius: 20px;
+            padding: 3rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .qr-card:hover {
+            border-color: rgba(111, 66, 193, 0.6);
+            box-shadow: 0 8px 30px rgba(111, 66, 193, 0.15);
+        }
+
+        /* QR 아이콘 영역 */
+        .qr-icon-area {
+            margin-bottom: 2rem;
+        }
+
+        .qr-icon {
+            font-size: 4rem;
+            color: #6f42c1;
+            margin-bottom: 1rem;
+        }
+
+        .qr-text {
+            color: #495057;
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .qr-subtext {
+            color: #6c757d;
+            font-size: 1rem;
+        }
+
+        /* 폼 섹션 */
+        .form-section {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+        }
+
+        .form-group select {
+            width: 100%;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1rem;
+            color: #495057;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .form-group select:focus {
+            outline: none;
+            border-color: #6f42c1;
+            box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.1);
+        }
+
+        .form-group select option {
+            background: white;
+            color: #495057;
+            padding: 0.5rem;
+        }
+
+        /* 생성 버튼 */
+        .generate-btn {
+            background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);
+            border: none;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(111, 66, 193, 0.3);
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(111, 66, 193, 0.4);
+            background: linear-gradient(135deg, #5a32a3 0%, #4c2d8a 100%);
+        }
+
+        .generate-btn:active {
+            transform: translateY(0);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 정보 카드 */
+        .info-card {
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-top: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .info-card h3 {
+            color: #495057;
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .info-content {
+            color: #6c757d;
+            line-height: 1.6;
+        }
+
+        .info-content ul {
+            margin: 1rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .info-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* QR 코드 미리보기 */
+        .qr-preview {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+
+        .qr-preview h4 {
+            color: #495057;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .preview-item {
+            background: #6f42c1;
+            color: white;
+            border-radius: 8px;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+        }
+
+        /* 로딩 표시 */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 1rem;
+            color: #6f42c1;
+        }
+
+        .loading i {
+            font-size: 1.5rem;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+        
+        /* 생성 완료 표시 */
+        .completion {
+            display: none;
+            text-align: center;
+            padding: 1rem;
+            color: #28a745;
+            background: rgba(40, 167, 69, 0.1);
+            border-radius: 12px;
+            margin-top: 1rem;
+        }
+        
+        .completion i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        
+        .completion span {
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .completion-subtext {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 0 1rem;
+            }
+
+            .qr-card {
+                padding: 2rem 1.5rem;
+            }
+
+            .page-header {
+                padding: 2rem 1.5rem;
+            }
+
+            .page-header h1 {
+                font-size: 2rem;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .qr-icon-header {
+                font-size: 2rem;
+            }
+
+            .preview-grid {
+                grid-template-columns: repeat(2, 1fr);
+                max-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 네비게이션 바 -->
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+
+    <div class="qr-page-container">
+        <div class="main-container">
+            <!-- 헤더 섹션 -->
+            <div class="page-header">
+                <h1>
+                    <i class="fas fa-qrcode qr-icon-header"></i>
+                    QR 코드 생성
+                </h1>
+                <p class="subtitle">학교를 선택하여 고유번호를 QR 코드로 변환하고 엑셀 파일로 다운로드하세요</p>
+            </div>
+
+            <!-- 메인 생성 카드 -->
+            <div class="qr-card">
+                <form id="qrForm" th:action="@{/qr-code/download}" method="post">
+                    <!-- QR 아이콘 영역 -->
+                    <div class="qr-icon-area">
+                        <div class="qr-icon">
+                            <i class="fas fa-qrcode"></i>
+                        </div>
+                        <div class="qr-text">학교를 선택하여 QR 코드 생성</div>
+                        <div class="qr-subtext">해당 학교의 모든 고유번호가 QR 코드로 변환됩니다</div>
+                    </div>
+
+                    <!-- 폼 섹션 -->
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label for="schoolId">학교 선택</label>
+                            <select id="schoolId" name="schoolId" required>
+                                <option value="">학교를 선택하세요</option>
+                                <option th:each="school : ${schools}" 
+                                        th:value="${school.schoolId}" 
+                                        th:text="${school.schoolName}">
+                                </option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="generate-btn" id="generateBtn">
+                            <i class="fas fa-download"></i>
+                            QR 코드 엑셀 다운로드
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 로딩 표시 -->
+                <div class="loading" id="loading">
+                    <i class="fas fa-spinner"></i>
+                    <span>QR 코드를 생성하고 있습니다...</span>
+                </div>
+
+                <!-- 완료 표시 -->
+                <div class="completion" id="completion" style="display: none;">
+                    <i class="fas fa-check-circle"></i>
+                    <span>QR 코드 생성 완료!</span>
+                    <p class="completion-subtext">파일이 다운로드됩니다.</p>
+                </div>
+            </div>
+
+            <!-- 정보 카드 -->
+            <div class="info-card">
+                <h3>QR 코드 생성 정보</h3>
+                <div class="info-content">
+                    <ul>
+                        <li><strong>QR 코드 크기:</strong> 1cm x 1cm (인쇄 시)</li>
+                        <li><strong>레이아웃:</strong> 가로 5개씩 배치</li>
+                        <li><strong>파일 형식:</strong> Excel (.xlsx)</li>
+                        <li><strong>인코딩 내용:</strong> displayUid 값</li>
+                        <li><strong>용지:</strong> A4 크기에 최적화</li>
+                    </ul>
+                </div>
+
+                <!-- QR 코드 미리보기 -->
+                <div class="qr-preview">
+                    <h4>생성될 QR 코드 레이아웃</h4>
+                    <div class="preview-grid">
+                        <div class="preview-item">QR1</div>
+                        <div class="preview-item">QR2</div>
+                        <div class="preview-item">QR3</div>
+                        <div class="preview-item">QR4</div>
+                        <div class="preview-item">QR5</div>
+                        <div class="preview-item">QR6</div>
+                        <div class="preview-item">QR7</div>
+                        <div class="preview-item">QR8</div>
+                        <div class="preview-item">QR9</div>
+                        <div class="preview-item">QR10</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 푸터 -->
+    <div th:replace="~{fragments/footer :: footer}"></div>
+
+    <script>
+        document.getElementById('qrForm').addEventListener('submit', function(e) {
+            const schoolId = document.getElementById('schoolId').value;
+            if (!schoolId) {
+                e.preventDefault();
+                alert('학교를 선택해주세요.');
+                return;
+            }
+            
+            // 로딩 표시
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('completion').style.display = 'none';
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('generateBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...';
+            
+            // 폼 제출 후 상태 변경을 위한 타이머 설정
+            setTimeout(() => {
+                // 로딩 숨기고 완료 상태 표시
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('completion').style.display = 'block';
+                
+                // 3초 후 완료 상태 숨기고 버튼 복원
+                setTimeout(() => {
+                    document.getElementById('completion').style.display = 'none';
+                    document.getElementById('generateBtn').disabled = false;
+                    document.getElementById('generateBtn').innerHTML = '<i class="fas fa-download"></i> QR 코드 엑셀 다운로드';
+                }, 3000);
+            }, 2000); // 2초 후 완료 상태로 변경
+        });
+        
+        // 학교 선택 시 버튼 활성화
+        document.getElementById('schoolId').addEventListener('change', function() {
+            const generateBtn = document.getElementById('generateBtn');
+            generateBtn.disabled = !this.value;
+        });
+        
+        // 페이지 로드 시 상태 초기화
+        window.addEventListener('load', function() {
+            const loading = document.getElementById('loading');
+            const completion = document.getElementById('completion');
+            const generateBtn = document.getElementById('generateBtn');
+            
+            loading.style.display = 'none';
+            completion.style.display = 'none';
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="fas fa-download"></i> QR 코드 엑셀 다운로드';
+        });
+    </script>
+</body>
+</html>

@@ -35,6 +35,7 @@ public class PermissionHelper {
             model.addAttribute("hasWirelessApListPermission", permissionService.hasPermission(user, Feature.WIRELESS_AP_LIST));
             model.addAttribute("hasWirelessApManagementPermission", permissionService.hasPermission(user, Feature.WIRELESS_AP_MANAGEMENT));
             model.addAttribute("hasSubmissionFilesPermission", permissionService.hasPermission(user, Feature.SUBMISSION_FILES));
+            model.addAttribute("hasQrCodeGenerationPermission", permissionService.hasPermission(user, Feature.QR_CODE_GENERATION));
         } else {
             // 비로그인 사용자를 위한 기본값 설정
             model.addAttribute("hasDeviceListPermission", false);
@@ -46,6 +47,7 @@ public class PermissionHelper {
             model.addAttribute("hasWirelessApListPermission", false);
             model.addAttribute("hasWirelessApManagementPermission", false);
             model.addAttribute("hasSubmissionFilesPermission", false);
+            model.addAttribute("hasQrCodeGenerationPermission", false);
         }
     }
     
@@ -72,6 +74,8 @@ public class PermissionHelper {
                 return "무선AP 관리 권한이 없습니다. 관리자에게 문의하세요.";
             case SUBMISSION_FILES:
                 return "제출 파일 관리 권한이 없습니다. 관리자에게 문의하세요.";
+            case QR_CODE_GENERATION:
+                return "QR 코드 생성 권한이 없습니다. 관리자에게 문의하세요.";
             default:
                 return "해당 기능에 대한 권한이 없습니다. 관리자에게 문의하세요.";
         }
