@@ -3,9 +3,8 @@ package com.inet.service;
 import com.inet.entity.WirelessAp;
 import com.inet.entity.Classroom;
 import com.inet.entity.School;
+import com.inet.entity.User;
 import com.inet.repository.WirelessApRepository;
-import com.inet.repository.ClassroomRepository;
-import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,13 +18,20 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-@RequiredArgsConstructor
 public class WirelessApService {
     private static final Logger log = LoggerFactory.getLogger(WirelessApService.class);
     
     private final WirelessApRepository wirelessApRepository;
-    private final ClassroomRepository classroomRepository;
     private final ClassroomService classroomService;
+    private final WirelessApHistoryService wirelessApHistoryService;
+    
+    public WirelessApService(WirelessApRepository wirelessApRepository,
+                           ClassroomService classroomService,
+                           WirelessApHistoryService wirelessApHistoryService) {
+        this.wirelessApRepository = wirelessApRepository;
+        this.classroomService = classroomService;
+        this.wirelessApHistoryService = wirelessApHistoryService;
+    }
 
     // 모든 무선 AP 조회
     public List<WirelessAp> getAllWirelessAps() {
@@ -45,6 +51,128 @@ public class WirelessApService {
     // 무선 AP 저장
     public WirelessAp saveWirelessAp(WirelessAp wirelessAp) {
         return wirelessApRepository.save(wirelessAp);
+    }
+    
+    /**
+     * 무선AP 수정 시 히스토리 저장
+     */
+    @Transactional
+    public void updateWirelessApWithHistory(WirelessAp updatedWirelessAp, User modifiedBy) {
+        log.info("=== 무선AP 수정 히스토리 저장 시작 ===");
+        log.info("무선AP ID: {}", updatedWirelessAp.getAPId());
+        log.info("수정자: {}", modifiedBy.getName());
+        
+        // 데이터베이스에서 원본 무선AP 정보를 다시 조회 (JPA 영속성 컨텍스트 문제 방지)
+        WirelessAp originalWirelessAp = wirelessApRepository.findById(updatedWirelessAp.getAPId())
+                .orElseThrow(() -> new RuntimeException("원본 무선AP를 찾을 수 없습니다: " + updatedWirelessAp.getAPId()));
+        
+        log.info("원본 무선AP (DB에서 조회): location={}, manufacturer={}, model={}", 
+                originalWirelessAp.getLocation() != null ? originalWirelessAp.getLocation().getRoomName() : null, 
+                originalWirelessAp.getManufacturer(), originalWirelessAp.getModel());
+        log.info("수정된 무선AP: location={}, manufacturer={}, model={}", 
+                updatedWirelessAp.getLocation() != null ? updatedWirelessAp.getLocation().getRoomName() : null, 
+                updatedWirelessAp.getManufacturer(), updatedWirelessAp.getModel());
+        
+        int changeCount = 0;
+        
+        // 각 필드별로 변경사항 확인 및 히스토리 저장
+        if (!equals(originalWirelessAp.getLocation() != null ? originalWirelessAp.getLocation().getRoomName() : null, 
+                   updatedWirelessAp.getLocation() != null ? updatedWirelessAp.getLocation().getRoomName() : null)) {
+            changeCount++;
+            log.info("Location 변경: {} -> {}", 
+                    originalWirelessAp.getLocation() != null ? originalWirelessAp.getLocation().getRoomName() : null, 
+                    updatedWirelessAp.getLocation() != null ? updatedWirelessAp.getLocation().getRoomName() : null);
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "location", 
+                originalWirelessAp.getLocation() != null ? originalWirelessAp.getLocation().getRoomName() : null, 
+                updatedWirelessAp.getLocation() != null ? updatedWirelessAp.getLocation().getRoomName() : null, modifiedBy);
+        }
+        
+        if (!equals(originalWirelessAp.getManufacturer(), updatedWirelessAp.getManufacturer())) {
+            changeCount++;
+            log.info("Manufacturer 변경: {} -> {}", originalWirelessAp.getManufacturer(), updatedWirelessAp.getManufacturer());
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "manufacturer", 
+                originalWirelessAp.getManufacturer(), updatedWirelessAp.getManufacturer(), modifiedBy);
+        }
+        
+        if (!equals(originalWirelessAp.getModel(), updatedWirelessAp.getModel())) {
+            changeCount++;
+            log.info("Model 변경: {} -> {}", originalWirelessAp.getModel(), updatedWirelessAp.getModel());
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "model", 
+                originalWirelessAp.getModel(), updatedWirelessAp.getModel(), modifiedBy);
+        }
+        
+        if (!equals(originalWirelessAp.getMacAddress(), updatedWirelessAp.getMacAddress())) {
+            changeCount++;
+            log.info("MacAddress 변경: {} -> {}", originalWirelessAp.getMacAddress(), updatedWirelessAp.getMacAddress());
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "macAddress", 
+                originalWirelessAp.getMacAddress(), updatedWirelessAp.getMacAddress(), modifiedBy);
+        }
+        
+        if (!equals(originalWirelessAp.getNewLabelNumber(), updatedWirelessAp.getNewLabelNumber())) {
+            changeCount++;
+            log.info("NewLabelNumber 변경: {} -> {}", originalWirelessAp.getNewLabelNumber(), updatedWirelessAp.getNewLabelNumber());
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "newLabelNumber", 
+                originalWirelessAp.getNewLabelNumber(), updatedWirelessAp.getNewLabelNumber(), modifiedBy);
+        }
+        
+        if (!equals(originalWirelessAp.getDeviceNumber(), updatedWirelessAp.getDeviceNumber())) {
+            changeCount++;
+            log.info("DeviceNumber 변경: {} -> {}", originalWirelessAp.getDeviceNumber(), updatedWirelessAp.getDeviceNumber());
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "deviceNumber", 
+                originalWirelessAp.getDeviceNumber(), updatedWirelessAp.getDeviceNumber(), modifiedBy);
+        }
+        
+        if (!equals(originalWirelessAp.getClassroomType(), updatedWirelessAp.getClassroomType())) {
+            changeCount++;
+            log.info("ClassroomType 변경: {} -> {}", originalWirelessAp.getClassroomType(), updatedWirelessAp.getClassroomType());
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "classroomType", 
+                originalWirelessAp.getClassroomType(), updatedWirelessAp.getClassroomType(), modifiedBy);
+        }
+        
+        if (!equals(originalWirelessAp.getSpeed(), updatedWirelessAp.getSpeed())) {
+            changeCount++;
+            log.info("Speed 변경: {} -> {}", originalWirelessAp.getSpeed(), updatedWirelessAp.getSpeed());
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "speed", 
+                originalWirelessAp.getSpeed(), updatedWirelessAp.getSpeed(), modifiedBy);
+        }
+        
+        if (!equals(originalWirelessAp.getPrevLocation(), updatedWirelessAp.getPrevLocation())) {
+            changeCount++;
+            log.info("PrevLocation 변경: {} -> {}", originalWirelessAp.getPrevLocation(), updatedWirelessAp.getPrevLocation());
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "prevLocation", 
+                originalWirelessAp.getPrevLocation(), updatedWirelessAp.getPrevLocation(), modifiedBy);
+        }
+        
+        if (!equals(originalWirelessAp.getPrevLabelNumber(), updatedWirelessAp.getPrevLabelNumber())) {
+            changeCount++;
+            log.info("PrevLabelNumber 변경: {} -> {}", originalWirelessAp.getPrevLabelNumber(), updatedWirelessAp.getPrevLabelNumber());
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "prevLabelNumber", 
+                originalWirelessAp.getPrevLabelNumber(), updatedWirelessAp.getPrevLabelNumber(), modifiedBy);
+        }
+        
+        // APYear 비교 (LocalDate)
+        if (!equals(originalWirelessAp.getAPYear(), updatedWirelessAp.getAPYear())) {
+            changeCount++;
+            log.info("APYear 변경: {} -> {}", originalWirelessAp.getAPYear(), updatedWirelessAp.getAPYear());
+            wirelessApHistoryService.saveWirelessApHistory(updatedWirelessAp, "apYear", 
+                originalWirelessAp.getAPYear() != null ? originalWirelessAp.getAPYear().toString() : null, 
+                updatedWirelessAp.getAPYear() != null ? updatedWirelessAp.getAPYear().toString() : null, modifiedBy);
+        }
+        
+        // 실제 데이터베이스 업데이트
+        wirelessApRepository.save(updatedWirelessAp);
+        
+        log.info("=== 무선AP 수정 히스토리 저장 완료 ===");
+        log.info("총 {}개 필드가 변경되었습니다.", changeCount);
+    }
+    
+    /**
+     * 두 값이 같은지 비교 (null 안전)
+     */
+    private boolean equals(Object obj1, Object obj2) {
+        if (obj1 == null && obj2 == null) return true;
+        if (obj1 == null || obj2 == null) return false;
+        return obj1.equals(obj2);
     }
 
     // 무선 AP 삭제

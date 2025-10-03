@@ -23,6 +23,7 @@ import com.inet.entity.UserRole;
 import com.inet.entity.Permission;
 import com.inet.service.UserService;
 import com.inet.service.PermissionService;
+
 import com.inet.config.PermissionHelper;
 
 @Controller
@@ -38,6 +39,8 @@ public class AdminController {
     
     @Autowired
     private PermissionHelper permissionHelper;
+    
+
     
     // 관리자 대시보드
     @GetMapping("/dashboard")
@@ -196,4 +199,6 @@ public class AdminController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+    
+
 } 

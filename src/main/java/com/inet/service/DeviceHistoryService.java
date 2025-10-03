@@ -328,4 +328,40 @@ public class DeviceHistoryService {
         String regex = "(?i)(" + java.util.regex.Pattern.quote(cleanKeyword) + ")";
         return text.replaceAll(regex, "<mark class='search-highlight'>$1</mark>");
     }
+    
+    /**
+     * 특정 학교의 장비 수정내역 삭제
+     */
+    @Transactional
+    public void deleteDeviceHistoryBySchool(Long schoolId) {
+        deviceHistoryRepository.deleteBySchoolId(schoolId);
+        log.info("학교별 장비 수정내역 삭제: schoolId={}", schoolId);
+    }
+    
+    /**
+     * 전체 장비 수정내역 삭제
+     */
+    @Transactional
+    public void deleteAllDeviceHistory() {
+        deviceHistoryRepository.deleteAll();
+        log.info("전체 장비 수정내역 삭제 완료");
+    }
+    
+    /**
+     * 특정 날짜 이전의 장비 수정내역 삭제
+     */
+    @Transactional
+    public void deleteDeviceHistoryByDate(java.time.LocalDateTime beforeDateTime) {
+        deviceHistoryRepository.deleteByModifiedAtBefore(beforeDateTime);
+        log.info("날짜별 장비 수정내역 삭제: beforeDateTime={}", beforeDateTime);
+    }
+    
+    /**
+     * 특정 학교의 특정 날짜 이전 장비 수정내역 삭제
+     */
+    @Transactional
+    public void deleteDeviceHistoryBySchoolAndDate(Long schoolId, java.time.LocalDateTime beforeDateTime) {
+        deviceHistoryRepository.deleteByDeviceSchoolSchoolIdAndModifiedAtBefore(schoolId, beforeDateTime);
+        log.info("학교별 날짜별 장비 수정내역 삭제: schoolId={}, beforeDateTime={}", schoolId, beforeDateTime);
+    }
 }

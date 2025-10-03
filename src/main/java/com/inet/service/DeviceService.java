@@ -27,6 +27,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.ArrayList;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.apache.poi.ss.usermodel.Cell;
@@ -505,6 +507,10 @@ public class DeviceService {
     }
 
     public void exportToExcel(List<Device> devices, OutputStream outputStream) throws IOException {
+        exportToExcel(devices, outputStream, null);
+    }
+    
+    public void exportToExcel(List<Device> devices, OutputStream outputStream, Map<Long, String> inspectionStatuses) throws IOException {
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("장비 목록");
         
@@ -552,26 +558,39 @@ public class DeviceService {
         // 현재 날짜 (작성일자)
         String today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         
+        // 검사 상태가 있는지 확인
+        boolean hasInspectionStatus = inspectionStatuses != null && !inspectionStatuses.isEmpty();
+        log.info("엑셀 생성 - 검사 상태 포함 여부: {}, 검사 상태 맵: {}", hasInspectionStatus, inspectionStatuses);
+        
         // 첫번째 행: 제목 (학교명 + 교실배치별 장비현황)
         Row titleRow = sheet.createRow(0);
         Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue(schoolName + " 교실배치별 장비현황");
+        titleCell.setCellValue(schoolName + " 교실배치별 장비현황" + (hasInspectionStatus ? " (검사결과 포함)" : ""));
         titleCell.setCellStyle(titleStyle);
-        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 13)); // A1:N1 (비고 컬럼까지 병합)
+        int mergeEndCol = hasInspectionStatus ? 14 : 13; // 검사상태 컬럼 포함 여부
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, mergeEndCol));
         
         // 두번째 행: 작성일자
         Row dateRow = sheet.createRow(1);
-        Cell dateCell = dateRow.createCell(12); // M2 셀
+        Cell dateCell = dateRow.createCell(mergeEndCol - 1); // 마지막 컬럼에서 두 번째
         dateCell.setCellValue("작성일자");
         dateCell.setCellStyle(dateStyle);
         
-        Cell todayCell = dateRow.createCell(13); // N2 셀
+        Cell todayCell = dateRow.createCell(mergeEndCol); // 마지막 컬럼
         todayCell.setCellValue(today);
         todayCell.setCellStyle(dateStyle);
         
         // 세번째 행: 헤더
         Row headerRow = sheet.createRow(2);
         String[] headers = {"No", "고유번호", "관리번호", "종류", "직위", "취급자", "제조사", "모델명", "도입일자", "현IP주소", "설치장소", "용도", "세트분류", "비고"};
+        if (hasInspectionStatus) {
+            // 검사상태 컬럼 추가
+            String[] extendedHeaders = new String[headers.length + 1];
+            System.arraycopy(headers, 0, extendedHeaders, 0, headers.length);
+            extendedHeaders[headers.length] = "검사확인";
+            headers = extendedHeaders;
+        }
+        
         for (int i = 0; i < headers.length; i++) {
             Cell cell = headerRow.createCell(i);
             cell.setCellValue(headers[i]);
@@ -587,7 +606,8 @@ public class DeviceService {
             Row row = sheet.createRow(rowNum++);
             
             // 각 열에 데이터 추가 및 스타일 적용
-            for (int col = 0; col < 14; col++) {
+            int totalCols = hasInspectionStatus ? 15 : 14; // 검사상태 컬럼 포함 여부
+            for (int col = 0; col < totalCols; col++) {
                 Cell cell = row.createCell(col);
                 cell.setCellStyle(dataStyle);
                 
@@ -646,6 +666,27 @@ public class DeviceService {
                         break;
                     case 13: // 비고
                         cell.setCellValue(device.getNote() != null ? device.getNote() : "");
+                        break;
+                    case 14: // 검사상태 (검사 모드일 때만)
+                        if (hasInspectionStatus && inspectionStatuses != null) {
+                            String status = inspectionStatuses.get(device.getDeviceId());
+                            if (status != null) {
+                                switch (status) {
+                                    case "confirmed":
+                                        cell.setCellValue("확인");
+                                        break;
+                                    case "modified":
+                                        cell.setCellValue("수정");
+                                        break;
+                                    case "unchecked":
+                                    default:
+                                        cell.setCellValue("미확인");
+                                        break;
+                                }
+                            } else {
+                                cell.setCellValue("미확인");
+                            }
+                        }
                         break;
                 }
             }
@@ -1548,5 +1589,31 @@ public class DeviceService {
         // 대소문자 구분 없이 검색 키워드 강조
         String regex = "(?i)(" + java.util.regex.Pattern.quote(cleanKeyword) + ")";
         return text.replaceAll(regex, "<mark class='search-highlight'>$1</mark>");
+    }
+    
+    /**
+     * 특정 교실 이름들에 있는 모든 장비 조회
+     */
+    public List<Device> findDevicesByClassroomNames(Set<String> classroomNames, Long schoolId, String type) {
+        if (classroomNames == null || classroomNames.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<Device> devices;
+        
+        if (schoolId != null && type != null && !type.trim().isEmpty()) {
+            // 학교와 타입이 모두 지정된 경우
+            devices = deviceRepository.findByClassroomRoomNameInAndSchoolSchoolIdAndType(
+                new ArrayList<>(classroomNames), schoolId, type);
+        } else if (schoolId != null) {
+            // 학교만 지정된 경우
+            devices = deviceRepository.findByClassroomRoomNameInAndSchoolSchoolId(
+                new ArrayList<>(classroomNames), schoolId);
+        } else {
+            // 교실 이름만으로 검색
+            devices = deviceRepository.findByClassroomRoomNameIn(new ArrayList<>(classroomNames));
+        }
+        
+        return devices;
     }
 } 

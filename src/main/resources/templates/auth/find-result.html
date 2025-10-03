@@ -10,7 +10,7 @@
     <style>
         .auth-container {
             max-width: 500px;
-            margin: 50px auto;
+            margin: 80px auto 50px auto;
             padding: 30px;
             background: white;
             border-radius: 15px;
@@ -172,27 +172,39 @@
             box-shadow: 0 5px 15px rgba(107, 114, 128, 0.3);
         }
         
-        .auth-links {
+        .page-auth-links {
             text-align: center;
             margin-top: 20px;
         }
         
-        .auth-links a {
+        .page-auth-links a {
             color: #3b82f6;
             text-decoration: none;
             margin: 0 10px;
         }
         
-        .auth-links a:hover {
+        .page-auth-links a:hover {
             text-decoration: underline;
+        }
+        
+        /* 페이지 레이아웃 스타일 */
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f8fafc;
+        }
+        
+        .page-container {
+            min-height: calc(100vh - 60px);
+            padding: 20px;
         }
     </style>
 </head>
 <body>
-    <!-- 네비게이션 바 포함 -->
-    <div th:replace="fragments/navbar :: navbar"></div>
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
     
-    <div class="auth-container">
+    <div class="page-container">
+        <div class="auth-container">
         <div class="auth-header">
             <h1><i class="fas fa-search"></i> 찾기 결과</h1>
             <p>요청하신 정보의 결과입니다</p>
@@ -249,12 +261,15 @@
             </a>
         </div>
         
-        <div class="auth-links">
+        <div class="page-auth-links">
             <a href="/login">로그인</a>
             <a href="/find-id">아이디 찾기</a>
             <a href="/find-password">비밀번호 찾기</a>
             <a href="/signup">회원가입</a>
         </div>
+        </div>
     </div>
+    
+    <div th:replace="~{fragments/footer :: footer}"></div>
 </body>
 </html> 

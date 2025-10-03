@@ -30,7 +30,7 @@ public class SecurityConfig {
             .userDetailsService(userDetailsService)
             .authorizeHttpRequests(authorize -> authorize
                 // 공개 접근 가능한 페이지들
-                .requestMatchers("/", "/login", "/signup", "/css/**", "/js/**", "/images/**", 
+                .requestMatchers("/", "/login", "/signup", "/find-id", "/find-password", "/get-security-question", "/css/**", "/js/**", "/images/**", 
                                "/main.css", "/navbar.css", "/favicon.ico").permitAll()
                 
                 // 관리자만 접근 가능한 페이지들

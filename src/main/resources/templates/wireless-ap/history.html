@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>무선AP 수정내역</title>
+    <link rel="stylesheet" href="/device.css" />
+    <link rel="stylesheet" href="/main.css" />
+    <link rel="stylesheet" href="/navbar.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .history-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .history-title {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .history-title h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .history-title p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .filter-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .filter-form {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+        
+        .school-select {
+            flex: 0 0 auto;
+            margin-right: auto;
+        }
+        
+        .search-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            margin: 0 auto;
+        }
+        
+        .action-button {
+            flex: 0 0 auto;
+            margin-left: auto;
+        }
+        
+        .filter-form select,
+        .filter-form input,
+        .filter-form .btn {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .filter-form button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .filter-form button:hover {
+            background: #0056b3;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+        
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .history-table th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .history-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #dee2e6;
+            vertical-align: middle;
+        }
+        
+        .history-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .history-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .field-name {
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .before-value {
+            background: #fff3cd;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #856404;
+            max-width: 200px;
+            word-break: break-all;
+        }
+        
+        .after-value {
+            background: #d1ecf1;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #0c5460;
+            max-width: 200px;
+            word-break: break-all;
+        }
+        
+        .modified-by {
+            font-weight: 600;
+            color: #007bff;
+        }
+        
+        .modified-at {
+            color: #6c757d;
+            font-size: 13px;
+        }
+        
+        .label-number {
+            font-weight: 600;
+            color: #28a745;
+            text-align: center !important;
+        }
+        
+        .search-highlight {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        
+        .search-highlight:hover {
+            background-color: #ffeaa7;
+        }
+        
+        .history-table td.label-number {
+            text-align: center !important;
+        }
+        
+        /* 라벨번호 컬럼 강제 중앙 정렬 */
+        .history-table tbody tr td:nth-child(2) {
+            text-align: center !important;
+        }
+        
+        .history-table thead tr th:nth-child(2) {
+            text-align: center !important;
+        }
+        
+        .location {
+            min-width: 150px;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            gap: 0.5rem;
+        }
+        
+        .pagination li {
+            margin: 0;
+        }
+        
+        .pagination a {
+            display: block;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            color: #007bff;
+            border: 1px solid #007bff;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            min-width: 2.5rem;
+            text-align: center;
+        }
+        
+        .pagination a:hover {
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .pagination .active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .pagination .disabled a {
+            color: #6c757d;
+            border-color: #6c757d;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        
+        .pagination .disabled a:hover {
+            background-color: transparent;
+            color: #6c757d;
+        }
+        
+        .pagination-container {
+            margin: 2rem 0;
+            text-align: center;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+            font-size: 16px;
+        }
+        
+        .no-data i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #dee2e6;
+        }
+        
+        .search-input {
+            min-width: 200px;
+            max-width: 400px;
+        }
+        
+
+        
+        @media (max-width: 768px) {
+            .filter-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .filter-form > * {
+                width: 100%;
+            }
+            
+            .action-buttons {
+                justify-content: center;
+            }
+            
+            .history-table {
+                font-size: 12px;
+            }
+            
+            .history-table th,
+            .history-table td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+    
+    <div class="container">
+        <div class="history-container">
+            <div class="history-title">
+                <h1><i class="fas fa-history"></i> 무선AP 수정내역</h1>
+                <p>무선AP의 모든 수정 이력을 확인할 수 있습니다</p>
+            </div>
+            
+            <!-- 필터 -->
+            <div class="filter-container">
+                <form th:action="@{/wireless-ap/history/list}" method="get" class="filter-form">
+                    <div class="school-select">
+                        <select name="schoolId" onchange="this.form.submit()">
+                            <option value="">전체 학교</option>
+                            <option th:each="school : ${schools}" 
+                                    th:value="${school.schoolId}"
+                                    th:text="${school.schoolName}"
+                                    th:selected="${selectedSchoolId != null and selectedSchoolId == school.schoolId}">
+                            </option>
+                        </select>
+                    </div>
+                    
+                    <div class="search-container" th:if="${selectedSchoolId != null}">
+                        <input type="text" name="keyword" th:value="${searchKeyword}" 
+                               placeholder="필드명, 이전값, 변경값, 수정자로 검색" class="search-input">
+                        <input type="hidden" name="schoolId" th:value="${selectedSchoolId}">
+                        <button type="submit">
+                            <i class="fas fa-search"></i> 검색
+                        </button>
+                    </div>
+                    
+                    <div class="action-button">
+                        <a th:href="@{/wireless-ap/list}" class="btn btn-primary">
+                            <i class="fas fa-list"></i> 무선AP 목록
+                        </a>
+                        <a th:href="@{/wireless-ap/history/excel(schoolId=${selectedSchoolId}, keyword=${searchKeyword})}" 
+                           class="btn btn-success" style="margin-left: 10px;">
+                            <i class="fas fa-file-excel"></i> 엑셀 다운로드
+                        </a>
+                    </div>
+                    
+                    <input type="hidden" name="page" value="1">
+                </form>
+            </div>
+            
+            <!-- 수정내역 테이블 -->
+            <div th:if="${selectedSchoolId != null}">
+                <div th:if="${historyPage != null and !historyPage.empty}">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>수정일시</th>
+                                <th style="text-align: center;">라벨번호</th>
+                                <th>위치</th>
+                                <th>수정필드</th>
+                                <th>이전값</th>
+                                <th>변경값</th>
+                                <th>수정자</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="history : ${historyPage.content}">
+                                <td class="modified-at" th:text="${#temporals.format(history.modifiedAt, 'yyyy-MM-dd HH:mm:ss')}"></td>
+                                <td class="label-number" style="text-align: center;" th:utext="${@wirelessApHistoryService.highlightSearchKeyword(history.wirelessAp.newLabelNumber != null ? history.wirelessAp.newLabelNumber : '미지정', searchKeyword)}"></td>
+                                <td class="location">
+                                    <strong th:utext="${@wirelessApHistoryService.highlightSearchKeyword(history.wirelessAp.school.schoolName, searchKeyword)}"></strong><br>
+                                    <small th:utext="${@wirelessApHistoryService.highlightSearchKeyword(history.wirelessAp.location != null ? history.wirelessAp.location.roomName : '미지정', searchKeyword)}"></small>
+                                </td>
+                                <td>
+                                    <span class="field-name" th:data-field-name="${history.fieldName}" th:utext="${@wirelessApHistoryService.highlightSearchKeyword(history.fieldName, searchKeyword)}"></span>
+                                </td>
+                                <td>
+                                    <span class="before-value" th:utext="${@wirelessApHistoryService.highlightSearchKeyword(history.beforeValue != null ? history.beforeValue : '-', searchKeyword)}"></span>
+                                </td>
+                                <td>
+                                    <span class="after-value" th:utext="${@wirelessApHistoryService.highlightSearchKeyword(history.afterValue != null ? history.afterValue : '-', searchKeyword)}"></span>
+                                </td>
+                                <td class="modified-by" th:utext="${@wirelessApHistoryService.highlightSearchKeyword(history.modifiedBy.name, searchKeyword)}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <!-- 페이징 네비게이션 -->
+                    <nav class="pagination-container">
+                        <!-- 페이징 네비게이션 (항상 표시) -->
+                        <ul class="pagination">
+                            <li th:classappend="${historyPage.number == 0} ? 'disabled'">
+                                <a th:if="${historyPage.number != 0}" 
+                                   th:href="@{/wireless-ap/history/list(
+                                       page=${historyPage.number},
+                                       schoolId=${selectedSchoolId != null ? selectedSchoolId : null},
+                                       keyword=${searchKeyword != null and searchKeyword != '' ? searchKeyword : null}
+                                   )}"
+                                   th:text="'이전'"></a>
+                                <a th:if="${historyPage.number == 0}" href="javascript:void(0);" th:text="'이전'"></a>
+                            </li>
+                            <li th:each="pageNum : ${#numbers.sequence(1, historyPage.totalPages)}">
+                                <a th:href="@{/wireless-ap/history/list(
+                                       page=${pageNum},
+                                       schoolId=${selectedSchoolId != null ? selectedSchoolId : null},
+                                       keyword=${searchKeyword != null and searchKeyword != '' ? searchKeyword : null}
+                                   )}"
+                                   th:text="${pageNum}"
+                                   th:classappend="${pageNum == historyPage.number + 1} ? 'active'"></a>
+                            </li>
+                            <li th:classappend="${historyPage.number + 1 == historyPage.totalPages} ? 'disabled'">
+                                <a th:if="${historyPage.number + 1 != historyPage.totalPages}" 
+                                   th:href="@{/wireless-ap/history/list(
+                                       page=${historyPage.number + 2},
+                                       schoolId=${selectedSchoolId != null ? selectedSchoolId : null},
+                                       keyword=${searchKeyword != null and searchKeyword != '' ? searchKeyword : null}
+                                   )}"
+                                   th:text="'다음'"></a>
+                                <a th:if="${historyPage.number + 1 == historyPage.totalPages}" href="javascript:void(0);" th:text="'다음'"></a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                
+                <!-- 데이터가 없을 때 -->
+                <div th:if="${historyPage != null and historyPage.empty}" class="no-data">
+                    <i class="fas fa-info-circle"></i>
+                    <p>수정내역이 없습니다.</p>
+                </div>
+            </div>
+            
+            <div th:if="${selectedSchoolId == null}" class="no-data">
+                <i class="fas fa-school"></i>
+                <p>학교를 선택해주세요.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div th:replace="~{fragments/footer :: footer}"></div>
+    
+    <script>
+        // 필드명을 한글로 변환하는 함수
+        function convertFieldNameToKorean(fieldName) {
+            const fieldNameMap = {
+                'location': '설치 위치 (교실)',
+                'classroomType': '교실구분',
+                'newLabelNumber': '새 라벨 번호',
+                'deviceNumber': '장비 번호',
+                'apYear': 'AP 년도',
+                'manufacturer': '제조사',
+                'model': '모델명',
+                'macAddress': 'MAC 주소',
+                'prevLocation': '이전 위치',
+                'prevLabelNumber': '이전 라벨 번호',
+                'speed': '속도'
+            };
+            
+            return fieldNameMap[fieldName] || fieldName;
+        }
+        
+        // 페이지 로드 시 필드명 변환
+        document.addEventListener('DOMContentLoaded', function() {
+            const fieldNameElements = document.querySelectorAll('.field-name[data-field-name]');
+            fieldNameElements.forEach(function(element) {
+                const fieldName = element.getAttribute('data-field-name');
+                const koreanFieldName = convertFieldNameToKorean(fieldName);
+                element.textContent = koreanFieldName;
+            });
+        });
+    </script>
+</body>
+</html>

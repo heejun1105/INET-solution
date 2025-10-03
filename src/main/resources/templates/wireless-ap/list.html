@@ -192,6 +192,16 @@
             transform: translateY(-1px);
         }
         
+        .btn-info {
+            background-color: #06b6d4;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background-color: #0891b2;
+            transform: translateY(-1px);
+        }
+        
         .btn-warning {
             background-color: #f59e0b;
             color: white;
@@ -344,7 +354,7 @@
         /* 교실 헤더 모바일 */
         .classroom-header-mobile {
             background: #e0f2fe;
-            padding: 15px;
+                padding: 15px;
             border-radius: 8px;
             margin-bottom: 15px;
             border-left: 4px solid #0284c7;
@@ -361,6 +371,42 @@
         .classroom-header-mobile i {
             margin-right: 8px;
             color: #0284c7;
+        }
+        
+        /* 학교 선택 안내 메시지 스타일 */
+        .school-selection-message {
+            display: flex;
+                justify-content: center;
+            align-items: center;
+            min-height: 400px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin: 30px 0;
+        }
+        
+        .message-container {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .message-container i {
+            font-size: 4rem;
+            color: #6b7280;
+            margin-bottom: 20px;
+        }
+        
+        .message-container h3 {
+            font-size: 1.5rem;
+            color: #374151;
+                margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .message-container p {
+            font-size: 1rem;
+            color: #6b7280;
+                margin: 0;
         }
         
         /* 반응형 디자인 */
@@ -383,6 +429,23 @@
             
             .card-content {
                 grid-template-columns: 1fr;
+            }
+            
+            .school-selection-message {
+                min-height: 300px;
+                margin: 20px 0;
+            }
+            
+            .message-container {
+                padding: 30px 20px;
+            }
+            
+            .message-container i {
+                font-size: 3rem;
+            }
+            
+            .message-container h3 {
+                font-size: 1.3rem;
             }
         }
         
@@ -467,13 +530,13 @@
                     
                     <div class="filter-group">
                         <select name="schoolId" id="schoolSelect" onchange="updateClassrooms()">
-                            <option value="">전체 학교</option>
-                            <option th:each="school : ${schools}" 
-                                    th:value="${school.schoolId}" 
-                                    th:text="${school.schoolName}"
+                        <option value="">전체 학교</option>
+                        <option th:each="school : ${schools}" 
+                                th:value="${school.schoolId}" 
+                                th:text="${school.schoolName}"
                                     th:selected="${selectedSchoolId != null and selectedSchoolId == school.schoolId}">
-                            </option>
-                        </select>
+                        </option>
+                    </select>
                     </div>
                     
                     <div class="filter-group">
@@ -489,15 +552,27 @@
             <!-- 액션 버튼 -->
             <div class="action-buttons">
                 <a th:href="@{/wireless-ap/register}" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> 무선 AP 등록
+                    <i class="fas fa-plus" style="color: white;"></i> <span style="color: white;">무선 AP 등록</span>
                 </a>
-                <a th:href="@{/wireless-ap/upload}" class="btn btn-success">
-                    <i class="fas fa-upload"></i> 엑셀 업로드
+                <a th:href="@{/wireless-ap/excel(schoolId=${selectedSchoolId}, classroomId=${selectedClassroomId})}" class="btn btn-success">
+                    <i class="fas fa-file-excel" style="color: white;"></i> <span style="color: white;">엑셀 다운로드</span>
+                </a>
+                <a th:href="@{/wireless-ap/history/list(schoolId=${selectedSchoolId})}" class="btn btn-info">
+                    <i class="fas fa-history"></i> <span>수정내역</span>
                 </a>
             </div>
             
+            <!-- 학교 선택 안내 메시지 -->
+            <div th:if="${selectedSchoolId == null or selectedSchoolId == ''}" class="school-selection-message">
+                <div class="message-container">
+                    <i class="fas fa-school"></i>
+                    <h3>학교를 선택해주세요</h3>
+                    <p>무선 AP 목록을 보려면 위에서 학교를 선택해주세요.</p>
+                </div>
+            </div>
+            
             <!-- 데스크톱 테이블 뷰 -->
-            <table class="wireless-ap-table">
+            <table th:if="${selectedSchoolId != null and selectedSchoolId != ''}" class="wireless-ap-table">
                 <thead>
                     <tr>
                         <th>학교</th>
@@ -517,37 +592,37 @@
                 </thead>
                 <tbody>
                     <tr th:each="ap : ${wirelessAps}">
-                        <td data-label="학교" th:text="${ap.school != null ? ap.school.schoolName : '미지정'}"></td>
+                            <td data-label="학교" th:text="${ap.school != null ? ap.school.schoolName : '미지정'}"></td>
                         <td data-label="현위치" th:text="${ap.location != null ? ap.location.roomName : ''}"></td>
                         <td data-label="교실구분" th:text="${ap.classroomType != null ? ap.classroomType : ''}"></td>
                         <td data-label="신규라벨번호" th:text="${ap.newLabelNumber != null ? ap.newLabelNumber : ''}"></td>
                         <td data-label="장비번호" th:text="${ap.deviceNumber != null ? ap.deviceNumber : ''}"></td>
                         <td data-label="도입년도" th:text="${ap.APYear != null ? ap.APYear.year : ''}"></td>
-                        <td data-label="제조사" th:text="${ap.manufacturer != null ? ap.manufacturer : ''}"></td>
+                            <td data-label="제조사" th:text="${ap.manufacturer != null ? ap.manufacturer : ''}"></td>
                         <td data-label="모델" th:text="${ap.model != null ? ap.model : ''}"></td>
                         <td data-label="MAC주소" class="mac-address" th:text="${ap.macAddress != null ? ap.macAddress : ''}"></td>
                         <td data-label="기존위치" th:text="${ap.prevLocation != null ? ap.prevLocation : ''}"></td>
                         <td data-label="기존라벨번호" th:text="${ap.prevLabelNumber != null ? ap.prevLabelNumber : ''}"></td>
                         <td data-label="속도" th:text="${ap.speed != null ? ap.speed : ''}"></td>
-                        <td data-label="관리">
+                            <td data-label="관리">
                             <div class="action-buttons">
                                 <a th:href="@{/wireless-ap/modify/{id}(id=${ap.APId})}" class="btn btn-warning">
-                                    <i class="fas fa-edit"></i>
-                                </a>
+                                        <i class="fas fa-edit"></i>
+                                    </a>
                                 <form th:action="@{/wireless-ap/remove}" method="post" style="display: inline;">
-                                    <input type="hidden" name="ap_id" th:value="${ap.APId}">
+                                        <input type="hidden" name="ap_id" th:value="${ap.APId}">
                                     <button type="submit" class="btn btn-danger" onclick="return confirm('정말 삭제하시겠습니까?')">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
                 </tbody>
             </table>
             
             <!-- 모바일 카드 뷰 -->
-            <div class="mobile-card-container">
+            <div th:if="${selectedSchoolId != null and selectedSchoolId != ''}" class="mobile-card-container">
                 <th:block th:each="ap, iterStat : ${wirelessAps}">
                     <!-- 교실 헤더 표시 (새로운 교실일 때) -->
                     <div th:if="${iterStat.index == 0 or ap.location?.roomName != wirelessAps[iterStat.index - 1].location?.roomName}" 

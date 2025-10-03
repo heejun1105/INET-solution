@@ -280,6 +280,17 @@ input:focus, textarea:focus, select:focus {
     transform: translateY(-1px);
 }
 
+.btn-info {
+    background-color: #0ea5e9;
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: #0284c7;
+    box-shadow: 0 4px 8px rgba(14, 165, 233, 0.3);
+    transform: translateY(-1px);
+}
+
 /* 버튼 안의 아이콘 스타일 */
 .btn-primary i, .btn-success i, .btn-warning i, .btn-danger i {
     margin-right: 6px;

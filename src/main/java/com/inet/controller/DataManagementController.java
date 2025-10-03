@@ -21,10 +21,14 @@ import com.inet.service.UserService;
 import com.inet.config.PermissionHelper;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Controller
 @RequestMapping("/data")
 public class DataManagementController {
+    
+    private static final Logger logger = LoggerFactory.getLogger(DataManagementController.class);
     
     private final SchoolService schoolService;
     private final DataManagementService dataManagementService;
@@ -106,8 +110,13 @@ public class DataManagementController {
                                  @RequestParam(value = "deleteManages", required = false, defaultValue = "false") boolean deleteManages,
                                  @RequestParam(value = "deleteUids", required = false, defaultValue = "false") boolean deleteUids,
                                  @RequestParam(value = "deleteDeviceHistory", required = false, defaultValue = "false") boolean deleteDeviceHistory,
+                                 @RequestParam(value = "deleteWirelessApHistory", required = false, defaultValue = "false") boolean deleteWirelessApHistory,
+                                 @RequestParam(value = "deleteDeviceHistoryOnly", required = false, defaultValue = "false") boolean deleteDeviceHistoryOnly,
+                                 @RequestParam(value = "deleteWirelessApHistoryOnly", required = false, defaultValue = "false") boolean deleteWirelessApHistoryOnly,
                                  @RequestParam(value = "periodType", required = false, defaultValue = "all") String periodType,
                                  @RequestParam(value = "deleteBeforeDate", required = false) String deleteBeforeDate,
+                                 @RequestParam(value = "wirelessApPeriodType", required = false, defaultValue = "all") String wirelessApPeriodType,
+                                 @RequestParam(value = "deleteWirelessApBeforeDate", required = false) String deleteWirelessApBeforeDate,
                                  RedirectAttributes redirectAttributes) {
         
         // 권한 체크 (학교별 권한 체크)
@@ -140,9 +149,14 @@ public class DataManagementController {
                 if ("all".equals(deleteType)) {
                     dataManagementService.deleteSchoolData(schoolId);
                 } else if ("selective".equals(deleteType)) {
+                    // 그룹 선택 시 단독 선택도 함께 처리
+                    boolean finalDeleteDeviceHistory = deleteDeviceHistory || deleteDeviceHistoryOnly;
+                    boolean finalDeleteWirelessApHistory = deleteWirelessApHistory || deleteWirelessApHistoryOnly;
+                    
                     dataManagementService.deleteSelectedDataTypes(schoolId, deleteDevices, deleteWirelessAps, 
                                                                  deleteClassrooms, deleteOperators, deleteManages, deleteUids, 
-                                                                 deleteDeviceHistory, periodType, deleteBeforeDate);
+                                                                 finalDeleteDeviceHistory, finalDeleteWirelessApHistory, periodType, deleteBeforeDate,
+                                                                 wirelessApPeriodType, deleteWirelessApBeforeDate);
                 }
             }
             
@@ -153,7 +167,7 @@ public class DataManagementController {
                 message = schoolsStr + "의 모든 데이터가 성공적으로 삭제되었습니다.";
             } else if ("selective".equals(deleteType)) {
                 if (!deleteDevices && !deleteWirelessAps && !deleteClassrooms && 
-                    !deleteOperators && !deleteManages && !deleteUids && !deleteDeviceHistory) {
+                    !deleteOperators && !deleteManages && !deleteUids && !deleteDeviceHistory && !deleteWirelessApHistory) {
                     redirectAttributes.addFlashAttribute("error", "삭제할 데이터 유형을 하나 이상 선택해주세요.");
                     return "redirect:/data/delete";
                 }
@@ -167,6 +181,7 @@ public class DataManagementController {
                 if (deleteManages) dataTypes.add("관리번호");
                 if (deleteUids) dataTypes.add("고유번호");
                 if (deleteDeviceHistory) dataTypes.add("장비 수정내역");
+                if (deleteWirelessApHistory) dataTypes.add("무선AP 수정내역");
                 
                 messageBuilder.append(String.join(", ", dataTypes));
                 messageBuilder.append(" 데이터가 성공적으로 삭제되었습니다.");
@@ -177,8 +192,12 @@ public class DataManagementController {
             }
             
             redirectAttributes.addFlashAttribute("message", message);
+        } catch (RuntimeException e) {
+            // 서비스에서 사용자 친화적인 메시지가 전달됨
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", "데이터 삭제 중 오류가 발생했습니다: " + e.getMessage());
+            logger.error("Unexpected error during data deletion: {}", e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error", "시스템 오류가 발생했습니다. 관리자에게 문의해주세요.");
         }
         return "redirect:/data/delete";
     }

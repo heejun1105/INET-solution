@@ -61,6 +61,10 @@ public class Classroom {
     private List<Device> devices;
 
     // Explicit getter methods
+    public Long getClassroomId() {
+        return this.classroomId;
+    }
+
     public String getRoomName() {
         return this.roomName;
     }

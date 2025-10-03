@@ -61,4 +61,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     // 이메일로 사용자 찾기
     Optional<User> findByEmail(String email);
+    
+    // 특정 학교들에 대한 검사자 목록 조회
+    @Query("SELECT DISTINCT u FROM User u " +
+           "JOIN u.schoolPermissions sp " +
+           "WHERE sp.school.schoolId IN :schoolIds " +
+           "ORDER BY u.name")
+    List<User> findInspectorsBySchools(@Param("schoolIds") List<Long> schoolIds);
 } 

@@ -43,6 +43,26 @@
             color: #0f5132;
         }
         
+        /* 주황색 버튼 스타일 */
+        .btn-orange {
+            background-color: #ff8c00;
+            border-color: #ff8c00;
+            color: white;
+        }
+        
+        .btn-orange:hover {
+            background-color: #e67e00;
+            border-color: #e67e00;
+            color: white;
+        }
+        
+        .btn-orange:focus {
+            background-color: #e67e00;
+            border-color: #e67e00;
+            color: white;
+            box-shadow: 0 0 0 0.2rem rgba(255, 140, 0, 0.25);
+        }
+        
         .alert i {
             margin-right: 8px;
         }
@@ -120,6 +140,406 @@
             text-shadow: 0 0 2px rgba(255, 255, 255, 0.9);
             transition: all 0.2s ease;
         }
+        
+        /* 학교 선택 안내 메시지 스타일 */
+        .school-selection-message {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin: 30px 0;
+        }
+        
+        .message-container {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .message-container i {
+            font-size: 4rem;
+            color: #6b7280;
+            margin-bottom: 20px;
+        }
+        
+        .message-container h3 {
+            font-size: 1.5rem;
+            color: #374151;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .message-container p {
+            font-size: 1rem;
+            color: #6b7280;
+            margin: 0;
+        }
+        
+        /* 검사모드 관련 스타일 */
+        .inspection-checkbox {
+            cursor: pointer;
+            text-align: center;
+            padding: 5px;
+        }
+        
+        .inspection-icon {
+            font-size: 20px;
+            transition: color 0.2s ease;
+        }
+        
+        /* 모바일 검사확인 체크박스 스타일 */
+        .inspection-checkbox-mobile {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            height: 38px; /* 버튼 높이와 맞춤 */
+            box-sizing: border-box;
+        }
+        
+        .inspection-checkbox-mobile:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        
+        .inspection-checkbox-mobile .inspection-icon {
+            font-size: 18px;
+            transition: color 0.2s ease;
+        }
+        
+        .inspection-checkbox-mobile .inspection-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .inspection-checkbox-mobile:hover .inspection-label {
+            color: #1976d2;
+        }
+        
+        /* 모바일 카드 액션 버튼들 정렬 */
+        .card-actions {
+            display: flex;
+            flex-direction: row; /* 가로 배열 */
+            gap: 8px;
+            align-items: center; /* 세로 중앙 정렬 */
+            justify-content: flex-start; /* 왼쪽부터 정렬 */
+            flex-wrap: wrap; /* 공간 부족 시 줄바꿈 허용 */
+        }
+        
+        .card-actions .inspection-checkbox-mobile {
+            height: 38px; /* 세로 크기 유지 */
+            /* 너비는 내용에 따라 자동으로 조절 */
+        }
+
+        .card-actions .btn,
+        .card-actions form { /* 수정, 삭제 버튼과 폼을 flex item으로 처리 */
+            height: 38px;
+            display: flex; /* 내부 요소 정렬을 위해 flex 사용 */
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            flex: 1; /* 남은 공간을 균등하게 분배하여 같은 너비 유지 */
+            min-width: 0; /* flex item이 내용보다 작아질 수 있도록 허용 */
+        }
+
+        .card-actions form {
+            margin: 0; /* 폼의 기본 마진 제거 */
+        }
+
+        .card-actions form button.btn {
+            width: 100%; /* 폼 내부 버튼이 폼의 전체 너비를 차지하도록 */
+        }
+        
+        .inspection-icon.unchecked {
+            color: #ccc !important;
+        }
+        
+        .inspection-icon.confirmed {
+            color: #28a745 !important;
+        }
+        
+        .inspection-icon.modified {
+            color: #ffc107 !important;
+        }
+        
+        /* 검색 옵션 스타일 */
+        .search-option {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .search-option input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        
+        /* 모달 스타일 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            text-align: center;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        
+        .modal-body {
+            padding: 2rem;
+        }
+        
+        .school-search {
+            margin-bottom: 1.5rem;
+        }
+        
+        .school-search input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .school-search input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .school-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .school-item {
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .school-item:hover {
+            background: #f8fafc;
+            border-color: #3b82f6;
+        }
+        
+        .school-item.selected {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+        
+        .modal-footer {
+            padding: 1.5rem 2rem;
+            background: #f8fafc;
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+        
+        .confirm-btn, .cancel-btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .confirm-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .confirm-btn:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+        
+        .cancel-btn {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .cancel-btn:hover {
+            background: #4b5563;
+        }
+        
+        .school-select {
+            margin-bottom: 1rem;
+        }
+        
+        .school-select label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .form-select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            background: white;
+            transition: border-color 0.3s ease;
+        }
+        
+        .search-option {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #374151;
+            transition: all 0.3s ease;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: #f8fafc;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .search-option:hover {
+            background: #e0f2fe;
+            border-color: #0ea5e9;
+            color: #0c4a6e;
+        }
+        
+        .search-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin: 0 5px;
+        }
+        
+        .search-option:hover {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-color: #2196f3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(33, 150, 243, 0.15);
+        }
+        
+        .search-option input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #2196f3;
+            cursor: pointer;
+            transform: scale(1.1);
+            margin: 0;
+        }
+        
+        .search-option span {
+            font-size: 14px;
+            font-weight: 500;
+            color: #495057;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.3s ease;
+        }
+        
+        .search-option:hover span {
+            color: #1976d2;
+        }
+        
+        .search-option input[type="checkbox"]:checked + span {
+            font-weight: 600;
+            color: #1976d2;
+        }
+        
+        /* 모바일 반응형 스타일 */
+        @media (max-width: 768px) {
+            #searchForm {
+                display: flex;
+                flex-direction: column; /* 자식 요소들을 세로로 배치 */
+                align-items: stretch; /* 자식 요소들이 부모 너비를 채우도록 */
+                gap: 10px; /* 검색창과 체크박스 그룹 사이 간격 */
+            }
+
+            .search-input-group {
+                width: 100%; /* 검색창이 전체 너비를 차지하도록 */
+            }
+
+            .search-options {
+                flex-direction: row !important; /* 체크박스 자체는 가로로 유지 */
+                justify-content: center !important;
+                gap: 8px !important;
+                margin-top: 0 !important; /* #searchForm의 gap으로 간격 처리 */
+            }
+            
+            .search-option {
+                flex: 1;
+                min-width: 0;
+                padding: 8px 12px;
+                margin: 0 !important;
+            }
+            
+            .search-option span {
+                font-size: 13px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            .search-option input[type="checkbox"] {
+                transform: scale(0.9);
+            }
+        }
+        
+        /* 태블릿 반응형 스타일 */
+        @media (max-width: 1024px) and (min-width: 769px) {
+            .search-options {
+                gap: 15px !important;
+            }
+            
+            .search-option {
+                padding: 10px 14px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -127,7 +547,14 @@
     <div th:replace="~{fragments/navbar :: navbar}"></div>
     
     <div class="container">
-        <div class="device-list-container">
+        <div class="device-list-container" style="position: relative;">
+                        <!-- 검사모드 전용 버튼들 (컨테이너 우측 상단) -->
+                        <div id="inspectionModeButtons" th:style="${inspectionMode ? 'display: block;' : 'display: none;'}" style="position: absolute; top: 20px; right: 20px; z-index: 100;">
+                            <button class="btn btn-danger" onclick="resetInspection()" style="float: right;">
+                                <i class="fas fa-undo"></i> 초기화
+                            </button>
+                        </div>
+            
             <!-- 성공 메시지 표시 -->
             <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
                 <i class="fas fa-check-circle"></i>
@@ -136,34 +563,54 @@
             </div>
             
             <div class="title">
-                <div class="subject">장비 목록</div>
-                <div class="subtitle">학교별, 유형별로 장비를 관리하세요!</div>
+                <div class="subject" id="pageTitle" th:text="${inspectionMode ? '장비검사' : '장비 목록'}">장비 목록</div>
+                <div class="subtitle" id="pageSubtitle" th:text="${inspectionMode ? '장비 상태를 확인하고 검사하세요!' : '학교별, 유형별로 장비를 관리하세요!'}">학교별, 유형별로 장비를 관리하세요!</div>
             </div>
             
             <!-- 검색 기능 -->
             <div class="search-container">
-                <form th:action="@{/device/list}" method="get" class="search-form">
+                <form th:action="@{/device/list}" method="get" class="search-form" id="searchForm">
                     <input type="hidden" name="schoolId" th:value="${selectedSchoolId}" />
                     <input type="hidden" name="classroomId" th:value="${selectedClassroomId}" />
                     <input type="hidden" name="type" th:value="${selectedType}" />
                     <input type="hidden" name="page" value="1" />
                     <input type="hidden" name="size" th:value="${pageSize}" />
+                    <input type="hidden" name="inspectionMode" id="inspectionModeParam" />
+                    <input type="hidden" name="showClassroomsWithDevices" id="searchShowClassroomsWithDevices" />
                     
                     <div class="search-input-group">
                         <input type="text" name="searchKeyword" 
                                th:value="${searchKeyword}" 
                                placeholder="모델명, 제조사, IP주소, 고유번호로 검색" 
-                               class="search-input" />
+                               class="search-input" id="searchInput" />
                         <button type="submit" class="search-btn">
                             <i class="fas fa-search"></i>
                         </button>
+                    </div>
+                    
+                    <!-- 검색 옵션 체크박스들 -->
+                    <div class="search-options" style="margin-top: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                        <label class="search-option">
+                            <input type="checkbox" id="showClassroomsWithDevices" th:checked="${showClassroomsWithDevices}" />
+                            <span>장비가 있는 교실</span>
+                        </label>
+                        <label class="search-option">
+                            <input type="checkbox" id="qrCodeSearch" />
+                            <span>QR코드검색</span>
+                        </label>
                     </div>
                 </form>
             </div>
             <div class="main">
                 <div class="filter-container">
-                    <form th:action="@{/device/list}" method="get" class="d-flex align-items-center">
-                        <select name="schoolId" id="schoolSelect" onchange="updateClassrooms(this.value)">
+                    <form th:action="@{/device/list}" method="get" class="d-flex align-items-center" id="filterForm">
+                        <input type="hidden" name="inspectionMode" id="filterInspectionModeParam" />
+                        <input type="hidden" name="schoolId" id="filterSchoolIdParam" th:value="${selectedSchoolId}" />
+                        <input type="hidden" name="searchKeyword" th:value="${searchKeyword}" />
+                        <input type="hidden" name="page" value="1" />
+                        <input type="hidden" name="size" th:value="${pageSize}" />
+                        <input type="hidden" name="showClassroomsWithDevices" id="filterShowClassroomsWithDevices" />
+                        <select name="schoolId" id="schoolSelect" onchange="updateClassroomsAndSubmit(this.value)" th:disabled="${inspectionMode}">
                             <option value="">전체 학교</option>
                             <option th:each="school : ${schools}" 
                                     th:value="${school.schoolId}"
@@ -171,7 +618,7 @@
                                     th:selected="${selectedSchoolId} == ${school.schoolId}">
                             </option>
                         </select>
-                        <select name="classroomId" id="classroomSelect">
+                        <select name="classroomId" id="classroomSelect" onchange="updateSchoolIdAndSubmit()">
                             <option value="">전체 교실</option>
                             <option th:each="classroom : ${classrooms}" 
                                     th:value="${classroom.classroomId}"
@@ -179,7 +626,7 @@
                                     th:selected="${selectedClassroomId} == ${classroom.classroomId}">
                             </option>
                         </select>
-                        <select name="type" onchange="this.form.submit()">
+                        <select name="type" onchange="updateSchoolIdAndSubmit()">
                             <option value="">전체 유형</option>
                             <option th:each="t : ${types}"
                                     th:value="${t}"
@@ -192,19 +639,35 @@
                     </form>
                     <div class="action-buttons-container">
                         <a href="/device/register" class="btn btn-primary">
-                            <i class="fas fa-plus-circle"></i> 장비 등록
+                            <i class="fas fa-plus-circle" style="color: white;"></i> <span style="color: white;">장비 등록</span>
                         </a>
-                        <a th:href="@{/device/excel(schoolId=${selectedSchoolId}, type=${selectedType}, classroomId=${selectedClassroomId})}" class="btn btn-success">
-                            <i class="fas fa-file-excel"></i> 엑셀 다운로드
+                        <button id="inspectionModeBtn" class="btn btn-warning" onclick="openInspectionMode()" th:style="${inspectionMode ? 'display: none;' : ''}">
+                            <i class="fas fa-clipboard-check" style="color: white;"></i> <span style="color: white;">장비검사</span>
+                        </button>
+                        <button id="deviceListBtn" class="btn btn-orange" onclick="openDeviceList()" th:style="${inspectionMode ? '' : 'display: none;'}">
+                            <i class="fas fa-list" style="color: white;"></i> <span style="color: white;">장비목록</span>
+                        </button>
+                        <a th:href="@{/device/excel(schoolId=${selectedSchoolId}, type=${selectedType}, classroomId=${selectedClassroomId})}" class="btn btn-success" id="excelDownloadBtn" onclick="downloadExcelWithInspection()">
+                            <i class="fas fa-file-excel" style="color: white;"></i> <span style="color: white;">엑셀 다운로드</span>
                         </a>
                         <a th:href="@{/device/history/list(schoolId=${selectedSchoolId})}" class="btn btn-info">
-                            <i class="fas fa-history"></i> 수정내역
+                            <i class="fas fa-history"></i> <span>수정내역</span>
                         </a>
+                    </div>
+                    
+                </div>
+                
+                <!-- 학교 선택 안내 메시지 -->
+                <div th:if="${selectedSchoolId == null or selectedSchoolId == ''}" class="school-selection-message">
+                    <div class="message-container">
+                        <i class="fas fa-school"></i>
+                        <h3>학교를 선택해주세요</h3>
+                        <p>장비 목록을 보려면 위에서 학교를 선택해주세요.</p>
                     </div>
                 </div>
                 
                 <!-- 데스크톱 테이블 뷰 -->
-                <table class="device-table">
+                <table th:if="${selectedSchoolId != null and selectedSchoolId != ''}" class="device-table">
                     <thead>
                         <tr>
                             <th>학교</th>
@@ -223,6 +686,7 @@
                             <th>비고</th>
                             <th>불용</th>
                             <th>관리</th>
+                            <th id="inspectionColumn" th:style="${inspectionMode ? '' : 'display: none;'}">검사확인</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -300,13 +764,18 @@
                                         </form>
                                     </div>
                                 </td>
+                                <td data-label="검사확인" id="inspectionCell" th:style="${inspectionMode ? '' : 'display: none;'}">
+                                    <div class="inspection-checkbox" th:data-device-id="${device.deviceId}" onclick="toggleInspection(this)">
+                                        <i class="fas fa-check-circle inspection-icon" style="color: #ccc;"></i>
+                                    </div>
+                                </td>
                             </tr>
                         </th:block>
                     </tbody>
                 </table>
                 
                 <!-- 모바일 카드 뷰 -->
-                <div class="mobile-card-container">
+                <div th:if="${selectedSchoolId != null and selectedSchoolId != ''}" class="mobile-card-container">
                     <th:block th:each="device, iterStat : ${devices}">
                         <!-- 교실 헤더 표시 (새로운 교실일 때) -->
                         <div th:if="${iterStat.index == 0 or device.classroom?.roomName != devices[iterStat.index - 1].classroom?.roomName}" 
@@ -429,6 +898,11 @@
                                         <i class="fas fa-trash-alt"></i> 삭제
                                     </button>
                                 </form>
+                                <!-- 검사확인 체크박스 (검사모드일 때만 표시) -->
+                                <div th:if="${inspectionMode}" class="inspection-checkbox-mobile" th:data-device-id="${device.deviceId}" onclick="toggleInspection(this)">
+                                    <i class="fas fa-check-circle inspection-icon" style="color: #ccc;"></i>
+                                    <span class="inspection-label">검사확인</span>
+                                </div>
                             </div>
                         </div>
                     </th:block>
@@ -478,6 +952,28 @@
     <!-- 푸터 포함 -->
     <div th:replace="~{fragments/footer :: footer}"></div>
     
+    <!-- 학교 선택 모달 -->
+    <div id="schoolSelectModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>장비검사 - 학교 선택</h2>
+            </div>
+            <div class="modal-body">
+                <div class="school-select">
+                    <label for="schoolSelectDropdown">학교 선택:</label>
+                    <select id="schoolSelectDropdown" class="form-select">
+                        <option value="">학교를 선택하세요...</option>
+                        <!-- 학교 목록이 여기에 동적으로 로드됩니다 -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="confirmSchoolSelect" class="confirm-btn">검사</button>
+                <button id="cancelSchoolSelect" class="cancel-btn">취소</button>
+            </div>
+        </div>
+    </div>
+    
     <script>
         function updateClassrooms(schoolId) {
             const classroomSelect = document.getElementById('classroomSelect');
@@ -517,6 +1013,66 @@
                     .catch(error => console.error('Error:', error));
             }
         }
+        
+        // 교실 목록 업데이트 후 폼 제출
+        function updateClassroomsAndSubmit(schoolId) {
+            const classroomSelect = document.getElementById('classroomSelect');
+            const selectedClassroomId = classroomSelect.value; // 현재 선택된 교실 ID 저장
+            classroomSelect.innerHTML = '<option value="">전체 교실</option>';
+            
+            if (schoolId) {
+                fetch(`/device/api/classrooms/${schoolId}`)
+                    .then(response => response.json())
+                    .then(classrooms => {
+                        classrooms.forEach(classroom => {
+                            const option = document.createElement('option');
+                            option.value = classroom.classroomId;
+                            option.textContent = classroom.roomName;
+                            if (classroom.classroomId == selectedClassroomId) {
+                                option.selected = true;
+                            }
+                            classroomSelect.appendChild(option);
+                        });
+                        // 교실 목록 업데이트 후 폼 제출
+                        // hidden input에 현재 학교 ID 설정
+                        document.getElementById('filterSchoolIdParam').value = schoolId;
+                        document.getElementById('filterForm').submit();
+                    })
+                    .catch(error => console.error('Error:', error));
+            } else {
+                // 전체 학교일 때는 모든 교실 표시
+                fetch('/device/api/classrooms')
+                    .then(response => response.json())
+                    .then(classrooms => {
+                        classrooms.forEach(classroom => {
+                            const option = document.createElement('option');
+                            option.value = classroom.classroomId;
+                            option.textContent = classroom.roomName;
+                            if (classroom.classroomId == selectedClassroomId) {
+                                option.selected = true;
+                            }
+                            classroomSelect.appendChild(option);
+                        });
+                        // 교실 목록 업데이트 후 폼 제출
+                        // hidden input에 현재 학교 ID 설정 (전체 학교일 때는 빈 값)
+                        document.getElementById('filterSchoolIdParam').value = '';
+                        document.getElementById('filterForm').submit();
+                    })
+                    .catch(error => console.error('Error:', error));
+            }
+        }
+        
+        // 학교 ID 업데이트 후 폼 제출
+        function updateSchoolIdAndSubmit() {
+            const schoolSelect = document.getElementById('schoolSelect');
+            const filterSchoolIdParam = document.getElementById('filterSchoolIdParam');
+            
+            if (schoolSelect && filterSchoolIdParam) {
+                filterSchoolIdParam.value = schoolSelect.value;
+            }
+            
+            document.getElementById('filterForm').submit();
+        }
 
         // 학교 선택 이벤트
         document.getElementById('schoolSelect').addEventListener('change', function() {
@@ -529,10 +1085,26 @@
             this.form.submit();
         });
 
+        // 검사모드 관련 변수
+        let isInspectionMode = false;
+        let selectedSchoolForInspection = null;
+        let inspectionData = {}; // 장비별 검사 상태 저장
+
         // 페이지 로드 시 초기 교실 목록 설정
         document.addEventListener('DOMContentLoaded', function() {
             const schoolSelect = document.getElementById('schoolSelect');
             updateClassrooms(schoolSelect.value);
+            
+            // 검사 모드 확인 및 초기화
+            const urlParams = new URLSearchParams(window.location.search);
+            const inspectionMode = urlParams.get('inspectionMode');
+            if (inspectionMode === 'true') {
+                isInspectionMode = true;
+                // DOM이 완전히 로드된 후 초기화 실행
+                setTimeout(() => {
+                    initializeInspectionMode();
+                }, 100);
+            }
             
             // 성공 메시지 자동 숨김 (5초 후)
             const successAlert = document.querySelector('.alert-success');
@@ -541,7 +1113,497 @@
                     successAlert.style.display = 'none';
                 }, 5000);
             }
+            
+            // 로컬스토리지에서 체크박스 상태 복원
+            loadCheckboxStates();
+            
+            // QR코드검색 체크박스 이벤트
+            document.getElementById('qrCodeSearch').addEventListener('change', function() {
+                localStorage.setItem('qrCodeSearch', this.checked.toString());
+            });
+            
+            // 장비가 있는 교실 체크박스 이벤트
+            document.getElementById('showClassroomsWithDevices').addEventListener('change', function() {
+                localStorage.setItem('showClassroomsWithDevices', this.checked.toString());
+                filterDevicesByClassroom();
+            });
+            
+            // 검색어 입력 이벤트는 제거 (타이핑할 때마다 폼 제출 방지)
         });
+        
+        // 체크박스 상태 로드 (페이지 로드 시에만)
+        function loadCheckboxStates() {
+            // localStorage에서 저장된 상태 복원
+            const savedQrCodeSearch = localStorage.getItem('qrCodeSearch');
+            const savedShowClassroomsWithDevices = localStorage.getItem('showClassroomsWithDevices');
+            
+            // QR코드검색 체크박스 상태 설정
+            if (savedQrCodeSearch !== null) {
+                document.getElementById('qrCodeSearch').checked = savedQrCodeSearch === 'true';
+            }
+            
+            // 장비가 있는 교실 체크박스 상태 설정
+            const serverShowClassroomsWithDevices = /*[[${showClassroomsWithDevices}]]*/ false;
+            const checkboxElement = document.getElementById('showClassroomsWithDevices');
+            
+            // 서버에서 값을 받은 경우 localStorage에 저장
+            if (serverShowClassroomsWithDevices !== null && serverShowClassroomsWithDevices !== undefined) {
+                localStorage.setItem('showClassroomsWithDevices', serverShowClassroomsWithDevices.toString());
+            } else if (savedShowClassroomsWithDevices !== null) {
+                // 서버 값이 없으면 localStorage에서 로드
+                checkboxElement.checked = savedShowClassroomsWithDevices === 'true';
+            }
+            
+            // 검색 폼과 필터 폼의 hidden input에도 체크박스 상태 설정
+            const searchShowClassroomsInput = document.getElementById('searchShowClassroomsWithDevices');
+            const filterShowClassroomsInput = document.getElementById('filterShowClassroomsWithDevices');
+            const checkboxChecked = document.getElementById('showClassroomsWithDevices').checked;
+            
+            if (searchShowClassroomsInput) {
+                searchShowClassroomsInput.value = checkboxChecked ? 'true' : '';
+            }
+            if (filterShowClassroomsInput) {
+                filterShowClassroomsInput.value = checkboxChecked ? 'true' : '';
+            }
+            
+            // 페이지 로드 시에는 서버에서 이미 필터링된 데이터를 받아왔으므로 클라이언트 필터링 불필요
+            
+            // 검사 모드가 아닐 때 inspectionMode 파라미터 제거
+            if (!isInspectionMode) {
+                document.getElementById('inspectionModeParam').value = '';
+                document.getElementById('filterInspectionModeParam').value = '';
+            }
+        }
+        
+        // 교실별 장비 필터링 함수
+        function filterDevicesByClassroom() {
+            const searchKeyword = document.getElementById('searchInput').value.trim();
+            const showClassroomsWithDevices = document.getElementById('showClassroomsWithDevices').checked;
+            
+            // 검사 모드인지 확인
+            const isInspectionMode = /*[[${inspectionMode}]]*/ false;
+            
+            if (isInspectionMode) {
+                // 검사 모드일 때는 필터 폼 사용
+                const filterShowClassroomsInput = document.getElementById('filterShowClassroomsWithDevices');
+                if (showClassroomsWithDevices) {
+                    filterShowClassroomsInput.value = 'true';
+                } else {
+                    filterShowClassroomsInput.value = '';
+                }
+                document.getElementById('filterForm').submit();
+            } else {
+                // 일반 모드일 때는 검색 폼 사용
+                const searchShowClassroomsInput = document.getElementById('searchShowClassroomsWithDevices');
+                if (showClassroomsWithDevices) {
+                    searchShowClassroomsInput.value = 'true';
+                } else {
+                    searchShowClassroomsInput.value = '';
+                }
+                document.getElementById('searchForm').submit();
+            }
+        }
+        
+        // 모든 장비 표시 함수
+        function showAllDevices() {
+            const deviceRows = document.querySelectorAll('tbody tr');
+            deviceRows.forEach(row => {
+                row.style.display = '';
+            });
+        }
+        
+        // 장비검사 모드 열기
+        function openInspectionMode() {
+            // 학교 목록 로드
+            loadSchoolsForInspection();
+            document.getElementById('schoolSelectModal').style.display = 'flex';
+        }
+        
+        // 장비목록 열기
+        function openDeviceList() {
+            // 검사 모드에서 일반 장비 목록으로 돌아가기
+            window.location.href = '/device/list';
+        }
+        
+        // 학교 목록 로드
+        function loadSchoolsForInspection() {
+            fetch('/device/api/schools')
+                .then(response => response.json())
+                .then(schools => {
+                    const schoolSelect = document.getElementById('schoolSelectDropdown');
+                    schoolSelect.innerHTML = '<option value="">학교를 선택하세요...</option>';
+                    
+                    schools.forEach(school => {
+                        const option = document.createElement('option');
+                        option.value = school.schoolId;
+                        option.textContent = school.schoolName;
+                        schoolSelect.appendChild(option);
+                    });
+                    
+                    // 학교 선택 이벤트
+                    schoolSelect.addEventListener('change', function() {
+                        selectedSchoolForInspection = this.value;
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        }
+        
+        // 학교 선택 모달 이벤트
+        document.getElementById('cancelSchoolSelect').addEventListener('click', function() {
+            document.getElementById('schoolSelectModal').style.display = 'none';
+            selectedSchoolForInspection = null;
+        });
+        
+        document.getElementById('confirmSchoolSelect').addEventListener('click', function() {
+            if (!selectedSchoolForInspection) {
+                alert('학교를 선택해주세요.');
+                return;
+            }
+            
+            // 검사모드 진입
+            enterInspectionMode(selectedSchoolForInspection);
+            document.getElementById('schoolSelectModal').style.display = 'none';
+        });
+        
+        // 검사모드 진입
+        function enterInspectionMode(schoolId) {
+            isInspectionMode = true;
+            
+            // 학교 필터링을 위해 페이지 리로드
+            const url = new URL(window.location);
+            url.searchParams.set('schoolId', schoolId);
+            url.searchParams.set('inspectionMode', 'true');
+            window.location.href = url.toString();
+        }
+        
+        // 검사모드 초기화
+        function initializeInspectionMode() {
+            // 검사 모드 파라미터 설정 (UI는 서버에서 이미 렌더링됨)
+            const inspectionModeParam = document.getElementById('inspectionModeParam');
+            const filterInspectionModeParam = document.getElementById('filterInspectionModeParam');
+            if (inspectionModeParam) inspectionModeParam.value = 'true';
+            if (filterInspectionModeParam) filterInspectionModeParam.value = 'true';
+            
+            // 검사 데이터 초기화
+            inspectionData = {};
+            
+            // 저장된 검사 상태 로드
+            loadInspectionStatuses();
+        }
+        
+        // 저장된 검사 상태 로드
+        function loadInspectionStatuses() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const schoolId = urlParams.get('schoolId');
+            
+            console.log('검사 상태 로드 시작, schoolId:', schoolId);
+            
+            if (!schoolId) {
+                console.error('학교 정보를 찾을 수 없습니다.');
+                return;
+            }
+            
+            fetch(`/device/inspection/status/load?schoolId=${schoolId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('검사 상태 로드 응답:', data);
+                    if (data.success && data.statuses) {
+                        console.log('저장된 검사 상태들:', data.statuses);
+                        
+                        // DOM이 완전히 로드될 때까지 기다린 후 상태 복원
+                        setTimeout(() => {
+                            applyInspectionStatuses(data.statuses);
+                        }, 100);
+                    } else {
+                        console.log('저장된 검사 상태가 없습니다.');
+                    }
+                })
+                .catch(error => {
+                    console.error('검사 상태 로드 중 오류:', error);
+                });
+        }
+        
+        // 검사 상태를 UI에 적용
+        function applyInspectionStatuses(statuses) {
+            let restoredCount = 0;
+            let notFoundCount = 0;
+            
+            Object.entries(statuses).forEach(([deviceId, status]) => {
+                const element = document.querySelector(`[data-device-id="${deviceId}"]`);
+                if (element) {
+                    const icon = element.querySelector('.inspection-icon');
+                    if (icon) {
+                        inspectionData[deviceId] = status;
+                        restoredCount++;
+                        
+                        console.log(`장비 ${deviceId} 상태 복원: ${status}`);
+                        
+                        // 아이콘 상태 설정
+                        switch(status) {
+                            case 'confirmed':
+                                icon.className = 'fas fa-check-circle inspection-icon confirmed';
+                                break;
+                            case 'modified':
+                                icon.className = 'fas fa-check-circle inspection-icon modified';
+                                break;
+                            case 'unchecked':
+                            default:
+                                icon.className = 'fas fa-check-circle inspection-icon unchecked';
+                                break;
+                        }
+                    } else {
+                        console.warn(`장비 ${deviceId}의 아이콘 요소를 찾을 수 없습니다.`);
+                        notFoundCount++;
+                    }
+                } else {
+                    // DOM에 없는 장비는 현재 페이지에 표시되지 않는 장비이므로 정상적인 상황
+                    notFoundCount++;
+                }
+            });
+            
+            console.log(`검사 상태 복원 완료: ${restoredCount}개 복원, ${notFoundCount}개는 현재 페이지에 없음`);
+        }
+        
+        // 검사모드 종료
+        function exitInspectionMode() {
+            // 실시간 저장으로 인해 저장하지 않은 데이터가 없으므로 확인 메시지 제거
+            
+            isInspectionMode = false;
+            
+            // UI 복원
+            document.getElementById('inspectionModeBtn').style.display = 'inline-block';
+            document.getElementById('inspectionHistoryBtn').style.display = 'none';
+            document.getElementById('inspectionColumn').style.display = 'none';
+            document.getElementById('inspectionModeButtons').style.display = 'none';
+            
+            // 모든 검사확인 셀 숨기기
+            document.querySelectorAll('#inspectionCell').forEach(cell => {
+                cell.style.display = 'none';
+            });
+            
+            // 학교 선택 활성화
+            document.getElementById('schoolSelect').disabled = false;
+            
+            // 검사 데이터 초기화
+            inspectionData = {};
+        }
+        
+        // 검사 상태 토글
+        function toggleInspection(element) {
+            const deviceId = element.dataset.deviceId;
+            const icon = element.querySelector('.inspection-icon');
+            
+            // 현재 상태 확인
+            let currentState = inspectionData[deviceId] || 'unchecked';
+            
+            // 상태 변경
+            switch(currentState) {
+                case 'unchecked':
+                    currentState = 'confirmed';
+                    icon.className = 'fas fa-check-circle inspection-icon confirmed';
+                    break;
+                case 'confirmed':
+                    currentState = 'modified';
+                    icon.className = 'fas fa-check-circle inspection-icon modified';
+                    break;
+                case 'modified':
+                    currentState = 'unchecked';
+                    icon.className = 'fas fa-check-circle inspection-icon unchecked';
+                    break;
+            }
+            
+            // 상태 저장
+            inspectionData[deviceId] = currentState;
+            
+            // 실시간으로 서버에 저장
+            saveInspectionStatusToServer(deviceId, currentState);
+        }
+        
+        // 검사 상태를 서버에 저장
+        function saveInspectionStatusToServer(deviceId, status) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentSchoolId = urlParams.get('schoolId');
+            
+            console.log('검사 상태 저장 시작:', { deviceId, status, schoolId: currentSchoolId });
+            
+            if (!currentSchoolId) {
+                console.error('학교 정보를 찾을 수 없습니다.');
+                return;
+            }
+            
+            fetch('/device/inspection/status/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    deviceId: deviceId,
+                    schoolId: currentSchoolId,
+                    status: status
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('검사 상태 저장 응답:', data);
+                if (!data.success) {
+                    console.error('검사 상태 저장 실패:', data.message);
+                } else {
+                    console.log('검사 상태 저장 성공');
+                }
+            })
+            .catch(error => {
+                console.error('검사 상태 저장 중 오류:', error);
+            });
+        }
+        
+        // 검사 저장 함수 제거 - 실시간 저장으로 대체됨
+        
+        // 검사 초기화
+        function resetInspection() {
+            if (!confirm('모든 검사 정보가 초기화됩니다. 정말 초기화하시겠습니까?')) {
+                return;
+            }
+            
+            console.log('검사 초기화 시작');
+            
+            // 모든 체크박스를 미확인 상태로 변경하고 서버에 저장 (데스크톱 + 모바일)
+            const checkboxes = document.querySelectorAll('.inspection-checkbox, .inspection-checkbox-mobile');
+            console.log(`초기화할 체크박스 개수: ${checkboxes.length}`);
+            
+            let resetCount = 0;
+            checkboxes.forEach(checkbox => {
+                const deviceId = checkbox.dataset.deviceId;
+                const icon = checkbox.querySelector('.inspection-icon');
+                
+                if (deviceId && icon) {
+                    // UI 업데이트
+                    icon.className = 'fas fa-check-circle inspection-icon unchecked';
+                    
+                    // 검사 데이터 업데이트
+                    inspectionData[deviceId] = 'unchecked';
+                    
+                    // 서버에 초기화 상태 저장
+                    saveInspectionStatusToServer(deviceId, 'unchecked');
+                    resetCount++;
+                } else {
+                    console.warn('체크박스에서 deviceId 또는 icon을 찾을 수 없습니다:', checkbox);
+                }
+            });
+            
+            console.log(`초기화 완료: ${resetCount}개 장비`);
+            
+            // 초기화 완료 메시지
+            setTimeout(() => {
+                alert('모든 검사 정보가 초기화되었습니다.');
+            }, 500);
+        }
+        
+        // QR코드검색 기능
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const qrCodeSearch = document.getElementById('qrCodeSearch').checked;
+            if (qrCodeSearch && this.value.trim() !== '') {
+                // 즉시 검색 실행
+                this.form.submit();
+            }
+        });
+        
+        // 엑셀 다운로드 (검사 데이터 포함)
+        function downloadExcelWithInspection() {
+            if (isInspectionMode) {
+                // 검사모드인 경우 서버에서 검사 상태를 가져와서 엑셀 다운로드
+                const schoolSelectElement = document.getElementById('schoolSelect');
+                const schoolId = selectedSchoolForInspection || (schoolSelectElement ? schoolSelectElement.value : null);
+                
+                if (schoolId) {
+                    // 서버에서 검사 상태를 가져와서 엑셀 다운로드
+                    console.log('검사 상태 로드 시작, schoolId:', schoolId);
+                    fetch(`/device/inspection/status/load?schoolId=${schoolId}`)
+                        .then(response => response.json())
+                        .then(inspectionStatuses => {
+                            console.log('받은 검사 상태:', inspectionStatuses);
+                            // 검사 상태가 있는 경우에만 검사 데이터를 포함한 엑셀 다운로드
+                            if (Object.keys(inspectionStatuses).length > 0) {
+                                console.log('검사 데이터를 포함한 엑셀 다운로드 시작');
+                                const form = document.createElement('form');
+                                form.method = 'POST';
+                                form.action = '/device/excel/inspection';
+                                
+                                // 검사 데이터를 hidden input으로 추가
+                                const inspectionDataInput = document.createElement('input');
+                                inspectionDataInput.type = 'hidden';
+                                inspectionDataInput.name = 'inspectionData';
+                                inspectionDataInput.value = JSON.stringify(inspectionStatuses);
+                                console.log('전송할 검사 데이터:', JSON.stringify(inspectionStatuses));
+                                form.appendChild(inspectionDataInput);
+                                
+                                // 현재 필터 정보 추가
+                                const schoolIdInput = document.createElement('input');
+                                schoolIdInput.type = 'hidden';
+                                schoolIdInput.name = 'schoolId';
+                                schoolIdInput.value = schoolId;
+                                form.appendChild(schoolIdInput);
+                                
+                                // 안전하게 DOM 요소 접근
+                                const typeSelectElement = document.getElementById('typeSelect');
+                                const typeInput = document.createElement('input');
+                                typeInput.type = 'hidden';
+                                typeInput.name = 'type';
+                                typeInput.value = typeSelectElement ? typeSelectElement.value : '';
+                                form.appendChild(typeInput);
+                                
+                                const classroomSelectElement = document.getElementById('classroomSelect');
+                                const classroomIdInput = document.createElement('input');
+                                classroomIdInput.type = 'hidden';
+                                classroomIdInput.name = 'classroomId';
+                                classroomIdInput.value = classroomSelectElement ? classroomSelectElement.value : '';
+                                form.appendChild(classroomIdInput);
+                                
+                                document.body.appendChild(form);
+                                form.submit();
+                                document.body.removeChild(form);
+                            } else {
+                                // 검사 상태가 없는 경우 일반 엑셀 다운로드
+                                const excelBtn = document.getElementById('excelDownloadBtn');
+                                if (excelBtn && excelBtn.href) {
+                                    window.location.href = excelBtn.href;
+                                } else {
+                                    // fallback: 직접 URL 구성
+                                    window.location.href = '/device/excel';
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error('검사 상태 로드 중 오류:', error);
+                            // 오류 발생 시 일반 엑셀 다운로드
+                            const excelBtn = document.getElementById('excelDownloadBtn');
+                            if (excelBtn && excelBtn.href) {
+                                window.location.href = excelBtn.href;
+                            } else {
+                                // fallback: 직접 URL 구성
+                                window.location.href = '/device/excel';
+                            }
+                        });
+                } else {
+                    // 학교가 선택되지 않은 경우 일반 엑셀 다운로드
+                    const excelBtn = document.getElementById('excelDownloadBtn');
+                    if (excelBtn && excelBtn.href) {
+                        window.location.href = excelBtn.href;
+                    } else {
+                        // fallback: 직접 URL 구성
+                        window.location.href = '/device/excel';
+                    }
+                }
+            } else {
+                // 일반 모드인 경우 기존 방식 사용
+                const excelBtn = document.getElementById('excelDownloadBtn');
+                if (excelBtn && excelBtn.href) {
+                    window.location.href = excelBtn.href;
+                } else {
+                    // fallback: 직접 URL 구성
+                    window.location.href = '/device/excel';
+                }
+            }
+        }
     </script>
 </body>
 </html> 

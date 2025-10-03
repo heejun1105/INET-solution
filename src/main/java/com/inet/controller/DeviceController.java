@@ -28,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
 import java.util.LinkedHashMap;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -43,15 +44,23 @@ import com.inet.entity.User;
 import com.inet.service.PermissionService;
 import com.inet.service.SchoolPermissionService;
 import com.inet.service.UserService;
+import com.inet.service.DeviceInspectionHistoryService;
+import com.inet.service.DeviceInspectionStatusService;
 import com.inet.config.PermissionHelper;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.inet.entity.DeviceInspectionHistory;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.Comparator;
 
 @Controller
@@ -70,12 +79,16 @@ public class DeviceController {
     private final SchoolPermissionService schoolPermissionService;
     private final UserService userService;
     private final PermissionHelper permissionHelper;
+    private final DeviceInspectionHistoryService deviceInspectionHistoryService;
+    private final DeviceInspectionStatusService deviceInspectionStatusService;
 
     public DeviceController(DeviceService deviceService, SchoolService schoolService, 
                           OperatorService operatorService, ClassroomService classroomService, 
                           ManageService manageService, UidService uidService, 
                           PermissionService permissionService, SchoolPermissionService schoolPermissionService, 
-                          UserService userService, PermissionHelper permissionHelper) {
+                          UserService userService, PermissionHelper permissionHelper,
+                          DeviceInspectionHistoryService deviceInspectionHistoryService,
+                          DeviceInspectionStatusService deviceInspectionStatusService) {
         this.deviceService = deviceService;
         this.schoolService = schoolService;
         this.operatorService = operatorService;
@@ -86,6 +99,8 @@ public class DeviceController {
         this.schoolPermissionService = schoolPermissionService;
         this.userService = userService;
         this.permissionHelper = permissionHelper;
+        this.deviceInspectionHistoryService = deviceInspectionHistoryService;
+        this.deviceInspectionStatusService = deviceInspectionStatusService;
     }
 
     // 권한 체크 메서드
@@ -130,6 +145,8 @@ public class DeviceController {
                       @RequestParam(required = false) Long classroomId,
                       @RequestParam(required = false) String classroomName,
                       @RequestParam(required = false) String searchKeyword,
+                      @RequestParam(required = false) Boolean inspectionMode,
+                      @RequestParam(required = false) Boolean showClassroomsWithDevices,
                       @RequestParam(defaultValue = "1") int page,
                       @RequestParam(defaultValue = "16") int size,
                       Model model,
@@ -215,7 +232,25 @@ public class DeviceController {
         
         // 검색 키워드가 있으면 검색 실행
         if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
-            allDevices = deviceService.searchDevices(schoolId, type, classroomId, searchKeyword);
+            if (showClassroomsWithDevices != null && showClassroomsWithDevices) {
+                // "장비가 있는 교실" 체크박스가 체크된 경우
+                // 먼저 검색어와 일치하는 장비들을 찾고, 그 장비들이 있는 교실의 모든 장비를 가져옴
+                List<Device> matchingDevices = deviceService.searchDevices(schoolId, type, classroomId, searchKeyword);
+                Set<String> classroomNames = matchingDevices.stream()
+                    .filter(device -> device.getClassroom() != null && device.getClassroom().getRoomName() != null)
+                    .map(device -> device.getClassroom().getRoomName())
+                    .collect(Collectors.toSet());
+                
+                // 해당 교실들의 모든 장비를 가져옴
+                allDevices = deviceService.findDevicesByClassroomNames(classroomNames, schoolId, type);
+            } else {
+                // 일반 검색
+                allDevices = deviceService.searchDevices(schoolId, type, classroomId, searchKeyword);
+            }
+        } else if (showClassroomsWithDevices != null && showClassroomsWithDevices) {
+            // 검색어가 없지만 "장비가 있는 교실" 체크박스가 체크된 경우
+            // 모든 교실의 장비를 가져옴 (기본 필터링 결과 사용)
+            // 이미 위에서 allDevices가 설정되었으므로 추가 처리 불필요
         }
         
         // 교실별로 정렬 (교실명 기준)
@@ -285,6 +320,8 @@ public class DeviceController {
         model.addAttribute("startPage", startPage);
         model.addAttribute("endPage", endPage);
         model.addAttribute("totalPages", totalPages);
+        model.addAttribute("inspectionMode", inspectionMode != null ? inspectionMode : false);
+        model.addAttribute("showClassroomsWithDevices", showClassroomsWithDevices != null ? showClassroomsWithDevices : false);
         return "device/list";
     }
 
@@ -656,13 +693,384 @@ public class DeviceController {
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=devices.xlsx");
         
-        deviceService.exportToExcel(devices, response.getOutputStream());
+        // 검사모드에서 엑셀 다운로드인지 확인 (세션에서 검사 데이터 가져오기)
+        Map<Long, String> inspectionStatuses = null;
+        // TODO: 세션에서 검사 데이터를 가져오는 로직 추가
+        
+        deviceService.exportToExcel(devices, response.getOutputStream(), inspectionStatuses);
+    }
+    
+    // 검사 데이터를 포함한 엑셀 다운로드
+    @PostMapping("/excel/inspection")
+    public void downloadExcelWithInspection(@RequestParam String inspectionData,
+                                           @RequestParam(required = false) Long schoolId,
+                                           @RequestParam(required = false) String type,
+                                           @RequestParam(required = false) Long classroomId,
+                                           HttpServletResponse response) throws IOException {
+        
+        // 권한 체크
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "로그인이 필요합니다.");
+            return;
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "사용자를 찾을 수 없습니다.");
+            return;
+        }
+        
+        // 검사 데이터 파싱
+        Map<Long, String> inspectionStatuses = new HashMap<>();
+        log.info("받은 검사 데이터: {}", inspectionData);
+        
+        if (inspectionData != null && !inspectionData.trim().isEmpty()) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> parsedData = new ObjectMapper().readValue(inspectionData, Map.class);
+                log.info("파싱된 검사 데이터: {}", parsedData);
+                
+                // 브라우저에서 전송하는 형식: {"success": true, "statuses": {"5965": "unchecked", ...}}
+                if (parsedData.containsKey("statuses")) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, String> statuses = (Map<String, String>) parsedData.get("statuses");
+                    log.info("추출된 statuses: {}", statuses);
+                    
+                    for (Map.Entry<String, String> entry : statuses.entrySet()) {
+                        try {
+                            Long deviceId = Long.valueOf(entry.getKey());
+                            String status = entry.getValue();
+                            inspectionStatuses.put(deviceId, status);
+                        } catch (NumberFormatException e) {
+                            log.warn("잘못된 장비 ID 형식: {}", entry.getKey());
+                        }
+                    }
+                } else {
+                    // 기존 형식도 지원 (직접 Map<String, String> 형식)
+                    for (Map.Entry<String, Object> entry : parsedData.entrySet()) {
+                        try {
+                            Long deviceId = Long.valueOf(entry.getKey());
+                            String status = entry.getValue().toString();
+                            inspectionStatuses.put(deviceId, status);
+                        } catch (NumberFormatException e) {
+                            log.warn("잘못된 장비 ID 형식: {}", entry.getKey());
+                        }
+                    }
+                }
+                log.info("최종 검사 상태 맵: {}", inspectionStatuses);
+            } catch (Exception e) {
+                log.error("검사 데이터 파싱 중 오류 발생. 데이터: {}", inspectionData, e);
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "검사 데이터 형식이 올바르지 않습니다.");
+                return;
+            }
+        } else {
+            log.info("검사 데이터가 비어있음. 일반 엑셀 다운로드로 진행");
+        }
+        
+        // 장비 목록 조회
+        List<Device> devices;
+        if (schoolId != null && type != null && !type.isEmpty() && classroomId != null) {
+            devices = deviceService.findBySchoolAndTypeAndClassroom(schoolId, type, classroomId);
+        } else if (schoolId != null && type != null && !type.isEmpty()) {
+            devices = deviceService.findBySchoolAndType(schoolId, type);
+        } else if (schoolId != null && classroomId != null) {
+            devices = deviceService.findBySchoolAndClassroom(schoolId, classroomId);
+        } else if (schoolId != null) {
+            devices = deviceService.findBySchool(schoolId);
+        } else if (type != null && !type.isEmpty()) {
+            devices = deviceService.findByType(type);
+        } else if (classroomId != null) {
+            devices = deviceService.findByClassroom(classroomId);
+        } else {
+            devices = deviceService.findAll();
+        }
+        
+        // 교실, 세트 타입, 담당자 순으로 정렬
+        devices.sort((d1, d2) -> {
+            // 1. 교실 기준 정렬
+            String classroom1 = d1.getClassroom() != null && d1.getClassroom().getRoomName() != null ? 
+                                d1.getClassroom().getRoomName() : "미지정 교실";
+            String classroom2 = d2.getClassroom() != null && d2.getClassroom().getRoomName() != null ? 
+                                d2.getClassroom().getRoomName() : "미지정 교실";
+            int classroomCompare = classroom1.compareTo(classroom2);
+            if (classroomCompare != 0) return classroomCompare;
+            
+            // 2. 세트 타입 기준 정렬 (있는 경우)
+            String setType1 = d1.getSetType() != null && !d1.getSetType().trim().isEmpty() ? d1.getSetType() : null;
+            String setType2 = d2.getSetType() != null && !d2.getSetType().trim().isEmpty() ? d2.getSetType() : null;
+            
+            // 세트 타입이 있는 경우 우선 정렬
+            if (setType1 != null && setType2 != null) {
+                return setType1.compareTo(setType2);
+            } else if (setType1 != null) {
+                return -1; // d1이 세트 타입이 있으면 앞으로
+            } else if (setType2 != null) {
+                return 1;  // d2가 세트 타입이 있으면 앞으로
+            }
+            
+            // 3. 담당자 기준 정렬
+            String operator1 = d1.getOperator() != null && d1.getOperator().getName() != null ? 
+                               d1.getOperator().getName() : "미지정 담당자";
+            String operator2 = d2.getOperator() != null && d2.getOperator().getName() != null ? 
+                               d2.getOperator().getName() : "미지정 담당자";
+            return operator1.compareTo(operator2);
+        });
+        
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=devices_with_inspection.xlsx");
+        
+        deviceService.exportToExcel(devices, response.getOutputStream(), inspectionStatuses);
     }
 
     @GetMapping("/map")
     public String showMap(Model model) {
         model.addAttribute("schools", schoolService.getAllSchools());
         return "device/map";
+    }
+
+    // 장비검사 관련 API들
+    // 검사 저장 API 제거 - 실시간 저장으로 대체됨
+    
+    @PostMapping("/inspection/status/save")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> saveInspectionStatus(@RequestBody Map<String, Object> statusData) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // 권한 체크
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated()) {
+                response.put("success", false);
+                response.put("message", "로그인이 필요합니다.");
+                return ResponseEntity.status(401).body(response);
+            }
+            
+            User user = userService.findByUsername(auth.getName()).orElse(null);
+            if (user == null) {
+                response.put("success", false);
+                response.put("message", "사용자를 찾을 수 없습니다.");
+                return ResponseEntity.status(401).body(response);
+            }
+            
+            Long deviceId = Long.valueOf(statusData.get("deviceId").toString());
+            Long schoolId = Long.valueOf(statusData.get("schoolId").toString());
+            String status = statusData.get("status").toString();
+            
+            // 권한 체크
+            User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.DEVICE_INSPECTION, schoolId, null);
+            if (checkedUser == null) {
+                response.put("success", false);
+                response.put("message", "해당 학교에 대한 장비검사 권한이 없습니다.");
+                return ResponseEntity.status(403).body(response);
+            }
+            
+            // 검사 상태 저장
+            deviceInspectionStatusService.saveInspectionStatus(deviceId, schoolId, user.getId(), status);
+            
+            response.put("success", true);
+            response.put("message", "검사 상태가 저장되었습니다.");
+            
+        } catch (Exception e) {
+            log.error("검사 상태 저장 중 오류 발생", e);
+            response.put("success", false);
+            response.put("message", "저장 중 오류가 발생했습니다: " + e.getMessage());
+        }
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/inspection/status/load")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> loadInspectionStatuses(@RequestParam Long schoolId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // 권한 체크
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated()) {
+                response.put("success", false);
+                response.put("message", "로그인이 필요합니다.");
+                return ResponseEntity.status(401).body(response);
+            }
+            
+            User user = userService.findByUsername(auth.getName()).orElse(null);
+            if (user == null) {
+                response.put("success", false);
+                response.put("message", "사용자를 찾을 수 없습니다.");
+                return ResponseEntity.status(401).body(response);
+            }
+            
+            // 권한 체크
+            User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.DEVICE_INSPECTION, schoolId, null);
+            if (checkedUser == null) {
+                response.put("success", false);
+                response.put("message", "해당 학교에 대한 장비검사 권한이 없습니다.");
+                return ResponseEntity.status(403).body(response);
+            }
+            
+            // 오늘의 검사 상태들 조회
+            Map<Long, String> statuses = deviceInspectionStatusService.getInspectionStatuses(schoolId, user.getId());
+            
+            response.put("success", true);
+            response.put("statuses", statuses);
+            
+        } catch (Exception e) {
+            log.error("검사 상태 로드 중 오류 발생", e);
+            response.put("success", false);
+            response.put("message", "로드 중 오류가 발생했습니다: " + e.getMessage());
+        }
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/api/schools")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> getSchools() {
+        try {
+            // 권한 체크
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated()) {
+                return ResponseEntity.status(401).build();
+            }
+            
+            User user = userService.findByUsername(auth.getName()).orElse(null);
+            if (user == null) {
+                return ResponseEntity.status(401).build();
+            }
+            
+            // 사용자가 접근 가능한 학교 목록만 반환
+            List<School> schools = schoolPermissionService.getAccessibleSchools(user);
+            List<Map<String, Object>> schoolList = schools.stream()
+                .map(school -> {
+                    Map<String, Object> schoolData = new HashMap<>();
+                    schoolData.put("schoolId", school.getSchoolId());
+                    schoolData.put("schoolName", school.getSchoolName());
+                    schoolData.put("address", ""); // School 엔티티에 address 필드가 없음
+                    return schoolData;
+                })
+                .collect(Collectors.toList());
+            
+            return ResponseEntity.ok(schoolList);
+            
+        } catch (Exception e) {
+            log.error("학교 목록 조회 중 오류 발생", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // 검사이력 페이지
+    @GetMapping("/inspection/history")
+    public String inspectionHistory(@RequestParam(required = false) Long schoolId,
+                                  @RequestParam(required = false) Long inspectorId,
+                                  @RequestParam(required = false) String dateFilter,
+                                  @RequestParam(defaultValue = "1") int page,
+                                  @RequestParam(defaultValue = "20") int size,
+                                  Model model) {
+        
+        // 권한 체크
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return "redirect:/login";
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            return "redirect:/login";
+        }
+        
+        // 사용자가 접근 가능한 학교 목록
+        List<School> accessibleSchools = schoolPermissionService.getAccessibleSchools(user);
+        model.addAttribute("schools", accessibleSchools);
+        
+        // 검사자 목록 (사용자가 접근 가능한 학교의 검사자들)
+        List<User> inspectors = userService.findInspectorsBySchools(
+            accessibleSchools.stream().map(School::getSchoolId).collect(Collectors.toList()));
+        model.addAttribute("inspectors", inspectors);
+        
+        // 검사 이력 조회
+        List<DeviceInspectionHistory> histories;
+        if (schoolId != null) {
+            // 특정 학교의 검사 이력
+            histories = deviceInspectionHistoryService.findBySchoolId(schoolId);
+        } else if (inspectorId != null) {
+            // 특정 검사자의 검사 이력
+            histories = deviceInspectionHistoryService.findByInspectorId(inspectorId);
+        } else {
+            // 전체 검사 이력 (사용자가 접근 가능한 학교만)
+            histories = deviceInspectionHistoryService.findRecentInspections(1000);
+            // 권한이 있는 학교의 검사 이력만 필터링
+            List<Long> accessibleSchoolIds = accessibleSchools.stream()
+                .map(School::getSchoolId)
+                .collect(Collectors.toList());
+            histories = histories.stream()
+                .filter(h -> accessibleSchoolIds.contains(h.getSchoolId()))
+                .collect(Collectors.toList());
+        }
+        
+        // 날짜 필터 적용
+        if (dateFilter != null && !dateFilter.isEmpty()) {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime filterDate;
+            
+            switch (dateFilter) {
+                case "today":
+                    filterDate = now.toLocalDate().atStartOfDay();
+                    break;
+                case "week":
+                    filterDate = now.minusWeeks(1);
+                    break;
+                case "month":
+                    filterDate = now.minusMonths(1);
+                    break;
+                case "quarter":
+                    filterDate = now.minusMonths(3);
+                    break;
+                default:
+                    filterDate = null;
+            }
+            
+            if (filterDate != null) {
+                histories = histories.stream()
+                    .filter(h -> h.getInspectionDate().isAfter(filterDate))
+                    .collect(Collectors.toList());
+            }
+        }
+        
+        // 학교명과 검사자명 추가
+        List<Map<String, Object>> historyList = histories.stream()
+            .map(history -> {
+                Map<String, Object> historyData = new HashMap<>();
+                historyData.put("id", history.getId());
+                historyData.put("inspectionDate", history.getInspectionDate());
+                historyData.put("schoolId", history.getSchoolId());
+                historyData.put("schoolName", schoolService.getSchoolById(history.getSchoolId())
+                    .map(School::getSchoolName).orElse("알 수 없음"));
+                historyData.put("inspectorId", history.getInspectorId());
+                historyData.put("inspectorName", userService.findById(history.getInspectorId())
+                    .map(User::getName).orElse("알 수 없음"));
+                historyData.put("confirmedCount", history.getConfirmedCount());
+                historyData.put("modifiedCount", history.getModifiedCount());
+                historyData.put("unconfirmedCount", history.getUnconfirmedCount());
+                historyData.put("totalCount", history.getTotalCount());
+                return historyData;
+            })
+            .collect(Collectors.toList());
+        
+        // 통계 계산
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("confirmedCount", historyList.stream().mapToInt(h -> (Integer) h.get("confirmedCount")).sum());
+        stats.put("modifiedCount", historyList.stream().mapToInt(h -> (Integer) h.get("modifiedCount")).sum());
+        stats.put("unconfirmedCount", historyList.stream().mapToInt(h -> (Integer) h.get("unconfirmedCount")).sum());
+        stats.put("totalCount", historyList.stream().mapToInt(h -> (Integer) h.get("totalCount")).sum());
+        
+        model.addAttribute("inspectionHistories", historyList);
+        model.addAttribute("stats", stats);
+        model.addAttribute("selectedSchoolId", schoolId);
+        model.addAttribute("selectedInspectorId", inspectorId);
+        model.addAttribute("dateFilter", dateFilter);
+        
+        return "device/inspection-history";
     }
 
     @GetMapping("/api/classrooms")

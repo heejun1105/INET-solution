@@ -1,6 +1,8 @@
 export default class SnapManager {
     constructor() {
         this.snapDistance = 15; // 스냅 거리 (픽셀)
+        this.gridSize = 20; // 그리드 크기
+        this.gridSnapEnabled = false; // 그리드 스냅 활성화 여부
     }
 
     /**
@@ -157,4 +159,30 @@ export default class SnapManager {
             y: Math.round(y / gridSize) * gridSize
         };
     }
-} 
+    
+    /**
+     * 그리드 스냅 활성화
+     */
+    enableGridSnap(gridSize = 20) {
+        this.gridSnapEnabled = true;
+        this.gridSize = gridSize;
+    }
+    
+    /**
+     * 그리드 스냅 비활성화
+     */
+    disableGridSnap() {
+        this.gridSnapEnabled = false;
+    }
+    
+    /**
+     * 요소를 그리드에 스냅시킵니다
+     */
+    snapElementToGrid(element, targetX, targetY) {
+        if (!this.gridSnapEnabled) {
+            return { x: targetX, y: targetY };
+        }
+        
+        return this.snapToGrid(targetX, targetY, this.gridSize);
+    }
+}

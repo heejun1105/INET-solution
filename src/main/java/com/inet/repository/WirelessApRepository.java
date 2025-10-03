@@ -23,4 +23,9 @@ public interface WirelessApRepository extends JpaRepository<WirelessAp, Long> {
     @Modifying
     @Query("DELETE FROM WirelessAp w WHERE w.school.schoolId = :schoolId")
     int deleteBySchoolSchoolId(@Param("schoolId") Long schoolId);
+    
+    // 교실 참조 해제 (location 필드를 NULL로 설정)
+    @Modifying
+    @Query("UPDATE WirelessAp w SET w.location = NULL WHERE w.school.schoolId = :schoolId")
+    int updateClassroomToNullBySchoolId(@Param("schoolId") Long schoolId);
 } 

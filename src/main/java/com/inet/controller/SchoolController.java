@@ -8,7 +8,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import com.inet.entity.Feature;
@@ -19,10 +18,12 @@ import com.inet.service.UserService;
 import com.inet.config.PermissionHelper;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.ResponseEntity;
 
 @Controller
 @RequestMapping("/school")
 @RequiredArgsConstructor
+@Slf4j
 public class SchoolController {
 
     private final SchoolService schoolService;
@@ -65,6 +66,19 @@ public class SchoolController {
         }
         
         return permissionHelper.checkSchoolPermission(user, feature, schoolId, redirectAttributes);
+    }
+
+    // 학교 목록 API (평면도 페이지용)
+    @GetMapping("/api/schools")
+    @ResponseBody
+    public ResponseEntity<List<School>> getAllSchoolsApi() {
+        try {
+            List<School> schools = schoolService.getAllSchools();
+            return ResponseEntity.ok(schools);
+        } catch (Exception e) {
+            log.error("학교 목록 조회 실패", e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/manage")

@@ -57,6 +57,11 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
     @Query("SELECT COUNT(d) FROM Device d WHERE d.school.schoolId = :schoolId")
     long countBySchoolSchoolId(Long schoolId);
+    
+    // 교실 참조 해제
+    @Modifying
+    @Query("UPDATE Device d SET d.classroom = NULL WHERE d.school.schoolId = :schoolId")
+    int updateClassroomToNullBySchoolId(Long schoolId);
 
     // 통계용 메서드 추가
     long countByUnusedFalseOrUnusedIsNull();
@@ -76,4 +81,13 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
         @org.springframework.data.repository.query.Param("manageCate") String manageCate,
         @org.springframework.data.repository.query.Param("year") Integer year,
         @org.springframework.data.repository.query.Param("manageNum") Long manageNum);
+    
+    // 특정 교실 이름들에 있는 장비 조회 (학교, 타입 조건 포함)
+    List<Device> findByClassroomRoomNameInAndSchoolSchoolIdAndType(List<String> classroomNames, Long schoolId, String type);
+    
+    // 특정 교실 이름들에 있는 장비 조회 (학교 조건만)
+    List<Device> findByClassroomRoomNameInAndSchoolSchoolId(List<String> classroomNames, Long schoolId);
+    
+    // 특정 교실 이름들에 있는 장비 조회 (교실 이름만)
+    List<Device> findByClassroomRoomNameIn(List<String> classroomNames);
 } 

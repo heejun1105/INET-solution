@@ -38,6 +38,7 @@ public class AdminAccountInitializer implements CommandLineRunner {
             admin.setOrganization("I-NET 시스템");
             admin.setPosition("시스템 관리자");
             admin.setPhoneNumber("010-0000-0000");
+            admin.setEmail("admin@inet.com");
             admin.setCreatedAt(LocalDateTime.now());
             admin.setApprovedAt(LocalDateTime.now());
             admin.setApprovedBy("SYSTEM");

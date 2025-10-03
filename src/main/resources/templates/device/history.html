@@ -310,7 +310,8 @@
                     <i class="fas fa-search"></i> 검색
                 </button>
                 
-                <a th:href="@{/device/history/excel(schoolId=${schoolId}, searchType=${searchType}, searchKeyword=${searchKeyword})}" 
+                <a th:if="${schoolId != null}"
+                   th:href="@{/device/history/excel(schoolId=${schoolId}, searchType=${searchType}, searchKeyword=${searchKeyword})}" 
                    class="btn btn-success">
                     <i class="fas fa-file-excel"></i> 엑셀 다운로드
                 </a>
@@ -323,7 +324,7 @@
 
         
         <!-- 수정내역 테이블 -->
-        <div th:if="${historyPage != null and !historyPage.empty}">
+        <div th:if="${schoolId != null and historyPage != null and !historyPage.empty}">
             <table class="history-table">
                 <thead>
                     <tr>
@@ -368,7 +369,7 @@
             
             <!-- 페이징 네비게이션 -->
             <nav class="pagination-container">
-                <!-- 페이징 네비게이션 (항상 표시) -->
+                <!-- 페이징 네비게이션 (학교 선택 시에만 표시) -->
                 <ul class="pagination">
                     <li th:classappend="${historyPage.number == 0} ? 'disabled'">
                         <a th:if="${historyPage.number != 0}" 
@@ -407,9 +408,15 @@
         </div>
         
         <!-- 데이터가 없을 때 -->
-        <div th:if="${historyPage != null and historyPage.empty}" class="no-data">
+        <div th:if="${schoolId != null and historyPage != null and historyPage.empty}" class="no-data">
             <i class="fas fa-info-circle"></i>
             <p>수정내역이 없습니다.</p>
+        </div>
+        
+        <!-- 학교를 선택하지 않았을 때 -->
+        <div th:if="${schoolId == null}" class="no-data">
+            <i class="fas fa-school"></i>
+            <p>학교를 선택하면 수정내역을 확인할 수 있습니다.</p>
         </div>
     </div>
     

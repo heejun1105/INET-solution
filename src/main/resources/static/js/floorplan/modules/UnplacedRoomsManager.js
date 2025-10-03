@@ -45,9 +45,12 @@ export default class UnplacedRoomsManager {
     
     initEventListeners() {
         // 패널 토글 버튼
-        document.getElementById('panelToggle').addEventListener('click', () => {
-            this.togglePanel();
-        });
+        const panelToggle = document.getElementById('panelToggle');
+        if (panelToggle) {
+            panelToggle.addEventListener('click', () => {
+                this.togglePanel();
+            });
+        }
         
         // 페이지 로드 시 패널을 닫힌 상태로 초기화
         const panel = document.getElementById('unplacedRoomsPanel');
@@ -58,7 +61,11 @@ export default class UnplacedRoomsManager {
         }
         
         // 캔버스 드롭 이벤트
-        const canvas = document.getElementById('canvasContent');
+        const canvas = document.getElementById('canvas');
+        if (!canvas) {
+            console.warn('캔버스 요소를 찾을 수 없습니다.');
+            return;
+        }
         
         canvas.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -149,6 +156,10 @@ export default class UnplacedRoomsManager {
     
     renderUnplacedRooms() {
         const container = document.getElementById('unplacedRoomsList');
+        if (!container) {
+            console.warn('unplacedRoomsList 요소를 찾을 수 없습니다.');
+            return;
+        }
         container.innerHTML = '';
         
         if (this.unplacedRooms.length === 0) {
@@ -475,42 +486,29 @@ export default class UnplacedRoomsManager {
         try {
             console.log('평면도와 미배치교실 목록 동기화 시작');
             
-            // 저장된 평면도가 있는지 확인
-            const response = await fetch(`/floorplan/load?schoolId=${schoolId}`);
-            if (response.ok) {
-                const result = await response.json();
-                console.log('평면도 로드 결과:', result);
-                
-                if (result.success) {
+            // 현재 DOM에서 배치된 교실 요소들 직접 확인
+            const canvas = document.getElementById('canvasContent');
+            if (!canvas) {
+                console.log('캔버스를 찾을 수 없습니다.');
+                return;
+            }
+            
+            const roomElements = canvas.querySelectorAll('.room');
+            console.log('DOM에서 찾은 교실 요소 개수:', roomElements.length);
+            
                     // 배치된 교실들의 ID 수집 (중복 방지를 위해 Set 사용)
                     const placedRoomIdsSet = new Set();
                     
-                    // result.elements가 있는 경우
-                    if (result.elements && Array.isArray(result.elements)) {
-                        result.elements.forEach(element => {
-                            if (element.elementType === 'room') {
-                                const roomId = element.classroomId || element.roomId || element.id;
-                                if (roomId && !roomId.toString().startsWith('temp_')) {
-                                    placedRoomIdsSet.add(roomId.toString()); // 문자열로 변환
-                                    console.log('평면도에서 배치된 교실 발견 (elements):', roomId, element.roomName || element.name);
-                                }
-                            }
-                        });
-                    }
-                    
-                    // result.rooms가 있는 경우 (이전 버전 호환성)
-                    if (result.rooms && Array.isArray(result.rooms)) {
-                        result.rooms.forEach(room => {
-                            const roomId = room.classroomId || room.roomId || room.id;
-                            if (roomId && !roomId.toString().startsWith('temp_')) {
-                                placedRoomIdsSet.add(roomId.toString()); // 문자열로 변환
-                                console.log('평면도에서 배치된 교실 발견 (rooms):', roomId, room.roomName || room.name);
-                            }
-                        });
-                    }
+            roomElements.forEach(element => {
+                const classroomId = element.dataset.classroomId;
+                if (classroomId && !classroomId.toString().startsWith('temp_')) {
+                    placedRoomIdsSet.add(classroomId.toString()); // 문자열로 변환
+                    console.log('DOM에서 배치된 교실 발견:', classroomId, element.dataset.name);
+                }
+            });
                     
                     const placedRoomIds = Array.from(placedRoomIdsSet);
-                    console.log('평면도에서 배치된 교실 ID 목록:', placedRoomIds);
+            console.log('DOM에서 배치된 교실 ID 목록:', placedRoomIds);
                     console.log('현재 미배치교실 목록:', this.unplacedRooms.map(r => ({ 
                         id: r.classroomId, 
                         name: r.roomName,
@@ -536,10 +534,9 @@ export default class UnplacedRoomsManager {
                         console.log(`미배치교실 목록에서 ${beforeCount - afterCount}개 교실 제거됨 (${beforeCount} -> ${afterCount})`);
                         this.renderUnplacedRooms();
                     } else {
-                        console.log('평면도에서 배치된 교실이 없습니다.');
-                    }
-                }
+                console.log('DOM에서 배치된 교실이 없습니다.');
             }
+            
         } catch (error) {
             console.error('평면도 동기화 오류:', error);
         }

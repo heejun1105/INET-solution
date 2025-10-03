@@ -211,15 +211,15 @@
             box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
         }
 
-        .btn-secondary-modern {
-            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+                .btn-secondary-modern {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             color: white;
-            box-shadow: 0 4px 16px rgba(107, 114, 128, 0.3);
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
         }
-
+        
         .btn-secondary-modern:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(107, 114, 128, 0.4);
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
         }
 
         /* 애니메이션 */
@@ -336,12 +336,10 @@
                                 <i class="fas fa-chalkboard"></i>
                                 교실구분
                             </label>
-                            <select th:field="*{classroomType}">
-                                <option value="">교실구분을 선택하세요</option>
-                                <option value="1">1(일반교실)</option>
-                                <option value="2">2(기타)</option>
-                                <option value="3">3(지원공간)</option>
-                            </select>
+                            <input type="text" th:field="*{classroomType}" 
+                                   placeholder="예: 1, 2, 3, 4, 5..." 
+                                   pattern="[0-9]+">
+                            <div class="form-help">교실의 용도나 구분을 숫자로 입력하세요. (예: 1=일반교실, 2=기타, 3=지원공간, 4,5,6...)</div>
                         </div>
 
                         <div class="form-group-modern">
@@ -400,8 +398,7 @@
                                 <i class="fas fa-network-wired"></i>
                                 MAC 주소
                             </label>
-                            <input type="text" th:field="*{macAddress}" placeholder="예: AA:BB:CC:DD:EE:FF">
-                            <div class="form-help">MAC 주소를 콜론(:) 구분자와 함께 입력하세요.</div>
+                            <input type="text" th:field="*{macAddress}" placeholder="MAC 주소를 입력하세요">
                         </div>
                     </div>
                 </div>
@@ -476,18 +473,7 @@
             }
         });
         
-        // MAC 주소 형식 자동 변환
-        document.querySelector('input[name="macAddress"]').addEventListener('input', function(e) {
-            let value = e.target.value.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
-            if (value.length > 12) value = value.substring(0, 12);
-            
-            // 2자리씩 콜론으로 구분
-            if (value.length > 0) {
-                value = value.match(/.{1,2}/g).join(':');
-            }
-            
-            e.target.value = value;
-        });
+
     </script>
 </body>
 </html> 

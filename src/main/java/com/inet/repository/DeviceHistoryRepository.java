@@ -59,11 +59,23 @@ public interface DeviceHistoryRepository extends JpaRepository<DeviceHistory, Lo
     @Query("DELETE FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId")
     int deleteByDeviceSchoolSchoolId(@Param("schoolId") Long schoolId);
     
+    // 학교별 장비 수정내역 삭제 (별칭)
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId")
+    void deleteBySchoolId(@Param("schoolId") Long schoolId);
+    
     // 학교별 특정 날짜 이전 장비 수정내역 삭제
     @Modifying
     @Transactional
     @Query("DELETE FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId AND dh.modifiedAt < :beforeDateTime")
     int deleteByDeviceSchoolSchoolIdAndModifiedAtBefore(@Param("schoolId") Long schoolId, @Param("beforeDateTime") java.time.LocalDateTime beforeDateTime);
+    
+    // 특정 날짜 이전 장비 수정내역 삭제
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM DeviceHistory dh WHERE dh.modifiedAt < :beforeDateTime")
+    void deleteByModifiedAtBefore(@Param("beforeDateTime") java.time.LocalDateTime beforeDateTime);
     
     // 학교별 장비 수정내역 개수 조회
     @Query("SELECT COUNT(dh) FROM DeviceHistory dh WHERE dh.device.school.schoolId = :schoolId")

@@ -455,6 +455,7 @@
                         <div class="permission-icon" style="font-size: 1.5rem !important; color: #667eea !important; flex-shrink: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important;">
                             <i th:class="${feature.name() == 'DEVICE_LIST' ? 'fas fa-list' : 
                                          feature.name() == 'DEVICE_MANAGEMENT' ? 'fas fa-server' :
+                                         feature.name() == 'DEVICE_INSPECTION' ? 'fas fa-clipboard-check' :
                                          feature.name() == 'SCHOOL_MANAGEMENT' ? 'fas fa-school' :
                                          feature.name() == 'CLASSROOM_MANAGEMENT' ? 'fas fa-chalkboard-teacher' :
                                          feature.name() == 'FLOORPLAN_MANAGEMENT' ? 'fas fa-map' :

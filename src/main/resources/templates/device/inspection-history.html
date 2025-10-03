@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>장비검사 이력 - INET</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+        
+        .content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .filter-section {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .filter-group label {
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 0.9rem;
+        }
+        
+        .filter-group select {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            background: white;
+            transition: border-color 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4a5568;
+        }
+        
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .history-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .history-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+        }
+        
+        .history-table tr:hover {
+            background: #f7fafc;
+        }
+        
+        .history-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+            min-width: 60px;
+            display: inline-block;
+        }
+        
+        .status-confirmed {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .status-modified {
+            background: #fef5e7;
+            color: #744210;
+        }
+        
+        .status-unconfirmed {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #718096;
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            color: #cbd5e0;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+        }
+        
+        .empty-state p {
+            font-size: 1rem;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+        
+        .pagination a, .pagination span {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #4a5568;
+            transition: all 0.3s ease;
+        }
+        
+        .pagination a:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .pagination .current {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .stat-card .icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card .number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-card .label {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        .stat-card.confirmed .icon { color: #38a169; }
+        .stat-card.confirmed .number { color: #38a169; }
+        
+        .stat-card.modified .icon { color: #d69e2e; }
+        .stat-card.modified .number { color: #d69e2e; }
+        
+        .stat-card.unconfirmed .icon { color: #e53e3e; }
+        .stat-card.unconfirmed .number { color: #e53e3e; }
+        
+        .stat-card.total .icon { color: #667eea; }
+        .stat-card.total .number { color: #667eea; }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .filter-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .filter-group select {
+                min-width: auto;
+            }
+            
+            .history-table {
+                font-size: 0.8rem;
+            }
+            
+            .history-table th,
+            .history-table td {
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 네비게이션 바 포함 -->
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-clipboard-list"></i> 장비검사 이력</h1>
+            <p>장비검사 기록을 확인하고 관리할 수 있습니다</p>
+        </div>
+        
+        <div class="content">
+            <!-- 통계 카드 -->
+            <div class="stats-grid" th:if="${stats != null}">
+                <div class="stat-card confirmed">
+                    <div class="icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="number" th:text="${stats.confirmedCount}">0</div>
+                    <div class="label">확인</div>
+                </div>
+                <div class="stat-card modified">
+                    <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="number" th:text="${stats.modifiedCount}">0</div>
+                    <div class="label">수정</div>
+                </div>
+                <div class="stat-card unconfirmed">
+                    <div class="icon"><i class="fas fa-times-circle"></i></div>
+                    <div class="number" th:text="${stats.unconfirmedCount}">0</div>
+                    <div class="label">미확인</div>
+                </div>
+                <div class="stat-card total">
+                    <div class="icon"><i class="fas fa-list"></i></div>
+                    <div class="number" th:text="${stats.totalCount}">0</div>
+                    <div class="label">전체</div>
+                </div>
+            </div>
+            
+            <!-- 필터 섹션 -->
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label for="schoolFilter">학교</label>
+                    <select id="schoolFilter" onchange="filterHistory()">
+                        <option value="">전체 학교</option>
+                        <option th:each="school : ${schools}" 
+                                th:value="${school.schoolId}"
+                                th:text="${school.schoolName}"
+                                th:selected="${selectedSchoolId} == ${school.schoolId}">
+                        </option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="inspectorFilter">검사자</label>
+                    <select id="inspectorFilter" onchange="filterHistory()">
+                        <option value="">전체 검사자</option>
+                        <option th:each="inspector : ${inspectors}" 
+                                th:value="${inspector.id}"
+                                th:text="${inspector.name}"
+                                th:selected="${selectedInspectorId} == ${inspector.id}">
+                        </option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="dateFilter">검사일</label>
+                    <select id="dateFilter" onchange="filterHistory()">
+                        <option value="">전체 기간</option>
+                        <option value="today">오늘</option>
+                        <option value="week">최근 1주일</option>
+                        <option value="month">최근 1개월</option>
+                        <option value="quarter">최근 3개월</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <button class="btn btn-primary" onclick="resetFilters()">
+                        <i class="fas fa-undo"></i> 초기화
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 검사 이력 테이블 -->
+            <div th:if="${inspectionHistories != null and !inspectionHistories.empty}">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>검사일시</th>
+                            <th>학교</th>
+                            <th>검사자</th>
+                            <th>확인</th>
+                            <th>수정</th>
+                            <th>미확인</th>
+                            <th>전체</th>
+                            <th>상세보기</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="history : ${inspectionHistories}">
+                            <td th:text="${#temporals.format(history.inspectionDate, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td th:text="${history.schoolName}"></td>
+                            <td th:text="${history.inspectorName}"></td>
+                            <td>
+                                <span class="status-badge status-confirmed" th:text="${history.confirmedCount}">0</span>
+                            </td>
+                            <td>
+                                <span class="status-badge status-modified" th:text="${history.modifiedCount}">0</span>
+                            </td>
+                            <td>
+                                <span class="status-badge status-unconfirmed" th:text="${history.unconfirmedCount}">0</span>
+                            </td>
+                            <td>
+                                <span class="status-badge" style="background: #e2e8f0; color: #4a5568;" th:text="${history.totalCount}">0</span>
+                            </td>
+                            <td>
+                                <button class="btn btn-secondary" onclick="viewDetails([[${history.id}]])">
+                                    <i class="fas fa-eye"></i> 상세
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <!-- 페이지네이션 -->
+                <div class="pagination" th:if="${totalPages > 1}">
+                    <a th:if="${currentPage > 1}" th:href="@{/device/inspection/history(page=${currentPage - 1}, schoolId=${selectedSchoolId}, inspectorId=${selectedInspectorId}, dateFilter=${dateFilter})}">
+                        <i class="fas fa-chevron-left"></i> 이전
+                    </a>
+                    
+                    <th:block th:each="page : ${#numbers.sequence(1, totalPages)}">
+                        <a th:if="${page != currentPage}" 
+                           th:href="@{/device/inspection/history(page=${page}, schoolId=${selectedSchoolId}, inspectorId=${selectedInspectorId}, dateFilter=${dateFilter})}"
+                           th:text="${page}"></a>
+                        <span th:if="${page == currentPage}" class="current" th:text="${page}"></span>
+                    </th:block>
+                    
+                    <a th:if="${currentPage < totalPages}" th:href="@{/device/inspection/history(page=${currentPage + 1}, schoolId=${selectedSchoolId}, inspectorId=${selectedInspectorId}, dateFilter=${dateFilter})}">
+                        다음 <i class="fas fa-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- 빈 상태 -->
+            <div th:if="${inspectionHistories == null or inspectionHistories.empty}" class="empty-state">
+                <i class="fas fa-clipboard-list"></i>
+                <h3>검사 이력이 없습니다</h3>
+                <p>아직 장비검사 기록이 없습니다. 장비검사를 진행해보세요.</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 푸터 포함 -->
+    <div th:replace="~{fragments/footer :: footer}"></div>
+    
+    <script>
+        function filterHistory() {
+            const schoolId = document.getElementById('schoolFilter').value;
+            const inspectorId = document.getElementById('inspectorFilter').value;
+            const dateFilter = document.getElementById('dateFilter').value;
+            
+            const url = new URL(window.location.href);
+            url.searchParams.set('schoolId', schoolId);
+            url.searchParams.set('inspectorId', inspectorId);
+            url.searchParams.set('dateFilter', dateFilter);
+            url.searchParams.set('page', '1'); // 필터 변경 시 첫 페이지로
+            
+            window.location.href = url.toString();
+        }
+        
+        function resetFilters() {
+            document.getElementById('schoolFilter').value = '';
+            document.getElementById('inspectorFilter').value = '';
+            document.getElementById('dateFilter').value = '';
+            filterHistory();
+        }
+        
+        function viewDetails(historyId) {
+            // 상세보기 모달 또는 새 페이지로 이동
+            window.open('/device/inspection/history/' + historyId, '_blank');
+        }
+    </script>
+</body>
+</html>

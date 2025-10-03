@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <div th:if="${success}">
+        <div class="form-group">
+            <label for="securityQuestion">보안 질문</label>
+            <input type="text" id="securityQuestion" name="securityQuestion" class="form-control" 
+                   th:value="${securityQuestion}" readonly>
+            <small class="form-text text-muted">가입 시 설정한 보안 질문입니다.</small>
+        </div>
+    </div>
+    <div th:if="${!success}">
+        <div class="alert alert-error" th:text="${message}"></div>
+    </div>
+</body>
+</html>

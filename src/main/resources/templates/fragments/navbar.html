@@ -13,10 +13,10 @@
             
             <!-- 메인 메뉴 (인증된 사용자만) -->
             <ul class="navbar-menu" th:if="${#authorization.expression('isAuthenticated()')}">
-                <li th:if="${hasDeviceListPermission}"><a href="/device/list"><i class="fas fa-list"></i> 장비목록</a></li>
+                <li><a href="/device/list"><i class="fas fa-list"></i> 장비목록</a></li>
                 <li><a href="/ip/iplist"><i class="fas fa-network-wired"></i> IP대장</a></li>
-                <li th:if="${hasWirelessApListPermission}"><a href="/wireless-ap/list"><i class="fas fa-wifi"></i> 무선AP</a></li>
-                <li th:if="${hasFloorplanManagementPermission}"><a href="/floorplan"><i class="fas fa-map"></i> 학교평면도</a></li>
+                <li><a href="/wireless-ap/list"><i class="fas fa-wifi"></i> 무선AP</a></li>
+                <li><a href="/floorplan"><i class="fas fa-map"></i> 학교평면도</a></li>
                 
                 <!-- 관리자 전용 메뉴 -->
                 <li th:if="${#authorization.expression('hasRole(''ADMIN'')')}">

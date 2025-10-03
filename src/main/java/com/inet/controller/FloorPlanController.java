@@ -23,7 +23,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import com.inet.service.ClassroomService;
+import com.inet.entity.Classroom;
 
 @Controller
 @RequestMapping("/floorplan")
@@ -46,6 +49,9 @@ public class FloorPlanController {
     
     @Autowired
     private UserService userService;
+    
+    @Autowired
+    private ClassroomService classroomService;
     
     @Autowired
     private PermissionHelper permissionHelper;
@@ -343,5 +349,94 @@ public class FloorPlanController {
         }
     }
     
+    /**
+     * 여러 교실의 장비 정보 배치 조회 API (성능 최적화)
+     */
+    @PostMapping("/api/classrooms/devices/batch")
+    @ResponseBody
+    public ResponseEntity<Map<String, Map<String, Integer>>> getClassroomsDevicesBatch(
+            @RequestBody Map<String, List<Long>> request) {
+        
+        Map<String, Map<String, Integer>> response = new HashMap<>();
+        
+        try {
+            List<Long> classroomIds = request.get("classroomIds");
+            if (classroomIds == null || classroomIds.isEmpty()) {
+                return ResponseEntity.ok(response);
+            }
+            
+            // 각 교실별로 장비 조회 (기존 메서드 활용)
+            for (Long classroomId : classroomIds) {
+                try {
+                    List<Device> devices = deviceService.findByClassroom(classroomId);
+                    
+                    // 장비 타입별로 개수 집계
+                    Map<String, Long> typeCounts = devices.stream()
+                        .collect(Collectors.groupingBy(
+                            Device::getType,
+                            Collectors.counting()
+                        ));
+                    
+                    // 응답 형식으로 변환
+                    Map<String, Integer> deviceCounts = new HashMap<>();
+                    typeCounts.forEach((type, count) -> 
+                        deviceCounts.put(type, count.intValue()));
+                    
+                    response.put(classroomId.toString(), deviceCounts);
+                    
+                } catch (Exception e) {
+                    // 개별 교실 조회 실패 시 빈 맵으로 처리
+                    response.put(classroomId.toString(), new HashMap<>());
+                }
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.ok(response); // 빈 맵 반환
+        }
+    }
+    
+    // 교실 배치 정보 조회 API (평면도 뷰어용)
+    @PostMapping("/api/classrooms/batch")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getClassroomsBatch(
+            @RequestBody Map<String, List<Long>> request) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            List<Long> classroomIds = request.get("classroomIds");
+            if (classroomIds == null || classroomIds.isEmpty()) {
+                return ResponseEntity.ok(response);
+            }
+            
+            // 각 교실별로 정보 조회
+            for (Long classroomId : classroomIds) {
+                try {
+                    Optional<Classroom> classroomOpt = classroomService.getClassroomById(classroomId);
+                    if (classroomOpt.isPresent()) {
+                        Classroom classroom = classroomOpt.get();
+                        Map<String, Object> classroomInfo = new HashMap<>();
+                        classroomInfo.put("roomName", classroom.getRoomName());
+                        classroomInfo.put("classroomId", classroom.getClassroomId());
+                        classroomInfo.put("schoolId", classroom.getSchool() != null ? classroom.getSchool().getSchoolId() : null);
+                        
+                        response.put(classroomId.toString(), classroomInfo);
+                    }
+                } catch (Exception e) {
+                    // 개별 교실 조회 실패 시 빈 맵으로 처리
+                    response.put(classroomId.toString(), new HashMap<>());
+                }
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.ok(response); // 빈 맵 반환
+        }
+    }
 
 } 

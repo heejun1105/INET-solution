@@ -278,6 +278,48 @@
             margin-top: 1.5rem;
         }
 
+        /* PC 환경에서 통합 카드들을 위한 특별 레이아웃 */
+        @media (min-width: 1024px) {
+            .checkbox-grid-modern {
+                grid-template-columns: 1fr 1fr;
+                grid-template-areas: 
+                    "device-group wireless-group"
+                    "classroom operator"
+                    "device-history wireless-history";
+                gap: 1.5rem;
+            }
+            
+            .combined-card:nth-child(1) { /* 장비 그룹 */
+                grid-area: device-group;
+            }
+            
+            .combined-card:nth-child(2) { /* 무선AP 그룹 */
+                grid-area: wireless-group;
+            }
+            
+            .checkbox-item-modern[data-checkbox-id="deleteClassrooms"] {
+                grid-area: classroom;
+            }
+            
+            .checkbox-item-modern[data-checkbox-id="deleteOperators"] {
+                grid-area: operator;
+            }
+            
+            .checkbox-item-modern[data-checkbox-id="deleteDeviceHistoryOnly"] {
+                grid-area: device-history;
+            }
+            
+            .checkbox-item-modern[data-checkbox-id="deleteWirelessApHistoryOnly"] {
+                grid-area: wireless-history;
+            }
+            
+            /* 통합 카드들의 크기를 더 크게 */
+            .combined-card {
+                min-height: 140px;
+                padding: 2rem 1.5rem;
+            }
+        }
+
         .checkbox-item-modern {
             background: rgba(255, 255, 255, 0.1);
             border: 2px solid rgba(255, 255, 255, 0.2);
@@ -319,6 +361,54 @@
             font-weight: 500;
             cursor: pointer;
             flex: 1;
+        }
+
+        /* 통합 카드 스타일 */
+        .combined-card {
+            min-height: 100px;
+            flex-direction: column;
+            text-align: center;
+            padding: 1.5rem 1rem;
+            position: relative;
+        }
+
+        .combined-icon-group {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .combined-icon-group i {
+            font-size: 1.2rem;
+            color: #ffffff;
+            opacity: 0.9;
+        }
+
+        .combined-description {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 0.25rem;
+            line-height: 1.2;
+        }
+
+        /* 통합 카드 체크박스 스타일 */
+        .combined-checkbox {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 1.5rem;
+            height: 1.5rem;
+            accent-color: #10b981;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .combined-card.selected {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.3) 100%);
+            border-color: #10b981;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
         }
 
         /* 장비 수정내역 기간 설정 토글 */
@@ -567,15 +657,31 @@
                         </div>
 
                         <div class="checkbox-grid-modern" id="selectiveOptions">
-                                                        <div class="checkbox-item-modern" data-checkbox-id="deleteDevices" onclick="handleCardClick(event, 'deleteDevices')">
-                                <input type="checkbox" name="deleteDevices" id="deleteDevices" value="true" onclick="event.stopPropagation()">
+                                                                                                                <div class="checkbox-item-modern combined-card" data-checkbox-id="deleteDeviceGroup" onclick="handleDeviceGroupClick(event)">
+                                <input type="checkbox" class="combined-checkbox" id="deviceGroupCheckbox" onchange="updateDeviceGroupFromCheckbox()" onclick="event.stopPropagation()">
+                                <input type="checkbox" name="deleteDevices" id="deleteDevices" value="true" style="display: none;">
+                                <input type="checkbox" name="deleteManages" id="deleteManages" value="true" style="display: none;">
+                                <input type="checkbox" name="deleteUids" id="deleteUids" value="true" style="display: none;">
+                                <input type="checkbox" name="deleteDeviceHistory" id="deleteDeviceHistory" value="true" style="display: none;">
+                                <div class="combined-icon-group">
                                 <i class="fas fa-desktop"></i>
-                                <label for="deleteDevices">장비</label>
+                                    <i class="fas fa-clipboard-list"></i>
+                                    <i class="fas fa-id-card"></i>
+                                    <i class="fas fa-history"></i>
                             </div>
-                            <div class="checkbox-item-modern" data-checkbox-id="deleteWirelessAps" onclick="handleCardClick(event, 'deleteWirelessAps')">
-                                <input type="checkbox" name="deleteWirelessAps" id="deleteWirelessAps" value="true" onclick="event.stopPropagation()">
+                                <label for="deleteDeviceGroup">장비 및 번호 관리</label>
+                                <div class="combined-description">장비, 관리번호, 고유번호, 수정내역</div>
+                            </div>
+                            <div class="checkbox-item-modern combined-card" data-checkbox-id="deleteWirelessApGroup" onclick="handleWirelessApGroupClick(event)">
+                                <input type="checkbox" class="combined-checkbox" id="wirelessApGroupCheckbox" onchange="updateWirelessApGroupFromCheckbox()" onclick="event.stopPropagation()">
+                                <input type="checkbox" name="deleteWirelessAps" id="deleteWirelessAps" value="true" style="display: none;">
+                                <input type="checkbox" name="deleteWirelessApHistory" id="deleteWirelessApHistory" value="true" style="display: none;">
+                                <div class="combined-icon-group">
                                 <i class="fas fa-wifi"></i>
-                                <label for="deleteWirelessAps">무선 AP</label>
+                                    <i class="fas fa-history"></i>
+                                </div>
+                                <label for="deleteWirelessApGroup">무선 AP 관리</label>
+                                <div class="combined-description">무선 AP, 수정내역</div>
                             </div>
                             <div class="checkbox-item-modern" data-checkbox-id="deleteClassrooms" onclick="handleCardClick(event, 'deleteClassrooms')">
                                 <input type="checkbox" name="deleteClassrooms" id="deleteClassrooms" value="true" onclick="event.stopPropagation()">
@@ -587,20 +693,10 @@
                                 <i class="fas fa-user-tie"></i>
                                 <label for="deleteOperators">운영자</label>
                             </div>
-                            <div class="checkbox-item-modern" data-checkbox-id="deleteManages" onclick="handleCardClick(event, 'deleteManages')">
-                                <input type="checkbox" name="deleteManages" id="deleteManages" value="true" onclick="event.stopPropagation()">
-                                <i class="fas fa-clipboard-list"></i>
-                                <label for="deleteManages">관리번호</label>
-                            </div>
-                            <div class="checkbox-item-modern" data-checkbox-id="deleteUids" onclick="handleCardClick(event, 'deleteUids')">
-                                <input type="checkbox" name="deleteUids" id="deleteUids" value="true" onclick="event.stopPropagation()">
-                                <i class="fas fa-id-card"></i>
-                                <label for="deleteUids">고유번호</label>
-                            </div>
-                            <div class="checkbox-item-modern" data-checkbox-id="deleteDeviceHistory" onclick="handleCardClick(event, 'deleteDeviceHistory')">
-                                <input type="checkbox" name="deleteDeviceHistory" id="deleteDeviceHistory" value="true" onclick="event.stopPropagation()">
+                            <div class="checkbox-item-modern" data-checkbox-id="deleteDeviceHistoryOnly" onclick="handleCardClick(event, 'deleteDeviceHistoryOnly')">
+                                <input type="checkbox" name="deleteDeviceHistoryOnly" id="deleteDeviceHistoryOnly" value="true" onclick="event.stopPropagation()">
                                 <i class="fas fa-history"></i>
-                                <label for="deleteDeviceHistory">장비 수정내역</label>
+                                <label for="deleteDeviceHistoryOnly">장비 수정내역 (단독)</label>
                                 
                                 <!-- 장비 수정내역 기간 설정 토글 -->
                                 <div class="history-period-toggle" id="historyPeriodToggle" style="display: none;" onclick="event.stopPropagation()">
@@ -612,6 +708,25 @@
                                         
                                         <div id="historyDateInput" class="history-date-input" style="display: none;">
                                             <input type="date" id="deleteBeforeDate" name="deleteBeforeDate" class="history-date-field" placeholder="날짜 선택" onclick="event.stopPropagation()">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="checkbox-item-modern" data-checkbox-id="deleteWirelessApHistoryOnly" onclick="handleCardClick(event, 'deleteWirelessApHistoryOnly')">
+                                <input type="checkbox" name="deleteWirelessApHistoryOnly" id="deleteWirelessApHistoryOnly" value="true" onclick="event.stopPropagation()">
+                                <i class="fas fa-wifi"></i>
+                                <label for="deleteWirelessApHistoryOnly">무선AP 수정내역 (단독)</label>
+                                
+                                <!-- 무선AP 수정내역 기간 설정 토글 -->
+                                <div class="history-period-toggle" id="wirelessApHistoryPeriodToggle" style="display: none;" onclick="event.stopPropagation()">
+                                    <div class="period-dropdown-container">
+                                        <select id="wirelessApHistoryPeriodType" name="wirelessApPeriodType" class="period-dropdown" onchange="toggleWirelessApHistoryDateInput()" onclick="event.stopPropagation()">
+                                            <option value="all">전체 기간</option>
+                                            <option value="before">특정 날짜 이전</option>
+                                        </select>
+                                        
+                                        <div id="wirelessApHistoryDateInput" class="history-date-input" style="display: none;">
+                                            <input type="date" id="deleteWirelessApBeforeDate" name="deleteWirelessApBeforeDate" class="history-date-field" placeholder="날짜 선택" onclick="event.stopPropagation()">
                                         </div>
                                     </div>
                                 </div>
@@ -680,6 +795,136 @@
             updateDeleteButtonState();
         }
 
+        // 통합 장비 그룹 카드 클릭 핸들러
+        function handleDeviceGroupClick(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // 클릭된 요소 확인
+            const target = event.target;
+            console.log('Device group card clicked, Target:', target.tagName, target.className);
+            
+            // 체크박스 직접 클릭인 경우 체크박스 상태를 기준으로 처리
+            if (target.classList.contains('combined-checkbox')) {
+                console.log('Checkbox directly clicked');
+                updateDeviceGroupFromCheckbox();
+                return;
+            }
+            
+            // 폼 요소 클릭인 경우 무시
+            if (target.type === 'checkbox' || 
+                target.tagName === 'SELECT' || 
+                target.tagName === 'INPUT') {
+                console.log('Ignoring click on form element');
+                return;
+            }
+            
+            // 카드 클릭인 경우 체크박스 토글
+            const visibleCheckbox = document.getElementById('deviceGroupCheckbox');
+            visibleCheckbox.checked = !visibleCheckbox.checked;
+            updateDeviceGroupFromCheckbox();
+        }
+
+        function updateDeviceGroupFromCheckbox() {
+            // 카드 요소 찾기
+            const card = document.querySelector('[data-checkbox-id="deleteDeviceGroup"]');
+            const visibleCheckbox = document.getElementById('deviceGroupCheckbox');
+            
+            // 모든 관련 체크박스 찾기
+            const deviceCheckbox = document.getElementById('deleteDevices');
+            const manageCheckbox = document.getElementById('deleteManages');
+            const uidCheckbox = document.getElementById('deleteUids');
+            const deviceHistoryCheckbox = document.getElementById('deleteDeviceHistory');
+            
+            if (!deviceCheckbox || !manageCheckbox || !uidCheckbox || !deviceHistoryCheckbox) {
+                console.error('Device group checkboxes not found');
+                return;
+            }
+            
+            const newState = visibleCheckbox.checked;
+            
+            // 모든 체크박스 상태 동시 변경
+            deviceCheckbox.checked = newState;
+            manageCheckbox.checked = newState;
+            uidCheckbox.checked = newState;
+            deviceHistoryCheckbox.checked = newState;
+            
+            // 카드 시각적 상태 업데이트
+            if (newState) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+            
+            console.log(`Device group ${newState ? 'selected' : 'deselected'}`);
+            
+            // 삭제 버튼 상태 업데이트
+            updateDeleteButtonState();
+        }
+
+        // 무선AP 그룹 카드 클릭 핸들러
+        function handleWirelessApGroupClick(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // 클릭된 요소 확인
+            const target = event.target;
+            console.log('Wireless AP group card clicked, Target:', target.tagName, target.className);
+            
+            // 체크박스 직접 클릭인 경우 체크박스 상태를 기준으로 처리
+            if (target.classList.contains('combined-checkbox')) {
+                console.log('Checkbox directly clicked');
+                updateWirelessApGroupFromCheckbox();
+                return;
+            }
+            
+            // 폼 요소 클릭인 경우 무시
+            if (target.type === 'checkbox' || 
+                target.tagName === 'SELECT' || 
+                target.tagName === 'INPUT') {
+                console.log('Ignoring click on form element');
+                return;
+            }
+            
+            // 카드 클릭인 경우 체크박스 토글
+            const visibleCheckbox = document.getElementById('wirelessApGroupCheckbox');
+            visibleCheckbox.checked = !visibleCheckbox.checked;
+            updateWirelessApGroupFromCheckbox();
+        }
+
+        function updateWirelessApGroupFromCheckbox() {
+            // 카드 요소 찾기
+            const card = document.querySelector('[data-checkbox-id="deleteWirelessApGroup"]');
+            const visibleCheckbox = document.getElementById('wirelessApGroupCheckbox');
+            
+            // 모든 관련 체크박스 찾기
+            const wirelessApCheckbox = document.getElementById('deleteWirelessAps');
+            const wirelessApHistoryCheckbox = document.getElementById('deleteWirelessApHistory');
+            
+            if (!wirelessApCheckbox || !wirelessApHistoryCheckbox) {
+                console.error('Wireless AP group checkboxes not found');
+                return;
+            }
+            
+            const newState = visibleCheckbox.checked;
+            
+            // 모든 체크박스 상태 동시 변경
+            wirelessApCheckbox.checked = newState;
+            wirelessApHistoryCheckbox.checked = newState;
+            
+            // 카드 시각적 상태 업데이트
+            if (newState) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+            
+            console.log(`Wireless AP group ${newState ? 'selected' : 'deselected'}`);
+            
+            // 삭제 버튼 상태 업데이트
+            updateDeleteButtonState();
+        }
+
         function handleCardClick(event, checkboxId) {
             // 이벤트 전파 중단
             event.preventDefault();
@@ -724,8 +969,13 @@
             }
             
             // 장비 수정내역 체크박스 특별 처리
-            if (checkboxId === 'deleteDeviceHistory') {
+            if (checkboxId === 'deleteDeviceHistoryOnly') {
                 toggleHistoryPeriodToggle();
+            }
+            
+            // 무선AP 수정내역 체크박스 특별 처리
+            if (checkboxId === 'deleteWirelessApHistoryOnly') {
+                toggleWirelessApHistoryPeriodToggle();
             }
             
             updateDeleteButtonState();
@@ -770,7 +1020,7 @@
             }
             
             // 장비 수정내역 체크박스 특별 처리
-            if (checkboxId === 'deleteDeviceHistory') {
+            if (checkboxId === 'deleteDeviceHistoryOnly') {
                 toggleHistoryPeriodToggle();
             }
             
@@ -813,9 +1063,9 @@
 
         function toggleHistoryPeriodToggle() {
             const historyPeriodToggle = document.getElementById('historyPeriodToggle');
-            const deleteDeviceHistory = document.getElementById('deleteDeviceHistory');
+            const deleteDeviceHistoryOnly = document.getElementById('deleteDeviceHistoryOnly');
             
-            if (deleteDeviceHistory.checked) {
+            if (deleteDeviceHistoryOnly && deleteDeviceHistoryOnly.checked) {
                 historyPeriodToggle.style.display = 'block';
             } else {
                 historyPeriodToggle.style.display = 'none';
@@ -830,6 +1080,28 @@
                 historyDateInput.style.display = 'block';
             } else {
                 historyDateInput.style.display = 'none';
+            }
+        }
+        
+        function toggleWirelessApHistoryPeriodToggle() {
+            const wirelessApHistoryPeriodToggle = document.getElementById('wirelessApHistoryPeriodToggle');
+            const deleteWirelessApHistoryOnly = document.getElementById('deleteWirelessApHistoryOnly');
+            
+            if (deleteWirelessApHistoryOnly && deleteWirelessApHistoryOnly.checked) {
+                wirelessApHistoryPeriodToggle.style.display = 'block';
+            } else {
+                wirelessApHistoryPeriodToggle.style.display = 'none';
+            }
+        }
+
+        function toggleWirelessApHistoryDateInput() {
+            const wirelessApHistoryDateInput = document.getElementById('wirelessApHistoryDateInput');
+            const periodType = document.getElementById('wirelessApHistoryPeriodType').value;
+            
+            if (periodType === 'before') {
+                wirelessApHistoryDateInput.style.display = 'block';
+            } else {
+                wirelessApHistoryDateInput.style.display = 'none';
             }
         }
         
@@ -848,18 +1120,50 @@
                 message += "모든 데이터를 삭제하시겠습니까?";
             } else {
                 const selectedTypes = [];
+                
+                                // 통합된 장비 그룹 확인
+                const deviceChecked = document.getElementById('deleteDevices').checked;
+                const manageChecked = document.getElementById('deleteManages').checked;
+                const uidChecked = document.getElementById('deleteUids').checked;
+                const deviceHistoryChecked = document.getElementById('deleteDeviceHistory').checked;
+                
+                if (deviceChecked || manageChecked || uidChecked || deviceHistoryChecked) {
+                    selectedTypes.push('장비 및 번호 관리');
+                }
+                
+                // 통합된 무선AP 그룹 확인
+                const wirelessApChecked = document.getElementById('deleteWirelessAps').checked;
+                const wirelessApHistoryChecked = document.getElementById('deleteWirelessApHistory').checked;
+                
+                if (wirelessApChecked || wirelessApHistoryChecked) {
+                    selectedTypes.push('무선 AP 관리');
+                }
+                
+                // 나머지 개별 항목들 확인
                 document.querySelectorAll('#selectiveOptions input[type="checkbox"]:checked').forEach(cb => {
+                    // 통합된 항목들은 제외
+                    if (cb.id !== 'deleteDevices' && cb.id !== 'deleteManages' && cb.id !== 'deleteUids' && 
+                        cb.id !== 'deleteDeviceHistory' && cb.id !== 'deleteWirelessAps' && cb.id !== 'deleteWirelessApHistory') {
                     const label = document.querySelector(`label[for='${cb.id}']`);
+                        if (label) {
                     selectedTypes.push(label.innerText.trim());
+                        }
+                    }
                 });
+                
                             if (selectedTypes.length === 0) {
                  alert("삭제할 데이터 유형을 하나 이상 선택해주세요.");
                  return false;
             }
             message += `${selectedTypes.join(', ')} 데이터를 삭제하시겠습니까?`;
             
-            // 장비 수정내역 기간 정보 추가
-            if (deleteDeviceHistory) {
+            // 장비 수정내역 기간 정보 추가 (그룹 또는 단독)
+            const deleteDeviceHistory = document.getElementById('deleteDeviceHistory');
+            const deleteDeviceHistoryOnly = document.getElementById('deleteDeviceHistoryOnly');
+            const deviceHistorySelected = (deleteDeviceHistory && deleteDeviceHistory.checked) || 
+                                        (deleteDeviceHistoryOnly && deleteDeviceHistoryOnly.checked);
+            
+            if (deviceHistorySelected) {
                 const periodType = document.getElementById('historyPeriodType').value;
                 if (periodType === 'before') {
                     const deleteDate = document.getElementById('deleteBeforeDate').value;
@@ -867,7 +1171,25 @@
                         alert("장비 수정내역 삭제 날짜를 선택해주세요.");
                         return false;
                     }
-                    message += `\n\n수정내역 삭제 기간: ${deleteDate} 이전`;
+                    message += `\n\n장비 수정내역 삭제 기간: ${deleteDate} 이전`;
+                }
+            }
+            
+            // 무선AP 수정내역 기간 정보 추가 (그룹 또는 단독)
+            const deleteWirelessApHistory = document.getElementById('deleteWirelessApHistory');
+            const deleteWirelessApHistoryOnly = document.getElementById('deleteWirelessApHistoryOnly');
+            const wirelessApHistorySelected = (deleteWirelessApHistory && deleteWirelessApHistory.checked) || 
+                                            (deleteWirelessApHistoryOnly && deleteWirelessApHistoryOnly.checked);
+            
+            if (wirelessApHistorySelected) {
+                const periodType = document.getElementById('wirelessApHistoryPeriodType').value;
+                if (periodType === 'before') {
+                    const deleteDate = document.getElementById('deleteWirelessApBeforeDate').value;
+                    if (!deleteDate) {
+                        alert("무선AP 수정내역 삭제 날짜를 선택해주세요.");
+                        return false;
+                    }
+                    message += `\n\n무선AP 수정내역 삭제 기간: ${deleteDate} 이전`;
                 }
             }
         }
@@ -887,8 +1209,13 @@
                 }
                 
                 // 장비 수정내역 체크박스 특별 처리
-                if (this.id === 'deleteDeviceHistory') {
+                if (this.id === 'deleteDeviceHistoryOnly') {
                     toggleHistoryPeriodToggle();
+                }
+                
+                // 무선AP 수정내역 체크박스 특별 처리
+                if (this.id === 'deleteWirelessApHistoryOnly') {
+                    toggleWirelessApHistoryPeriodToggle();
                 }
                 
                 updateDeleteButtonState();

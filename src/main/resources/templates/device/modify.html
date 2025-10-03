@@ -583,31 +583,31 @@
                         <div class="form-group-modern full-width">
                             <label class="required">
                                 <i class="fas fa-fingerprint"></i>
-                                고유번호
+                                고유번호 <span style="color: #666; font-size: 0.9em;">(수정 불가)</span>
                             </label>
-                            <div class="multi-input-container">
-                                    <select id="uidCate" name="uidCate" required>
+                            <div class="multi-input-container" style="opacity: 0.6; pointer-events: none;">
+                                    <select id="uidCate" name="uidCate" required disabled>
                                         <option value="">구분 선택</option>
                                         <option value="custom">직접입력</option>
                                         <option th:if="${device.uid != null}" th:value="${device.uid.cate}" th:text="${device.uid.cate}" th:selected="true" style="display:none;"></option>
                                     </select>
-                                <input type="text" id="uidCateInput" name="uidCateCustom" placeholder="구분 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.cate : ''}">
+                                <input type="text" id="uidCateInput" name="uidCateCustom" placeholder="구분 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.cate : ''}" disabled>
 
-                                    <select id="uidYear" name="uidYear" required>
+                                    <select id="uidYear" name="uidYear" required disabled>
                                         <option value="">연도 선택</option>
-                                        <option value="XX">XX</option>
+                                        <option value="xx">xx</option>
                                         <option value="custom">직접입력</option>
                                         <option th:if="${device.uid != null and device.uid.mfgYear != null}" th:value="${device.uid.mfgYear}" th:text="${device.uid.mfgYear}" th:selected="true" style="display:none;"></option>
-                                        <option th:if="${device.uid != null and device.uid.mfgYear == null}" value="XX" th:selected="true" style="display:none;">XX</option>
+                                        <option th:if="${device.uid != null and device.uid.mfgYear == null}" value="xx" th:selected="true" style="display:none;">xx</option>
                                     </select>
-                                <input type="text" id="uidYearInput" name="uidYearCustom" placeholder="연도 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.mfgYear : ''}">
+                                <input type="text" id="uidYearInput" name="uidYearCustom" placeholder="연도 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.mfgYear : ''}" disabled>
 
-                                    <select id="uidNum" name="uidNum" required>
+                                    <select id="uidNum" name="uidNum" required disabled>
                                         <option value="">번호 선택</option>
                                         <option value="custom">직접입력</option>
                                         <option th:if="${device.uid != null}" th:value="${device.uid.idNumber}" th:text="${device.uid.idNumber}" th:selected="true" style="display:none;"></option>
                                     </select>
-                                <input type="number" id="uidNumInput" name="uidNumCustom" placeholder="번호 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.idNumber : ''}">
+                                <input type="number" id="uidNumInput" name="uidNumCustom" placeholder="번호 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.idNumber : ''}" disabled>
                                 </div>
                             </div>
 
@@ -879,11 +879,12 @@
             if (manageCate === 'custom') return;
             
             let url = `/api/manages/nums/${schoolId}/${encodeURIComponent(manageCate)}`;
-            if (year && year !== 'custom') {
+            if (year && year !== 'custom' && year !== '없음') {
                 url = `/api/manages/nums/${schoolId}/${encodeURIComponent(manageCate)}?year=${year}`;
             }
             
             console.log('번호 로드 API 호출:', url);
+            console.log('연도 파라미터:', year);
             
             fetch(url)
                 .then(response => response.json())
@@ -1010,19 +1011,19 @@
                     const yearSelect = document.getElementById('uidYear');
                     yearSelect.innerHTML = '<option value="">연도 선택</option>';
                     
-                    // XX 옵션 추가 (연도가 없는 경우)
-                    const xxOption = document.createElement('option');
-                    xxOption.value = 'XX';
-                    xxOption.textContent = 'XX';
-                    yearSelect.appendChild(xxOption);
-                    
-                    // years가 배열인지 확인하고 모든 연도 표시
+                    // DB에서 받은 연도 목록 처리
+                    let hasXxInDb = false;
                     if (Array.isArray(years) && years.length > 0) {
                         years.forEach(year => {
                             const option = document.createElement('option');
                             option.value = year;
                             option.textContent = year;
                             yearSelect.appendChild(option);
+                            
+                            // DB에 'xx'가 있는지 확인
+                            if (year === 'xx') {
+                                hasXxInDb = true;
+                            }
                         });
                     } else {
                         // 데이터가 없는 경우 현재 연도와 이전 연도 추가
@@ -1040,6 +1041,17 @@
                         yearSelect.appendChild(previousOption);
                     }
                     
+                    // DB에 'xx'가 없을 때만 기본 'xx' 옵션 추가 (중복 방지)
+                    if (!hasXxInDb) {
+                        const xxOption = document.createElement('option');
+                        xxOption.value = 'xx';
+                        xxOption.textContent = 'xx';
+                        yearSelect.appendChild(xxOption);
+                        console.log('기본 xx 옵션 추가 (DB에 xx 없음)');
+                    } else {
+                        console.log('DB에 xx가 있어서 기본 xx 옵션 추가 안함');
+                    }
+                    
                     const customOption = document.createElement('option');
                     customOption.value = 'custom';
                     customOption.textContent = '직접입력';
@@ -1051,13 +1063,13 @@
                     console.error('=== 고유번호 연도 API 호출 오류 ===');
                     console.error('오류:', error);
                     
-                    // 오류 발생 시에도 XX 옵션과 직접입력 옵션은 제공
+                    // 오류 발생 시에도 xx 옵션과 직접입력 옵션은 제공
                     const yearSelect = document.getElementById('uidYear');
                     yearSelect.innerHTML = '<option value="">연도 선택</option>';
                     
                     const xxOption = document.createElement('option');
-                    xxOption.value = 'XX';
-                    xxOption.textContent = 'XX';
+                    xxOption.value = 'xx';
+                    xxOption.textContent = 'xx';
                     yearSelect.appendChild(xxOption);
                     
                     const customOption = document.createElement('option');
@@ -1072,12 +1084,13 @@
             if (uidCate === 'custom') return;
             
             let url = `/device/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}`;
-            if (year && year !== 'custom') {
+            if (year && year !== 'custom' && year !== 'xx') {
                 url = `/device/api/uids/nums/${schoolId}/${encodeURIComponent(uidCate)}?year=${year}`;
             }
             
             console.log('=== 고유번호 번호 로드 시작 ===');
             console.log('URL:', url);
+            console.log('연도 파라미터:', year);
             
             fetch(url)
                 .then(response => {
@@ -1218,12 +1231,18 @@
             // 연도 선택 이벤트
             manageYear.addEventListener('change', function() {
                 if (schoolSelect.value && manageCate.value && manageCate.value !== 'custom') {
-                    if (this.value && this.value !== 'custom') {
-                        // 연도가 선택된 경우: manageCate + year 조합으로 번호 로드
+                    if (this.value === '없음') {
+                        // "없음" 선택 시: year=null로 번호 로드 (모든 연도 데이터 조회)
+                        loadManageNums(schoolSelect.value, manageCate.value, null);
+                        console.log('관리번호 - "없음" 선택으로 모든 연도 데이터 조회');
+                    } else if (this.value && this.value !== 'custom') {
+                        // 특정 연도가 선택된 경우: manageCate + year 조합으로 번호 로드
                         loadManageNums(schoolSelect.value, manageCate.value, this.value);
+                        console.log(`관리번호 - 연도 ${this.value} 선택으로 번호 로드`);
                     } else if (this.value === '') {
                         // 연도 선택이 해제된 경우: manageCate만으로 번호 로드
                         loadManageNums(schoolSelect.value, manageCate.value, null);
+                        console.log('관리번호 - 연도 선택 해제로 번호 로드');
                     }
                 }
                 setupCustomInput('manageYear', 'manageYearInput');
@@ -1297,10 +1316,18 @@
                 console.log('선택된 연도:', this.value);
                 
                 if (schoolSelect.value && uidCate.value && uidCate.value !== 'custom') {
-                    if (this.value && this.value !== 'custom') {
-                        loadUidNums(schoolSelect.value, uidCate.value, this.value);
-                    } else if (this.value === '') {
+                    if (this.value === 'xx') {
+                        // "xx" 선택 시: year=null로 번호 로드 (모든 연도 데이터 조회)
                         loadUidNums(schoolSelect.value, uidCate.value, null);
+                        console.log('고유번호 - "xx" 선택으로 모든 연도 데이터 조회');
+                    } else if (this.value && this.value !== 'custom') {
+                        // 특정 연도가 선택된 경우: uidCate + year 조합으로 번호 로드
+                        loadUidNums(schoolSelect.value, uidCate.value, this.value);
+                        console.log(`고유번호 - 연도 ${this.value} 선택으로 번호 로드`);
+                    } else if (this.value === '') {
+                        // 연도 선택이 해제된 경우: 번호 셀렉트 초기화
+                        loadUidNums(schoolSelect.value, uidCate.value, null);
+                        console.log('고유번호 - 연도 선택 해제로 번호 로드');
                     }
                 }
                 setupCustomInput('uidYear', 'uidYearInput');

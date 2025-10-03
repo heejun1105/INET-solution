@@ -250,6 +250,11 @@ public class UserService {
         }
     }
     
+    // 특정 학교들에 대한 검사자 목록 조회
+    public List<User> findInspectorsBySchools(List<Long> schoolIds) {
+        return userRepository.findInspectorsBySchools(schoolIds);
+    }
+    
     // 사용자 권한 업데이트 (기존 메서드 제거 - 새로운 권한 시스템 사용)
     // public User updateUserPermissions(Long userId, String permissions) {
     //     User user = userRepository.findById(userId)
@@ -286,6 +291,17 @@ public class UserService {
         if (userOpt.isPresent()) {
             User user = userOpt.get();
             return user.getSecurityAnswer().equals(securityAnswer);
+        }
+        return false;
+    }
+    
+    // 보안 질문과 답변 확인
+    public boolean verifySecurityQuestionAndAnswer(String username, String securityQuestion, String securityAnswer) {
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            return user.getSecurityQuestion().equals(securityQuestion) && 
+                   user.getSecurityAnswer().equals(securityAnswer);
         }
         return false;
     }

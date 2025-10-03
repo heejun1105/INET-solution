@@ -173,6 +173,26 @@ public class AuthController {
         return "auth/find-password";
     }
     
+    // 사용자 보안질문 조회 (AJAX용)
+    @PostMapping("/get-security-question")
+    public String getSecurityQuestion(@RequestParam String username, Model model) {
+        try {
+            Optional<User> userOpt = userService.findByUsername(username);
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                model.addAttribute("securityQuestion", user.getSecurityQuestion());
+                model.addAttribute("success", true);
+            } else {
+                model.addAttribute("success", false);
+                model.addAttribute("message", "사용자를 찾을 수 없습니다.");
+            }
+        } catch (Exception e) {
+            model.addAttribute("success", false);
+            model.addAttribute("message", "오류가 발생했습니다.");
+        }
+        return "auth/security-question-fragment";
+    }
+    
     // 비밀번호 찾기 처리
     @PostMapping("/find-password")
     public String findPassword(@RequestParam String username,
@@ -181,6 +201,7 @@ public class AuthController {
                              @RequestParam(required = false) String birthYear,
                              @RequestParam(required = false) String birthMonth,
                              @RequestParam(required = false) String birthDay,
+                             @RequestParam String securityQuestion,
                              @RequestParam String securityAnswer,
                              Model model) {
         
@@ -198,8 +219,8 @@ public class AuthController {
             // 사용자 정보 확인
             User user = userService.findUserForPasswordReset(username, name, finalBirthDate);
             
-            // 보안 질문 답변 확인
-            if (userService.verifySecurityAnswer(username, securityAnswer)) {
+            // 보안 질문과 답변 확인
+            if (userService.verifySecurityQuestionAndAnswer(username, securityQuestion, securityAnswer)) {
                 // 임시 비밀번호 생성
                 String temporaryPassword = userService.generateTemporaryPassword();
                 
@@ -210,7 +231,7 @@ public class AuthController {
                 model.addAttribute("temporaryPassword", temporaryPassword);
                 model.addAttribute("successMessage", "임시 비밀번호가 생성되었습니다.");
             } else {
-                model.addAttribute("errorMessage", "보안 질문 답변이 일치하지 않습니다.");
+                model.addAttribute("errorMessage", "보안 질문 또는 답변이 일치하지 않습니다.");
             }
         } catch (Exception e) {
             model.addAttribute("errorMessage", "비밀번호 찾기 중 오류가 발생했습니다: " + e.getMessage());

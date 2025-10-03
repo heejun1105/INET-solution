@@ -7,6 +7,8 @@ import MultiSelectManager from './MultiSelectManager.js';
 import GroupDragManager from './GroupDragManager.js';
 import UnplacedRoomsManager from './UnplacedRoomsManager.js';
 import NameBoxManager from './NameBoxManager.js';
+import FloorplanViewer from './FloorplanViewer.js';
+import DesignModeManager from './DesignModeManager.js';
 
 export default class FloorPlanManager {
     constructor() {
@@ -20,6 +22,12 @@ export default class FloorPlanManager {
         this.tempShapeElement = null; // 임시 도형 요소 (그리기 중)
         this.currentOtherSpaceType = null; // 현재 선택된 기타공간 타입
         this.isSaving = false; // 저장 중인지 여부 (중복 저장 방지)
+        this.isViewMode = false; // 보기 모드 여부 (성능 최적화)
+        this.deviceIconsEnabled = false; // 설계 모드에서는 장비 아이콘 비활성화
+        
+        // 툴팁 관련 변수
+        this.currentTooltip = null;
+        this.currentTooltipStyle = null;
         this.floorPlanData = {
             buildings: [],
             rooms: [],
@@ -34,11 +42,23 @@ export default class FloorPlanManager {
         this.currentBorderColor = '#000000'; // 건물 및 교실의 테두리 색상
         this.currentBorderThickness = 2; // 건물 및 교실의 테두리 굵기
         
+        // 선택된 요소 관리
+        this.selectedElements = new Set(); // 선택된 요소들의 ID 저장
+        this.isMultiSelectMode = false; // 다중 선택 모드 여부
+        
+        // 설계 모드 관리자
+        this.designModeManager = null;
+        
         // 캔버스 요소 캐싱
-        this.canvas = document.getElementById('canvasContent');
+        this.canvas = document.getElementById('canvas');
 
         this.resizeManager = new ResizeManager(this);
         this.snapManager = new SnapManager();
+        
+        // 성능 최적화 관련 초기화는 DOM 로드 후에 수행
+        setTimeout(() => {
+            this.initPerformanceOptimization();
+        }, 100);
         
         if (this.canvas) {
             this.zoomManager = new ZoomManager(this.canvas);
@@ -53,6 +73,7 @@ export default class FloorPlanManager {
         this.multiSelectManager = new MultiSelectManager(this);
         this.groupDragManager = new GroupDragManager(this); // FloorPlanManager 인스턴스 전달
         this.nameBoxManager = new NameBoxManager(this.canvas, this.zoomManager);
+        this.floorplanViewer = new FloorplanViewer(this);
         
         this.init();
     }
@@ -62,7 +83,15 @@ export default class FloorPlanManager {
         this.bindEvents();
         this.setupCanvas();
         
+        // 모드 전환은 해당 요소가 존재할 때만 실행
+        const hasModeElements = document.querySelector('[data-mode]') !== null;
+        if (hasModeElements) {
         this.switchMode('layout');
+        } else {
+            console.log('📄 모드 전환 요소가 없어서 기본 모드로 설정합니다.');
+            this.currentMode = 'layout';
+        }
+        
         this.selectTool('select');
 
         if (this.zoomManager) {
@@ -75,6 +104,15 @@ export default class FloorPlanManager {
         
         // 드래그 이벤트 리스너 설정 (교실 선택기 제거)
         this.setupDragEventListeners();
+        
+        // 추가 기능 이벤트 설정 (DOM 로딩 완료 후)
+        setTimeout(() => {
+            this.setupAdditionalFeaturesEvents();
+            this.setupSelectedElementsEvents();
+            
+            // 설계 모드 관리자 초기화
+            this.designModeManager = new DesignModeManager(this);
+        }, 500);
     }
     
     bindEvents() {
@@ -184,6 +222,8 @@ export default class FloorPlanManager {
         if (downloadButton) {
             downloadButton.addEventListener('click', () => this.downloadPPT());
         }
+
+        // 추가 기능 이벤트는 init에서 설정
         
         this.setupCanvasEvents();
     }
@@ -279,6 +319,12 @@ export default class FloorPlanManager {
     }
     
     setupCanvasEvents() {
+        // 캔버스가 존재하지 않으면 이벤트 설정을 건너뜀
+        if (!this.canvas) {
+            console.warn('⚠️ 캔버스 요소가 없어서 이벤트 설정을 건너뜁니다.');
+            return;
+        }
+        
         document.addEventListener('mousemove', (e) => {
             this.dragManager.handleMouseMove(e);
             this.resizeManager.handleMouseMove(e);
@@ -460,15 +506,29 @@ export default class FloorPlanManager {
     switchMode(mode) {
         this.currentMode = mode;
         
+        // 탭 버튼 활성화
         document.querySelectorAll('.tab-button').forEach(btn => {
             btn.classList.remove('active');
         });
-        document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
         
+        const modeButton = document.querySelector(`[data-mode="${mode}"]`);
+        if (modeButton) {
+            modeButton.classList.add('active');
+        } else {
+            console.warn(`⚠️ data-mode="${mode}" 요소를 찾을 수 없습니다.`);
+        }
+        
+        // 툴바 활성화
         document.querySelectorAll('.toolbar').forEach(toolbar => {
             toolbar.classList.remove('active');
         });
-        document.getElementById(`${mode}Toolbar`).classList.add('active');
+        
+        const modeToolbar = document.getElementById(`${mode}Toolbar`);
+        if (modeToolbar) {
+            modeToolbar.classList.add('active');
+        } else {
+            console.warn(`⚠️ ${mode}Toolbar 요소를 찾을 수 없습니다.`);
+        }
         
         this.updateCanvasForMode();
         
@@ -643,6 +703,14 @@ export default class FloorPlanManager {
         } else if (this.currentMode === 'wireless') {
             this.renderWirelessAPs();
         }
+        
+        // 렌더링 완료 후 자동 화면 맞춤 실행
+        setTimeout(() => {
+            if (this.zoomManager) {
+                this.zoomManager.zoomToFit();
+                console.log('🎯 평면도 렌더링 후 자동 화면 맞춤 실행');
+            }
+        }, 100);
     }
     
     renderLayoutMode() {
@@ -1016,8 +1084,6 @@ export default class FloorPlanManager {
                     this.multiSelectManager.addToSelection(element);
                     this.selectElement(element);
                 }
-            } else if (this.currentTool === 'delete') {
-                this.deleteElement(element);
             }
         });
         
@@ -1082,7 +1148,16 @@ export default class FloorPlanManager {
         
         // 캔버스 영역 내에서만 처리
         if (this.canvas.contains(e.target)) {
+            // 드래그 가능한 요소인지 확인
+            const draggableElement = e.target.closest('.draggable');
+            
             if (this.currentTool === 'select') {
+                // 드래그 가능한 요소를 클릭한 경우 드래그 시작
+                if (draggableElement) {
+                    this.dragManager.startDrag(draggableElement, e);
+                    return;
+                }
+                
                 // Ctrl, Meta 또는 Shift 키가 눌려있지 않고 이름 박스 액션이 아닌 경우에만 선택 해제
                 if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !isNameBoxAction) {
                     this.multiSelectManager.clearSelection();
@@ -1353,14 +1428,89 @@ export default class FloorPlanManager {
         this.showNotification(`건물 '${name}'이(가) 생성되었습니다.`);
     }
     
-    createRoom(x, y, name) {
+    createShape(shapeData) {
         if (!this.currentSchoolId) {
             this.showNotification('먼저 학교를 선택해주세요.', 'error');
             return;
         }
         
+        // shapes 배열이 없으면 초기화
+        if (!this.floorPlanData.shapes) {
+            this.floorPlanData.shapes = [];
+        }
+        
         // 임시 ID 생성
-        const tempId = 'temp_' + Date.now();
+        const tempId = 'temp_shape_' + Date.now();
+        
+        const shapeElement = document.createElement('div');
+        shapeElement.className = 'shape';
+        shapeElement.dataset.id = tempId;
+        shapeElement.dataset.type = shapeData.type || 'rectangle';
+        shapeElement.dataset.name = shapeData.name || '새 도형';
+        
+        // 기본 위치와 크기 설정
+        shapeElement.style.position = 'absolute';
+        shapeElement.style.left = (shapeData.x || 100) + 'px';
+        shapeElement.style.top = (shapeData.y || 100) + 'px';
+        shapeElement.style.width = (shapeData.width || 100) + 'px';
+        shapeElement.style.height = (shapeData.height || 100) + 'px';
+        shapeElement.style.border = `${this.currentShapeThickness}px solid ${this.currentShapeColor}`;
+        shapeElement.style.backgroundColor = 'transparent';
+        shapeElement.style.cursor = 'move';
+        shapeElement.style.zIndex = '10';
+        
+        // 도형 타입에 따른 스타일 적용
+        switch (shapeData.type) {
+            case 'line':
+                shapeElement.style.borderRadius = '0';
+                shapeElement.style.height = '2px';
+                break;
+            case 'circle':
+                shapeElement.style.borderRadius = '50%';
+                break;
+            case 'arrow':
+                shapeElement.style.borderRadius = '0';
+                // 화살표 모양을 위한 CSS 추가
+                shapeElement.style.clipPath = 'polygon(0% 0%, 80% 0%, 100% 50%, 80% 100%, 0% 100%)';
+                break;
+            default: // rectangle
+                shapeElement.style.borderRadius = '0';
+                break;
+        }
+        
+        // 이벤트 리스너 추가
+        this.addElementEventListeners(shapeElement);
+        
+        // 캔버스에 추가
+        this.canvas.appendChild(shapeElement);
+        
+        // 데이터 저장
+        const shapeDataToSave = {
+            id: tempId,
+            type: shapeData.type || 'rectangle',
+            name: shapeData.name || '새 도형',
+            x: shapeData.x || 100,
+            y: shapeData.y || 100,
+            width: shapeData.width || 100,
+            height: shapeData.height || 100,
+            color: this.currentShapeColor,
+            thickness: this.currentShapeThickness,
+            zIndex: 10
+        };
+        
+        this.floorPlanData.shapes.push(shapeDataToSave);
+        
+        console.log('도형 데이터 추가됨, 현재 도형 수:', this.floorPlanData.shapes.length);
+        this.showNotification(`도형 '${shapeDataToSave.name}'이(가) 생성되었습니다.`);
+        
+        return shapeElement;
+    }
+    
+    createRoom(x, y, name) {
+        if (!this.currentSchoolId) {
+            this.showNotification('먼저 학교를 선택해주세요.', 'error');
+            return;
+        }
         
         // 기존 교실 데이터에서 이름박스 데이터 찾기
         let nameBoxData = null;
@@ -1687,11 +1837,19 @@ export default class FloorPlanManager {
         }
         
         // 교실이 데이터베이스에 존재하는 경우 장비 정보 로드
-        // classroomId가 있고 temp_로 시작하지 않는 경우
+        // 설계 모드에서는 절대로 장비 아이콘을 로딩하지 않음
+        if (this.isViewMode === false) {
+            console.log('🚫 설계 모드 - 장비 로딩 완전 차단:', elementData.roomName);
+            return element; // 조기 반환으로 장비 로딩 방지
+        }
+        
+        // 성능 최적화: 보기 모드일 때만 장비 아이콘 로딩
         const realClassroomId = classroomId;
         if (realClassroomId && 
             !realClassroomId.toString().startsWith('temp_') && 
-            realClassroomId !== 'new') {
+            realClassroomId !== 'new' &&
+            this.isViewMode && 
+            this.deviceIconsEnabled) {
             console.log('🔧 교실 장비 로딩 시작:', elementData.roomName, 'ID:', realClassroomId);
             
             // 약간의 지연을 두고 장비 정보 로드 (렌더링 완료 후)
@@ -1699,7 +1857,7 @@ export default class FloorPlanManager {
             this.loadAndDisplayDeviceIcons(realClassroomId, element);
             }, 200);
         } else {
-            console.log('📝 새 교실이므로 장비 로딩 건너뜀:', elementData.roomName, 'ID:', realClassroomId);
+            console.log('📝 설계 모드이므로 장비 로딩 건너뜀:', elementData.roomName, 'ID:', realClassroomId);
         }
         
         console.log('renderRoom 완료:', room.roomName);
@@ -1929,10 +2087,15 @@ export default class FloorPlanManager {
                 // 평면도 다시 렌더링
                 this.renderFloorPlan();
                 
-                // 렌더링 완료 후 모든 교실의 장비 정보 로드
+                // 보기 모드일 때만 장비 정보 로드
+                if (this.isViewMode && this.deviceIconsEnabled) {
                 setTimeout(() => {
                     this.loadAllClassroomDevices();
-                }, 1000); // 1초로 증가
+                    }, 1000);
+                    console.log('📊 보기 모드 - 장비 정보 로딩 예약됨');
+                } else {
+                    console.log('🚫 설계 모드 - 장비 정보 로딩 건너뜀');
+                }
                 
                 this.showNotification('평면도가 성공적으로 로드되었습니다.');
                 console.log('로드된 데이터:', this.floorPlanData);
@@ -2232,7 +2395,10 @@ export default class FloorPlanManager {
     }
     
     clearCanvas() {
-        if(this.canvas) this.canvas.innerHTML = '';
+        if (this.canvas) {
+            // div 요소인 경우 innerHTML 사용
+            this.canvas.innerHTML = '';
+        }
     }
     
     // 화면에 알림 메시지를 표시하는 메서드
@@ -2242,11 +2408,21 @@ export default class FloorPlanManager {
         
         if (!notification || !notificationText) return;
         
+        // 이전 상태 초기화
+        notification.style.opacity = '1';
+        notification.style.visibility = 'visible';
+        
         notificationText.textContent = message;
         notification.className = 'notification show ' + type;
         
+        // 알림이 완전히 사라지도록 수정
         setTimeout(() => {
-            notification.className = 'notification';
+            notification.classList.remove('show');
+            // 추가로 opacity를 0으로 설정하여 완전히 사라지게 함
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.visibility = 'hidden';
+            }, 500); // 페이드아웃 애니메이션 시간
         }, 3000);
     }
     
@@ -2270,12 +2446,16 @@ export default class FloorPlanManager {
     }
 
     handleToolClick(tool) {
+        // 삭제 버튼 클릭 시 선택된 객체들을 즉시 삭제
+        if (tool === 'delete') {
+            this.deleteSelectedElements();
+            return;
+        }
+        
         this.selectTool(tool);
         
-        // 삭제 도구가 선택되었을 때 안내 메시지 표시
-        if (tool === 'delete') {
-            this.showNotification('삭제 모드: 교실을 클릭하면 미배치 교실로 이동됩니다. (Delete 키로도 삭제 가능)', 'info');
-        } else if (tool === 'building') {
+        // 도구별 안내 메시지 표시
+        if (tool === 'building') {
             this.showNotification('건물 추가 모드: 캔버스에 클릭하여 건물을 추가하세요.', 'info');
         } else if (tool === 'room') {
             this.showNotification('교실 추가 모드: 캔버스에 클릭하여 교실을 추가하세요.', 'info');
@@ -3433,5 +3613,762 @@ export default class FloorPlanManager {
         
         // 미배치교실 목록에서 배치된 교실들 제거
         this.unplacedRoomsManager.removePlacedRooms(placedRoomIds);
+    }
+    
+    /**
+     * 성능 최적화 관련 초기화
+     */
+    initPerformanceOptimization() {
+        // 모드 변경 UI 추가
+        this.createModeToggleUI();
+        
+        // 장비 아이콘 렌더링 제어
+        this.deviceRenderQueue = [];
+        this.isProcessingDeviceQueue = false;
+        
+        // 성능 모니터링
+        this.performanceMetrics = {
+            deviceApiCalls: 0,
+            renderTime: 0,
+            lastUpdate: Date.now()
+        };
+    }
+    
+    /**
+     * 모드 전환 UI 생성
+     */
+    createModeToggleUI() {
+        const toolbar = document.querySelector('.toolbar.active');
+        if (!toolbar) return;
+        
+        const modeGroup = document.createElement('div');
+        modeGroup.className = 'tool-group';
+        modeGroup.innerHTML = `
+                    <button id="designModeBtn" class="tool-button ${!this.isViewMode ? 'active' : ''}" title="설계 모드 - 교실 배치 및 편집">
+            <i class="fas fa-drafting-compass"></i> 교실 설계
+        </button>
+            <button id="viewModeBtn" class="tool-button" title="전체화면 뷰어 - 상세 정보 보기">
+                <i class="fas fa-eye"></i> 전체화면 보기
+            </button>
+
+        `;
+        
+        // 삭제 버튼 그룹 앞에 추가
+        const deleteGroup = toolbar.querySelector('.tool-group:last-child');
+        if (deleteGroup) {
+            toolbar.insertBefore(modeGroup, deleteGroup);
+        } else {
+            toolbar.appendChild(modeGroup);
+        }
+        
+        this.bindModeToggleEvents();
+    }
+    
+    /**
+     * 모드 전환 이벤트 바인딩
+     */
+    bindModeToggleEvents() {
+        // 설계 모드
+        document.getElementById('designModeBtn')?.addEventListener('click', () => {
+            this.setDesignMode();
+        });
+        
+        // 전체화면 뷰어 모드
+        document.getElementById('viewModeBtn')?.addEventListener('click', () => {
+            this.openFloorplanViewer();
+        });
+        
+        // 기본 상태를 선택 모드로 설정 (도구 버튼 활성화 없이)
+        this.currentTool = 'select';
+    }
+    
+    /**
+     * 설계 모드 설정 (전용 그리기 모드)
+     */
+    setDesignMode() {
+        if (this.designModeManager) {
+            this.designModeManager.enterDesignMode();
+        } else {
+            console.error('DesignModeManager가 초기화되지 않았습니다.');
+        }
+    }
+    
+    /**
+     * 전체화면 평면도 뷰어 열기
+     */
+    openFloorplanViewer() {
+        if (!this.currentSchoolId) {
+            this.showNotification('먼저 학교를 선택해주세요.', 'warning');
+            return;
+        }
+        
+        console.log('🖥️ 전체화면 평면도 뷰어 열기:', this.currentSchoolId);
+        
+        // 매칭된 교실 정보가 반영된 최신 데이터로 뷰어 열기
+        this.floorplanViewer.open(this.currentSchoolId);
+    }
+    
+    /**
+     * 장비 아이콘 표시/숨김 토글
+     */
+    toggleDeviceIcons() {
+        this.deviceIconsEnabled = !this.deviceIconsEnabled;
+        
+
+        
+        if (this.deviceIconsEnabled) {
+            this.loadAllDeviceIcons();
+            this.showNotification('장비 아이콘이 표시됩니다.', 'success');
+        } else {
+            this.hideAllDeviceIcons();
+            this.showNotification('장비 아이콘이 숨겨졌습니다.', 'info');
+        }
+    }
+    
+    /**
+     * 모든 장비 아이콘 숨김
+     */
+    hideAllDeviceIcons() {
+        const allDeviceContainers = document.querySelectorAll('.room-devices');
+        allDeviceContainers.forEach(container => {
+            container.style.display = 'none';
+        });
+        
+        console.log('📱 모든 장비 아이콘 숨김 완료');
+    }
+    
+    /**
+     * 모든 장비 아이콘 완전 제거 (설계 모드 성능 최적화)
+     */
+    removeAllDeviceIcons() {
+        const allDeviceContainers = document.querySelectorAll('.room-devices');
+        allDeviceContainers.forEach(container => {
+            container.remove(); // DOM에서 완전 제거
+        });
+        
+        console.log('🗑️ 모든 장비 아이콘 DOM에서 완전 제거됨 - 성능 최적화');
+    }
+    
+    /**
+     * 모든 장비 아이콘 로드 (배치 처리)
+     */
+    async loadAllDeviceIcons() {
+        if (!this.deviceIconsEnabled) return;
+        
+        const startTime = performance.now();
+        const roomElements = document.querySelectorAll('.room[data-classroom-id]');
+        
+        if (roomElements.length === 0) {
+            console.log('📭 교실이 없어서 장비 아이콘 로딩을 건너뜁니다.');
+            return;
+        }
+        
+        console.log(`🔄 ${roomElements.length}개 교실의 장비 정보 배치 로딩 시작...`);
+        
+        // 배치 API 호출로 성능 최적화
+        try {
+            const classroomIds = Array.from(roomElements)
+                .map(el => el.dataset.classroomId)
+                .filter(id => id && !id.startsWith('temp_') && id !== 'new');
+            
+            if (classroomIds.length === 0) {
+                console.log('📭 유효한 교실 ID가 없습니다.');
+                return;
+            }
+            
+            // 배치 API 호출
+            const deviceData = await this.loadDevicesBatch(classroomIds);
+            
+            // 렌더링을 배치로 처리
+            this.renderDeviceIconsBatch(deviceData, roomElements);
+            
+            const endTime = performance.now();
+            console.log(`✅ 장비 아이콘 배치 로딩 완료: ${Math.round(endTime - startTime)}ms`);
+            
+        } catch (error) {
+            console.error('❌ 장비 아이콘 배치 로딩 실패:', error);
+        }
+    }
+    
+    /**
+     * 장비 정보 배치 API 호출
+     */
+    async loadDevicesBatch(classroomIds) {
+        try {
+            // 배치 요청 (여러 교실의 장비 정보를 한 번에 가져오기)
+            const response = await fetch('/floorplan/api/classrooms/devices/batch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ classroomIds })
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                // 배치 API가 없으면 개별 호출로 fallback
+                console.warn('배치 API 없음. 개별 호출로 처리합니다.');
+                return await this.loadDevicesIndividually(classroomIds);
+            }
+        } catch (error) {
+            console.warn('배치 API 호출 실패. 개별 호출로 처리합니다:', error);
+            return await this.loadDevicesIndividually(classroomIds);
+        }
+    }
+    
+    /**
+     * 개별 장비 정보 로딩 (fallback)
+     */
+    async loadDevicesIndividually(classroomIds) {
+        const deviceData = {};
+        const promises = classroomIds.slice(0, 10).map(async (classroomId) => {
+            try {
+                const response = await fetch(`/floorplan/api/classroom/${classroomId}/devices`);
+                if (response.ok) {
+                    deviceData[classroomId] = await response.json();
+                }
+            } catch (error) {
+                console.error(`교실 ${classroomId} 장비 정보 로딩 실패:`, error);
+            }
+        });
+        
+        await Promise.all(promises);
+        return deviceData;
+    }
+    
+    /**
+     * 장비 아이콘 배치 렌더링
+     */
+    renderDeviceIconsBatch(deviceData, roomElements) {
+        const fragment = document.createDocumentFragment();
+        
+        roomElements.forEach(roomElement => {
+            const classroomId = roomElement.dataset.classroomId;
+            if (deviceData[classroomId]) {
+                this.displayDeviceIcons(deviceData[classroomId], roomElement);
+            }
+        });
+        
+        console.log(`🎨 ${Object.keys(deviceData).length}개 교실의 장비 아이콘 렌더링 완료`);
+    }
+    
+    /**
+     * 교실 렌더링 시 성능 최적화 적용
+     */
+    renderRoomOptimized(room) {
+        const element = this.renderRoom(room);
+        
+        // 설계 모드에서는 장비 아이콘 로딩 건너뛰기
+        if (this.isViewMode && this.deviceIconsEnabled) {
+            const classroomId = room.classroomId;
+            if (classroomId && !classroomId.toString().startsWith('temp_') && classroomId !== 'new') {
+                // 지연 로딩으로 성능 개선
+                setTimeout(() => {
+                    this.loadAndDisplayDeviceIcons(classroomId, element);
+                }, 100);
+            }
+        }
+        
+        return element;
+    }
+
+    // ==================== 추가 기능 메서드들 ====================
+
+    /**
+     * 추가 기능 드롭다운 이벤트 설정
+     */
+    setupAdditionalFeaturesEvents() {
+        const additionalFeaturesBtn = document.getElementById('additionalFeaturesBtn');
+        const additionalFeaturesMenu = document.getElementById('additionalFeaturesMenu');
+        const resetFloorplanBtn = document.getElementById('resetFloorplanBtn');
+        const matchClassroomsBtn = document.getElementById('matchClassroomsBtn');
+
+        if (additionalFeaturesBtn && additionalFeaturesMenu) {
+            additionalFeaturesBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                const isActive = additionalFeaturesMenu.classList.contains('active');
+                console.log('추가기능 드롭다운 클릭 - 현재 상태:', isActive);
+                
+                if (isActive) {
+                    // 닫기
+                    additionalFeaturesMenu.classList.remove('active');
+                    additionalFeaturesBtn.classList.remove('active');
+                    console.log('드롭다운 닫기');
+                } else {
+                    // 열기
+                    additionalFeaturesMenu.classList.add('active');
+                    additionalFeaturesBtn.classList.add('active');
+                    console.log('드롭다운 열기');
+                    console.log('드롭다운 요소:', additionalFeaturesMenu);
+                    console.log('드롭다운 스타일:', window.getComputedStyle(additionalFeaturesMenu).display);
+                    console.log('드롭다운 클래스:', additionalFeaturesMenu.className);
+                }
+            });
+
+            // 드롭다운 외부 클릭 시 닫기
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#additionalFeaturesBtn') && !e.target.closest('#additionalFeaturesMenu')) {
+                    additionalFeaturesMenu.classList.remove('active');
+                    additionalFeaturesBtn.classList.remove('active');
+                }
+            });
+        }
+
+        if (resetFloorplanBtn) {
+            resetFloorplanBtn.addEventListener('click', () => {
+                this.resetFloorplan();
+            });
+        }
+
+        if (matchClassroomsBtn) {
+            matchClassroomsBtn.addEventListener('click', () => {
+                this.matchClassrooms();
+            });
+
+            // 교실 매칭 정보 아이콘 툴팁 (호버)
+            const infoIcon = matchClassroomsBtn.querySelector('.info-icon');
+            if (infoIcon) {
+                let tooltip = null;
+                let tooltipStyle = null;
+
+                infoIcon.addEventListener('mouseenter', (e) => {
+                    e.stopPropagation();
+                    this.showClassroomMatchingTooltip(e, infoIcon);
+                });
+
+                infoIcon.addEventListener('mouseleave', () => {
+                    this.hideClassroomMatchingTooltip();
+                });
+            }
+        }
+    }
+
+    /**
+     * 선택된 요소 패널 이벤트 설정
+     */
+    setupSelectedElementsEvents() {
+        const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+        const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+
+        if (deleteSelectedBtn) {
+            deleteSelectedBtn.addEventListener('click', () => {
+                this.deleteSelectedElements();
+            });
+        }
+
+        if (clearSelectionBtn) {
+            clearSelectionBtn.addEventListener('click', () => {
+                this.clearSelection();
+            });
+        }
+    }
+
+    /**
+     * 평면도 초기화
+     */
+    resetFloorplan() {
+        if (confirm('평면도를 초기화하시겠습니까? 모든 데이터가 삭제됩니다.')) {
+            // 모든 요소 제거
+            this.canvas.innerHTML = '';
+            
+            // 데이터 초기화
+            this.floorPlanData = {
+                buildings: [],
+                rooms: [],
+                seats: [],
+                deviceLocations: [],
+                wirelessApLocations: [],
+                shapes: []
+            };
+            
+            // 선택된 요소 초기화
+            this.clearSelection();
+            
+            // 미배치 교실 목록 새로고침
+            if (this.unplacedRoomsManager) {
+                this.unplacedRoomsManager.loadUnplacedRooms();
+            }
+            
+            this.showNotification('평면도가 초기화되었습니다.');
+        }
+    }
+
+    /**
+     * 교실 매칭 툴팁 표시 (호버용)
+     */
+    showClassroomMatchingTooltip(event, infoIcon) {
+        // 기존 툴팁이 있으면 제거
+        this.hideClassroomMatchingTooltip();
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'classroom-matching-tooltip';
+        tooltip.innerHTML = `
+            <div class="tooltip-content">
+                <h4><i class="fas fa-link"></i> 교실 매칭 기능</h4>
+                <p>평면도에 배치된 교실들을 데이터베이스의 실제 교실 데이터와 연결합니다.</p>
+                <ul>
+                    <li>교실 이름을 기준으로 자동 매칭</li>
+                    <li>매칭된 교실의 ID를 최신 데이터로 업데이트</li>
+                </ul>
+                <p class="tooltip-note">💡 교실 데이터가 삭제 후 재생성된 경우 유용합니다.</p>
+            </div>
+        `;
+
+        // 정보 아이콘 위치 기준으로 툴팁 위치 계산
+        const iconRect = infoIcon.getBoundingClientRect();
+        const tooltipTop = iconRect.top - 10;
+        const tooltipLeft = iconRect.right + 10;
+
+        // 툴팁 스타일 설정
+        tooltip.style.cssText = `
+            position: fixed;
+            top: ${tooltipTop}px;
+            left: ${tooltipLeft}px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 10000;
+            max-width: 350px;
+            font-size: 14px;
+            line-height: 1.4;
+            padding: 15px;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.2s ease;
+        `;
+
+        // 툴팁 내용 스타일
+        const style = document.createElement('style');
+        style.textContent = `
+            .classroom-matching-tooltip .tooltip-content h4 {
+                margin: 0 0 10px 0;
+                color: #2563eb;
+                font-size: 16px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .classroom-matching-tooltip .tooltip-content p {
+                margin: 8px 0;
+                color: #374151;
+            }
+            .classroom-matching-tooltip .tooltip-content ul {
+                margin: 10px 0;
+                padding-left: 20px;
+                color: #4b5563;
+            }
+            .classroom-matching-tooltip .tooltip-content li {
+                margin: 4px 0;
+            }
+            .classroom-matching-tooltip .tooltip-note {
+                background: #f0f9ff;
+                padding: 8px 12px;
+                border-radius: 4px;
+                border-left: 3px solid #3b82f6;
+                margin: 10px 0 0 0;
+                font-size: 13px;
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.body.appendChild(tooltip);
+
+        // 애니메이션으로 표시
+        requestAnimationFrame(() => {
+            tooltip.style.opacity = '1';
+            tooltip.style.transform = 'translateY(0)';
+        });
+
+        // 전역 변수에 저장
+        this.currentTooltip = tooltip;
+        this.currentTooltipStyle = style;
+    }
+
+    /**
+     * 교실 매칭 툴팁 숨기기
+     */
+    hideClassroomMatchingTooltip() {
+        if (this.currentTooltip && this.currentTooltip.parentNode) {
+            this.currentTooltip.parentNode.removeChild(this.currentTooltip);
+            this.currentTooltip = null;
+        }
+        if (this.currentTooltipStyle && this.currentTooltipStyle.parentNode) {
+            this.currentTooltipStyle.parentNode.removeChild(this.currentTooltipStyle);
+            this.currentTooltipStyle = null;
+        }
+    }
+
+    /**
+     * 교실 매칭
+     */
+        async matchClassrooms() {
+            console.log('🔍 교실 매칭 시작 - 현재 학교 ID:', this.currentSchoolId);
+            console.log('🔍 현재 학교 ID 타입:', typeof this.currentSchoolId);
+            console.log('🔍 현재 학교 ID 값:', this.currentSchoolId);
+            
+            if (!this.currentSchoolId) {
+                console.log('❌ 학교 ID가 설정되지 않음');
+                this.showNotification('학교를 먼저 선택해주세요.');
+                return;
+            }
+
+        try {
+            this.showNotification('교실 매칭을 시작합니다...');
+            
+            // 현재 평면도에 있는 교실들 가져오기
+            const roomElements = this.canvas.querySelectorAll('.room');
+            console.log('🔍 평면도에서 찾은 교실 요소 개수:', roomElements.length);
+            console.log('🔍 캔버스 요소:', this.canvas);
+            console.log('🔍 캔버스 내부 HTML:', this.canvas.innerHTML.substring(0, 500));
+            
+            const roomNames = [];
+            
+            // 평면도에 있는 교실 이름들 수집
+            for (const roomElement of roomElements) {
+                const roomName = roomElement.dataset.name; // roomName 대신 name 사용
+                const classroomId = roomElement.dataset.classroomId;
+                console.log('🔍 교실 요소:', { roomName, classroomId, element: roomElement });
+                console.log('🔍 교실 요소 dataset:', roomElement.dataset);
+                
+                if (roomName) {
+                    roomNames.push(roomName);
+                }
+            }
+
+            console.log('🔍 수집된 교실 이름들:', roomNames);
+
+            if (roomNames.length === 0) {
+                console.log('❌ 평면도에서 교실 요소를 찾을 수 없음');
+                console.log('🔍 캔버스의 모든 요소들:', this.canvas.querySelectorAll('*'));
+                this.showNotification('매칭할 교실이 없습니다.');
+                return;
+            }
+
+            // 데이터베이스에서 현재 학교의 교실 목록 가져오기
+            const apiUrl = `/classroom/api/school/${this.currentSchoolId}/classrooms`;
+            console.log('🔍 API 호출 URL:', apiUrl);
+            
+            const response = await fetch(apiUrl);
+            console.log('🔍 API 응답 상태:', response.status, response.statusText);
+            
+            if (!response.ok) {
+                throw new Error(`교실 목록을 가져올 수 없습니다. (${response.status})`);
+            }
+            
+            const classrooms = await response.json();
+            console.log('🔍 데이터베이스 교실 목록:', classrooms);
+            console.log('🔍 평면도 교실 이름들:', roomNames);
+
+            // 교실 이름으로 매칭
+            let matchedCount = 0;
+            const matchedRooms = [];
+
+            for (const roomElement of roomElements) {
+                const roomName = roomElement.dataset.name; // roomName 대신 name 사용
+                if (!roomName) continue;
+
+                // 데이터베이스에서 같은 이름의 교실 찾기
+                const matchingClassroom = classrooms.find(classroom => 
+                    classroom.roomName === roomName
+                );
+
+                if (matchingClassroom) {
+                    // 매칭된 교실의 ID로 업데이트
+                    const oldClassroomId = roomElement.dataset.classroomId;
+                    const newClassroomId = matchingClassroom.classroomId;
+                    
+                    console.log(`🔍 교실 매칭: ${roomName} (${oldClassroomId} → ${newClassroomId})`);
+                    
+                    // 교실 ID 업데이트
+                    roomElement.dataset.classroomId = newClassroomId;
+                    
+                    // 데이터 업데이트
+                    const roomData = this.floorPlanData.rooms.find(r => r.classroomId === oldClassroomId);
+                    if (roomData) {
+                        roomData.classroomId = newClassroomId;
+                        roomData.roomName = roomName;
+                    }
+                    
+                    matchedRooms.push({
+                        roomName: roomName,
+                        oldClassroomId: oldClassroomId,
+                        newClassroomId: newClassroomId
+                    });
+                    
+                    matchedCount++;
+                } else {
+                    console.log(`❌ 매칭되지 않은 교실: ${roomName}`);
+                }
+            }
+
+            if (matchedCount === 0) {
+                this.showNotification('매칭된 교실이 없습니다. 교실 데이터를 먼저 생성해주세요.');
+                return;
+            }
+
+            // 매칭 결과 표시 (간단한 성공 메시지만)
+            this.showNotification(`${matchedCount}개 교실이 매칭되었습니다.`);
+            
+            // 평면도 데이터 저장 (매칭된 ID로 업데이트)
+            await this.saveFloorPlan();
+            
+            // 미배치 교실 목록 새로고침 (저장 완료 후)
+            if (this.unplacedRoomsManager) {
+                // 저장 완료 후 잠시 대기 후 동기화
+                setTimeout(() => {
+                    this.unplacedRoomsManager.syncWithFloorPlan(this.currentSchoolId);
+                }, 1000);
+            }
+            
+        } catch (error) {
+            console.error('교실 매칭 오류:', error);
+            this.showNotification('교실 매칭 중 오류가 발생했습니다: ' + error.message);
+        }
+    }
+
+    /**
+     * 요소 선택/해제
+     */
+    toggleElementSelection(element) {
+        const elementId = element.dataset.id || element.dataset.classroomId || element.dataset.buildingId;
+        
+        if (!elementId) return;
+
+        if (this.selectedElements.has(elementId)) {
+            // 선택 해제
+            this.selectedElements.delete(elementId);
+            element.classList.remove('selected');
+        } else {
+            // 선택
+            this.selectedElements.add(elementId);
+            element.classList.add('selected');
+        }
+
+        this.updateSelectedElementsPanel();
+    }
+
+    /**
+     * 선택된 요소 패널 업데이트
+     */
+    updateSelectedElementsPanel() {
+        const panel = document.getElementById('selectedElementsPanel');
+        const list = document.getElementById('selectedElementsList');
+        
+        if (!panel || !list) return;
+
+        if (this.selectedElements.size === 0) {
+            panel.classList.remove('visible');
+            return;
+        }
+
+        panel.classList.add('visible');
+        list.innerHTML = '';
+
+        this.selectedElements.forEach(elementId => {
+            const element = this.canvas.querySelector(`[data-id="${elementId}"], [data-classroom-id="${elementId}"], [data-building-id="${elementId}"]`);
+            if (element) {
+                const item = document.createElement('div');
+                item.className = 'selected-item';
+                
+                const name = element.dataset.roomName || element.dataset.buildingName || element.dataset.name || `요소 ${elementId}`;
+                const type = this.getElementType(element);
+                
+                item.innerHTML = `
+                    <div class="item-name">
+                        <strong>${type}:</strong> ${name}
+                    </div>
+                    <button class="remove-btn" data-element-id="${elementId}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                
+                // 개별 제거 버튼 이벤트
+                const removeBtn = item.querySelector('.remove-btn');
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.removeFromSelection(elementId);
+                });
+                
+                list.appendChild(item);
+            }
+        });
+    }
+
+    /**
+     * 요소 타입 반환
+     */
+    getElementType(element) {
+        if (element.classList.contains('room')) return '교실';
+        if (element.classList.contains('building')) return '건물';
+        if (element.classList.contains('shape')) return '도형';
+        if (element.classList.contains('other-space')) return '기타공간';
+        return '요소';
+    }
+
+    /**
+     * 선택에서 제거
+     */
+    removeFromSelection(elementId) {
+        this.selectedElements.delete(elementId);
+        const element = this.canvas.querySelector(`[data-id="${elementId}"], [data-classroom-id="${elementId}"], [data-building-id="${elementId}"]`);
+        if (element) {
+            element.classList.remove('selected');
+        }
+        this.updateSelectedElementsPanel();
+    }
+
+    /**
+     * 선택된 요소들 삭제 (확인 메시지 없음)
+     */
+    deleteSelectedElements() {
+        const selectedElements = this.multiSelectManager.getSelectedElements();
+        
+        if (selectedElements.length === 0) {
+            this.showNotification('삭제할 요소가 선택되지 않았습니다.');
+            return;
+        }
+
+        // 확인 메시지 없이 즉시 삭제
+        selectedElements.forEach(element => {
+            this.deleteElement(element);
+        });
+        
+        // 선택 해제
+        this.multiSelectManager.clearSelection();
+        this.showNotification(`${selectedElements.length}개 요소가 삭제되었습니다.`);
+    }
+
+    /**
+     * 선택 해제
+     */
+    clearSelection() {
+        this.selectedElements.forEach(elementId => {
+            const element = this.canvas.querySelector(`[data-id="${elementId}"], [data-classroom-id="${elementId}"], [data-building-id="${elementId}"]`);
+            if (element) {
+                element.classList.remove('selected');
+            }
+        });
+        
+        this.selectedElements.clear();
+        this.updateSelectedElementsPanel();
+    }
+
+    /**
+     * 개선된 클릭 처리 (다중 선택 지원)
+     */
+    handleImprovedClick(element, e) {
+        if (this.currentTool === 'select') {
+            if (e.ctrlKey || e.metaKey) {
+                // Ctrl/Cmd + 클릭: 다중 선택
+                this.toggleElementSelection(element);
+            } else {
+                // 단일 선택
+                this.clearSelection();
+                this.toggleElementSelection(element);
+            }
+        }
     }
 } 

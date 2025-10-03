@@ -262,4 +262,63 @@ export default class ZoomManager {
             height: this.canvasHeight
         };
     }
+    
+    /**
+     * 화면에 맞춤 줌
+     */
+    zoomToFit() {
+        const canvas = this.canvas;
+        const canvasRect = canvas.getBoundingClientRect();
+        const elements = canvas.querySelectorAll('.building, .room, .shape, .other-space');
+        
+        if (elements.length === 0) {
+            this.setZoom(1);
+            return;
+        }
+        
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        
+        elements.forEach(element => {
+            const rect = element.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+            
+            const x = rect.left - canvasRect.left;
+            const y = rect.top - canvasRect.top;
+            const right = x + rect.width;
+            const bottom = y + rect.height;
+            
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, right);
+            maxY = Math.max(maxY, bottom);
+        });
+        
+        // 여백 추가
+        const padding = 50;
+        minX -= padding;
+        minY -= padding;
+        maxX += padding;
+        maxY += padding;
+        
+        const contentWidth = maxX - minX;
+        const contentHeight = maxY - minY;
+        
+        const scaleX = canvasRect.width / contentWidth;
+        const scaleY = canvasRect.height / contentHeight;
+        const scale = Math.min(scaleX, scaleY, 1); // 최대 100% 줌
+        
+        this.setZoom(scale);
+        
+        // 캔버스를 내용물의 중심으로 이동
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const canvasCenterX = canvasRect.width / 2;
+        const canvasCenterY = canvasRect.height / 2;
+        
+        const offsetX = canvasCenterX - centerX * scale;
+        const offsetY = canvasCenterY - centerY * scale;
+        
+        canvas.style.transformOrigin = '0 0';
+        canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+    }
 } 
