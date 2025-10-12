@@ -2034,7 +2034,9 @@ MAC: ${ap.macAddress || '정보 없음'}
              const headerToggleBtn = document.getElementById('headerToggleBtn');
              if (headerToggleBtn) {
                  // 기존 이벤트 제거 (중복 방지)
-                 headerToggleBtn.removeEventListener('click', this.handleHeaderToggle);
+                 if (this.handleHeaderToggle) {
+                     headerToggleBtn.removeEventListener('click', this.handleHeaderToggle);
+                 }
                  
                  // 새 이벤트 바인딩
                  this.handleHeaderToggle = () => {
@@ -2050,6 +2052,8 @@ MAC: ${ap.macAddress || '정보 없음'}
                  // 최대 3번까지 재시도
                  if (attempt < 3) {
                      setTimeout(() => tryBind(attempt + 1), 500);
+                 } else {
+                     console.log('📄 헤더 토글 버튼을 찾을 수 없어 바인딩을 건너뜁니다.');
                  }
              }
          };

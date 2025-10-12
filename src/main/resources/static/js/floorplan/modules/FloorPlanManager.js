@@ -95,6 +95,14 @@ export default class FloorPlanManager {
         return this._canvas;
     }
     
+    /**
+     * 캔버스 요소 setter (무한 캔버스로 교체 시 사용)
+     */
+    set canvas(value) {
+        this._canvas = value;
+        console.log('🔄 FloorPlanManager.canvas 업데이트:', value);
+    }
+    
     init() {
         console.log('🚀 FloorPlanManager 초기화 시작');
         this.bindEvents();

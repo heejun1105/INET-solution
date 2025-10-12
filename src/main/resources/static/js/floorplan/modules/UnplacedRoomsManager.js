@@ -61,7 +61,7 @@ export default class UnplacedRoomsManager {
         }
         
         // 캔버스 드롭 이벤트
-        const canvas = document.getElementById('canvasContent');
+        const canvas = document.getElementById('canvas');
         if (!canvas) {
             console.warn('캔버스 요소를 찾을 수 없습니다.');
             return;
