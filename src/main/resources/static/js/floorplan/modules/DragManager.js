@@ -8,6 +8,10 @@ export default class DragManager {
         this.dragStartTime = 0; // 드래그 시작 시간 추가
         this.startPosition = { x: 0, y: 0 }; // 시작 위치 추가
         this.initialMousePos = { x: 0, y: 0 }; // 초기 마우스 위치 추가
+        
+        // 무한 캔버스 시스템 (DesignModeManager에서 주입됨)
+        this.infiniteCanvasManager = null;
+        this.autoExpandManager = null;
     }
 
     startDrag(element, e) {
@@ -76,17 +80,24 @@ export default class DragManager {
         newX = snappedPosition.x;
         newY = snappedPosition.y;
 
-        // 경계 체크
-        const elementWidth = parseFloat(this.dragElement.style.width);
-        const elementHeight = parseFloat(this.dragElement.style.height);
-        const canvasWidth = this.floorPlanManager.canvas.clientWidth;
-        const canvasHeight = this.floorPlanManager.canvas.clientHeight;
+        // 무한 캔버스 모드가 아닐 때만 경계 체크
+        if (!this.autoExpandManager) {
+            const elementWidth = parseFloat(this.dragElement.style.width);
+            const elementHeight = parseFloat(this.dragElement.style.height);
+            const canvasWidth = this.floorPlanManager.canvas.clientWidth;
+            const canvasHeight = this.floorPlanManager.canvas.clientHeight;
 
-        newX = Math.max(0, Math.min(newX, canvasWidth - elementWidth));
-        newY = Math.max(0, Math.min(newY, canvasHeight - elementHeight));
+            newX = Math.max(0, Math.min(newX, canvasWidth - elementWidth));
+            newY = Math.max(0, Math.min(newY, canvasHeight - elementHeight));
+        }
 
         this.dragElement.style.left = newX + 'px';
         this.dragElement.style.top = newY + 'px';
+        
+        // 자동 확장 체크 (무한 캔버스 모드)
+        if (this.autoExpandManager) {
+            this.autoExpandManager.checkAndExpand(this.dragElement);
+        }
         
         // 드래그 중에도 테두리 스타일 유지
         if (this.dragElement.classList.contains('building') || this.dragElement.classList.contains('room')) {
@@ -101,6 +112,17 @@ export default class DragManager {
         const dragDuration = Date.now() - this.dragStartTime;
         
         if (this.dragElement) {
+            // 최종 자동 확장 체크 (무한 캔버스 모드)
+            if (this.autoExpandManager) {
+                this.autoExpandManager.checkAndExpand(this.dragElement);
+                // 드래그 종료 후 캔버스 최적화 (축소 포함)
+                setTimeout(() => {
+                    if (this.autoExpandManager) {
+                        this.autoExpandManager.optimizeCanvas();
+                    }
+                }, 100);
+            }
+            
             this.floorPlanManager.snapManager.hideSnapFeedback(this.dragElement);
             
             // 드래그 완료 후 테두리 스타일 복원

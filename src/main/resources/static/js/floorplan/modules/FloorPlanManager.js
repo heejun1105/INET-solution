@@ -49,8 +49,8 @@ export default class FloorPlanManager {
         // 설계 모드 관리자
         this.designModeManager = null;
         
-        // 캔버스 요소 캐싱
-        this.canvas = document.getElementById('canvas');
+        // 캔버스 요소 (동적으로 가져옴 - 무한 캔버스 시스템 지원)
+        this._canvas = null;
 
         this.resizeManager = new ResizeManager(this);
         this.snapManager = new SnapManager();
@@ -76,6 +76,23 @@ export default class FloorPlanManager {
         this.floorplanViewer = new FloorplanViewer(this);
         
         this.init();
+    }
+    
+    /**
+     * 캔버스 요소 getter (무한 캔버스 또는 기존 캔버스)
+     */
+    get canvas() {
+        // 무한 캔버스 시스템이 있으면 그걸 사용
+        if (this.designModeManager && this.designModeManager.infiniteCanvasManager) {
+            return this.designModeManager.infiniteCanvasManager.canvas;
+        }
+        
+        // 아니면 기존 캔버스 사용 (처음 한 번만 캐싱)
+        if (!this._canvas) {
+            this._canvas = document.getElementById('canvas') || document.getElementById('infiniteCanvas');
+        }
+        
+        return this._canvas;
     }
     
     init() {
@@ -694,6 +711,17 @@ export default class FloorPlanManager {
     }
     
     renderFloorPlan() {
+        // ⚠️ 설계 모드 (무한 캔버스 모드)일 때는 렌더링하지 않음
+        // 무한 캔버스 시스템이 직접 렌더링을 담당
+        const isInfiniteCanvasMode = this.designModeManager && 
+                                     this.designModeManager.infiniteCanvasManager &&
+                                     this.designModeManager.isFullscreen;
+        
+        if (isInfiniteCanvasMode) {
+            console.log('🎨 무한 캔버스 모드 - FloorPlanManager 렌더링 스킵');
+            return;
+        }
+        
         this.clearCanvas();
         
         this.renderLayoutMode(); // Base layout
@@ -1511,6 +1539,9 @@ export default class FloorPlanManager {
             this.showNotification('먼저 학교를 선택해주세요.', 'error');
             return;
         }
+        
+        // 임시 ID 생성
+        const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
         // 기존 교실 데이터에서 이름박스 데이터 찾기
         let nameBoxData = null;
@@ -2395,6 +2426,16 @@ export default class FloorPlanManager {
     }
     
     clearCanvas() {
+        // ⚠️ 무한 캔버스 모드일 때는 캔버스를 지우지 않음
+        const isInfiniteCanvasMode = this.designModeManager && 
+                                     this.designModeManager.infiniteCanvasManager &&
+                                     this.designModeManager.isFullscreen;
+        
+        if (isInfiniteCanvasMode) {
+            console.log('🎨 무한 캔버스 모드 - clearCanvas() 스킵');
+            return;
+        }
+        
         if (this.canvas) {
             // div 요소인 경우 innerHTML 사용
             this.canvas.innerHTML = '';

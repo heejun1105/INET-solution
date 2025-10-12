@@ -11,6 +11,9 @@ export default class ZoomManager {
         this.canvasWidth = 4000;
         this.canvasHeight = 2500;
         
+        // 무한 캔버스 시스템 (DesignModeManager에서 주입됨)
+        this.infiniteCanvasManager = null;
+        
         // DOM 요소가 준비된 후에 초기화하도록 지연
         if (this.canvas) {
             this.delayedInit();
@@ -145,6 +148,23 @@ export default class ZoomManager {
     }
     
     applyZoom() {
+        // 무한 캔버스 모드인 경우
+        if (this.infiniteCanvasManager) {
+            const transform = this.infiniteCanvasManager.getTransform();
+            this.infiniteCanvasManager.setTransform(
+                this.zoomLevel,
+                transform.translateX,
+                transform.translateY
+            );
+            
+            console.log('🔍 무한 캔버스 줌 적용:', {
+                zoomLevel: this.zoomLevel,
+                transform: this.infiniteCanvasManager.getTransform()
+            });
+            return;
+        }
+        
+        // 기본 모드 (기존 로직)
         const canvasWrapper = this.canvas.parentElement;
         
         // 줌 변경 전 현재 뷰포트의 중앙 위치 (캔버스 좌표 기준)
@@ -267,6 +287,12 @@ export default class ZoomManager {
      * 화면에 맞춤 줌
      */
     zoomToFit() {
+        // ⚠️ 무한 캔버스 모드일 때는 InfiniteCanvasManager가 줌을 담당
+        if (this.infiniteCanvasManager) {
+            console.log('🎨 무한 캔버스 모드 - zoomToFit() 스킵');
+            return;
+        }
+        
         const canvas = this.canvas;
         const canvasRect = canvas.getBoundingClientRect();
         const elements = canvas.querySelectorAll('.building, .room, .shape, .other-space');

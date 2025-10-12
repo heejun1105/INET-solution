@@ -8,6 +8,7 @@ import com.inet.service.DeviceService;
 import com.inet.service.PermissionService;
 import com.inet.service.SchoolPermissionService;
 import com.inet.service.UserService;
+import com.inet.service.PPTExportService;
 import com.inet.config.PermissionHelper;
 import com.inet.entity.School;
 import com.inet.entity.Device;
@@ -55,6 +56,9 @@ public class FloorPlanController {
     
     @Autowired
     private PermissionHelper permissionHelper;
+    
+    @Autowired
+    private PPTExportService pptExportService;
     
     // 권한 체크 메서드
     private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
@@ -436,6 +440,69 @@ public class FloorPlanController {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.ok(response); // 빈 맵 반환
+        }
+    }
+    
+    /**
+     * 평면도 PPT 내보내기 API
+     */
+    @GetMapping("/export/ppt")
+    @ResponseBody
+    public ResponseEntity<byte[]> exportToPPT(@RequestParam Long schoolId) {
+        // 권한 체크
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return ResponseEntity.status(401).body("로그인이 필요합니다.".getBytes());
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            return ResponseEntity.status(401).body("사용자를 찾을 수 없습니다.".getBytes());
+        }
+        
+        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
+        if (checkedUser == null) {
+            return ResponseEntity.status(403).body("해당 학교에 대한 권한이 없습니다.".getBytes());
+        }
+        
+        try {
+            // 학교 정보 조회 (파일명에 사용)
+            Optional<School> schoolOpt = schoolService.findById(schoolId);
+            if (!schoolOpt.isPresent()) {
+                return ResponseEntity.status(404).body("학교를 찾을 수 없습니다.".getBytes());
+            }
+            
+            School school = schoolOpt.get();
+            
+            // PPT 파일 생성
+            java.io.ByteArrayOutputStream pptStream = pptExportService.exportFloorPlanToPPT(schoolId);
+            byte[] pptBytes = pptStream.toByteArray();
+            
+            // 파일명 생성 (평면도_학교명_날짜.pptx)
+            String fileName = String.format("평면도_%s_%s.pptx", 
+                school.getSchoolName(),
+                java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+            );
+            
+            // 파일명을 URL 인코딩 (한글 파일명 처리)
+            String encodedFileName = java.net.URLEncoder.encode(fileName, "UTF-8")
+                .replaceAll("\\+", "%20");
+            
+            // HTTP 헤더 설정
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation"));
+            headers.setContentDispositionFormData("attachment", encodedFileName);
+            headers.setContentLength(pptBytes.length);
+            
+            return ResponseEntity.ok()
+                .headers(headers)
+                .body(pptBytes);
+                
+        } catch (Exception e) {
+            e.printStackTrace();
+            String errorMessage = "PPT 파일 생성 중 오류가 발생했습니다: " + e.getMessage();
+            return ResponseEntity.status(500).body(errorMessage.getBytes());
         }
     }
 

@@ -6,11 +6,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Column;
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
 import jakarta.persistence.OneToMany;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.List;
 
 @Entity
@@ -31,11 +31,9 @@ public class School {
     private Integer ip;
 
     @OneToMany(mappedBy = "school")
-    @JsonIgnore  // 순환 참조 방지
     private List<Classroom> classrooms;
 
     @OneToMany(mappedBy = "school")
-    @JsonIgnore  // 순환 참조 방지
     private List<Operator> operators;
 
     // Explicit getter methods

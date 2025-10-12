@@ -59,6 +59,16 @@ document.addEventListener('DOMContentLoaded', function() {
         console.warn('⚠️ viewSchoolSelectBtn 요소를 찾을 수 없습니다.');
     }
     
+    // PPT 다운로드 버튼 이벤트 (보기 모드)
+    const viewPptDownloadBtn = document.getElementById('viewPptDownloadBtn');
+    if (viewPptDownloadBtn) {
+        viewPptDownloadBtn.addEventListener('click', () => {
+            downloadPPT();
+        });
+    } else {
+        console.warn('⚠️ viewPptDownloadBtn 요소를 찾을 수 없습니다.');
+    }
+    
     // 학교 선택 모달 이벤트
     const closeSchoolModal = document.getElementById('closeSchoolModal');
     if (closeSchoolModal) {
@@ -408,6 +418,66 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
         btn.style.borderColor = '#10b981';
+        
+        // PPT 다운로드 버튼 표시
+        const pptBtn = document.getElementById('viewPptDownloadBtn');
+        if (pptBtn) {
+            pptBtn.style.display = 'inline-flex';
+        }
+    }
+    
+    // PPT 다운로드 함수
+    function downloadPPT() {
+        if (!selectedSchool) {
+            showNotification('학교를 먼저 선택해주세요.', 'warning');
+            return;
+        }
+        
+        const schoolId = selectedSchool.id || selectedSchool.schoolId;
+        if (!schoolId) {
+            showNotification('학교 ID를 찾을 수 없습니다.', 'error');
+            return;
+        }
+        
+        // 로딩 알림 표시
+        showNotification('PPT 파일을 생성하는 중입니다...', 'info');
+        
+        // PPT 다운로드 API 호출
+        fetch(`/floorplan/export/ppt?schoolId=${schoolId}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+            },
+            credentials: 'include'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`PPT 생성 실패: ${response.status}`);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Blob을 파일로 다운로드
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // 파일명 생성
+            const schoolName = selectedSchool.schoolName || selectedSchool.name || '학교';
+            const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            a.download = `평면도_${schoolName}_${date}.pptx`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showNotification('PPT 파일이 다운로드되었습니다.', 'success');
+        })
+        .catch(error => {
+            console.error('PPT 다운로드 오류:', error);
+            showNotification('PPT 다운로드에 실패했습니다: ' + error.message, 'error');
+        });
     }
     
     // 학교 검색 필터링

@@ -1,4 +1,9 @@
 import SnapManager from './SnapManager.js';
+import InfiniteCanvasManager from './InfiniteCanvasManager.js';
+import PanManager from './PanManager.js';
+import AutoExpandManager from './AutoExpandManager.js';
+import DragPreviewManager from './DragPreviewManager.js';
+import CanvasRenderer from './CanvasRenderer.js';
 
 export default class DesignModeManager {
     constructor(floorPlanManager) {
@@ -13,6 +18,15 @@ export default class DesignModeManager {
         
         // 변경사항 감지를 위한 원본 데이터
         this.originalData = null;
+        
+        // 무한 캔버스 시스템
+        this.infiniteCanvasManager = null;
+        this.panManager = null;
+        this.autoExpandManager = null;
+        this.dragPreviewManager = null;
+        this.canvasRenderer = null;
+        this.canvasContainer = null;
+        this.originalCanvas = null; // 원래 캔버스 저장용
         
         this.init();
     }
@@ -32,6 +46,10 @@ export default class DesignModeManager {
         
         console.log('🎨 설계 모드 진입');
         
+        // 0. 원래 캔버스 저장 (복원용)
+        this.originalCanvas = this.floorPlanManager.canvas;
+        console.log('💾 원래 캔버스 저장:', this.originalCanvas);
+        
         // 1. 현재 UI 상태 저장
         this.saveOriginalUI();
         
@@ -41,20 +59,31 @@ export default class DesignModeManager {
         // 3. 전체화면 모드로 전환
         this.showFullscreenMode();
         
-        // 4. 전용 도구 모음 표시
+        // 4. 무한 캔버스 시스템 초기화
+        this.initializeInfiniteCanvas();
+        
+        // 5. 전용 도구 모음 표시
         this.showDesignToolbar();
         
-        // 5. 그리드 스냅 활성화
+        // 6. 그리드 스냅 활성화
         this.enableGridSnap();
         
-        // 6. 키보드 단축키 활성화
+        // 7. 키보드 단축키 활성화
         this.enableKeyboardShortcuts();
         
-        // 7. 페이지 이탈 방지
+        // 8. 페이지 이탈 방지
         this.setupPageLeaveWarning();
         
         this.isDesignMode = true;
         this.hasUnsavedChanges = false;
+        
+        // 9. 캔버스 중앙 정렬 (약간의 지연 후)
+        setTimeout(() => {
+            if (this.infiniteCanvasManager) {
+                this.infiniteCanvasManager.centerView();
+                console.log('🎯 캔버스 중앙 정렬 완료');
+            }
+        }, 300);
         
         console.log('✅ 설계 모드 활성화 완료');
     }
@@ -75,36 +104,39 @@ export default class DesignModeManager {
             }
         }
         
-        // 2. 컨텍스트 메뉴 제거
+        // 2. 무한 캔버스 시스템 정리
+        this.destroyInfiniteCanvas();
+        
+        // 3. 컨텍스트 메뉴 제거
         if (this.contextMenu) {
             this.contextMenu.remove();
             this.contextMenu = null;
         }
         
-        // 2-1. 설계 도구 모음 제거
+        // 3-1. 설계 도구 모음 제거
         if (this.designToolbar) {
             this.designToolbar.remove();
             this.designToolbar = null;
         }
         
-        // 2-2. 그리드 오버레이 제거
+        // 3-2. 그리드 오버레이 제거
         const gridOverlay = document.querySelector('.grid-overlay');
         if (gridOverlay) {
             gridOverlay.remove();
         }
         
-        // 3. 원본 UI 복원
+        // 4. 원본 UI 복원
         this.restoreOriginalUI();
         
-        // 4. main.js의 exitDesignMode 함수 호출
+        // 5. main.js의 exitDesignMode 함수 호출
         if (window.exitDesignMode && typeof window.exitDesignMode === 'function') {
             window.exitDesignMode();
         }
         
-        // 5. 키보드 단축키 비활성화
+        // 6. 키보드 단축키 비활성화
         this.disableKeyboardShortcuts();
         
-        // 5. 페이지 이탈 경고 제거
+        // 7. 페이지 이탈 경고 제거
         this.removePageLeaveWarning();
         
         this.isDesignMode = false;
@@ -172,34 +204,41 @@ export default class DesignModeManager {
         // 전체화면 모드 CSS 추가
         this.addFullscreenStyles();
         
-        // 캔버스를 전체화면으로 확장
-        const canvas = document.getElementById('canvas');
-        if (canvas) {
-            // 캔버스 컨테이너 생성
+        // ⚠️ 기존 캔버스를 완전히 숨김 (충돌 방지)
+        const oldCanvas = document.getElementById('canvas');
+        if (oldCanvas) {
+            oldCanvas.style.cssText = `
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                z-index: -9999 !important;
+                pointer-events: none !important;
+            `;
+            console.log('👻 기존 캔버스 완전히 숨김');
+        }
+        
+        // 무한 캔버스 시스템을 위한 컨테이너만 생성 (캔버스는 이동하지 않음!)
+        const existingContainer = document.getElementById('fullscreenCanvasContainer');
+        if (!existingContainer) {
             const canvasContainer = document.createElement('div');
             canvasContainer.id = 'fullscreenCanvasContainer';
+            // ⚠️ 최상위 레벨 z-index (toolbar 아래)
             canvasContainer.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
-                z-index: 1000;
-                background: white;
-                overflow: hidden;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                z-index: 9998 !important;
+                background: white !important;
+                overflow: hidden !important;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
             `;
-            
-            // 캔버스를 컨테이너로 이동
-            canvas.parentNode.removeChild(canvas);
-            canvasContainer.appendChild(canvas);
             document.body.appendChild(canvasContainer);
-            
-            // 캔버스 스타일 설정
-            canvas.style.cssText = `
-                width: 100%;
-                height: 100%;
-                display: block;
-            `;
+            console.log('✅ 전체화면 컨테이너 생성 완료 (z-index: 9998)');
         }
     }
     
@@ -359,6 +398,9 @@ export default class DesignModeManager {
                     <button class="design-tool-btn save-btn" data-tool="save" title="저장 (Ctrl+S)">
                         <i class="fas fa-save"></i> 저장
                     </button>
+                    <button class="design-tool-btn ppt-btn" data-tool="ppt-download" title="PPT 다운로드" style="background: #10b981; border-color: #059669;">
+                        <i class="fas fa-file-powerpoint"></i> PPT
+                    </button>
                     <button class="design-tool-btn exit-btn" data-tool="exit" title="설계 모드 종료 (Esc)">
                         <i class="fas fa-times"></i> 종료
                     </button>
@@ -394,7 +436,7 @@ export default class DesignModeManager {
                 height: 60px;
                 background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
                 border-bottom: 2px solid #475569;
-                z-index: 1001;
+                z-index: 10000 !important;
                 display: flex;
                 align-items: center;
                 padding: 0 20px;
@@ -630,6 +672,15 @@ export default class DesignModeManager {
                 background: #059669;
             }
             
+            .ppt-btn {
+                background: #10b981;
+                border-color: #059669;
+            }
+            
+            .ppt-btn:hover {
+                background: #059669;
+            }
+            
             .exit-btn {
                 background: #ef4444;
                 border-color: #dc2626;
@@ -821,6 +872,9 @@ export default class DesignModeManager {
             case 'save':
                 this.saveFloorPlanForCurrentSchool();
                 this.hasUnsavedChanges = false;
+                break;
+            case 'ppt-download':
+                this.downloadPPT();
                 break;
             case 'exit':
                 this.exitDesignMode();
@@ -1428,9 +1482,25 @@ export default class DesignModeManager {
             canvas.classList.add('drag-over');
         }
         
+        // 드래그 프리뷰 생성 (무한 캔버스 모드)
+        if (this.dragPreviewManager) {
+            this.dragPreviewManager.createPreview({
+                type: 'classroom',
+                name: classroomName,
+                width: 100,
+                height: 100
+            });
+        }
+        
+        // 이벤트 핸들러 바인딩 (한 번만 바인딩)
+        if (!this.boundHandleClassroomDragMove) {
+            this.boundHandleClassroomDragMove = this.handleClassroomDragMove.bind(this);
+            this.boundHandleClassroomDragEnd = this.handleClassroomDragEnd.bind(this);
+        }
+        
         // 마우스 이벤트 리스너 추가
-        document.addEventListener('mousemove', this.handleClassroomDragMove.bind(this));
-        document.addEventListener('mouseup', this.handleClassroomDragEnd.bind(this));
+        document.addEventListener('mousemove', this.boundHandleClassroomDragMove);
+        document.addEventListener('mouseup', this.boundHandleClassroomDragEnd);
         
         console.log('교실 드래그 시작:', classroomName);
     }
@@ -1442,15 +1512,13 @@ export default class DesignModeManager {
         // 드래그 중인 교실이 없으면 무시
         if (!this.draggingClassroom) return;
         
-        // 마우스 위치를 캔버스 좌표로 변환
-        const canvas = this.floorPlanManager.canvas;
-        if (canvas) {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            // 교실 생성 (데이터베이스의 classroom_id와 room_name 사용)
-            this.floorPlanManager.createRoom(x, y, this.draggingClassroom.name, this.draggingClassroom.id);
+        // 드래그 프리뷰 위치 업데이트 (무한 캔버스 모드)
+        if (this.dragPreviewManager) {
+            const snapToGrid = this.gridSnapManager && this.gridSnapManager.enabled;
+            this.dragPreviewManager.updatePosition(e.clientX, e.clientY, {
+                snapToGrid: snapToGrid,
+                gridSize: 20
+            });
         }
     }
     
@@ -1460,15 +1528,60 @@ export default class DesignModeManager {
     handleClassroomDragEnd(e) {
         if (!this.draggingClassroom) return;
         
-        // 드래그 오버 효과 제거
+        // 캔버스 위에서 드롭되었는지 확인
         const canvas = this.floorPlanManager.canvas;
         if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const isOverCanvas = (
+                e.clientX >= rect.left &&
+                e.clientX <= rect.right &&
+                e.clientY >= rect.top &&
+                e.clientY <= rect.bottom
+            );
+            
+            if (isOverCanvas) {
+                // 마우스 위치를 캔버스 좌표로 변환
+                let x, y;
+                
+                if (this.infiniteCanvasManager) {
+                    // 무한 캔버스 모드: 화면 좌표를 캔버스 좌표로 변환
+                    const canvasCoords = this.infiniteCanvasManager.screenToCanvas(
+                        e.clientX - rect.left,
+                        e.clientY - rect.top
+                    );
+                    x = canvasCoords.x - 50; // 교실 크기의 절반만큼 오프셋
+                    y = canvasCoords.y - 50;
+                } else {
+                    // 기본 모드
+                    x = e.clientX - rect.left;
+                    y = e.clientY - rect.top;
+                }
+                
+                // 그리드 스냅 적용
+                if (this.gridSnapManager && this.gridSnapManager.enabled) {
+                    const snapped = this.gridSnapManager.snapPosition(x, y);
+                    x = snapped.x;
+                    y = snapped.y;
+                }
+                
+                // 교실 생성 (데이터베이스의 classroom_id와 room_name 사용)
+                this.floorPlanManager.createRoom(x, y, this.draggingClassroom.name, this.draggingClassroom.id);
+                
+                console.log('교실 배치:', { name: this.draggingClassroom.name, x, y });
+            }
+            
+            // 드래그 오버 효과 제거
             canvas.classList.remove('drag-over');
         }
         
+        // 드래그 프리뷰 제거
+        if (this.dragPreviewManager) {
+            this.dragPreviewManager.removePreview();
+        }
+        
         // 이벤트 리스너 제거
-        document.removeEventListener('mousemove', this.handleClassroomDragMove.bind(this));
-        document.removeEventListener('mouseup', this.handleClassroomDragEnd.bind(this));
+        document.removeEventListener('mousemove', this.boundHandleClassroomDragMove);
+        document.removeEventListener('mouseup', this.boundHandleClassroomDragEnd);
         
         // 드래그 중인 교실 정보 초기화
         this.draggingClassroom = null;
@@ -1531,6 +1644,17 @@ export default class DesignModeManager {
         this.keyboardShortcuts.set('Equal', () => this.handleToolClick('zoom-in')); // + 키
         this.keyboardShortcuts.set('Minus', () => this.handleToolClick('zoom-out')); // - 키
         this.keyboardShortcuts.set('Escape', () => this.exitDesignMode());
+        this.keyboardShortcuts.set('Home', () => this.centerCanvas()); // Home 키로 캔버스 중앙 정렬
+    }
+    
+    /**
+     * 캔버스 중앙 정렬
+     */
+    centerCanvas() {
+        if (this.infiniteCanvasManager) {
+            this.infiniteCanvasManager.centerView();
+            console.log('🎯 캔버스 중앙 정렬 (Home 키)');
+        }
     }
     
     /**
@@ -1848,5 +1972,219 @@ export default class DesignModeManager {
             height: rect.height,
             name: element.dataset.name || element.textContent || '새 요소'
         };
+    }
+    
+    /**
+     * PPT 다운로드
+     */
+    downloadPPT() {
+        if (!this.floorPlanManager.currentSchoolId) {
+            alert('학교를 먼저 선택해주세요.');
+            return;
+        }
+        
+        console.log('PPT 다운로드 시작, schoolId:', this.floorPlanManager.currentSchoolId);
+        
+        // 알림 표시
+        this.showNotification('PPT 파일을 생성하는 중입니다...', 'info');
+        
+        // PPT 다운로드 API 호출
+        fetch(`/floorplan/export/ppt?schoolId=${this.floorPlanManager.currentSchoolId}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+            },
+            credentials: 'include'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`PPT 생성 실패: ${response.status}`);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Blob을 파일로 다운로드
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // 파일명 생성
+            const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            a.download = `평면도_${date}.pptx`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            this.showNotification('PPT 파일이 다운로드되었습니다.', 'success');
+            console.log('✅ PPT 다운로드 완료');
+        })
+        .catch(error => {
+            console.error('PPT 다운로드 오류:', error);
+            this.showNotification('PPT 다운로드에 실패했습니다: ' + error.message, 'error');
+        });
+    }
+    
+    /**
+     * 알림 메시지 표시
+     */
+    showNotification(message, type = 'info') {
+        // 기존 알림 제거
+        const existingNotification = document.querySelector('.notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        // 새 알림 생성
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        
+        notification.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: ${this.getNotificationColor(type)};
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 10002;
+            max-width: 400px;
+            animation: slideInRight 0.3s ease;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // 5초 후 자동 제거
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+    
+    /**
+     * 알림 색상 가져오기
+     */
+    getNotificationColor(type) {
+        switch (type) {
+            case 'success': return '#10b981';
+            case 'error': return '#ef4444';
+            case 'warning': return '#f59e0b';
+            case 'info': return '#3b82f6';
+            default: return '#6b7280';
+        }
+    }
+    
+    /**
+     * 무한 캔버스 시스템 초기화 (간소화 버전)
+     */
+    initializeInfiniteCanvas() {
+        console.log('🌐 무한 캔버스 시스템 초기화 시작');
+        
+        try {
+            // 캔버스 컨테이너 찾기
+            this.canvasContainer = document.getElementById('fullscreenCanvasContainer');
+            if (!this.canvasContainer) {
+                console.warn('⚠️ 캔버스 컨테이너를 찾을 수 없습니다.');
+                return;
+            }
+            
+            // 1. InfiniteCanvasManager 초기화
+            this.infiniteCanvasManager = new InfiniteCanvasManager(this.canvasContainer);
+            console.log('✅ InfiniteCanvasManager 초기화 완료');
+            
+            // 2. PanManager 초기화
+            this.panManager = new PanManager(this.infiniteCanvasManager, this.canvasContainer);
+            this.panManager.enable();
+            console.log('✅ PanManager 초기화 완료');
+            
+            // 3. AutoExpandManager 초기화
+            this.autoExpandManager = new AutoExpandManager(this.infiniteCanvasManager);
+            console.log('✅ AutoExpandManager 초기화 완료');
+            
+            // 4. DragPreviewManager 초기화
+            this.dragPreviewManager = new DragPreviewManager(this.infiniteCanvasManager);
+            console.log('✅ DragPreviewManager 초기화 완료');
+            
+            // 5. CanvasRenderer 초기화
+            this.canvasRenderer = new CanvasRenderer(this.infiniteCanvasManager);
+            console.log('✅ CanvasRenderer 초기화 완료');
+            
+            // 6. FloorPlanManager의 캔버스를 무한 캔버스로 교체 ⭐ 중요!
+            this.floorPlanManager.canvas = this.infiniteCanvasManager.canvas;
+            console.log('✅ FloorPlanManager.canvas → infiniteCanvas 연결');
+            
+            // 7. DragManager 연결
+            if (this.floorPlanManager.dragManager) {
+                this.floorPlanManager.dragManager.infiniteCanvasManager = this.infiniteCanvasManager;
+                this.floorPlanManager.dragManager.autoExpandManager = this.autoExpandManager;
+                console.log('✅ DragManager 연결');
+            }
+            
+            // 8. ZoomManager 연결
+            if (this.floorPlanManager.zoomManager) {
+                this.floorPlanManager.zoomManager.infiniteCanvasManager = this.infiniteCanvasManager;
+                console.log('✅ ZoomManager 연결');
+            }
+            
+            // 9. 초기 렌더링
+            this.canvasRenderer.renderAllElements();
+            
+            // 10. 뷰포트 변경 이벤트
+            this.infiniteCanvasManager.onTransformChange = () => {
+                this.canvasRenderer.onViewportChange();
+            };
+            
+            console.log('✅ 무한 캔버스 시스템 초기화 완료');
+            
+        } catch (error) {
+            console.error('❌ 무한 캔버스 시스템 초기화 실패:', error);
+        }
+    }
+    
+    /**
+     * 무한 캔버스 시스템 정리
+     */
+    destroyInfiniteCanvas() {
+        console.log('🧹 무한 캔버스 시스템 정리');
+        
+        try {
+            // PanManager 비활성화
+            if (this.panManager) {
+                this.panManager.disable();
+                this.panManager = null;
+            }
+            
+            // DragPreviewManager 정리
+            if (this.dragPreviewManager) {
+                this.dragPreviewManager.removePreview();
+                this.dragPreviewManager = null;
+            }
+            
+            // InfiniteCanvasManager 정리
+            if (this.infiniteCanvasManager) {
+                this.infiniteCanvasManager.destroy();
+                this.infiniteCanvasManager = null;
+            }
+            
+            // FloorPlanManager의 캔버스를 원래대로 복원
+            if (this.originalCanvas) {
+                this.floorPlanManager.canvas = this.originalCanvas;
+                console.log('♻️ FloorPlanManager.canvas 원래대로 복원');
+            }
+            
+            // 나머지 정리
+            this.autoExpandManager = null;
+            this.canvasRenderer = null;
+            this.canvasContainer = null;
+            
+            console.log('✅ 무한 캔버스 시스템 정리 완료');
+            
+        } catch (error) {
+            console.error('❌ 무한 캔버스 시스템 정리 실패:', error);
+        }
     }
 }
