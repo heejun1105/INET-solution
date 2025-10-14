@@ -50,10 +50,6 @@ export default class GroupDragManager {
         const deltaX = (this.currentMousePos.x - this.initialMousePos.x);
         const deltaY = (this.currentMousePos.y - this.initialMousePos.y);
         
-        // 캔버스 크기 가져오기
-        const canvasWidth = this.floorPlanManager.canvas.clientWidth;
-        const canvasHeight = this.floorPlanManager.canvas.clientHeight;
-        
         // 각 요소의 위치 조정
         for (let i = 0; i < this.elements.length; i++) {
             const element = this.elements[i];
@@ -63,11 +59,15 @@ export default class GroupDragManager {
             let newX = startPos.x + deltaX;
             let newY = startPos.y + deltaY;
             
-            // 경계 체크
-            const elementWidth = parseFloat(element.style.width) || 0;
-            const elementHeight = parseFloat(element.style.height) || 0;
-            newX = Math.max(0, Math.min(newX, canvasWidth - elementWidth));
-            newY = Math.max(0, Math.min(newY, canvasHeight - elementHeight));
+            // 무한 캔버스 모드가 아닐 때만 경계 체크
+            if (!this.floorPlanManager.designModeManager || !this.floorPlanManager.designModeManager.autoExpandManager) {
+                const canvasWidth = this.floorPlanManager.canvas.clientWidth;
+                const canvasHeight = this.floorPlanManager.canvas.clientHeight;
+                const elementWidth = parseFloat(element.style.width) || 0;
+                const elementHeight = parseFloat(element.style.height) || 0;
+                newX = Math.max(0, Math.min(newX, canvasWidth - elementWidth));
+                newY = Math.max(0, Math.min(newY, canvasHeight - elementHeight));
+            }
             
             // 위치 업데이트
             element.style.left = newX + 'px';

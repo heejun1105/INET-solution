@@ -161,6 +161,12 @@ export default class InfiniteCanvasManager {
         const canvasX = (screenX - translateX) / scale;
         const canvasY = (screenY - translateY) / scale;
         
+        console.log('🔄 InfiniteCanvasManager.screenToCanvas:', {
+            input: { screenX, screenY },
+            transform: { scale, translateX, translateY },
+            output: { canvasX, canvasY }
+        });
+        
         return { x: canvasX, y: canvasY };
     }
     

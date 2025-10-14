@@ -20,7 +20,6 @@ export default class SelectionBoxManager {
             return false;
         }
         
-        const canvas = document.getElementById('canvasContent');
         const coords = this.floorPlanManager.getCanvasCoordinates(e);
         
         this.startX = coords.x;
@@ -91,7 +90,17 @@ export default class SelectionBoxManager {
     }
     
     createSelectionBox() {
-        const canvas = document.getElementById('canvasContent');
+        // 현재 활성화된 캔버스 찾기 (무한 캔버스 우선)
+        const canvas = this.floorPlanManager.canvas || 
+                      document.getElementById('infiniteCanvas') || 
+                      document.getElementById('canvasContent');
+        
+        if (!canvas) {
+            console.error('❌ 캔버스를 찾을 수 없습니다!');
+            return;
+        }
+        
+        console.log('🔨 선택 박스 생성, 캔버스:', canvas.id);
         
         // 선택 박스 요소 생성
         this.selectionBox = document.createElement('div');

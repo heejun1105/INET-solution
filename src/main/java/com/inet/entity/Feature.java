@@ -10,8 +10,7 @@ public enum Feature {
     WIRELESS_AP_LIST("무선AP목록"),
     WIRELESS_AP_MANAGEMENT("무선AP관리"),
     SUBMISSION_FILES("제출용파일"),
-    QR_CODE_GENERATION("QR코드생성"),
-    DEVICE_INSPECTION("장비검사");
+    QR_CODE_GENERATION("QR코드생성");
     
     private final String displayName;
     

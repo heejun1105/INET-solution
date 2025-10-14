@@ -73,13 +73,11 @@ export default class ResizeManager {
                            element.dataset.shapetype === 'arrow' || 
                            element.dataset.shapetype === 'dashed');
         
-        // zoomLevel 및 캔버스 기준 좌표계로 변환
-        const zoomLevel = this.floorPlanManager.zoomManager.getCurrentZoom ? this.floorPlanManager.zoomManager.getCurrentZoom() : 1;
-        const canvas = document.getElementById('canvasContent');
-        const canvasRect = canvas.getBoundingClientRect();
+        // FloorPlanManager의 좌표 변환 메서드 사용 (줌과 팬을 고려)
+        const canvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
         this.startPos = {
-            x: (e.clientX - canvasRect.left) / zoomLevel,
-            y: (e.clientY - canvasRect.top) / zoomLevel
+            x: canvasCoords.x,
+            y: canvasCoords.y
         };
         
         // 선 종류의 경우 원본 높이(굵기)를 저장
@@ -106,13 +104,11 @@ export default class ResizeManager {
 
     handleMouseMove(e) {
         if (!this.isResizing) return;
-        const zoomLevel = this.floorPlanManager.zoomManager.getCurrentZoom ? this.floorPlanManager.zoomManager.getCurrentZoom() : 1;
-        const canvas = document.getElementById('canvasContent');
-        const canvasWidth = canvas.clientWidth;
-        const canvasHeight = canvas.clientHeight;
-        const canvasRect = canvas.getBoundingClientRect();
-        const mouseX = (e.clientX - canvasRect.left) / zoomLevel;
-        const mouseY = (e.clientY - canvasRect.top) / zoomLevel;
+        
+        // FloorPlanManager의 좌표 변환 메서드 사용 (줌과 팬을 고려)
+        const canvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
+        const mouseX = canvasCoords.x;
+        const mouseY = canvasCoords.y;
         const deltaX = mouseX - this.startPos.x;
         const deltaY = mouseY - this.startPos.y;
         let newRect = { ...this.startElementPos };

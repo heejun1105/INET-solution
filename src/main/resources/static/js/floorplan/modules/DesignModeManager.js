@@ -125,6 +125,12 @@ export default class DesignModeManager {
             gridOverlay.remove();
         }
         
+        // 3-3. 도움말 모달 제거
+        const helpModal = document.getElementById('helpModal');
+        if (helpModal) {
+            helpModal.remove();
+        }
+        
         // 4. 원본 UI 복원
         this.restoreOriginalUI();
         
@@ -240,6 +246,9 @@ export default class DesignModeManager {
             document.body.appendChild(canvasContainer);
             console.log('✅ 전체화면 컨테이너 생성 완료 (z-index: 9998)');
         }
+        
+        // 도움말 모달 생성
+        this.createHelpModal();
     }
     
     /**
@@ -385,15 +394,12 @@ export default class DesignModeManager {
                     <button class="design-tool-btn" data-tool="zoom-out" title="축소 (-)">
                         <i class="fas fa-minus"></i>
                     </button>
-                    <button class="design-tool-btn" data-tool="zoom-fit" title="화면에 맞춤 (F)">
-                        <i class="fas fa-expand-arrows-alt"></i>
-                    </button>
                 </div>
                 
                 <!-- 우측: 모드 전환 및 저장 -->
                 <div class="tool-group right-group">
-                    <button class="design-tool-btn" data-tool="grid-toggle" title="그리드 토글 (G)">
-                        <i class="fas fa-th"></i>
+                    <button class="design-tool-btn help-btn" data-tool="help" title="조작법 도움말 (H)">
+                        <i class="fas fa-question-circle"></i> 도움말
                     </button>
                     <button class="design-tool-btn save-btn" data-tool="save" title="저장 (Ctrl+S)">
                         <i class="fas fa-save"></i> 저장
@@ -409,6 +415,160 @@ export default class DesignModeManager {
         `;
         
         return toolbar;
+    }
+    
+    /**
+     * 도움말 모달 생성
+     */
+    createHelpModal() {
+        const modal = document.createElement('div');
+        modal.className = 'help-modal';
+        modal.id = 'helpModal';
+        modal.innerHTML = `
+            <div class="help-modal-content">
+                <div class="help-modal-header">
+                    <h2>
+                        <i class="fas fa-keyboard"></i>
+                        조작법 안내
+                    </h2>
+                    <button class="help-modal-close" onclick="document.getElementById('helpModal').classList.remove('active')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="help-modal-body">
+                    <div class="help-section">
+                        <h3>
+                            <i class="fas fa-hand-pointer"></i>
+                            캔버스 이동 (팬)
+                        </h3>
+                        <div class="help-items">
+                            <div class="help-item">
+                                <div class="help-item-key">스페이스바 + 드래그</div>
+                                <div class="help-item-description">캔버스를 상하좌우로 자유롭게 이동합니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">마우스 휠 버튼 + 드래그</div>
+                                <div class="help-item-description">마우스 가운데 버튼을 누른 채로 드래그하여 캔버스를 이동합니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">Shift + 마우스 휠</div>
+                                <div class="help-item-description">캔버스를 좌우로 빠르게 이동합니다.</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h3>
+                            <i class="fas fa-search-plus"></i>
+                            확대/축소
+                        </h3>
+                        <div class="help-items">
+                            <div class="help-item">
+                                <div class="help-item-key">Ctrl/Cmd + 마우스 휠</div>
+                                <div class="help-item-description">캔버스를 확대하거나 축소합니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">+ / -</div>
+                                <div class="help-item-description">툴바의 확대/축소 버튼 또는 키보드의 +/- 키로 조절합니다.</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h3>
+                            <i class="fas fa-mouse-pointer"></i>
+                            요소 조작
+                        </h3>
+                        <div class="help-items">
+                            <div class="help-item">
+                                <div class="help-item-key">클릭 & 드래그</div>
+                                <div class="help-item-description">교실, 건물, 도형을 선택하여 이동합니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">모서리 드래그</div>
+                                <div class="help-item-description">요소의 모서리를 드래그하여 크기를 조절합니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">드래그 박스 선택</div>
+                                <div class="help-item-description">빈 공간을 드래그하여 여러 요소를 한 번에 선택합니다.</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h3>
+                            <i class="fas fa-keyboard"></i>
+                            단축키
+                        </h3>
+                        <div class="help-items">
+                            <div class="help-item">
+                                <div class="help-item-key">Ctrl/Cmd + A</div>
+                                <div class="help-item-description">모든 요소를 선택합니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">Delete / Backspace</div>
+                                <div class="help-item-description">선택한 요소를 삭제합니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">Esc</div>
+                                <div class="help-item-description">선택을 해제하거나 설계 모드를 종료합니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">Home</div>
+                                <div class="help-item-description">캔버스를 화면 중앙으로 이동합니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">Ctrl/Cmd + S</div>
+                                <div class="help-item-description">현재 평면도를 저장합니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">H</div>
+                                <div class="help-item-description">이 도움말을 표시합니다.</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h3>
+                            <i class="fas fa-magic"></i>
+                            특수 기능
+                        </h3>
+                        <div class="help-items">
+                            <div class="help-item">
+                                <div class="help-item-key">자동 확장</div>
+                                <div class="help-item-description">요소를 캔버스 가장자리로 드래그하면 자동으로 캔버스가 확장됩니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">자동 축소</div>
+                                <div class="help-item-description">요소를 삭제하거나 이동하면 캔버스가 적절한 크기로 자동 축소됩니다.</div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-key">미배치 교실</div>
+                                <div class="help-item-description">툴바의 목록 아이콘을 클릭하여 미배치 교실을 드래그 앤 드롭으로 추가합니다.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // 모달 외부 클릭 시 닫기
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+            }
+        });
+    }
+    
+    /**
+     * 도움말 모달 표시
+     */
+    showHelpModal() {
+        const modal = document.getElementById('helpModal');
+        if (modal) {
+            modal.classList.add('active');
+        }
     }
     
     /**
@@ -690,9 +850,160 @@ export default class DesignModeManager {
                 background: #dc2626;
             }
             
+            .help-btn {
+                background: #3b82f6;
+                border-color: #2563eb;
+            }
+            
+            .help-btn:hover {
+                background: #2563eb;
+            }
+            
             .right-group {
                 border-left: 1px solid #475569;
                 padding-left: 20px;
+            }
+            
+            /* 도움말 모달 */
+            .help-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                display: none;
+                justify-content: center;
+                align-items: center;
+                z-index: 20000;
+                animation: fadeIn 0.2s ease;
+            }
+            
+            .help-modal.active {
+                display: flex;
+            }
+            
+            .help-modal-content {
+                background: #ffffff;
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                max-width: 700px;
+                max-height: 80vh;
+                overflow-y: auto;
+                animation: slideIn 0.3s ease;
+            }
+            
+            .help-modal-header {
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: #ffffff;
+                padding: 24px 32px;
+                border-radius: 12px 12px 0 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .help-modal-header h2 {
+                margin: 0;
+                font-size: 24px;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            
+            .help-modal-close {
+                background: none;
+                border: none;
+                color: #ffffff;
+                font-size: 24px;
+                cursor: pointer;
+                padding: 4px 8px;
+                border-radius: 4px;
+                transition: background 0.2s;
+            }
+            
+            .help-modal-close:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+            
+            .help-modal-body {
+                padding: 32px;
+            }
+            
+            .help-section {
+                margin-bottom: 32px;
+            }
+            
+            .help-section:last-child {
+                margin-bottom: 0;
+            }
+            
+            .help-section h3 {
+                font-size: 18px;
+                font-weight: 600;
+                color: #1e293b;
+                margin: 0 0 16px 0;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .help-section h3 i {
+                color: #3b82f6;
+                font-size: 20px;
+            }
+            
+            .help-items {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .help-item {
+                display: flex;
+                align-items: flex-start;
+                gap: 16px;
+                padding: 12px;
+                background: #f8fafc;
+                border-radius: 8px;
+                border-left: 3px solid #3b82f6;
+            }
+            
+            .help-item-key {
+                background: #1e293b;
+                color: #ffffff;
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 600;
+                font-family: 'Courier New', monospace;
+                white-space: nowrap;
+                min-width: 120px;
+                text-align: center;
+            }
+            
+            .help-item-description {
+                flex: 1;
+                color: #475569;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            @keyframes slideIn {
+                from { 
+                    transform: translateY(-30px);
+                    opacity: 0;
+                }
+                to { 
+                    transform: translateY(0);
+                    opacity: 1;
+                }
             }
             
             /* 그리드 스타일 */
@@ -838,27 +1149,25 @@ export default class DesignModeManager {
     handleToolClick(tool, element) {
         console.log('도구 클릭:', tool);
         
-        // 활성 상태 업데이트
-        this.updateActiveTool(tool, element);
-        
         switch (tool) {
             case 'building':
                 this.floorPlanManager.selectTool('building');
+                this.updateActiveTool(tool, element);
                 break;
             case 'room':
                 this.floorPlanManager.selectTool('room');
+                this.updateActiveTool(tool, element);
                 break;
             case 'shape':
                 this.floorPlanManager.selectTool('shape');
+                this.updateActiveTool(tool, element);
                 break;
             case 'other-space':
                 this.floorPlanManager.selectTool('other-space');
+                this.updateActiveTool(tool, element);
                 break;
             case 'additional-features':
                 // 드롭다운 메뉴는 이미 처리됨
-                break;
-            case 'grid-toggle':
-                this.toggleGrid();
                 break;
             case 'zoom-in':
                 this.zoomIn();
@@ -866,8 +1175,8 @@ export default class DesignModeManager {
             case 'zoom-out':
                 this.zoomOut();
                 break;
-            case 'zoom-fit':
-                this.zoomToFit();
+            case 'help':
+                this.showHelpModal();
                 break;
             case 'save':
                 this.saveFloorPlanForCurrentSchool();
@@ -1639,8 +1948,7 @@ export default class DesignModeManager {
      * 키보드 단축키 설정
      */
     setupKeyboardShortcuts() {
-        this.keyboardShortcuts.set('KeyG', () => this.handleToolClick('grid-toggle'));
-        this.keyboardShortcuts.set('KeyF', () => this.handleToolClick('zoom-fit'));
+        this.keyboardShortcuts.set('KeyH', () => this.showHelpModal()); // 도움말
         this.keyboardShortcuts.set('Equal', () => this.handleToolClick('zoom-in')); // + 키
         this.keyboardShortcuts.set('Minus', () => this.handleToolClick('zoom-out')); // - 키
         this.keyboardShortcuts.set('Escape', () => this.exitDesignMode());
@@ -2117,6 +2425,14 @@ export default class DesignModeManager {
             this.floorPlanManager.canvas = this.infiniteCanvasManager.canvas;
             console.log('✅ FloorPlanManager.canvas → infiniteCanvas 연결');
             
+            // 6-1. FloorPlanManager에 designModeManager 참조 설정 (좌표 변환용)
+            this.floorPlanManager.designModeManager = this;
+            console.log('✅ FloorPlanManager.designModeManager 참조 설정');
+            
+            // 6-2. 새 캔버스에 이벤트 다시 바인딩 ⭐⭐⭐ 가장 중요!
+            this.rebindCanvasEvents();
+            console.log('✅ 새 캔버스에 이벤트 바인딩 완료');
+            
             // 7. DragManager 연결
             if (this.floorPlanManager.dragManager) {
                 this.floorPlanManager.dragManager.infiniteCanvasManager = this.infiniteCanvasManager;
@@ -2176,6 +2492,12 @@ export default class DesignModeManager {
                 console.log('♻️ FloorPlanManager.canvas 원래대로 복원');
             }
             
+            // FloorPlanManager에서 designModeManager 참조 제거
+            if (this.floorPlanManager.designModeManager) {
+                this.floorPlanManager.designModeManager = null;
+                console.log('♻️ FloorPlanManager.designModeManager 참조 제거');
+            }
+            
             // 나머지 정리
             this.autoExpandManager = null;
             this.canvasRenderer = null;
@@ -2186,5 +2508,23 @@ export default class DesignModeManager {
         } catch (error) {
             console.error('❌ 무한 캔버스 시스템 정리 실패:', error);
         }
+    }
+    
+    /**
+     * 새 캔버스에 이벤트 다시 바인딩
+     */
+    rebindCanvasEvents() {
+        console.log('🔄 새 캔버스에 이벤트 바인딩 시작');
+        
+        const canvas = this.floorPlanManager.canvas;
+        if (!canvas) {
+            console.error('❌ 캔버스를 찾을 수 없습니다!');
+            return;
+        }
+        
+        // 캔버스 전용 이벤트만 다시 바인딩 (기존 이벤트는 자동 제거됨)
+        this.floorPlanManager.bindCanvasEvents();
+        
+        console.log('✅ 이벤트 바인딩 완료:', canvas.id);
     }
 }
