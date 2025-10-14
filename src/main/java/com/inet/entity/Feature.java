@@ -3,6 +3,7 @@ package com.inet.entity;
 public enum Feature {
     DEVICE_LIST("장비목록"),
     DEVICE_MANAGEMENT("장비관리"),
+    DEVICE_INSPECTION("장비검사"),
     SCHOOL_MANAGEMENT("학교관리"),
     CLASSROOM_MANAGEMENT("교실관리"),
     FLOORPLAN_MANAGEMENT("평면도관리"),

@@ -389,9 +389,9 @@ export default class UnplacedRoomsManager {
             console.log('미배치교실 배치 시 이름박스 데이터 확인:', roomData.nameBoxData);
         }
         
-        // 캔버스 좌표로 변환
-        const roomX = x - 60; // 교실의 중심점을 기준으로 조정
-        const roomY = y - 52.5;
+        // 캔버스 좌표로 변환 (오프셋 제거 - createRoom에서 처리)
+        const roomX = x;
+        const roomY = y;
         
         const roomInfo = {
             classroomId: roomData.classroomId,

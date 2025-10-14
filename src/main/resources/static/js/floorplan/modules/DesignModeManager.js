@@ -1853,13 +1853,13 @@ export default class DesignModeManager {
                 let x, y;
                 
                 if (this.infiniteCanvasManager) {
-                    // 무한 캔버스 모드: 화면 좌표를 캔버스 좌표로 변환
+                    // 무한 캔버스 모드: 화면 좌표를 캔버스 좌표로 변환 (오프셋 제거)
                     const canvasCoords = this.infiniteCanvasManager.screenToCanvas(
                         e.clientX - rect.left,
                         e.clientY - rect.top
                     );
-                    x = canvasCoords.x - 50; // 교실 크기의 절반만큼 오프셋
-                    y = canvasCoords.y - 50;
+                    x = canvasCoords.x; // 오프셋 제거 - createRoom에서 처리
+                    y = canvasCoords.y;
                 } else {
                     // 기본 모드
                     x = e.clientX - rect.left;
@@ -2240,19 +2240,29 @@ export default class DesignModeManager {
     }
     
     /**
-     * 확대
+     * 확대 - 무한 캔버스 직접 조작
      */
     zoomIn() {
-        if (this.floorPlanManager.zoomManager) {
+        if (this.infiniteCanvasManager) {
+            const currentTransform = this.infiniteCanvasManager.getTransform();
+            const newScale = Math.min(currentTransform.scale + 0.1, 3.0);
+            this.infiniteCanvasManager.setTransform(newScale, currentTransform.translateX, currentTransform.translateY);
+            console.log('🔍 무한 캔버스 확대:', { scale: newScale });
+        } else if (this.floorPlanManager.zoomManager) {
             this.floorPlanManager.zoomManager.zoomIn();
         }
     }
     
     /**
-     * 축소
+     * 축소 - 무한 캔버스 직접 조작
      */
     zoomOut() {
-        if (this.floorPlanManager.zoomManager) {
+        if (this.infiniteCanvasManager) {
+            const currentTransform = this.infiniteCanvasManager.getTransform();
+            const newScale = Math.max(currentTransform.scale - 0.1, 0.25);
+            this.infiniteCanvasManager.setTransform(newScale, currentTransform.translateX, currentTransform.translateY);
+            console.log('🔍 무한 캔버스 축소:', { scale: newScale });
+        } else if (this.floorPlanManager.zoomManager) {
             this.floorPlanManager.zoomManager.zoomOut();
         }
     }
@@ -2429,6 +2439,9 @@ export default class DesignModeManager {
             this.floorPlanManager.designModeManager = this;
             console.log('✅ FloorPlanManager.designModeManager 참조 설정');
             
+            // 6-2. ZoomManager 연결 제거 (충돌 방지)
+            // 무한 캔버스 모드에서는 ZoomManager를 사용하지 않음
+            
             // 6-2. 새 캔버스에 이벤트 다시 바인딩 ⭐⭐⭐ 가장 중요!
             this.rebindCanvasEvents();
             console.log('✅ 새 캔버스에 이벤트 바인딩 완료');
@@ -2497,6 +2510,8 @@ export default class DesignModeManager {
                 this.floorPlanManager.designModeManager = null;
                 console.log('♻️ FloorPlanManager.designModeManager 참조 제거');
             }
+            
+            // ZoomManager 연결은 이미 없으므로 해제 불필요
             
             // 나머지 정리
             this.autoExpandManager = null;

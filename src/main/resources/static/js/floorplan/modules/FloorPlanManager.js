@@ -2626,17 +2626,17 @@ export default class FloorPlanManager {
     }
 
     getCanvasCoordinates(e) {
-        // 무한 캔버스 시스템이 활성화된 경우 - 줌과 팬을 고려한 좌표 변환
+        // 무한 캔버스 시스템이 활성화된 경우 - 무한 캔버스만 사용 (단순화)
         if (this.designModeManager && this.designModeManager.infiniteCanvasManager) {
             const rect = this.canvas.getBoundingClientRect();
             const screenX = e.clientX - rect.left;
             const screenY = e.clientY - rect.top;
             
-            // 🔧 줌과 팬을 고려한 정확한 좌표 변환
+            // 무한 캔버스의 screenToCanvas 변환만 사용 (줌과 팬이 모두 포함됨)
             const infiniteCanvas = this.designModeManager.infiniteCanvasManager;
             const canvasCoords = infiniteCanvas.screenToCanvas(screenX, screenY);
             
-            console.log('🔧 줌/팬 고려 좌표 변환:', {
+            console.log('🔧 무한 캔버스 좌표 변환 (단순화):', {
                 mouse: { clientX: e.clientX, clientY: e.clientY },
                 rect: { left: rect.left, top: rect.top },
                 screen: { x: screenX, y: screenY },
@@ -2647,7 +2647,7 @@ export default class FloorPlanManager {
             return canvasCoords;
         }
         
-        // 기존 ZoomManager 사용
+        // 기존 ZoomManager 사용 (무한 캔버스가 없는 경우)
         if (this.zoomManager && this.zoomManager.initialized) {
             return this.zoomManager.getCanvasCoordinates(e);
         } else {
