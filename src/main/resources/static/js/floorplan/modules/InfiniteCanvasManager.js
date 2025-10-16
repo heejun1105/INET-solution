@@ -154,17 +154,33 @@ export default class InfiniteCanvasManager {
     
     /**
      * 화면 좌표 → 캔버스 좌표 변환
+     * 통합된 좌표 변환 시스템의 핵심 메서드
      */
     screenToCanvas(screenX, screenY) {
         const { scale, translateX, translateY } = this.transform;
         
-        const canvasX = (screenX - translateX) / scale;
-        const canvasY = (screenY - translateY) / scale;
+        // 캔버스의 실제 화면 위치를 고려
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const canvasOffsetX = canvasRect.left;
+        const canvasOffsetY = canvasRect.top;
         
-        console.log('🔄 InfiniteCanvasManager.screenToCanvas:', {
+        // 화면 좌표를 캔버스 상대 좌표로 변환
+        const relativeX = screenX - canvasOffsetX;
+        const relativeY = screenY - canvasOffsetY;
+        
+        // 단순화된 좌표 변환 (이중 변환 제거)
+        // translateX, translateY를 제거하여 이중 변환 문제 해결
+        const canvasX = relativeX / scale;
+        const canvasY = relativeY / scale;
+        
+        console.log('🔄 InfiniteCanvasManager.screenToCanvas (수정됨):', {
             input: { screenX, screenY },
+            canvasOffset: { x: canvasOffsetX, y: canvasOffsetY },
+            relative: { x: relativeX, y: relativeY },
             transform: { scale, translateX, translateY },
-            output: { canvasX, canvasY }
+            output: { canvasX, canvasY },
+            note: 'translateX/Y 제거로 이중 변환 문제 해결',
+            timestamp: Date.now()
         });
         
         return { x: canvasX, y: canvasY };
@@ -176,8 +192,18 @@ export default class InfiniteCanvasManager {
     canvasToScreen(canvasX, canvasY) {
         const { scale, translateX, translateY } = this.transform;
         
-        const screenX = canvasX * scale + translateX;
-        const screenY = canvasY * scale + translateY;
+        // 캔버스의 실제 화면 위치를 고려
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const canvasOffsetX = canvasRect.left;
+        const canvasOffsetY = canvasRect.top;
+        
+        // 단순화된 좌표 변환 (이중 변환 제거)
+        // translateX, translateY를 제거하여 이중 변환 문제 해결
+        const relativeX = canvasX * scale;
+        const relativeY = canvasY * scale;
+        
+        const screenX = relativeX + canvasOffsetX;
+        const screenY = relativeY + canvasOffsetY;
         
         return { x: screenX, y: screenY };
     }

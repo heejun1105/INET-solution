@@ -415,6 +415,8 @@ export default class FloorPlanManager {
             // 도형 그리기 완료 처리 - 드래그 중이 아니었고 실제로 그리기 중이었을 때만 처리
             if (this.isDrawingShape && this.shapeStartPoint && !wasDragging) {
                 console.log('도형 그리기 완료 처리 - 드래그 상태:', wasDragging);
+                
+                // 통합된 좌표 변환 시스템 사용 (중복 변환 방지)
                 const endPoint = this.getCanvasCoordinates(e);
                 
                 // 시작점과 끝점의 거리가 최소 거리 이상인 경우에만 도형 생성
@@ -474,9 +476,9 @@ export default class FloorPlanManager {
     bindCanvasEvents() {
         if (!this.canvas) {
             console.error('❌ 캔버스를 찾을 수 없습니다! 이벤트 바인딩 실패');
-            return;
-        }
-        
+                return;
+            }
+            
         console.log('🔗 캔버스 이벤트 바인딩:', this.canvas.id);
         
         // 기존 캔버스 이벤트 핸들러가 있으면 제거
@@ -1244,7 +1246,9 @@ export default class FloorPlanManager {
             else if (this.currentTool === 'shape' && this.currentShapeType) {
                 // 도형 그리기 도구가 활성화된 경우, 도형 위가 아닐 때만 그리기 시작
                 if (!isOverShape) {
-                    this.startDrawingShape(this.getCanvasCoordinates(e));
+                    // 통합된 좌표 변환 시스템 사용 (중복 변환 방지)
+                    const startPoint = this.getCanvasCoordinates(e);
+                    this.startDrawingShape(startPoint);
                 } else {
                     // 도형 위에서는 드래그 시작
                     const shapeElement = e.target.closest('.shape');
@@ -1258,7 +1262,7 @@ export default class FloorPlanManager {
             else if (this.currentTool === 'building' || this.currentTool === 'room' || this.currentTool === 'other-space' || this.currentTool === 'add-ap') {
                 // 건물, 교실, 기타공간, AP 추가 도구가 활성화된 경우
                 // 클릭 좌표를 저장하고 클릭 이벤트에서 처리
-                this.pendingClickCoords = this.getCanvasCoordinates(e);
+            this.pendingClickCoords = this.getCanvasCoordinates(e);
                 console.log('🔧 pendingClickCoords 설정됨:', this.pendingClickCoords, '현재 도구:', this.currentTool);
             }
             else {
@@ -1286,7 +1290,8 @@ export default class FloorPlanManager {
         
         // 개체 생성 도구가 활성화된 경우 캔버스 내의 어디서든 클릭 처리
         const isCreationTool = this.currentTool === 'building' || this.currentTool === 'room' || 
-                             this.currentTool === 'other-space' || this.currentTool === 'add-ap';
+                             this.currentTool === 'other-space' || this.currentTool === 'add-ap' ||
+                             this.currentTool === 'shape';
         
         // 캔버스 ID 체크 (기존 캔버스와 무한 캔버스 모두 지원)
         const isCanvasTarget = e.target.id === 'canvasContent' || e.target.id === 'infiniteCanvas' || 
@@ -1301,9 +1306,12 @@ export default class FloorPlanManager {
             currentTool: this.currentTool
         });
         
-        if (this.pendingClickCoords && (isCanvasTarget || isCreationTool)) {
-            console.log('  ✅ handleCanvasClickAtCoords 호출!');
-            this.handleCanvasClickAtCoords(this.pendingClickCoords);
+        if (isCanvasTarget && isCreationTool) {
+            // 통합된 좌표 변환 시스템 사용 (중복 변환 방지)
+            const coords = this.getCanvasCoordinates(e);
+            
+            console.log('  ✅ 교실 생성 좌표 계산 (통합 시스템):', coords);
+            this.handleCanvasClickAtCoords(coords);
             this.pendingClickCoords = null;
         } else {
             console.log('  ❌ 조건 불충족:', {
@@ -1313,7 +1321,7 @@ export default class FloorPlanManager {
             });
         }
     }
-
+    
     handleCanvasClickAtCoords(coords) {
         const { x, y } = coords;
         console.log('캔버스 클릭 처리:', { x, y, currentTool: this.currentTool });
@@ -1531,8 +1539,8 @@ export default class FloorPlanManager {
         const buildingData = {
             buildingId: tempId, // 임시 ID 추가
             buildingName: name,
-            xCoordinate: x - 100, // 건물 중심을 클릭 위치에 맞춤 (width/2)
-            yCoordinate: y - 150, // 건물 중심을 클릭 위치에 맞춤 (height/2)
+            xCoordinate: x, // 클릭한 위치에 정확히 생성 (오프셋 제거)
+            yCoordinate: y, // 클릭한 위치에 정확히 생성 (오프셋 제거)
             width: 200,
             height: 300,
             schoolId: this.currentSchoolId,
@@ -1544,7 +1552,7 @@ export default class FloorPlanManager {
         
         console.log('🏗️ 건물 생성 시작:', {
             클릭좌표: { x, y },
-            오프셋적용후: { xCoordinate: buildingData.xCoordinate, yCoordinate: buildingData.yCoordinate },
+            최종좌표: { xCoordinate: buildingData.xCoordinate, yCoordinate: buildingData.yCoordinate },
             buildingData
         });
         
@@ -1660,8 +1668,8 @@ export default class FloorPlanManager {
         const roomData = {
             roomName: name,
             roomType: 'classroom',
-            xCoordinate: x - 60, // 교실 중심을 클릭 위치에 맞춤 (width/2)
-            yCoordinate: y - 52.5, // 교실 중심을 클릭 위치에 맞춤 (height/2)
+            xCoordinate: x, // 클릭한 위치에 정확히 생성 (오프셋 제거)
+            yCoordinate: y, // 클릭한 위치에 정확히 생성 (오프셋 제거)
             width: 120,
             height: 105,
             classroomId: tempId,
@@ -1674,7 +1682,7 @@ export default class FloorPlanManager {
         
         console.log('🏫 교실 생성 시작:', {
             클릭좌표: { x, y },
-            오프셋적용후: { xCoordinate: roomData.xCoordinate, yCoordinate: roomData.yCoordinate },
+            최종좌표: { xCoordinate: roomData.xCoordinate, yCoordinate: roomData.yCoordinate },
             roomData
         });
         
@@ -1696,8 +1704,8 @@ export default class FloorPlanManager {
         const roomData = {
             roomName: spaceType,
             roomType: 'other-space',
-            xCoordinate: x - 60,
-            yCoordinate: y - 48,
+            xCoordinate: x, // 클릭한 위치에 정확히 생성 (오프셋 제거)
+            yCoordinate: y, // 클릭한 위치에 정확히 생성 (오프셋 제거)
             width: 120,
             height: 105,
             classroomId: tempId,
@@ -1783,29 +1791,40 @@ export default class FloorPlanManager {
             width: finalWidth,
             height: finalHeight
         });
-        
+
+        // 도형과 동일한 방식으로 정확한 위치 설정
         element.style.position = 'absolute';
-        element.style.left = finalX + 'px';
-        element.style.top = finalY + 'px';
-        element.style.width = finalWidth + 'px';
-        element.style.height = finalHeight + 'px';
+        element.style.setProperty('left', finalX + 'px', 'important');
+        element.style.setProperty('top', finalY + 'px', 'important');
+        element.style.setProperty('width', finalWidth + 'px', 'important');
+        element.style.setProperty('height', finalHeight + 'px', 'important');
+        element.style.setProperty('box-sizing', 'border-box', 'important');
+        element.style.setProperty('margin', '0', 'important');
+        element.style.setProperty('padding', '0', 'important');
+        element.style.setProperty('overflow', 'visible', 'important'); // 도형과 동일하게 설정
+        element.style.setProperty('z-index', '100', 'important'); // 도형과 동일한 z-index
         
-        // 테두리 색상과 굵기 적용 - !important 추가하여 우선순위 높임
+        // 테두리 색상과 굵기 적용 - 도형과 동일한 방식으로 설정
         if (type === 'building' || type === 'room') {
             const borderColor = elementData.borderColor || this.currentBorderColor;
             const borderThickness = elementData.borderThickness || this.currentBorderThickness;
             
-            element.style.cssText += `
-                border-color: ${borderColor} !important;
-                border-width: ${borderThickness}px !important;
-                border-style: solid !important;
-                box-sizing: border-box !important;
-            `;
+            // 도형과 동일한 방식으로 개별 속성 설정
+            element.style.setProperty('border-width', borderThickness + 'px', 'important');
+            element.style.setProperty('border-style', 'solid', 'important');
+            element.style.setProperty('border-color', borderColor, 'important');
+            element.style.setProperty('background-color', 'transparent', 'important');
+            element.style.setProperty('border-radius', '0', 'important'); // 도형과 동일하게 명시적 설정
         }
 
         this.canvas.appendChild(element);
         this.addElementEvents(element);
         this.nameBoxManager.createOrUpdateNameBox(element);
+        
+        // 자동 확장 체크 (무한 캔버스 시스템이 활성화된 경우)
+        if (this.designModeManager && this.designModeManager.autoExpandManager) {
+            this.designModeManager.autoExpandManager.checkAndExpand(element);
+        }
         
         // 이름박스 복원 플래그 (중복 실행 방지)
         let nameBoxRestored = false;
@@ -2033,12 +2052,21 @@ export default class FloorPlanManager {
         if (element.classList.contains('shape')) {
             this.resizeManager.maintainShapeStyle(element);
         }
+        
+        // 크기 조절 핸들 추가 (건물, 교실, 도형 모두)
+        // CSS의 .selected 클래스에 의해 자동으로 표시됨
+        this.resizeManager.addResizeHandles(element);
+        
+        console.log('✅ 요소 선택됨:', element.className, '핸들 표시됨');
     }
     
     clearSelection() {
         if (this.selectedElement) {
             this.selectedElement.classList.remove('selected');
             this.snapManager.hideSnapFeedback(this.selectedElement);
+            
+            // 크기 조절 핸들 완전 제거
+            this.resizeManager.removeResizeHandles(this.selectedElement);
             
             // 선택 해제 시에도 테두리 스타일 복원
             if (this.selectedElement.classList.contains('building') || this.selectedElement.classList.contains('room')) {
@@ -2050,6 +2078,7 @@ export default class FloorPlanManager {
                 this.resizeManager.maintainShapeStyle(this.selectedElement);
             }
             
+            console.log('❌ 요소 선택 해제됨:', this.selectedElement.className, '핸들 숨김');
             this.selectedElement = null;
         }
         this.multiSelectManager.clearSelection();
@@ -2625,23 +2654,24 @@ export default class FloorPlanManager {
         }
     }
 
+    /**
+     * 통합된 좌표 변환 시스템
+     * 모든 좌표 변환을 일관되게 처리하여 중복 변환 방지
+     */
     getCanvasCoordinates(e) {
-        // 무한 캔버스 시스템이 활성화된 경우 - 무한 캔버스만 사용 (단순화)
+        // 무한 캔버스 시스템이 활성화된 경우
         if (this.designModeManager && this.designModeManager.infiniteCanvasManager) {
-            const rect = this.canvas.getBoundingClientRect();
-            const screenX = e.clientX - rect.left;
-            const screenY = e.clientY - rect.top;
-            
-            // 무한 캔버스의 screenToCanvas 변환만 사용 (줌과 팬이 모두 포함됨)
             const infiniteCanvas = this.designModeManager.infiniteCanvasManager;
-            const canvasCoords = infiniteCanvas.screenToCanvas(screenX, screenY);
             
-            console.log('🔧 무한 캔버스 좌표 변환 (단순화):', {
-                mouse: { clientX: e.clientX, clientY: e.clientY },
-                rect: { left: rect.left, top: rect.top },
-                screen: { x: screenX, y: screenY },
-                canvas: canvasCoords,
-                transform: infiniteCanvas.transform
+            // 무한 캔버스의 screenToCanvas는 이미 getBoundingClientRect 오프셋을 포함
+            // 따라서 e.clientX, e.clientY를 직접 전달
+            const canvasCoords = infiniteCanvas.screenToCanvas(e.clientX, e.clientY);
+            
+            console.log('🔧 통합 좌표 변환 (무한 캔버스):', {
+                input: { clientX: e.clientX, clientY: e.clientY },
+                output: canvasCoords,
+                transform: infiniteCanvas.transform,
+                timestamp: Date.now()
             });
             
             return canvasCoords;
@@ -2906,20 +2936,33 @@ export default class FloorPlanManager {
         this.tempShapeElement = null;
     }
     
-    // 최종 도형 생성
+    // 최종 도형 생성 - 시작점 기준으로 완전 재설계
     createShape(shapeType, startX, startY, endX, endY) {
-        console.log('🎨🎨🎨 createShape 호출됨:', { shapeType, startX, startY, endX, endY });
+        console.log('🎨🎨🎨 createShape 호출됨 (재설계됨):', { shapeType, startX, startY, endX, endY });
+        
+        // 핵심 문제 해결: 시작점을 기준으로 도형 생성
+        // endX, endY는 크기 계산용으로만 사용하고, 실제 위치는 startX, startY만 사용
+        const shapeX = startX;
+        const shapeY = startY;
+        const shapeWidth = Math.abs(endX - startX);
+        const shapeHeight = Math.abs(endY - startY);
+        
+        console.log('🔧 도형 좌표 재설계:', {
+            input: { startX, startY, endX, endY },
+            output: { shapeX, shapeY, shapeWidth, shapeHeight },
+            note: '시작점 기준으로 도형 생성'
+        });
         
         const shapeId = 'shape_' + Date.now();
         
-        // 도형 데이터 생성
+        // 도형 데이터 생성 (시작점 기준으로 완전 재설계)
         const shapeData = {
             id: shapeId,
             type: shapeType,
-            startX: startX,
-            startY: startY,
-            endX: endX,
-            endY: endY,
+            startX: shapeX,
+            startY: shapeY,
+            endX: shapeX + shapeWidth,
+            endY: shapeY + shapeHeight,
             color: this.currentShapeColor,
             thickness: parseInt(this.currentShapeThickness),
             schoolId: this.currentSchoolId || 'no_school' // 학교가 선택되지 않았을 경우 기본값 설정
@@ -2946,15 +2989,15 @@ export default class FloorPlanManager {
             case 'line':
             case 'arrow':
             case 'dashed':
-                // 선 길이 및 각도 계산
-                const dx = endX - startX;
-                const dy = endY - startY;
+                // 선 길이 및 각도 계산 (재설계된 좌표 사용)
+                const dx = shapeWidth;
+                const dy = shapeHeight;
                 const length = Math.sqrt(dx * dx + dy * dy);
                 const angle = Math.atan2(dy, dx) * 180 / Math.PI;
                 
-                // 선 스타일 설정
-                shapeElement.style.left = startX + 'px';
-                shapeElement.style.top = startY + 'px';
+                // 선 스타일 설정 (재설계된 좌표 사용)
+                shapeElement.style.left = shapeX + 'px';
+                shapeElement.style.top = shapeY + 'px';
                 shapeElement.style.width = length + 'px';
                 shapeElement.style.setProperty('height', thickness + 'px', 'important');
                 shapeElement.style.setProperty('background-color', color, 'important');
@@ -2987,11 +3030,11 @@ export default class FloorPlanManager {
                 break;
             case 'rectangle': // ⭐ 'rect' → 'rectangle'로 변경
                 console.log('🟦🟦🟦 사각형 케이스 진입!');
-                // 사각형 위치 및 크기 계산
-                let left = Math.min(startX, endX);
-                let top = Math.min(startY, endY);
-                let width = Math.abs(endX - startX);
-                let height = Math.abs(endY - startY);
+                // 사각형 위치 및 크기 계산 (재설계된 좌표 사용)
+                let left = shapeX;
+                let top = shapeY;
+                let width = shapeWidth;
+                let height = shapeHeight;
                 
                 console.log('🟦 사각형 초기 계산:', { left, top, width, height, startX, startY, endX, endY });
                 
@@ -3040,11 +3083,11 @@ export default class FloorPlanManager {
                 });
                 break;
             case 'circle':
-                // 원 위치 및 크기 계산
-                const circleLeft = Math.min(startX, endX);
-                const circleTop = Math.min(startY, endY);
-                const circleWidth = Math.abs(endX - startX);
-                const circleHeight = Math.abs(endY - startY);
+                // 원 위치 및 크기 계산 (재설계된 좌표 사용)
+                const circleLeft = shapeX;
+                const circleTop = shapeY;
+                const circleWidth = shapeWidth;
+                const circleHeight = shapeHeight;
                 
                 // 원 스타일 설정
                 shapeElement.style.left = circleLeft + 'px';
@@ -3130,6 +3173,12 @@ export default class FloorPlanManager {
         }
         
         this.canvas.appendChild(shapeElement);
+        
+        // 자동 확장 체크 (무한 캔버스 시스템이 활성화된 경우)
+        if (this.designModeManager && this.designModeManager.autoExpandManager) {
+            this.designModeManager.autoExpandManager.checkAndExpand(shapeElement);
+        }
+        
         console.log('✅ 도형 추가 완료! DOM 확인:', {
             parentId: shapeElement.parentNode ? shapeElement.parentNode.id : 'no parent',
             children: this.canvas.children.length,
@@ -3590,6 +3639,12 @@ export default class FloorPlanManager {
         // 교실 선택기 업데이트
         if (this.roomSelectorContainer && this.roomSelectorContainer.style.display !== 'none') {
             this.updateRoomSelectorList();
+        }
+        
+        // 자동 확장 체크 (무한 캔버스 시스템이 활성화된 경우)
+        if (this.designModeManager && this.designModeManager.autoExpandManager) {
+            // 캔버스의 모든 요소에 대해 확장 체크
+            this.designModeManager.autoExpandManager.optimizeCanvas();
         }
     }
 

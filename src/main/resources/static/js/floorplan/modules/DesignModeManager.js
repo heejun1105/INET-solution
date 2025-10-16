@@ -36,6 +36,8 @@ export default class DesignModeManager {
         this.setupGridSnap();
         this.setupContextMenu();
         this.setupChangeDetection();
+        // 키보드 단축키를 바로 활성화 (도움말 단축키를 위해)
+        this.enableKeyboardShortcuts();
     }
     
     /**
@@ -565,7 +567,12 @@ export default class DesignModeManager {
      * 도움말 모달 표시
      */
     showHelpModal() {
-        const modal = document.getElementById('helpModal');
+        let modal = document.getElementById('helpModal');
+        if (!modal) {
+            // 모달이 없으면 생성
+            this.createHelpModal();
+            modal = document.getElementById('helpModal');
+        }
         if (modal) {
             modal.classList.add('active');
         }
@@ -1072,6 +1079,124 @@ export default class DesignModeManager {
                 background: #475569;
                 margin: 4px 0;
             }
+            
+            /* 크기 조절 핸들 스타일 - 기본적으로 완전히 숨김 */
+            .resize-handles {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 1000;
+                display: none !important; /* 강제로 숨김 */
+                opacity: 0; /* 투명도로도 숨김 */
+                visibility: hidden; /* 시각적으로도 숨김 */
+            }
+            
+            /* 선택된 요소에서만 핸들 표시 */
+            .draggable.selected .resize-handles {
+                display: block !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+            
+            .resize-handle {
+                position: absolute;
+                background: #3b82f6;
+                border: 2px solid #ffffff;
+                border-radius: 50%;
+                width: 8px;
+                height: 8px;
+                pointer-events: all;
+                cursor: pointer;
+                z-index: 1001;
+                transition: all 0.2s ease;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            }
+            
+            .resize-handle:hover {
+                background: #2563eb;
+                transform: scale(1.2);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            }
+            
+            /* 8방향 핸들 위치 */
+            .resize-handle.nw {
+                top: -4px;
+                left: -4px;
+                cursor: nw-resize;
+            }
+            
+            .resize-handle.ne {
+                top: -4px;
+                right: -4px;
+                cursor: ne-resize;
+            }
+            
+            .resize-handle.sw {
+                bottom: -4px;
+                left: -4px;
+                cursor: sw-resize;
+            }
+            
+            .resize-handle.se {
+                bottom: -4px;
+                right: -4px;
+                cursor: se-resize;
+            }
+            
+            .resize-handle.n {
+                top: -4px;
+                left: 50%;
+                transform: translateX(-50%);
+                cursor: n-resize;
+            }
+            
+            .resize-handle.s {
+                bottom: -4px;
+                left: 50%;
+                transform: translateX(-50%);
+                cursor: s-resize;
+            }
+            
+            .resize-handle.w {
+                top: 50%;
+                left: -4px;
+                transform: translateY(-50%);
+                cursor: w-resize;
+            }
+            
+            .resize-handle.e {
+                top: 50%;
+                right: -4px;
+                transform: translateY(-50%);
+                cursor: e-resize;
+            }
+            
+            /* 호버 시 핸들 확대 효과 */
+            .resize-handle.n:hover,
+            .resize-handle.s:hover,
+            .resize-handle.w:hover,
+            .resize-handle.e:hover {
+                transform: scale(1.2);
+            }
+            
+            .resize-handle.n:hover {
+                transform: translateX(-50%) scale(1.2);
+            }
+            
+            .resize-handle.s:hover {
+                transform: translateX(-50%) scale(1.2);
+            }
+            
+            .resize-handle.w:hover {
+                transform: translateY(-50%) scale(1.2);
+            }
+            
+            .resize-handle.e:hover {
+                transform: translateY(-50%) scale(1.2);
+            }
         `;
         
         document.head.appendChild(style);
@@ -1157,6 +1282,8 @@ export default class DesignModeManager {
             case 'room':
                 this.floorPlanManager.selectTool('room');
                 this.updateActiveTool(tool, element);
+                // 교실 생성 모드 활성화 - pendingClickCoords 설정
+                this.floorPlanManager.pendingClickCoords = { x: 0, y: 0 }; // 더미 값, 실제 클릭 시 업데이트됨
                 break;
             case 'shape':
                 this.floorPlanManager.selectTool('shape');
@@ -1852,19 +1979,10 @@ export default class DesignModeManager {
                 // 마우스 위치를 캔버스 좌표로 변환
                 let x, y;
                 
-                if (this.infiniteCanvasManager) {
-                    // 무한 캔버스 모드: 화면 좌표를 캔버스 좌표로 변환 (오프셋 제거)
-                    const canvasCoords = this.infiniteCanvasManager.screenToCanvas(
-                        e.clientX - rect.left,
-                        e.clientY - rect.top
-                    );
-                    x = canvasCoords.x; // 오프셋 제거 - createRoom에서 처리
-                    y = canvasCoords.y;
-                } else {
-                    // 기본 모드
-                    x = e.clientX - rect.left;
-                    y = e.clientY - rect.top;
-                }
+                // 통합된 좌표 변환 시스템 사용 (중복 변환 방지)
+                const canvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
+                x = canvasCoords.x;
+                y = canvasCoords.y;
                 
                 // 그리드 스냅 적용
                 if (this.gridSnapManager && this.gridSnapManager.enabled) {
@@ -1983,6 +2101,13 @@ export default class DesignModeManager {
      * 키보드 이벤트 처리
      */
     handleKeyDown(e) {
+        // 도움말 단축키는 설계 모드 외부에서도 작동
+        if (e.code === 'KeyH' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            this.showHelpModal();
+            return;
+        }
+        
         if (!this.isDesignMode) return;
         
         // Ctrl/Cmd 조합 키

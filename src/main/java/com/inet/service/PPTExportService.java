@@ -45,34 +45,50 @@ public class PPTExportService {
      * 학교별 평면도를 PPT 파일로 내보내기
      */
     public ByteArrayOutputStream exportFloorPlanToPPT(Long schoolId) throws IOException {
-        // 학교 정보 조회
-        School school = schoolRepository.findById(schoolId)
-            .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다: " + schoolId));
-        
-        // 활성 평면도 조회
-        List<FloorPlan> activeFloorPlans = floorPlanRepository.findAllBySchoolIdAndIsActive(schoolId, true);
-        if (activeFloorPlans.isEmpty()) {
-            throw new RuntimeException("저장된 평면도가 없습니다.");
+        try {
+            System.out.println("PPT 내보내기 시작 - schoolId: " + schoolId);
+            
+            // 학교 정보 조회
+            School school = schoolRepository.findById(schoolId)
+                .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다: " + schoolId));
+            System.out.println("학교 정보 조회 완료: " + school.getSchoolName());
+            
+            // 활성 평면도 조회
+            List<FloorPlan> activeFloorPlans = floorPlanRepository.findAllBySchoolIdAndIsActive(schoolId, true);
+            System.out.println("활성 평면도 개수: " + activeFloorPlans.size());
+            
+            if (activeFloorPlans.isEmpty()) {
+                throw new RuntimeException("저장된 평면도가 없습니다.");
+            }
+            
+            // 가장 최근 평면도 선택
+            FloorPlan floorPlan = activeFloorPlans.stream()
+                .sorted((a, b) -> b.getUpdatedAt().compareTo(a.getUpdatedAt()))
+                .findFirst()
+                .get();
+            System.out.println("평면도 선택 완료 - ID: " + floorPlan.getId());
+            
+            // 평면도 요소 조회
+            List<FloorPlanElement> elements = floorPlanElementRepository.findByFloorPlanId(floorPlan.getId());
+            System.out.println("평면도 요소 개수: " + elements.size());
+            
+            // PPT 프레젠테이션 생성
+            XMLSlideShow ppt = createPPTPresentation(school, floorPlan, elements);
+            System.out.println("PPT 프레젠테이션 생성 완료");
+            
+            // 바이트 배열로 변환
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            ppt.write(outputStream);
+            ppt.close();
+            System.out.println("PPT 파일 변환 완료 - 크기: " + outputStream.size() + " bytes");
+            
+            return outputStream;
+            
+        } catch (Exception e) {
+            System.err.println("PPT 내보내기 중 오류 발생: " + e.getMessage());
+            e.printStackTrace();
+            throw new IOException("PPT 파일 생성 중 오류가 발생했습니다: " + e.getMessage(), e);
         }
-        
-        // 가장 최근 평면도 선택
-        FloorPlan floorPlan = activeFloorPlans.stream()
-            .sorted((a, b) -> b.getUpdatedAt().compareTo(a.getUpdatedAt()))
-            .findFirst()
-            .get();
-        
-        // 평면도 요소 조회 (z-index 순서대로)
-        List<FloorPlanElement> elements = floorPlanElementRepository.findByFloorPlanId(floorPlan.getId());
-        
-        // PPT 프레젠테이션 생성
-        XMLSlideShow ppt = createPPTPresentation(school, floorPlan, elements);
-        
-        // 바이트 배열로 변환
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ppt.write(outputStream);
-        ppt.close();
-        
-        return outputStream;
     }
     
     /**

@@ -10,6 +10,7 @@ export default class ResizeManager {
         this.isDragging = false;
         this.dragOffset = { x: 0, y: 0 };
         this.minSize = { width:1, height: 1 }; // 최소 크기 (선 종류는 높이 제한 없음)
+        this.mouseEventsBound = false; // 마우스 이벤트 바인딩 상태
     }
 
     addResizeHandles(element) {
@@ -18,6 +19,7 @@ export default class ResizeManager {
         
         const handlesContainer = document.createElement('div');
         handlesContainer.className = 'resize-handles';
+        // CSS에서 선택 상태에 따라 표시/숨김이 결정되므로 여기서는 설정하지 않음
         
         // 선 종류인지 확인
         const isLineType = element.classList.contains('shape') && 
@@ -49,14 +51,20 @@ export default class ResizeManager {
         
         element.appendChild(handlesContainer);
         
-        // 마우스 이벤트 바인딩
-        document.addEventListener('mousemove', this.handleMouseMove.bind(this));
-        document.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        // 마우스 이벤트 바인딩 (중복 방지)
+        if (!this.mouseEventsBound) {
+            this.boundHandleMouseMove = this.handleMouseMove.bind(this);
+            this.boundHandleMouseUp = this.handleMouseUp.bind(this);
+            document.addEventListener('mousemove', this.boundHandleMouseMove);
+            document.addEventListener('mouseup', this.boundHandleMouseUp);
+            this.mouseEventsBound = true;
+        }
     }
 
     removeResizeHandles(element) {
         const existingHandles = element.querySelector('.resize-handles');
         if (existingHandles) {
+            // 핸들 완전 제거
             existingHandles.remove();
         }
     }
@@ -199,6 +207,11 @@ export default class ResizeManager {
             newRect.height = originalThickness; // 원본 굵기로 강제 설정
             newRect.y = this.startElementPos.y; // Y 좌표 고정
         }
+        // 캔버스 크기 가져오기
+        const canvas = this.floorPlanManager.canvas;
+        const canvasWidth = canvas ? canvas.offsetWidth : 4000;
+        const canvasHeight = canvas ? canvas.offsetHeight : 3000;
+        
         // 경계 제한 (캔버스 밖으로 못 나가게)
         newRect.x = Math.max(0, Math.min(newRect.x, canvasWidth - newRect.width));
         newRect.width = Math.min(newRect.width, canvasWidth - newRect.x);
@@ -282,6 +295,11 @@ export default class ResizeManager {
             detail: { element: this.selectedElement }
         });
         document.dispatchEvent(resizeCompleteEvent);
+        
+        // 자동 확장 체크 (무한 캔버스 시스템이 활성화된 경우)
+        if (this.selectedElement && this.floorPlanManager.designModeManager && this.floorPlanManager.designModeManager.autoExpandManager) {
+            this.floorPlanManager.designModeManager.autoExpandManager.checkAndExpand(this.selectedElement);
+        }
     }
     
     maintainShapeStyle(element) {

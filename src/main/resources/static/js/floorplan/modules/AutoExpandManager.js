@@ -7,8 +7,8 @@ export default class AutoExpandManager {
         this.infiniteCanvasManager = infiniteCanvasManager;
         
         // 확장/축소 설정
-        this.padding = 300; // 확장 시 추가할 여백
-        this.expandMargin = 50; // 경계로부터 50px 내에 들어오면 확장
+        this.padding = 200; // 확장 시 추가할 여백
+        this.expandMargin = 100; // 경계로부터 100px 내에 들어오면 확장
         this.minCanvasWidth = 800; // 최소 캔버스 너비
         this.minCanvasHeight = 600; // 최소 캔버스 높이
         
@@ -45,8 +45,8 @@ export default class AutoExpandManager {
         const canvas = this.infiniteCanvasManager.canvas;
         if (!canvas) return;
         
-        // 캔버스 내의 모든 floor-element 요소 찾기
-        const allElements = canvas.querySelectorAll('.floor-element');
+        // 캔버스 내의 모든 요소 찾기 (건물, 교실, 도형)
+        const allElements = canvas.querySelectorAll('.building, .room, .shape, .draggable');
         if (allElements.length === 0) {
             // 요소가 없으면 최소 크기로 축소
             this.resetToMinimumSize();

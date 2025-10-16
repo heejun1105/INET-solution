@@ -284,13 +284,13 @@ export default class UnplacedRoomsManager {
     dropRoomOnCanvas(e) {
         if (!this.draggedRoom) return;
         
-        // ZoomManager의 좌표 계산 메서드를 사용하여 정확한 캔버스 좌표 계산
-        const canvasCoords = this.floorPlanManager.zoomManager.getCanvasCoordinates(e);
+        // 통합된 좌표 변환 시스템 사용 (중복 변환 방지)
+        const canvasCoords = this.floorPlanManager.getCanvasCoordinates(e);
         
-        console.log('=== 드래그 앤 드롭 디버깅 (ZoomManager 사용) ===');
+        console.log('=== 드래그 앤 드롭 디버깅 (통합 좌표 시스템 사용) ===');
         console.log('원시 마우스 좌표:', { clientX: e.clientX, clientY: e.clientY });
-        console.log('ZoomManager 계산 좌표:', canvasCoords);
-        console.log('줌 레벨:', this.floorPlanManager.zoomManager.zoomLevel);
+        console.log('통합 시스템 계산 좌표:', canvasCoords);
+        console.log('현재 좌표 변환 시스템:', this.floorPlanManager.designModeManager?.infiniteCanvasManager ? 'InfiniteCanvas' : 'ZoomManager');
         
         // 좌표 유효성 검사
         if (canvasCoords.x < 0 || canvasCoords.y < 0) {
