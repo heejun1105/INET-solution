@@ -79,15 +79,93 @@ export default class DesignModeManager {
         this.isDesignMode = true;
         this.hasUnsavedChanges = false;
         
-        // 9. 캔버스 중앙 정렬 (약간의 지연 후)
-        setTimeout(() => {
-            if (this.infiniteCanvasManager) {
-                this.infiniteCanvasManager.centerView();
-                console.log('🎯 캔버스 중앙 정렬 완료');
-            }
-        }, 300);
+        console.log('✅ 설계 모드 활성화 완료 (중앙 정렬은 initializeInfiniteCanvas에서 처리)');
+    }
+    
+    /**
+     * 캔버스 중앙 정렬 보장 (DOM 준비 완료 후)
+     */
+    ensureCanvasCentered() {
+        if (!this.infiniteCanvasManager) {
+            console.warn('⚠️ 무한 캔버스 관리자가 없습니다.');
+            return;
+        }
         
-        console.log('✅ 설계 모드 활성화 완료');
+        // DOM이 완전히 준비될 때까지 대기
+        const checkAndCenter = () => {
+            const canvas = this.infiniteCanvasManager.canvas;
+            const container = this.infiniteCanvasManager.container;
+            
+            if (!canvas || !container) {
+                console.warn('⚠️ 캔버스 또는 컨테이너가 아직 준비되지 않았습니다.');
+                requestAnimationFrame(checkAndCenter);
+                return;
+            }
+            
+            // 뷰포트 크기 확인
+            this.infiniteCanvasManager.updateViewport();
+            
+            if (this.infiniteCanvasManager.viewport.width === 0 || this.infiniteCanvasManager.viewport.height === 0) {
+                console.warn('⚠️ 뷰포트 크기가 0입니다. 재시도합니다.');
+                requestAnimationFrame(checkAndCenter);
+                return;
+            }
+            
+            // 중앙 정렬 실행
+            console.log('🎯 안정적인 중앙 정렬 실행');
+            this.infiniteCanvasManager.centerView();
+            
+            // 추가 검증
+            setTimeout(() => {
+                this.verifyCanvasPosition();
+            }, 100);
+        };
+        
+        // 즉시 시작
+        requestAnimationFrame(checkAndCenter);
+    }
+    
+    /**
+     * 캔버스 위치 검증
+     */
+    verifyCanvasPosition() {
+        if (!this.infiniteCanvasManager || !this.infiniteCanvasManager.canvas) {
+            return;
+        }
+        
+        const canvas = this.infiniteCanvasManager.canvas;
+        const container = this.infiniteCanvasManager.container;
+        
+        // 실제 위치 확인
+        const canvasRect = canvas.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        
+        // 컨테이너 중심점
+        const containerCenterX = containerRect.left + containerRect.width / 2;
+        const containerCenterY = containerRect.top + containerRect.height / 2;
+        
+        // 캔버스 중심점
+        const canvasCenterX = canvasRect.left + canvasRect.width / 2;
+        const canvasCenterY = canvasRect.top + canvasRect.height / 2;
+        
+        // 오프셋 계산
+        const offsetX = containerCenterX - canvasCenterX;
+        const offsetY = containerCenterY - canvasCenterY;
+        
+        console.log('🔍 캔버스 위치 검증:', {
+            containerCenter: { x: containerCenterX, y: containerCenterY },
+            canvasCenter: { x: canvasCenterX, y: canvasCenterY },
+            offset: { x: offsetX, y: offsetY },
+            tolerance: 50
+        });
+        
+        // 오프셋이 크면 재정렬
+        if (Math.abs(offsetX) > 50 || Math.abs(offsetY) > 50) {
+            console.log('🔧 캔버스 위치 보정 필요:', { offsetX, offsetY });
+            this.infiniteCanvasManager.centerView();
+        } else {
+            console.log('✅ 캔버스 위치 정상');
+        }
     }
     
     /**
@@ -2365,31 +2443,68 @@ export default class DesignModeManager {
     }
     
     /**
-     * 확대 - 무한 캔버스 직접 조작
+     * 줌 버튼 이벤트 리스너 바인딩 (ZoomManager와 충돌 방지)
      */
-    zoomIn() {
-        if (this.infiniteCanvasManager) {
-            const currentTransform = this.infiniteCanvasManager.getTransform();
-            const newScale = Math.min(currentTransform.scale + 0.1, 3.0);
-            this.infiniteCanvasManager.setTransform(newScale, currentTransform.translateX, currentTransform.translateY);
-            console.log('🔍 무한 캔버스 확대:', { scale: newScale });
-        } else if (this.floorPlanManager.zoomManager) {
-            this.floorPlanManager.zoomManager.zoomIn();
+    bindZoomButtonEvents() {
+        const zoomIn = document.getElementById('zoomIn');
+        const zoomOut = document.getElementById('zoomOut');
+        const zoomReset = document.getElementById('zoomReset');
+        
+        if (zoomIn && zoomOut && zoomReset) {
+            // 기존 이벤트 리스너 제거 (클론으로 교체)
+            zoomIn.replaceWith(zoomIn.cloneNode(true));
+            zoomOut.replaceWith(zoomOut.cloneNode(true));
+            zoomReset.replaceWith(zoomReset.cloneNode(true));
+            
+            // 새로운 이벤트 리스너 바인딩
+            document.getElementById('zoomIn').addEventListener('click', () => {
+                this.zoomIn();
+            });
+            
+            document.getElementById('zoomOut').addEventListener('click', () => {
+                this.zoomOut();
+            });
+            
+            document.getElementById('zoomReset').addEventListener('click', () => {
+                this.zoomToFit();
+            });
+            
+            console.log('🔌 무한 캔버스 줌 버튼 이벤트 리스너 바인딩 완료');
         }
     }
     
     /**
-     * 축소 - 무한 캔버스 직접 조작
+     * 확대 - 무한 캔버스 직접 조작 (중앙 정렬 유지)
+     */
+    zoomIn() {
+        if (!this.infiniteCanvasManager) {
+            console.warn('⚠️ 무한 캔버스 관리자가 없습니다.');
+            return;
+        }
+        
+        const currentTransform = this.infiniteCanvasManager.getTransform();
+        const newScale = Math.min(currentTransform.scale + 0.1, 3.0);
+        
+        // 새로운 줌 중앙 정렬 메서드 사용
+        this.infiniteCanvasManager.zoomToCenter(newScale);
+        console.log('🔍 무한 캔버스 확대 (중앙 정렬 유지):', { scale: newScale });
+    }
+    
+    /**
+     * 축소 - 무한 캔버스 직접 조작 (중앙 정렬 유지)
      */
     zoomOut() {
-        if (this.infiniteCanvasManager) {
-            const currentTransform = this.infiniteCanvasManager.getTransform();
-            const newScale = Math.max(currentTransform.scale - 0.1, 0.25);
-            this.infiniteCanvasManager.setTransform(newScale, currentTransform.translateX, currentTransform.translateY);
-            console.log('🔍 무한 캔버스 축소:', { scale: newScale });
-        } else if (this.floorPlanManager.zoomManager) {
-            this.floorPlanManager.zoomManager.zoomOut();
+        if (!this.infiniteCanvasManager) {
+            console.warn('⚠️ 무한 캔버스 관리자가 없습니다.');
+            return;
         }
+        
+        const currentTransform = this.infiniteCanvasManager.getTransform();
+        const newScale = Math.max(currentTransform.scale - 0.1, 0.25);
+        
+        // 새로운 줌 중앙 정렬 메서드 사용
+        this.infiniteCanvasManager.zoomToCenter(newScale);
+        console.log('🔍 무한 캔버스 축소 (중앙 정렬 유지):', { scale: newScale });
     }
     
     /**
@@ -2564,8 +2679,11 @@ export default class DesignModeManager {
             this.floorPlanManager.designModeManager = this;
             console.log('✅ FloorPlanManager.designModeManager 참조 설정');
             
-            // 6-2. ZoomManager 연결 제거 (충돌 방지)
-            // 무한 캔버스 모드에서는 ZoomManager를 사용하지 않음
+            // 6-2. ZoomManager 비활성화 (무한 캔버스 모드에서는 충돌 방지)
+            if (this.floorPlanManager.zoomManager) {
+                this.floorPlanManager.zoomManager.deactivate();
+                console.log('✅ ZoomManager 비활성화 (무한 캔버스 모드)');
+            }
             
             // 6-2. 새 캔버스에 이벤트 다시 바인딩 ⭐⭐⭐ 가장 중요!
             this.rebindCanvasEvents();
@@ -2587,10 +2705,17 @@ export default class DesignModeManager {
             // 9. 초기 렌더링
             this.canvasRenderer.renderAllElements();
             
-            // 10. 뷰포트 변경 이벤트
+            // 10. DOM 준비 완료 후 캔버스 중앙 정렬 (안정성 보장)
+            console.log('🎯 설계모드 진입 시 중앙 정렬 시작');
+            this.ensureCanvasCentered();
+            
+            // 11. 뷰포트 변경 이벤트
             this.infiniteCanvasManager.onTransformChange = () => {
                 this.canvasRenderer.onViewportChange();
             };
+            
+            // 12. 줌 버튼 이벤트 리스너 직접 바인딩 (ZoomManager와 충돌 방지)
+            this.bindZoomButtonEvents();
             
             console.log('✅ 무한 캔버스 시스템 초기화 완료');
             

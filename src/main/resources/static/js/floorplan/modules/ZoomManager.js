@@ -43,6 +43,26 @@ export default class ZoomManager {
         checkElements();
     }
     
+    /**
+     * ZoomManager 비활성화 (무한 캔버스 모드에서 충돌 방지)
+     */
+    deactivate() {
+        // 이벤트 리스너 제거
+        const zoomIn = document.getElementById('zoomIn');
+        const zoomOut = document.getElementById('zoomOut');
+        const zoomReset = document.getElementById('zoomReset');
+        
+        if (zoomIn && zoomOut && zoomReset) {
+            zoomIn.replaceWith(zoomIn.cloneNode(true));
+            zoomOut.replaceWith(zoomOut.cloneNode(true));
+            zoomReset.replaceWith(zoomReset.cloneNode(true));
+            console.log('🔌 ZoomManager 이벤트 리스너 제거 완료');
+        }
+        
+        this.initialized = false;
+        console.log('⚠️ ZoomManager 비활성화됨 (무한 캔버스 모드)');
+    }
+    
     initializeCanvas() {
         // 캔버스를 고정 크기로 설정
         this.canvas.style.width = `${this.canvasWidth}px`;

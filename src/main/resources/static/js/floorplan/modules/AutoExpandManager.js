@@ -48,8 +48,8 @@ export default class AutoExpandManager {
         // 캔버스 내의 모든 요소 찾기 (건물, 교실, 도형)
         const allElements = canvas.querySelectorAll('.building, .room, .shape, .draggable');
         if (allElements.length === 0) {
-            // 요소가 없으면 최소 크기로 축소
-            this.resetToMinimumSize();
+            // 요소가 없어도 캔버스를 리셋하지 않음 (버튼 클릭 시 불필요한 리셋 방지)
+            console.log('📝 캔버스에 요소가 없지만 리셋하지 않음 (버튼 클릭 시 불필요한 리셋 방지)');
             return;
         }
         
@@ -68,14 +68,15 @@ export default class AutoExpandManager {
         });
         
         if (minX === Infinity) {
-            this.resetToMinimumSize();
+            // 요소 경계를 계산할 수 없어도 캔버스를 리셋하지 않음
+            console.log('📝 요소 경계를 계산할 수 없지만 리셋하지 않음 (버튼 클릭 시 불필요한 리셋 방지)');
             return;
         }
         
-        // 여백 추가
+        // 여백 추가 (음수 좌표 지원)
         const requiredBounds = {
-            minX: Math.min(minX - this.padding, 0), // 최소 0
-            minY: Math.min(minY - this.padding, 0),
+            minX: minX - this.padding, // 음수 좌표 허용
+            minY: minY - this.padding, // 음수 좌표 허용
             maxX: Math.max(maxX + this.padding, this.minCanvasWidth),
             maxY: Math.max(maxY + this.padding, this.minCanvasHeight)
         };
@@ -174,9 +175,9 @@ export default class AutoExpandManager {
         let expanded = false;
         let direction = [];
         
-        // 왼쪽으로 확장
+        // 왼쪽으로 확장 (음수 좌표 지원)
         if (expansionNeeded.expandLeft) {
-            newBounds.minX = Math.min(0, elementBounds.minX - this.padding);
+            newBounds.minX = elementBounds.minX - this.padding;
             expanded = true;
             direction.push('왼쪽');
         }
@@ -188,9 +189,9 @@ export default class AutoExpandManager {
             direction.push('오른쪽');
         }
         
-        // 위쪽으로 확장
+        // 위쪽으로 확장 (음수 좌표 지원)
         if (expansionNeeded.expandTop) {
-            newBounds.minY = Math.min(0, elementBounds.minY - this.padding);
+            newBounds.minY = elementBounds.minY - this.padding;
             expanded = true;
             direction.push('위쪽');
         }
