@@ -13,6 +13,7 @@ import com.inet.config.PermissionHelper;
 import com.inet.entity.School;
 import com.inet.entity.Device;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +21,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -29,9 +32,15 @@ import java.util.stream.Collectors;
 import com.inet.service.ClassroomService;
 import com.inet.entity.Classroom;
 
+/**
+ * 평면도 컨트롤러
+ * RESTful API 원칙 준수 및 에러 응답 표준화
+ */
 @Controller
 @RequestMapping("/floorplan")
 public class FloorPlanController {
+    
+    private static final Logger logger = LoggerFactory.getLogger(FloorPlanController.class);
     
     @Autowired
     private FloorPlanService floorPlanService;
@@ -60,46 +69,11 @@ public class FloorPlanController {
     @Autowired
     private PPTExportService pptExportService;
     
-    // 권한 체크 메서드
-    private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
-            return null;
-        }
-        
-        User user = userService.findByUsername(auth.getName())
-            .orElse(null);
-        if (user == null) {
-            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
-            return null;
-        }
-        
-        return permissionHelper.checkFeaturePermission(user, feature, redirectAttributes);
-    }
-    
-    // 학교 권한 체크 메서드
-    private User checkSchoolPermission(Feature feature, Long schoolId, RedirectAttributes redirectAttributes) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
-            return null;
-        }
-        
-        User user = userService.findByUsername(auth.getName())
-            .orElse(null);
-        if (user == null) {
-            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
-            return null;
-        }
-        
-        return permissionHelper.checkSchoolPermission(user, feature, schoolId, redirectAttributes);
-    }
-    
-    // 평면도 메인 페이지
+    /**
+     * 평면도 메인 페이지
+     */
     @GetMapping("")
     public String floorPlanMain(Model model, RedirectAttributes redirectAttributes) {
-        // 권한 체크
         User user = checkPermission(Feature.FLOORPLAN_MANAGEMENT, redirectAttributes);
         if (user == null) {
             return "redirect:/";
@@ -108,224 +82,250 @@ public class FloorPlanController {
         List<School> schools = schoolPermissionService.getAccessibleSchools(user);
         model.addAttribute("schools", schools);
         
-        // 권한 정보 추가
         permissionHelper.addPermissionAttributes(user, model);
         
         return "floorplan/main";
     }
     
-    // 기존 API: 학교별 평면도 데이터 조회 (하위 호환성)
-    @GetMapping("/api/school/{schoolId}")
+    // ===== RESTful API =====
+    
+    /**
+     * 평면도 조회
+     * GET /floorplan/api/schools/{schoolId}
+     */
+    @GetMapping("/api/schools/{schoolId}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getSchoolFloorPlan(@PathVariable Long schoolId) {
-        Map<String, Object> response = new java.util.HashMap<>();
-        
-        // 권한 체크
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            response.put("error", "로그인이 필요합니다.");
-            return ResponseEntity.status(401).body(response);
-        }
-        
-        User user = userService.findByUsername(auth.getName()).orElse(null);
-        if (user == null) {
-            response.put("error", "사용자를 찾을 수 없습니다.");
-            return ResponseEntity.status(401).body(response);
-        }
-        
-        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
-        if (checkedUser == null) {
-            response.put("error", "해당 학교에 대한 권한이 없습니다.");
-            return ResponseEntity.status(403).body(response);
-        }
-        
+    public ResponseEntity<ApiResponse> getFloorPlan(@PathVariable Long schoolId) {
         try {
-            // 기존 FloorPlanService의 메서드 사용
-            Map<String, Object> floorPlanData = floorPlanService.getSchoolFloorPlan(schoolId);
-            return ResponseEntity.ok(floorPlanData);
+            // 권한 체크
+            User user = getCurrentUser();
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("로그인이 필요합니다."));
+            }
+            
+            if (!hasSchoolPermission(user, schoolId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error("해당 학교에 대한 권한이 없습니다."));
+            }
+            
+            // 평면도 로드
+            Map<String, Object> floorPlanData = floorPlanService.loadFloorPlan(schoolId);
+            
+            if (floorPlanData.containsKey("success") && 
+                Boolean.FALSE.equals(floorPlanData.get("success"))) {
+                String message = (String) floorPlanData.getOrDefault("message", "평면도를 찾을 수 없습니다.");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(message));
+            }
+            
+            return ResponseEntity.ok(ApiResponse.success(floorPlanData));
+            
         } catch (Exception e) {
-            e.printStackTrace();
-            response.put("error", "평면도 데이터 조회 중 오류가 발생했습니다: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(response);
+            logger.error("평면도 조회 실패 - schoolId: {}", schoolId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("평면도 조회 중 오류가 발생했습니다: " + e.getMessage()));
         }
     }
     
     /**
-     * 평면도 저장 API
+     * 평면도 저장
+     * PUT /floorplan/api/schools/{schoolId}
      */
-    @PostMapping("/save")
+    @PutMapping("/api/schools/{schoolId}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> saveFloorPlan(
-            @RequestParam Long schoolId,
+    public ResponseEntity<ApiResponse> saveFloorPlan(
+            @PathVariable Long schoolId,
             @RequestBody Map<String, Object> floorPlanData) {
         
-        Map<String, Object> response = new java.util.HashMap<>();
-        
-        // 권한 체크
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            response.put("error", "로그인이 필요합니다.");
-            return ResponseEntity.status(401).body(response);
-        }
-        
-        User user = userService.findByUsername(auth.getName()).orElse(null);
-        if (user == null) {
-            response.put("error", "사용자를 찾을 수 없습니다.");
-            return ResponseEntity.status(401).body(response);
-        }
-        
-        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
-        if (checkedUser == null) {
-            response.put("error", "해당 학교에 대한 권한이 없습니다.");
-            return ResponseEntity.status(403).body(response);
-        }
-        
         try {
+            // 권한 체크
+            User user = getCurrentUser();
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("로그인이 필요합니다."));
+            }
+            
+            if (!hasSchoolPermission(user, schoolId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error("해당 학교에 대한 권한이 없습니다."));
+            }
+            
+            // 평면도 저장
             boolean success = floorPlanService.saveFloorPlan(schoolId, floorPlanData);
             
             if (success) {
-                response.put("success", true);
-                response.put("message", "평면도가 성공적으로 저장되었습니다.");
+                return ResponseEntity.ok(ApiResponse.success("평면도가 성공적으로 저장되었습니다."));
             } else {
-                response.put("success", false);
-                response.put("message", "평면도 저장에 실패했습니다.");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("평면도 저장에 실패했습니다."));
             }
             
+        } catch (IllegalArgumentException e) {
+            logger.warn("평면도 저장 실패 - 잘못된 요청: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(e.getMessage()));
+                
         } catch (Exception e) {
-            e.printStackTrace();
-            response.put("success", false);
-            response.put("message", "평면도 저장 중 오류가 발생했습니다: " + e.getMessage());
+            logger.error("평면도 저장 실패 - schoolId: {}", schoolId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("평면도 저장 중 오류가 발생했습니다: " + e.getMessage()));
         }
-        
-        return ResponseEntity.ok(response);
     }
     
     /**
-     * 평면도 로드 API
+     * 평면도 삭제
+     * DELETE /floorplan/api/schools/{schoolId}
      */
-    @GetMapping("/load")
+    @DeleteMapping("/api/schools/{schoolId}")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> loadFloorPlan(@RequestParam Long schoolId) {
-        
-        // 권한 체크
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            Map<String, Object> response = new java.util.HashMap<>();
-            response.put("error", "로그인이 필요합니다.");
-            return ResponseEntity.status(401).body(response);
-        }
-        
-        User user = userService.findByUsername(auth.getName()).orElse(null);
-        if (user == null) {
-            Map<String, Object> response = new java.util.HashMap<>();
-            response.put("error", "사용자를 찾을 수 없습니다.");
-            return ResponseEntity.status(401).body(response);
-        }
-        
-        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
-        if (checkedUser == null) {
-            Map<String, Object> response = new java.util.HashMap<>();
-            response.put("error", "해당 학교에 대한 권한이 없습니다.");
-            return ResponseEntity.status(403).body(response);
-        }
-        
-        Map<String, Object> response = floorPlanService.loadFloorPlan(schoolId);
-        
-        return ResponseEntity.ok(response);
-    }
-    
-    /**
-     * 평면도 존재 여부 확인 API
-     */
-    @GetMapping("/exists")
-    @ResponseBody
-    public ResponseEntity<Map<String, Object>> checkFloorPlanExists(@RequestParam Long schoolId) {
-        
-        Map<String, Object> response = new java.util.HashMap<>();
-        
-        // 권한 체크
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            response.put("error", "로그인이 필요합니다.");
-            return ResponseEntity.status(401).body(response);
-        }
-        
-        User user = userService.findByUsername(auth.getName()).orElse(null);
-        if (user == null) {
-            response.put("error", "사용자를 찾을 수 없습니다.");
-            return ResponseEntity.status(401).body(response);
-        }
-        
-        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
-        if (checkedUser == null) {
-            response.put("error", "해당 학교에 대한 권한이 없습니다.");
-            return ResponseEntity.status(403).body(response);
-        }
-        
+    public ResponseEntity<ApiResponse> deleteFloorPlan(@PathVariable Long schoolId) {
         try {
-            boolean exists = floorPlanService.hasFloorPlan(schoolId);
-            response.put("success", true);
-            response.put("exists", exists);
+            // 권한 체크
+            User user = getCurrentUser();
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("로그인이 필요합니다."));
+            }
             
-        } catch (Exception e) {
-            e.printStackTrace();
-            response.put("success", false);
-            response.put("message", "평면도 확인 중 오류가 발생했습니다: " + e.getMessage());
-        }
-        
-        return ResponseEntity.ok(response);
-    }
-    
-    /**
-     * 평면도 삭제 API
-     */
-    @DeleteMapping("/delete")
-    @ResponseBody
-    public ResponseEntity<Map<String, Object>> deleteFloorPlan(@RequestParam Long schoolId) {
-        
-        Map<String, Object> response = new java.util.HashMap<>();
-        
-        // 권한 체크
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            response.put("error", "로그인이 필요합니다.");
-            return ResponseEntity.status(401).body(response);
-        }
-        
-        User user = userService.findByUsername(auth.getName()).orElse(null);
-        if (user == null) {
-            response.put("error", "사용자를 찾을 수 없습니다.");
-            return ResponseEntity.status(401).body(response);
-        }
-        
-        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
-        if (checkedUser == null) {
-            response.put("error", "해당 학교에 대한 권한이 없습니다.");
-            return ResponseEntity.status(403).body(response);
-        }
-        
-        try {
+            if (!hasSchoolPermission(user, schoolId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error("해당 학교에 대한 권한이 없습니다."));
+            }
+            
+            // 평면도 삭제
             boolean success = floorPlanService.deleteFloorPlan(schoolId);
             
             if (success) {
-                response.put("success", true);
-                response.put("message", "평면도가 성공적으로 삭제되었습니다.");
+                return ResponseEntity.ok(ApiResponse.success("평면도가 성공적으로 삭제되었습니다."));
             } else {
-                response.put("success", false);
-                response.put("message", "평면도 삭제에 실패했습니다.");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("평면도 삭제에 실패했습니다."));
             }
             
         } catch (Exception e) {
-            e.printStackTrace();
-            response.put("success", false);
-            response.put("message", "평면도 삭제 중 오류가 발생했습니다: " + e.getMessage());
+            logger.error("평면도 삭제 실패 - schoolId: {}", schoolId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("평면도 삭제 중 오류가 발생했습니다: " + e.getMessage()));
         }
-        
-        return ResponseEntity.ok(response);
     }
     
     /**
-     * 교실별 장비 정보 조회 API
+     * 평면도 존재 여부 확인
+     * GET /floorplan/api/schools/{schoolId}/exists
+     */
+    @GetMapping("/api/schools/{schoolId}/exists")
+    @ResponseBody
+    public ResponseEntity<ApiResponse> checkFloorPlanExists(@PathVariable Long schoolId) {
+        try {
+            // 권한 체크
+            User user = getCurrentUser();
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("로그인이 필요합니다."));
+            }
+            
+            if (!hasSchoolPermission(user, schoolId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error("해당 학교에 대한 권한이 없습니다."));
+            }
+            
+            boolean exists = floorPlanService.hasFloorPlan(schoolId);
+            Map<String, Object> data = Map.of("exists", exists);
+            
+            return ResponseEntity.ok(ApiResponse.success(data));
+            
+        } catch (Exception e) {
+            logger.error("평면도 존재 확인 실패 - schoolId: {}", schoolId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("평면도 확인 중 오류가 발생했습니다: " + e.getMessage()));
+        }
+    }
+    
+    // ===== 하위 호환성을 위한 기존 API =====
+    
+    /**
+     * 기존 API: 평면도 저장
+     * POST /floorplan/save?schoolId={schoolId}
+     */
+    @PostMapping("/save")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> saveFloorPlanLegacy(
+            @RequestParam Long schoolId,
+            @RequestBody Map<String, Object> floorPlanData) {
+        
+        ResponseEntity<ApiResponse> response = saveFloorPlan(schoolId, floorPlanData);
+        return ResponseEntity.status(response.getStatusCode())
+            .body(response.getBody().toMap());
+    }
+    
+    /**
+     * 기존 API: 평면도 로드
+     * GET /floorplan/load?schoolId={schoolId}
+     */
+    @GetMapping("/load")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> loadFloorPlanLegacy(@RequestParam Long schoolId) {
+        ResponseEntity<ApiResponse> response = getFloorPlan(schoolId);
+        return ResponseEntity.status(response.getStatusCode())
+            .body(response.getBody().toMap());
+    }
+    
+    /**
+     * 기존 API: 평면도 존재 여부
+     * GET /floorplan/exists?schoolId={schoolId}
+     */
+    @GetMapping("/exists")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> checkFloorPlanExistsLegacy(@RequestParam Long schoolId) {
+        ResponseEntity<ApiResponse> response = checkFloorPlanExists(schoolId);
+        return ResponseEntity.status(response.getStatusCode())
+            .body(response.getBody().toMap());
+    }
+    
+    /**
+     * 기존 API: 평면도 삭제
+     * DELETE /floorplan/delete?schoolId={schoolId}
+     */
+    @DeleteMapping("/delete")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> deleteFloorPlanLegacy(@RequestParam Long schoolId) {
+        ResponseEntity<ApiResponse> response = deleteFloorPlan(schoolId);
+        return ResponseEntity.status(response.getStatusCode())
+            .body(response.getBody().toMap());
+    }
+    
+    /**
+     * 기존 API: 학교별 평면도 데이터 조회
+     * GET /floorplan/api/school/{schoolId}
+     */
+    @GetMapping("/api/school/{schoolId}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getSchoolFloorPlanLegacy(@PathVariable Long schoolId) {
+        try {
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "권한이 없습니다.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+            }
+            
+            Map<String, Object> floorPlanData = floorPlanService.getSchoolFloorPlan(schoolId);
+            return ResponseEntity.ok(floorPlanData);
+            
+        } catch (Exception e) {
+            logger.error("평면도 데이터 조회 실패", e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "평면도 데이터 조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+    
+    // ===== 교실/장비 관련 API =====
+    
+    /**
+     * 교실별 장비 정보 조회
+     * GET /floorplan/api/classroom/{classroomId}/devices
      */
     @GetMapping("/api/classroom/{classroomId}/devices")
     @ResponseBody
@@ -335,26 +335,25 @@ public class FloorPlanController {
         try {
             List<Device> devices = deviceService.findByClassroom(classroomId);
             
-            // 장비 타입별로 개수 집계
             Map<String, Long> typeCounts = devices.stream()
                 .collect(Collectors.groupingBy(
                     Device::getType,
                     Collectors.counting()
                 ));
             
-            // Long을 Integer로 변환
             typeCounts.forEach((type, count) -> deviceCounts.put(type, count.intValue()));
             
             return ResponseEntity.ok(deviceCounts);
             
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.ok(deviceCounts); // 빈 맵 반환
+            logger.error("교실 장비 조회 실패 - classroomId: {}", classroomId, e);
+            return ResponseEntity.ok(deviceCounts);
         }
     }
     
     /**
-     * 여러 교실의 장비 정보 배치 조회 API (성능 최적화)
+     * 여러 교실의 장비 정보 배치 조회
+     * POST /floorplan/api/classrooms/devices/batch
      */
     @PostMapping("/api/classrooms/devices/batch")
     @ResponseBody
@@ -369,19 +368,16 @@ public class FloorPlanController {
                 return ResponseEntity.ok(response);
             }
             
-            // 각 교실별로 장비 조회 (기존 메서드 활용)
             for (Long classroomId : classroomIds) {
                 try {
                     List<Device> devices = deviceService.findByClassroom(classroomId);
                     
-                    // 장비 타입별로 개수 집계
                     Map<String, Long> typeCounts = devices.stream()
                         .collect(Collectors.groupingBy(
                             Device::getType,
                             Collectors.counting()
                         ));
                     
-                    // 응답 형식으로 변환
                     Map<String, Integer> deviceCounts = new HashMap<>();
                     typeCounts.forEach((type, count) -> 
                         deviceCounts.put(type, count.intValue()));
@@ -389,7 +385,6 @@ public class FloorPlanController {
                     response.put(classroomId.toString(), deviceCounts);
                     
                 } catch (Exception e) {
-                    // 개별 교실 조회 실패 시 빈 맵으로 처리
                     response.put(classroomId.toString(), new HashMap<>());
                 }
             }
@@ -397,12 +392,15 @@ public class FloorPlanController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.ok(response); // 빈 맵 반환
+            logger.error("교실 장비 배치 조회 실패", e);
+            return ResponseEntity.ok(response);
         }
     }
     
-    // 교실 배치 정보 조회 API (평면도 뷰어용)
+    /**
+     * 교실 배치 정보 조회
+     * POST /floorplan/api/classrooms/batch
+     */
     @PostMapping("/api/classrooms/batch")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> getClassroomsBatch(
@@ -416,7 +414,6 @@ public class FloorPlanController {
                 return ResponseEntity.ok(response);
             }
             
-            // 각 교실별로 정보 조회
             for (Long classroomId : classroomIds) {
                 try {
                     Optional<Classroom> classroomOpt = classroomService.getClassroomById(classroomId);
@@ -425,12 +422,12 @@ public class FloorPlanController {
                         Map<String, Object> classroomInfo = new HashMap<>();
                         classroomInfo.put("roomName", classroom.getRoomName());
                         classroomInfo.put("classroomId", classroom.getClassroomId());
-                        classroomInfo.put("schoolId", classroom.getSchool() != null ? classroom.getSchool().getSchoolId() : null);
+                        classroomInfo.put("schoolId", classroom.getSchool() != null ? 
+                            classroom.getSchool().getSchoolId() : null);
                         
                         response.put(classroomId.toString(), classroomInfo);
                     }
                 } catch (Exception e) {
-                    // 개별 교실 조회 실패 시 빈 맵으로 처리
                     response.put(classroomId.toString(), new HashMap<>());
                 }
             }
@@ -438,57 +435,45 @@ public class FloorPlanController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.ok(response); // 빈 맵 반환
+            logger.error("교실 배치 조회 실패", e);
+            return ResponseEntity.ok(response);
         }
     }
     
     /**
-     * 평면도 PPT 내보내기 API
+     * PPT 내보내기
+     * GET /floorplan/export/ppt?schoolId={schoolId}
      */
     @GetMapping("/export/ppt")
     @ResponseBody
     public ResponseEntity<byte[]> exportToPPT(@RequestParam Long schoolId) {
-        // 권한 체크
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return ResponseEntity.status(401).body("로그인이 필요합니다.".getBytes());
-        }
-        
-        User user = userService.findByUsername(auth.getName()).orElse(null);
-        if (user == null) {
-            return ResponseEntity.status(401).body("사용자를 찾을 수 없습니다.".getBytes());
-        }
-        
-        User checkedUser = permissionHelper.checkSchoolPermission(user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null);
-        if (checkedUser == null) {
-            return ResponseEntity.status(403).body("해당 학교에 대한 권한이 없습니다.".getBytes());
-        }
-        
         try {
-            // 학교 정보 조회 (파일명에 사용)
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("권한이 없습니다.".getBytes());
+            }
+            
             Optional<School> schoolOpt = schoolService.findById(schoolId);
             if (!schoolOpt.isPresent()) {
-                return ResponseEntity.status(404).body("학교를 찾을 수 없습니다.".getBytes());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("학교를 찾을 수 없습니다.".getBytes());
             }
             
             School school = schoolOpt.get();
             
-            // PPT 파일 생성
             java.io.ByteArrayOutputStream pptStream = pptExportService.exportFloorPlanToPPT(schoolId);
             byte[] pptBytes = pptStream.toByteArray();
             
-            // 파일명 생성 (평면도_학교명_날짜.pptx)
             String fileName = String.format("평면도_%s_%s.pptx", 
                 school.getSchoolName(),
-                java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+                java.time.LocalDateTime.now().format(
+                    java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
             );
             
-            // 파일명을 URL 인코딩 (한글 파일명 처리)
             String encodedFileName = java.net.URLEncoder.encode(fileName, "UTF-8")
                 .replaceAll("\\+", "%20");
             
-            // HTTP 헤더 설정
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             headers.setContentType(org.springframework.http.MediaType.parseMediaType(
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation"));
@@ -500,10 +485,97 @@ public class FloorPlanController {
                 .body(pptBytes);
                 
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("PPT 내보내기 실패 - schoolId: {}", schoolId, e);
             String errorMessage = "PPT 파일 생성 중 오류가 발생했습니다: " + e.getMessage();
-            return ResponseEntity.status(500).body(errorMessage.getBytes());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(errorMessage.getBytes());
         }
     }
-
-} 
+    
+    // ===== 유틸리티 메서드 =====
+    
+    /**
+     * 현재 사용자 조회
+     */
+    private User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return null;
+        }
+        return userService.findByUsername(auth.getName()).orElse(null);
+    }
+    
+    /**
+     * 학교 권한 확인
+     */
+    private boolean hasSchoolPermission(User user, Long schoolId) {
+        return permissionHelper.checkSchoolPermission(
+            user, Feature.FLOORPLAN_MANAGEMENT, schoolId, null) != null;
+    }
+    
+    /**
+     * 권한 체크 (리다이렉트용)
+     */
+    private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            redirectAttributes.addFlashAttribute("error", "로그인이 필요합니다.");
+            return null;
+        }
+        
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "사용자를 찾을 수 없습니다.");
+            return null;
+        }
+        
+        return permissionHelper.checkFeaturePermission(user, feature, redirectAttributes);
+    }
+    
+    /**
+     * API 응답 표준화 클래스
+     */
+    public static class ApiResponse {
+        private boolean success;
+        private String message;
+        private Object data;
+        
+        public ApiResponse(boolean success, String message, Object data) {
+            this.success = success;
+            this.message = message;
+            this.data = data;
+        }
+        
+        public static ApiResponse success(Object data) {
+            return new ApiResponse(true, null, data);
+        }
+        
+        public static ApiResponse success(String message) {
+            return new ApiResponse(true, message, null);
+        }
+        
+        public static ApiResponse error(String message) {
+            return new ApiResponse(false, message, null);
+        }
+        
+        public Map<String, Object> toMap() {
+            Map<String, Object> map = new HashMap<>();
+            map.put("success", success);
+            if (message != null) {
+                map.put("message", message);
+            }
+            if (data != null) {
+                if (data instanceof Map) {
+                    map.putAll((Map<String, Object>) data);
+                } else {
+                    map.put("data", data);
+                }
+            }
+            return map;
+        }
+        
+        public boolean isSuccess() { return success; }
+        public String getMessage() { return message; }
+        public Object getData() { return data; }
+    }
+}

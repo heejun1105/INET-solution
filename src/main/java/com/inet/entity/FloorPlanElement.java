@@ -3,8 +3,16 @@ package com.inet.entity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
+/**
+ * 평면도 요소 엔티티
+ * 평면도에 배치된 모든 요소(건물, 교실, 무선AP, 도형 등)를 표현
+ */
 @Entity
-@Table(name = "floor_plan_elements")
+@Table(name = "floor_plan_elements", indexes = {
+    @Index(name = "idx_floor_plan_id", columnList = "floor_plan_id"),
+    @Index(name = "idx_element_type", columnList = "element_type"),
+    @Index(name = "idx_reference_id", columnList = "reference_id")
+})
 public class FloorPlanElement {
     
     @Id
@@ -14,12 +22,13 @@ public class FloorPlanElement {
     @Column(name = "floor_plan_id", nullable = false)
     private Long floorPlanId;
     
-    @Column(name = "element_type", nullable = false)
+    @Column(name = "element_type", nullable = false, length = 50)
     private String elementType; // room, building, wireless_ap, shape, other_space
     
     @Column(name = "reference_id")
     private Long referenceId; // 기존 엔티티의 ID (교실, 건물, 무선AP 등)
     
+    // 위치 및 크기 정보 (구조화된 필드)
     @Column(name = "x_coordinate", nullable = false)
     private Double xCoordinate;
     
@@ -35,8 +44,66 @@ public class FloorPlanElement {
     @Column(name = "z_index")
     private Integer zIndex;
     
+    @Column(name = "rotation")
+    private Double rotation; // 회전 각도 (도)
+    
+    // 스타일 정보 (구조화된 필드)
+    @Column(name = "color", length = 50)
+    private String color;
+    
+    @Column(name = "background_color", length = 50)
+    private String backgroundColor;
+    
+    @Column(name = "border_color", length = 50)
+    private String borderColor;
+    
+    @Column(name = "border_width")
+    private Double borderWidth;
+    
+    @Column(name = "opacity")
+    private Double opacity;
+    
+    // 도형 전용 필드
+    @Column(name = "shape_type", length = 50)
+    private String shapeType; // rectangle, circle, ellipse, line, arrow, text
+    
+    @Column(name = "text_content", columnDefinition = "TEXT")
+    private String textContent; // 텍스트 요소의 내용
+    
+    @Column(name = "font_size")
+    private Integer fontSize;
+    
+    @Column(name = "font_family", length = 100)
+    private String fontFamily;
+    
+    // 선 도형 전용 필드
+    @Column(name = "start_x")
+    private Double startX;
+    
+    @Column(name = "start_y")
+    private Double startY;
+    
+    @Column(name = "end_x")
+    private Double endX;
+    
+    @Column(name = "end_y")
+    private Double endY;
+    
+    // 라벨 정보
+    @Column(name = "label", length = 255)
+    private String label; // 요소에 표시될 라벨
+    
+    @Column(name = "show_label")
+    private Boolean showLabel; // 라벨 표시 여부
+    
+    // 추가 메타데이터 (복잡한 데이터는 여전히 JSON으로 저장)
     @Column(name = "element_data", columnDefinition = "TEXT")
-    private String elementData; // JSON 형태의 추가 데이터 (도형 정보, 스타일 등)
+    private String elementData; // JSON 형태의 추가 데이터
+    
+    // 버전 관리 (낙관적 락)
+    @Version
+    @Column(name = "version")
+    private Long version;
     
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -145,6 +212,142 @@ public class FloorPlanElement {
     
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+    
+    public Double getRotation() {
+        return rotation;
+    }
+    
+    public void setRotation(Double rotation) {
+        this.rotation = rotation;
+    }
+    
+    public String getColor() {
+        return color;
+    }
+    
+    public void setColor(String color) {
+        this.color = color;
+    }
+    
+    public String getBackgroundColor() {
+        return backgroundColor;
+    }
+    
+    public void setBackgroundColor(String backgroundColor) {
+        this.backgroundColor = backgroundColor;
+    }
+    
+    public String getBorderColor() {
+        return borderColor;
+    }
+    
+    public void setBorderColor(String borderColor) {
+        this.borderColor = borderColor;
+    }
+    
+    public Double getBorderWidth() {
+        return borderWidth;
+    }
+    
+    public void setBorderWidth(Double borderWidth) {
+        this.borderWidth = borderWidth;
+    }
+    
+    public Double getOpacity() {
+        return opacity;
+    }
+    
+    public void setOpacity(Double opacity) {
+        this.opacity = opacity;
+    }
+    
+    public String getShapeType() {
+        return shapeType;
+    }
+    
+    public void setShapeType(String shapeType) {
+        this.shapeType = shapeType;
+    }
+    
+    public String getTextContent() {
+        return textContent;
+    }
+    
+    public void setTextContent(String textContent) {
+        this.textContent = textContent;
+    }
+    
+    public Integer getFontSize() {
+        return fontSize;
+    }
+    
+    public void setFontSize(Integer fontSize) {
+        this.fontSize = fontSize;
+    }
+    
+    public String getFontFamily() {
+        return fontFamily;
+    }
+    
+    public void setFontFamily(String fontFamily) {
+        this.fontFamily = fontFamily;
+    }
+    
+    public Double getStartX() {
+        return startX;
+    }
+    
+    public void setStartX(Double startX) {
+        this.startX = startX;
+    }
+    
+    public Double getStartY() {
+        return startY;
+    }
+    
+    public void setStartY(Double startY) {
+        this.startY = startY;
+    }
+    
+    public Double getEndX() {
+        return endX;
+    }
+    
+    public void setEndX(Double endX) {
+        this.endX = endX;
+    }
+    
+    public Double getEndY() {
+        return endY;
+    }
+    
+    public void setEndY(Double endY) {
+        this.endY = endY;
+    }
+    
+    public String getLabel() {
+        return label;
+    }
+    
+    public void setLabel(String label) {
+        this.label = label;
+    }
+    
+    public Boolean getShowLabel() {
+        return showLabel;
+    }
+    
+    public void setShowLabel(Boolean showLabel) {
+        this.showLabel = showLabel;
+    }
+    
+    public Long getVersion() {
+        return version;
+    }
+    
+    public void setVersion(Long version) {
+        this.version = version;
     }
     
     @PreUpdate

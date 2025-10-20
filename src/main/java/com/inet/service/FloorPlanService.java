@@ -7,16 +7,21 @@ import com.inet.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-import org.springframework.transaction.annotation.Propagation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * 평면도 서비스
+ * 평면도 생성, 조회, 수정, 삭제 기능 제공
+ * 설계모드 캔버스 안정화를 위한 개선된 로직
+ */
 @Service
 public class FloorPlanService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(FloorPlanService.class);
     
     @Autowired
     private FloorPlanRepository floorPlanRepository;
@@ -39,91 +44,136 @@ public class FloorPlanService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     /**
-     * 문자열이 유효한 Long 값인지 확인하는 헬퍼 메서드
-     */
-    private boolean isValidLong(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return false;
-        }
-        try {
-            Long.parseLong(value);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
-    
-    /**
-     * 학교별 평면도 저장
+     * 평면도 저장 (트랜잭션 처리 개선)
+     * @param schoolId 학교 ID
+     * @param floorPlanData 평면도 데이터
+     * @return 성공 여부
      */
     @Transactional
     public boolean saveFloorPlan(Long schoolId, Map<String, Object> floorPlanData) {
-        // 동시 저장 요청 방지를 위한 synchronized 블록
-        synchronized (this) {
-            try {
-                // 학교 존재 확인
-                if (!schoolRepository.existsById(schoolId)) {
-                    throw new RuntimeException("학교를 찾을 수 없습니다: " + schoolId);
-                }
-                
-                // 기존 평면도와 요소들을 완전히 삭제
-                deleteExistingFloorPlansCompletely(schoolId);
-                
-                // 새 평면도 생성
-                FloorPlan floorPlan = new FloorPlan();
-                
-                // 평면도 메타데이터 설정
-                floorPlan.setSchoolId(schoolId);
-                floorPlan.setName("평면도_" + schoolId);
-                floorPlan.setDescription("학교 평면도");
-                floorPlan.setCanvasWidth(4000);
-                floorPlan.setCanvasHeight(2500);
-                floorPlan.setZoomLevel(1.0);
-                floorPlan.setIsActive(true);
-                
-                // 평면도 저장
-                floorPlan = floorPlanRepository.save(floorPlan);
-                
-                // 새로운 요소들 저장
-                saveFloorPlanElements(floorPlan.getId(), floorPlanData);
-                
-                return true;
-                
-            } catch (Exception e) {
-                e.printStackTrace();
-                return false;
-            }
+        try {
+            logger.info("평면도 저장 시작 - schoolId: {}", schoolId);
+            
+            // 1. 데이터 검증
+            validateFloorPlanData(schoolId, floorPlanData);
+            
+            // 2. 기존 평면도 조회 또는 새로 생성
+            FloorPlan floorPlan = getOrCreateFloorPlan(schoolId);
+            
+            // 3. 평면도 메타데이터 업데이트
+            updateFloorPlanMetadata(floorPlan, floorPlanData);
+            
+            // 4. 평면도 저장
+            floorPlan = floorPlanRepository.save(floorPlan);
+            
+            // 5. 기존 요소들 삭제
+            floorPlanElementRepository.deleteByFloorPlanId(floorPlan.getId());
+            
+            // 6. 새 요소들 저장
+            saveFloorPlanElements(floorPlan.getId(), floorPlanData);
+            
+            logger.info("평면도 저장 완료 - schoolId: {}, floorPlanId: {}", schoolId, floorPlan.getId());
+            return true;
+            
+        } catch (Exception e) {
+            logger.error("평면도 저장 실패 - schoolId: {}", schoolId, e);
+            throw new RuntimeException("평면도 저장 중 오류가 발생했습니다: " + e.getMessage(), e);
         }
     }
     
     /**
-     * 기존 평면도와 요소들을 완전히 삭제
+     * 평면도 데이터 검증
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void deleteExistingFloorPlansCompletely(Long schoolId) {
-        try {
-            // 학교의 모든 평면도 조회 (활성/비활성 모두)
-            List<FloorPlan> allPlans = floorPlanRepository.findAllBySchoolId(schoolId);
-            
-            for (FloorPlan plan : allPlans) {
-                try {
-                    // 평면도 요소들을 먼저 삭제
-                    floorPlanElementRepository.deleteByFloorPlanId(plan.getId());
-                    
-                    // 평면도 삭제 전에 다시 조회하여 존재하는지 확인
-                    FloorPlan planToDelete = floorPlanRepository.findById(plan.getId()).orElse(null);
-                    if (planToDelete != null) {
-                        floorPlanRepository.delete(planToDelete);
-                    }
-                } catch (Exception e) {
-                    // 개별 삭제 실패 시 무시하고 계속 진행
-                    System.err.println("평면도 삭제 중 오류 (ID: " + plan.getId() + "): " + e.getMessage());
+    private void validateFloorPlanData(Long schoolId, Map<String, Object> floorPlanData) {
+        // 학교 존재 확인
+        if (!schoolRepository.existsById(schoolId)) {
+            throw new IllegalArgumentException("존재하지 않는 학교입니다: " + schoolId);
+        }
+        
+        // 데이터 유효성 검증
+        if (floorPlanData == null || floorPlanData.isEmpty()) {
+            throw new IllegalArgumentException("평면도 데이터가 비어있습니다");
+        }
+        
+        logger.debug("평면도 데이터 검증 완료 - schoolId: {}", schoolId);
+    }
+    
+    /**
+     * 기존 평면도 조회 또는 새로 생성
+     */
+    private FloorPlan getOrCreateFloorPlan(Long schoolId) {
+        List<FloorPlan> activePlans = floorPlanRepository.findAllBySchoolIdAndIsActive(schoolId, true);
+        
+        if (!activePlans.isEmpty()) {
+            // 기존 평면도가 여러 개면 가장 최근 것만 활성화
+            if (activePlans.size() > 1) {
+                activePlans.sort((a, b) -> b.getUpdatedAt().compareTo(a.getUpdatedAt()));
+                FloorPlan latest = activePlans.get(0);
+                
+                // 나머지는 비활성화
+                for (int i = 1; i < activePlans.size(); i++) {
+                    FloorPlan old = activePlans.get(i);
+                    old.setIsActive(false);
+                    floorPlanRepository.save(old);
                 }
+                
+                return latest;
             }
-            
-        } catch (Exception e) {
-            System.err.println("평면도 삭제 중 전체 오류: " + e.getMessage());
-            // 삭제 실패해도 계속 진행
+            return activePlans.get(0);
+        }
+        
+        // 새로 생성
+        FloorPlan newPlan = new FloorPlan();
+        newPlan.setSchoolId(schoolId);
+        newPlan.setName("평면도_" + schoolId);
+        newPlan.setDescription("학교 평면도");
+        newPlan.setIsActive(true);
+        
+        // 기본 설정
+        newPlan.setCanvasWidth(4000);
+        newPlan.setCanvasHeight(2500);
+        newPlan.setZoomLevel(1.0);
+        newPlan.setPanX(0.0);
+        newPlan.setPanY(0.0);
+        newPlan.setGridSize(20);
+        newPlan.setShowGrid(true);
+        newPlan.setSnapToGrid(true);
+        
+        return newPlan;
+    }
+    
+    /**
+     * 평면도 메타데이터 업데이트
+     */
+    private void updateFloorPlanMetadata(FloorPlan floorPlan, Map<String, Object> data) {
+        // 캔버스 크기
+        if (data.containsKey("canvasWidth")) {
+            floorPlan.setCanvasWidth(getIntValue(data, "canvasWidth", 4000));
+        }
+        if (data.containsKey("canvasHeight")) {
+            floorPlan.setCanvasHeight(getIntValue(data, "canvasHeight", 2500));
+        }
+        
+        // 줌/팬 상태
+        if (data.containsKey("zoomLevel")) {
+            floorPlan.setZoomLevel(getDoubleValue(data, "zoomLevel", 1.0));
+        }
+        if (data.containsKey("panX")) {
+            floorPlan.setPanX(getDoubleValue(data, "panX", 0.0));
+        }
+        if (data.containsKey("panY")) {
+            floorPlan.setPanY(getDoubleValue(data, "panY", 0.0));
+        }
+        
+        // 그리드 설정
+        if (data.containsKey("gridSize")) {
+            floorPlan.setGridSize(getIntValue(data, "gridSize", 20));
+        }
+        if (data.containsKey("showGrid")) {
+            floorPlan.setShowGrid(getBooleanValue(data, "showGrid", true));
+        }
+        if (data.containsKey("snapToGrid")) {
+            floorPlan.setSnapToGrid(getBooleanValue(data, "snapToGrid", true));
         }
     }
     
@@ -131,126 +181,105 @@ public class FloorPlanService {
      * 평면도 요소들 저장
      */
     private void saveFloorPlanElements(Long floorPlanId, Map<String, Object> floorPlanData) {
-        // 교실 요소들 저장
+        int savedCount = 0;
+        
+        // 교실 요소들
         if (floorPlanData.containsKey("rooms")) {
             List<Map<String, Object>> rooms = (List<Map<String, Object>>) floorPlanData.get("rooms");
             for (Map<String, Object> room : rooms) {
                 saveElement(floorPlanId, "room", room);
+                savedCount++;
             }
         }
         
-        // 건물 요소들 저장
+        // 건물 요소들
         if (floorPlanData.containsKey("buildings")) {
             List<Map<String, Object>> buildings = (List<Map<String, Object>>) floorPlanData.get("buildings");
             for (Map<String, Object> building : buildings) {
                 saveElement(floorPlanId, "building", building);
+                savedCount++;
             }
         }
         
-        // 무선AP 요소들 저장
+        // 무선AP 요소들
         if (floorPlanData.containsKey("wirelessAps")) {
             List<Map<String, Object>> wirelessAps = (List<Map<String, Object>>) floorPlanData.get("wirelessAps");
             for (Map<String, Object> wirelessAp : wirelessAps) {
                 saveElement(floorPlanId, "wireless_ap", wirelessAp);
+                savedCount++;
             }
         }
         
-        // 도형 요소들 저장
+        // 도형 요소들
         if (floorPlanData.containsKey("shapes")) {
             List<Map<String, Object>> shapes = (List<Map<String, Object>>) floorPlanData.get("shapes");
             for (Map<String, Object> shape : shapes) {
                 saveElement(floorPlanId, "shape", shape);
+                savedCount++;
             }
         }
         
-        // 기타 공간 요소들 저장
+        // 기타 공간 요소들
         if (floorPlanData.containsKey("otherSpaces")) {
             List<Map<String, Object>> otherSpaces = (List<Map<String, Object>>) floorPlanData.get("otherSpaces");
             for (Map<String, Object> otherSpace : otherSpaces) {
                 saveElement(floorPlanId, "other_space", otherSpace);
+                savedCount++;
             }
         }
+        
+        logger.debug("평면도 요소 저장 완료 - floorPlanId: {}, 요소 수: {}", floorPlanId, savedCount);
     }
     
     /**
-     * 개별 요소 저장
+     * 개별 요소 저장 (개선된 로직)
      */
     private void saveElement(Long floorPlanId, String elementType, Map<String, Object> elementData) {
         FloorPlanElement element = new FloorPlanElement();
         element.setFloorPlanId(floorPlanId);
         element.setElementType(elementType);
         
-        System.out.println("=== 요소 저장 시작 ===");
-        System.out.println("요소 타입: " + elementType);
-        System.out.println("요소 데이터: " + elementData);
+        // 참조 ID 설정 (실제 DB ID만 저장)
+        setReferenceId(element, elementType, elementData);
         
-        // 참조 ID 설정 (null 체크 추가)
-        if (elementType.equals("shape")) {
-            // 도형은 참조 ID가 필요하지 않음
-            System.out.println("도형 요소 - 참조 ID 설정 안함");
-        } else if (elementData.containsKey("classroomId") && elementData.get("classroomId") != null) {
-            String classroomId = elementData.get("classroomId").toString();
-            System.out.println("교실 ID 처리: " + classroomId);
-            if (!classroomId.startsWith("temp-") && !classroomId.startsWith("temp_") && isValidLong(classroomId)) {
-                element.setReferenceId(Long.valueOf(classroomId));
-                System.out.println("교실 참조 ID 설정: " + classroomId);
-            } else {
-                System.out.println("임시 ID 또는 유효하지 않은 ID 무시: " + classroomId);
-            }
-        } else if (elementData.containsKey("buildingId") && elementData.get("buildingId") != null) {
-            String buildingId = elementData.get("buildingId").toString();
-            System.out.println("건물 ID 처리: " + buildingId);
-            if (!buildingId.startsWith("temp-") && !buildingId.startsWith("temp_") && isValidLong(buildingId)) {
-                element.setReferenceId(Long.valueOf(buildingId));
-                System.out.println("건물 참조 ID 설정: " + buildingId);
-            } else {
-                System.out.println("임시 ID 또는 유효하지 않은 ID 무시: " + buildingId);
-            }
-        } else if (elementData.containsKey("wirelessApId") && elementData.get("wirelessApId") != null) {
-            String wirelessApId = elementData.get("wirelessApId").toString();
-            System.out.println("무선AP ID 처리: " + wirelessApId);
-            if (!wirelessApId.startsWith("temp-") && !wirelessApId.startsWith("temp_") && isValidLong(wirelessApId)) {
-                element.setReferenceId(Long.valueOf(wirelessApId));
-                System.out.println("무선AP 참조 ID 설정: " + wirelessApId);
-            } else {
-                System.out.println("임시 ID 또는 유효하지 않은 ID 무시: " + wirelessApId);
-            }
-        } else if (elementData.containsKey("id") && elementData.get("id") != null) {
-            String id = elementData.get("id").toString();
-            System.out.println("일반 ID 처리: " + id);
-            if (!id.startsWith("temp-") && !id.startsWith("temp_") && !id.startsWith("shape_") && isValidLong(id)) {
-                element.setReferenceId(Long.valueOf(id));
-                System.out.println("일반 참조 ID 설정: " + id);
-            } else {
-                System.out.println("임시 ID 또는 유효하지 않은 ID 무시: " + id);
-            }
-        } else {
-            System.out.println("참조 ID 설정 안함 - 유효한 ID 없음");
+        // 위치 및 크기 정보
+        element.setXCoordinate(getDoubleValue(elementData, "xCoordinate", 0.0));
+        element.setYCoordinate(getDoubleValue(elementData, "yCoordinate", 0.0));
+        element.setWidth(getDoubleValue(elementData, "width", null));
+        element.setHeight(getDoubleValue(elementData, "height", null));
+        element.setZIndex(getIntValue(elementData, "zIndex", null));
+        element.setRotation(getDoubleValue(elementData, "rotation", 0.0));
+        
+        // 스타일 정보
+        element.setColor(getStringValue(elementData, "color", null));
+        element.setBackgroundColor(getStringValue(elementData, "backgroundColor", null));
+        element.setBorderColor(getStringValue(elementData, "borderColor", null));
+        element.setBorderWidth(getDoubleValue(elementData, "borderWidth", null));
+        element.setOpacity(getDoubleValue(elementData, "opacity", 1.0));
+        
+        // 도형 전용 정보
+        if ("shape".equals(elementType)) {
+            element.setShapeType(getStringValue(elementData, "shapeType", "rectangle"));
+            element.setTextContent(getStringValue(elementData, "textContent", null));
+            element.setFontSize(getIntValue(elementData, "fontSize", null));
+            element.setFontFamily(getStringValue(elementData, "fontFamily", null));
+            
+            // 선 도형 정보
+            element.setStartX(getDoubleValue(elementData, "startX", null));
+            element.setStartY(getDoubleValue(elementData, "startY", null));
+            element.setEndX(getDoubleValue(elementData, "endX", null));
+            element.setEndY(getDoubleValue(elementData, "endY", null));
         }
         
-        // 위치 정보 설정 (null 체크 추가)
-        Object xCoord = elementData.get("xCoordinate");
-        Object yCoord = elementData.get("yCoordinate");
+        // 라벨 정보
+        element.setLabel(getStringValue(elementData, "label", null));
+        element.setShowLabel(getBooleanValue(elementData, "showLabel", true));
         
-        element.setXCoordinate(xCoord != null ? Double.valueOf(xCoord.toString()) : 0.0);
-        element.setYCoordinate(yCoord != null ? Double.valueOf(yCoord.toString()) : 0.0);
-        
-        if (elementData.containsKey("width") && elementData.get("width") != null) {
-            element.setWidth(Double.valueOf(elementData.get("width").toString()));
-        }
-        
-        if (elementData.containsKey("height") && elementData.get("height") != null) {
-            element.setHeight(Double.valueOf(elementData.get("height").toString()));
-        }
-        
-        if (elementData.containsKey("zIndex") && elementData.get("zIndex") != null) {
-            element.setZIndex(Integer.valueOf(elementData.get("zIndex").toString()));
-        }
-        
-        // 추가 데이터를 JSON으로 저장
+        // 추가 데이터는 JSON으로 저장
         try {
             element.setElementData(objectMapper.writeValueAsString(elementData));
         } catch (JsonProcessingException e) {
+            logger.warn("요소 데이터 JSON 변환 실패", e);
             element.setElementData("{}");
         }
         
@@ -258,36 +287,48 @@ public class FloorPlanService {
     }
     
     /**
-     * 학교별 평면도 로드
+     * 참조 ID 설정 (임시 ID 제외)
      */
+    private void setReferenceId(FloorPlanElement element, String elementType, Map<String, Object> data) {
+        String idKey = switch (elementType) {
+            case "room" -> "classroomId";
+            case "building" -> "buildingId";
+            case "wireless_ap" -> "wirelessApId";
+            default -> "id";
+        };
+        
+        if (data.containsKey(idKey) && data.get(idKey) != null) {
+            String idValue = data.get(idKey).toString();
+            
+            // 임시 ID는 무시 (temp-, temp_, shape_로 시작하는 ID)
+            if (!idValue.startsWith("temp-") && 
+                !idValue.startsWith("temp_") && 
+                !idValue.startsWith("shape_") &&
+                isValidLong(idValue)) {
+                element.setReferenceId(Long.valueOf(idValue));
+            }
+        }
+    }
+    
+    /**
+     * 평면도 로드 (성능 최적화)
+     */
+    @Transactional(readOnly = true)
     public Map<String, Object> loadFloorPlan(Long schoolId) {
         Map<String, Object> result = new HashMap<>();
         
         try {
-            // 평면도 메타데이터 조회 (여러 개가 있을 경우 가장 최근 것 선택)
-            List<FloorPlan> activeFloorPlans = floorPlanRepository.findAllBySchoolIdAndIsActive(schoolId, true);
-            FloorPlan floorPlan = null;
+            logger.info("평면도 로드 시작 - schoolId: {}", schoolId);
             
-            if (activeFloorPlans.isEmpty()) {
+            // 평면도 조회
+            FloorPlan floorPlan = getActiveFloorPlan(schoolId);
+            if (floorPlan == null) {
                 result.put("success", false);
                 result.put("message", "저장된 평면도가 없습니다.");
                 return result;
-            } else if (activeFloorPlans.size() > 1) {
-                // 여러 개의 활성 평면도가 있을 경우 가장 최근 것을 선택하고 나머지는 비활성화
-                activeFloorPlans.sort((a, b) -> b.getUpdatedAt().compareTo(a.getUpdatedAt()));
-                floorPlan = activeFloorPlans.get(0);
-                
-                // 나머지 평면도들을 비활성화
-                for (int i = 1; i < activeFloorPlans.size(); i++) {
-                    FloorPlan oldPlan = activeFloorPlans.get(i);
-                    oldPlan.setIsActive(false);
-                    floorPlanRepository.save(oldPlan);
-                }
-            } else {
-                floorPlan = activeFloorPlans.get(0);
             }
             
-            // 평면도 요소들 조회
+            // 평면도 요소들 조회 (한 번에 가져오기)
             List<FloorPlanElement> elements = floorPlanElementRepository.findByFloorPlanId(floorPlan.getId());
             
             // 결과 구성
@@ -295,8 +336,10 @@ public class FloorPlanService {
             result.put("floorPlan", convertFloorPlanToMap(floorPlan));
             result.put("elements", convertElementsToMap(elements));
             
+            logger.info("평면도 로드 완료 - schoolId: {}, 요소 수: {}", schoolId, elements.size());
+            
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("평면도 로드 실패 - schoolId: {}", schoolId, e);
             result.put("success", false);
             result.put("message", "평면도 로드 중 오류가 발생했습니다: " + e.getMessage());
         }
@@ -305,7 +348,25 @@ public class FloorPlanService {
     }
     
     /**
-     * FloorPlan 엔티티를 Map으로 변환
+     * 활성 평면도 조회
+     */
+    private FloorPlan getActiveFloorPlan(Long schoolId) {
+        List<FloorPlan> activePlans = floorPlanRepository.findAllBySchoolIdAndIsActive(schoolId, true);
+        
+        if (activePlans.isEmpty()) {
+            return null;
+        }
+        
+        if (activePlans.size() > 1) {
+            // 여러 개면 가장 최근 것 반환
+            activePlans.sort((a, b) -> b.getUpdatedAt().compareTo(a.getUpdatedAt()));
+        }
+        
+        return activePlans.get(0);
+    }
+    
+    /**
+     * FloorPlan을 Map으로 변환
      */
     private Map<String, Object> convertFloorPlanToMap(FloorPlan floorPlan) {
         Map<String, Object> map = new HashMap<>();
@@ -316,6 +377,12 @@ public class FloorPlanService {
         map.put("canvasWidth", floorPlan.getCanvasWidth());
         map.put("canvasHeight", floorPlan.getCanvasHeight());
         map.put("zoomLevel", floorPlan.getZoomLevel());
+        map.put("panX", floorPlan.getPanX());
+        map.put("panY", floorPlan.getPanY());
+        map.put("gridSize", floorPlan.getGridSize());
+        map.put("showGrid", floorPlan.getShowGrid());
+        map.put("snapToGrid", floorPlan.getSnapToGrid());
+        map.put("version", floorPlan.getVersion());
         map.put("createdAt", floorPlan.getCreatedAt());
         map.put("updatedAt", floorPlan.getUpdatedAt());
         return map;
@@ -325,29 +392,64 @@ public class FloorPlanService {
      * FloorPlanElement 리스트를 Map 리스트로 변환
      */
     private List<Map<String, Object>> convertElementsToMap(List<FloorPlanElement> elements) {
-        if (elements == null) {
+        if (elements == null || elements.isEmpty()) {
             return new ArrayList<>();
         }
         
         return elements.stream().map(element -> {
             Map<String, Object> map = new HashMap<>();
+            
+            // 기본 정보
             map.put("id", element.getId());
             map.put("elementType", element.getElementType());
             map.put("referenceId", element.getReferenceId());
+            
+            // 위치 및 크기
             map.put("xCoordinate", element.getXCoordinate());
             map.put("yCoordinate", element.getYCoordinate());
             map.put("width", element.getWidth());
             map.put("height", element.getHeight());
             map.put("zIndex", element.getZIndex());
+            map.put("rotation", element.getRotation());
             
-            // JSON 데이터 파싱
+            // 스타일
+            map.put("color", element.getColor());
+            map.put("backgroundColor", element.getBackgroundColor());
+            map.put("borderColor", element.getBorderColor());
+            map.put("borderWidth", element.getBorderWidth());
+            map.put("opacity", element.getOpacity());
+            
+            // 도형 정보
+            if ("shape".equals(element.getElementType())) {
+                map.put("shapeType", element.getShapeType());
+                map.put("textContent", element.getTextContent());
+                map.put("fontSize", element.getFontSize());
+                map.put("fontFamily", element.getFontFamily());
+                map.put("startX", element.getStartX());
+                map.put("startY", element.getStartY());
+                map.put("endX", element.getEndX());
+                map.put("endY", element.getEndY());
+            }
+            
+            // 라벨
+            map.put("label", element.getLabel());
+            map.put("showLabel", element.getShowLabel());
+            
+            // 버전
+            map.put("version", element.getVersion());
+            
+            // JSON 데이터 병합
             try {
                 if (element.getElementData() != null && !element.getElementData().isEmpty()) {
-                    Map<String, Object> elementData = objectMapper.readValue(element.getElementData(), Map.class);
-                    map.putAll(elementData);
+                    Map<String, Object> additionalData = objectMapper.readValue(
+                        element.getElementData(), 
+                        Map.class
+                    );
+                    // 기존 필드와 중복되지 않는 데이터만 추가
+                    additionalData.forEach((key, value) -> map.putIfAbsent(key, value));
                 }
             } catch (JsonProcessingException e) {
-                // JSON 파싱 실패 시 기본 데이터만 사용
+                logger.warn("요소 데이터 JSON 파싱 실패 - elementId: {}", element.getId(), e);
             }
             
             return map;
@@ -355,40 +457,44 @@ public class FloorPlanService {
     }
     
     /**
-     * 학교별 평면도 존재 여부 확인
+     * 평면도 존재 여부 확인
      */
+    @Transactional(readOnly = true)
     public boolean hasFloorPlan(Long schoolId) {
         List<FloorPlan> activePlans = floorPlanRepository.findAllBySchoolIdAndIsActive(schoolId, true);
         return !activePlans.isEmpty();
     }
     
     /**
-     * 학교별 평면도 삭제
+     * 평면도 삭제
      */
     @Transactional
     public boolean deleteFloorPlan(Long schoolId) {
         try {
+            logger.info("평면도 삭제 시작 - schoolId: {}", schoolId);
+            
             List<FloorPlan> activePlans = floorPlanRepository.findAllBySchoolIdAndIsActive(schoolId, true);
             
             for (FloorPlan floorPlan : activePlans) {
-                // 요소들 삭제
+                // 요소들 먼저 삭제
                 floorPlanElementRepository.deleteByFloorPlanId(floorPlan.getId());
                 // 평면도 삭제
                 floorPlanRepository.delete(floorPlan);
             }
             
+            logger.info("평면도 삭제 완료 - schoolId: {}", schoolId);
             return true;
+            
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("평면도 삭제 실패 - schoolId: {}", schoolId, e);
             return false;
         }
     }
     
-
-    
     /**
      * 기존 API 호환성을 위한 학교별 평면도 데이터 조회
      */
+    @Transactional(readOnly = true)
     public Map<String, Object> getSchoolFloorPlan(Long schoolId) {
         Map<String, Object> result = new HashMap<>();
         
@@ -401,14 +507,71 @@ public class FloorPlanService {
             List<Classroom> classrooms = classroomRepository.findBySchoolSchoolIdOrderByRoomNameAsc(schoolId);
             result.put("rooms", classrooms);
             
-            // 무선AP 조회 (학교별 조회 메서드가 없으므로 빈 리스트로 설정)
+            // 무선AP 조회
             result.put("wirelessAps", new ArrayList<>());
             
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("평면도 데이터 조회 실패 - schoolId: {}", schoolId, e);
             result.put("error", "평면도 데이터 조회 중 오류가 발생했습니다: " + e.getMessage());
         }
         
         return result;
     }
-} 
+    
+    // ===== 유틸리티 메서드 =====
+    
+    private boolean isValidLong(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            Long.parseLong(value);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+    
+    private Integer getIntValue(Map<String, Object> map, String key, Integer defaultValue) {
+        if (!map.containsKey(key) || map.get(key) == null) {
+            return defaultValue;
+        }
+        Object value = map.get(key);
+        if (value instanceof Integer) {
+            return (Integer) value;
+        }
+        return Integer.valueOf(value.toString());
+    }
+    
+    private Double getDoubleValue(Map<String, Object> map, String key, Double defaultValue) {
+        if (!map.containsKey(key) || map.get(key) == null) {
+            return defaultValue;
+        }
+        Object value = map.get(key);
+        if (value instanceof Double) {
+            return (Double) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        return Double.valueOf(value.toString());
+    }
+    
+    private String getStringValue(Map<String, Object> map, String key, String defaultValue) {
+        if (!map.containsKey(key) || map.get(key) == null) {
+            return defaultValue;
+        }
+        return map.get(key).toString();
+    }
+    
+    private Boolean getBooleanValue(Map<String, Object> map, String key, Boolean defaultValue) {
+        if (!map.containsKey(key) || map.get(key) == null) {
+            return defaultValue;
+        }
+        Object value = map.get(key);
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        return Boolean.valueOf(value.toString());
+    }
+}

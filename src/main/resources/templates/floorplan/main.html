@@ -482,6 +482,14 @@
     <div id="notificationContainer"></div>
 
     <!-- JavaScript 모듈들 -->
-    <script type="module" src="/js/floorplan/main.js"></script>
+    <!-- 새로운 평면도 시스템 (재구축 버전) -->
+    <script type="module" src="/js/floorplan/main_new_v2.js"></script>
+    
+    <!-- 학교 데이터 주입 (Thymeleaf) -->
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const schools = /*[[${schools}]]*/ [];
+        /*]]>*/
+    </script>
 </body>
 </html> 

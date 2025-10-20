@@ -3,8 +3,14 @@ package com.inet.entity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
+/**
+ * 평면도 엔티티
+ * 학교별 평면도 메타데이터를 관리
+ */
 @Entity
-@Table(name = "floor_plans")
+@Table(name = "floor_plans", indexes = {
+    @Index(name = "idx_school_active", columnList = "school_id,is_active")
+})
 public class FloorPlan {
     
     @Id
@@ -14,12 +20,13 @@ public class FloorPlan {
     @Column(name = "school_id", nullable = false)
     private Long schoolId;
     
-    @Column(name = "name", nullable = false)
+    @Column(name = "name", nullable = false, length = 200)
     private String name;
     
-    @Column(name = "description")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
     
+    // 캔버스 설정
     @Column(name = "canvas_width")
     private Integer canvasWidth;
     
@@ -28,6 +35,28 @@ public class FloorPlan {
     
     @Column(name = "zoom_level")
     private Double zoomLevel;
+    
+    // 패닝 위치 (뷰포트 중심)
+    @Column(name = "pan_x")
+    private Double panX;
+    
+    @Column(name = "pan_y")
+    private Double panY;
+    
+    // 그리드 설정
+    @Column(name = "grid_size")
+    private Integer gridSize;
+    
+    @Column(name = "show_grid")
+    private Boolean showGrid;
+    
+    @Column(name = "snap_to_grid")
+    private Boolean snapToGrid;
+    
+    // 버전 관리 (낙관적 락)
+    @Version
+    @Column(name = "version")
+    private Long version;
     
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -123,6 +152,54 @@ public class FloorPlan {
     
     public void setIsActive(Boolean isActive) {
         this.isActive = isActive;
+    }
+    
+    public Double getPanX() {
+        return panX;
+    }
+    
+    public void setPanX(Double panX) {
+        this.panX = panX;
+    }
+    
+    public Double getPanY() {
+        return panY;
+    }
+    
+    public void setPanY(Double panY) {
+        this.panY = panY;
+    }
+    
+    public Integer getGridSize() {
+        return gridSize;
+    }
+    
+    public void setGridSize(Integer gridSize) {
+        this.gridSize = gridSize;
+    }
+    
+    public Boolean getShowGrid() {
+        return showGrid;
+    }
+    
+    public void setShowGrid(Boolean showGrid) {
+        this.showGrid = showGrid;
+    }
+    
+    public Boolean getSnapToGrid() {
+        return snapToGrid;
+    }
+    
+    public void setSnapToGrid(Boolean snapToGrid) {
+        this.snapToGrid = snapToGrid;
+    }
+    
+    public Long getVersion() {
+        return version;
+    }
+    
+    public void setVersion(Long version) {
+        this.version = version;
     }
     
     @PreUpdate
