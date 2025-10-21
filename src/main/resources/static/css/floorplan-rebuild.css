@@ -1,0 +1,717 @@
+/**
+ * floorplan-rebuild.css
+ * 평면도 리빌딩 버전 스타일
+ */
+
+/* 툴바 컨테이너 */
+.design-toolbar-container {
+    position: fixed;
+    left: 20px;
+    top: 120px;
+    width: 300px;
+    max-height: calc(100vh - 200px);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    overflow-y: auto;
+    transition: width 0.3s ease, left 0.3s ease;
+}
+
+/* 간소화 상태 */
+.design-toolbar-container.collapsed {
+    width: 120px;
+}
+
+.design-toolbar-container.collapsed .design-toolbar {
+    padding: 50px 10px 10px 10px;
+}
+
+.design-toolbar-container.collapsed .toolbar-section h3 {
+    font-size: 11px;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.design-toolbar-container.collapsed .toolbar-section p,
+.design-toolbar-container.collapsed .style-controls,
+.design-toolbar-container.collapsed .layer-controls,
+.design-toolbar-container.collapsed #unplaced-classrooms-list {
+    display: none;
+}
+
+.design-toolbar-container.collapsed .tool-buttons {
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.design-toolbar-container.collapsed .tool-btn {
+    padding: 8px 4px;
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.design-toolbar-container.collapsed .tool-btn i {
+    font-size: 18px;
+}
+
+/* 토글 버튼 */
+.toolbar-toggle-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #f3f4f6;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.toolbar-toggle-btn:hover {
+    background: #e5e7eb;
+}
+
+.toolbar-toggle-btn i {
+    font-size: 16px;
+    color: #6b7280;
+    transition: transform 0.3s ease;
+}
+
+.design-toolbar-container.collapsed .toolbar-toggle-btn i {
+    transform: rotate(180deg);
+}
+
+.design-toolbar {
+    padding: 50px 20px 20px 20px;
+    position: relative;
+}
+
+.toolbar-section {
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.toolbar-section:last-child {
+    border-bottom: none;
+}
+
+.toolbar-section h3 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* 도구 버튼 */
+.tool-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.tool-btn {
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #374151;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.tool-btn:hover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.tool-btn.active {
+    border-color: #3b82f6;
+    background: #3b82f6;
+    color: white;
+}
+
+.tool-btn i {
+    font-size: 18px;
+}
+
+/* 스타일 컨트롤 */
+.style-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.style-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.style-controls input[type="color"] {
+    width: 100%;
+    height: 40px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.style-controls select {
+    padding: 8px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+/* 레이어 컨트롤 */
+.layer-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.layer-controls button {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    background: white;
+    color: #374151;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.layer-controls button:hover:not(:disabled) {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.layer-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 미배치 교실 목록 */
+.unplaced-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.unplaced-classroom-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    margin-bottom: 6px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    background: white;
+    cursor: move;
+    transition: all 0.2s;
+}
+
+.unplaced-classroom-item:hover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+/* 색상 팔레트 */
+.color-palette {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.color-btn {
+    width: 100%;
+    aspect-ratio: 1;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.color-btn:hover {
+    transform: scale(1.1);
+    border-color: #000;
+}
+
+/* 무선AP 목록 */
+.ap-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.ap-item {
+    padding: 10px;
+    margin-bottom: 6px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: white;
+}
+
+.ap-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.ap-model {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+/* 배율 조정 컨트롤 */
+.zoom-controls {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    padding: 8px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+}
+
+.zoom-btn {
+    width: 36px;
+    height: 36px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    background: white;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.zoom-btn:hover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.zoom-display {
+    min-width: 60px;
+    text-align: center;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* 액션 버튼 */
+.action-buttons {
+    position: fixed;
+    top: 80px;
+    right: 40px;
+    display: flex;
+    gap: 12px;
+    z-index: 100;
+}
+
+.action-btn {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.save-btn {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.save-btn:hover {
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+/* 위험 버튼 */
+.danger-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.danger-btn:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+/* 기본 버튼 */
+.primary-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.primary-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+}
+
+.secondary-btn {
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    background: white;
+    color: #374151;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.secondary-btn:hover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+/* 힌트 텍스트 */
+.hint {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 8px 0 0 0;
+}
+
+.loading {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 13px;
+    padding: 20px;
+}
+
+.empty {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 13px;
+    padding: 20px;
+}
+
+/* 교실 모달 */
+.classroom-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.classroom-modal-content {
+    background: white;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #111827;
+}
+
+.close-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 6px;
+    background: #f3f4f6;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: #e5e7eb;
+}
+
+.modal-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.modal-canvas-container {
+    flex: 1;
+    padding: 20px;
+    overflow: auto;
+}
+
+.modal-sidebar {
+    width: 300px;
+    padding: 20px;
+    border-left: 1px solid #e5e7eb;
+    overflow-y: auto;
+}
+
+.modal-sidebar h3 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    color: #111827;
+}
+
+.device-cards {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+}
+
+.device-card {
+    padding: 12px;
+    margin-bottom: 8px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    cursor: move;
+    transition: all 0.2s;
+}
+
+.device-card:hover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.device-type {
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 8px;
+}
+
+.device-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-row {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* 반응형 */
+@media (max-width: 1024px) {
+    .design-toolbar-container {
+        width: 250px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 768px) {
+    .design-toolbar-container {
+        left: 10px;
+        width: 200px;
+    }
+    
+    .zoom-controls {
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .action-buttons {
+        top: 60px;
+        right: 20px;
+    }
+}
+
+/* 워크스페이스 모달 (전체화면 작업 공간) */
+.workspace-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #f5f5f5;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.workspace-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 상단 컨트롤바 - Blue Theme */
+.workspace-header {
+    background: #f0f9ff;
+    padding: 1.25rem 2.5rem;
+    box-shadow: 0 1px 3px rgba(14, 165, 233, 0.1);
+    border-bottom: 1px solid #bae6fd;
+}
+
+.workspace-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.workspace-dropdown {
+    padding: 0.75rem 1.25rem;
+    border: 1px solid #7dd3fc;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    background: #e0f2fe;
+    color: #0c4a6e;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 200px;
+}
+
+.workspace-dropdown:hover {
+    border-color: #38bdf8;
+    background: #ffffff;
+}
+
+.workspace-dropdown:focus {
+    outline: none;
+    border-color: #0ea5e9;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+.workspace-btn {
+    padding: 0.75rem 1.25rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 110px;
+    white-space: nowrap;
+}
+
+.workspace-btn:active {
+    transform: scale(0.98);
+}
+
+.workspace-btn.save-btn {
+    background: #0ea5e9;
+    color: white;
+    margin-left: auto;
+}
+
+.workspace-btn.save-btn:hover {
+    background: #0284c7;
+}
+
+.workspace-btn.ppt-btn {
+    background: #06b6d4;
+    color: white;
+}
+
+.workspace-btn.ppt-btn:hover {
+    background: #0891b2;
+}
+
+.workspace-btn.close-btn {
+    background: #ef4444;
+    color: white;
+}
+
+.workspace-btn.close-btn:hover {
+    background: #dc2626;
+}
+
+/* 캔버스 컨테이너 */
+.workspace-canvas-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: white;
+}
+
+.canvas-wrapper {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+}
+
+/* 워크스페이스 내부의 줌 컨트롤 위치 조정 */
+.workspace-canvas-container .zoom-controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+}
+
+/* 워크스페이스 내부의 툴바 위치 조정 */
+.workspace-canvas-container .design-toolbar-container {
+    position: absolute;
+    left: 20px;
+    top: 20px;
+}
+

@@ -591,6 +591,85 @@ export default class UIManager {
         });
     }
     
+    // ===== 알림 =====
+    
+    /**
+     * 알림 표시
+     * @param {string} title - 제목
+     * @param {string} message - 메시지
+     * @param {string} type - 타입 (info, success, warning, error)
+     * @param {number} duration - 지속 시간 (ms), 0이면 무한
+     */
+    showNotification(title, message, type = 'info', duration = 3000) {
+        console.log(`📢 알림: [${type}] ${title} - ${message}`);
+        
+        // 기존 알림 제거
+        const existingToast = document.querySelector('.toast-notification');
+        if (existingToast) {
+            existingToast.remove();
+        }
+        
+        // 알림 생성
+        const toast = document.createElement('div');
+        toast.className = `toast-notification toast-${type}`;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            padding: 15px 20px;
+            min-width: 300px;
+            max-width: 400px;
+            animation: slideIn 0.3s ease-out;
+        `;
+        
+        const icon = type === 'success' ? '✓' : 
+                    type === 'error' ? '✗' : 
+                    type === 'warning' ? '⚠' : 'ℹ';
+        const color = type === 'success' ? '#10b981' : 
+                     type === 'error' ? '#ef4444' : 
+                     type === 'warning' ? '#f59e0b' : '#3b82f6';
+        
+        toast.innerHTML = `
+            <div style="display: flex; align-items: start; gap: 12px;">
+                <div style="font-size: 24px; color: ${color};">${icon}</div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; color: #111; margin-bottom: 4px;">${title}</div>
+                    <div style="font-size: 14px; color: #666;">${message}</div>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" 
+                        style="background: none; border: none; font-size: 20px; 
+                               color: #999; cursor: pointer; padding: 0; line-height: 1;">×</button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // 자동 제거
+        if (duration > 0) {
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.style.animation = 'slideOut 0.3s ease-out';
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, duration);
+        }
+    }
+    
+    /**
+     * 알림 숨기기
+     */
+    hideNotification() {
+        const toast = document.querySelector('.toast-notification');
+        if (toast) {
+            toast.style.animation = 'slideOut 0.3s ease-out';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }
+    
     // ===== 정리 =====
     
     /**

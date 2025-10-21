@@ -47,6 +47,19 @@ public class FloorPlanElement {
     @Column(name = "rotation")
     private Double rotation; // 회전 각도 (도)
     
+    // 새로 추가된 필드들
+    @Column(name = "parent_element_id")
+    private Long parentElementId; // 부모 요소 ID (자리는 교실에 속함)
+    
+    @Column(name = "layer_order")
+    private Integer layerOrder; // 레이어 순서 (z-index보다 명확)
+    
+    @Column(name = "is_locked")
+    private Boolean isLocked = false; // 이동 잠금 여부
+    
+    @Column(name = "metadata", columnDefinition = "TEXT")
+    private String metadata; // 추가 메타데이터 (JSON)
+    
     // 스타일 정보 (구조화된 필드)
     @Column(name = "color", length = 50)
     private String color;
@@ -348,6 +361,38 @@ public class FloorPlanElement {
     
     public void setVersion(Long version) {
         this.version = version;
+    }
+    
+    public Long getParentElementId() {
+        return parentElementId;
+    }
+    
+    public void setParentElementId(Long parentElementId) {
+        this.parentElementId = parentElementId;
+    }
+    
+    public Integer getLayerOrder() {
+        return layerOrder;
+    }
+    
+    public void setLayerOrder(Integer layerOrder) {
+        this.layerOrder = layerOrder;
+    }
+    
+    public Boolean getIsLocked() {
+        return isLocked;
+    }
+    
+    public void setIsLocked(Boolean isLocked) {
+        this.isLocked = isLocked;
+    }
+    
+    public String getMetadata() {
+        return metadata;
+    }
+    
+    public void setMetadata(String metadata) {
+        this.metadata = metadata;
     }
     
     @PreUpdate

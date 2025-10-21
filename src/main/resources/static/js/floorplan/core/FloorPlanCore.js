@@ -12,12 +12,12 @@
 
 export default class FloorPlanCore {
     // 상수 정의
-    static MIN_ZOOM = 0.1;
+    static MIN_ZOOM = 0.01;  // 절대 최소값 (동적 최소값이 우선)
     static MAX_ZOOM = 5.0;
     static DEFAULT_ZOOM = 1.0;
     static DEFAULT_GRID_SIZE = 20;
-    static DEFAULT_CANVAS_WIDTH = 4000;
-    static DEFAULT_CANVAS_HEIGHT = 2500;
+    static DEFAULT_CANVAS_WIDTH = 16000;  // 4배 증가
+    static DEFAULT_CANVAS_HEIGHT = 10000;  // 4배 증가
     
     /**
      * @param {HTMLElement} container - 캔버스를 렌더링할 컨테이너
@@ -123,6 +123,13 @@ export default class FloorPlanCore {
         
         this.ctx.scale(dpr, dpr);
         
+        // 화면 크기 변경 시 현재 줌이 새로운 최소 줌보다 작으면 조정
+        const minZoom = this.getMinZoomToFitCanvas();
+        if (this.state.zoom < minZoom) {
+            this.setState({ zoom: minZoom });
+            console.debug('🔍 줌 조정 (resize):', minZoom);
+        }
+        
         this.markDirty();
     }
     
@@ -208,6 +215,8 @@ export default class FloorPlanCore {
         const { gridSize, canvasWidth, canvasHeight, zoom } = this.state;
         
         ctx.save();
+        
+        // 그리드 선
         ctx.strokeStyle = '#e0e0e0';
         ctx.lineWidth = 1 / zoom;
         
@@ -226,6 +235,11 @@ export default class FloorPlanCore {
             ctx.lineTo(canvasWidth, y);
             ctx.stroke();
         }
+        
+        // 캔버스 경계선 (더 진하게)
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 3 / zoom;
+        ctx.strokeRect(0, 0, canvasWidth, canvasHeight);
         
         ctx.restore();
     }
@@ -278,16 +292,14 @@ export default class FloorPlanCore {
             case 'shape':
                 this.renderShape(ctx, element);
                 break;
+            case 'name_box':
+                this.renderNameBox(ctx, element);
+                break;
             case 'other_space':
                 this.renderOtherSpace(ctx, element);
                 break;
             default:
                 this.renderDefault(ctx, element);
-        }
-        
-        // 라벨 렌더링
-        if (element.showLabel !== false && element.label) {
-            this.renderLabel(ctx, element);
         }
         
         ctx.restore();
@@ -346,6 +358,37 @@ export default class FloorPlanCore {
         ctx.strokeStyle = element.borderColor || '#dc2626';
         ctx.lineWidth = element.borderWidth || 1;
         ctx.stroke();
+    }
+    
+    /**
+     * 이름박스 렌더링
+     */
+    renderNameBox(ctx, element) {
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 70;
+        const h = element.height || 25;
+        
+        // 배경
+        ctx.fillStyle = element.backgroundColor || '#ffffff';
+        ctx.fillRect(x, y, w, h);
+        
+        // 테두리
+        ctx.strokeStyle = element.borderColor || '#3b82f6';
+        ctx.lineWidth = element.borderWidth || 1;
+        ctx.strokeRect(x, y, w, h);
+        
+        // 텍스트
+        ctx.font = `${element.fontSize || 12}px ${element.fontFamily || 'Arial'}`;
+        ctx.fillStyle = element.textColor || '#000000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(element.label || '', x + w / 2, y + h / 2);
+        
+        // 크기 조정 핸들 (선택된 경우)
+        if (this.state.selectedElements.includes(element)) {
+            this.renderResizeHandles(ctx, element);
+        }
     }
     
     /**
@@ -498,6 +541,37 @@ export default class FloorPlanCore {
     }
     
     /**
+     * 크기 조정 핸들 렌더링
+     */
+    renderResizeHandles(ctx, element) {
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 70;
+        const h = element.height || 25;
+        const handleSize = 6;
+        
+        const handles = [
+            { x: x - handleSize / 2, y: y - handleSize / 2 }, // 좌상
+            { x: x + w - handleSize / 2, y: y - handleSize / 2 }, // 우상
+            { x: x - handleSize / 2, y: y + h - handleSize / 2 }, // 좌하
+            { x: x + w - handleSize / 2, y: y + h - handleSize / 2 }, // 우하
+            { x: x + w / 2 - handleSize / 2, y: y - handleSize / 2 }, // 상
+            { x: x + w / 2 - handleSize / 2, y: y + h - handleSize / 2 }, // 하
+            { x: x - handleSize / 2, y: y + h / 2 - handleSize / 2 }, // 좌
+            { x: x + w - handleSize / 2, y: y + h / 2 - handleSize / 2 }, // 우
+        ];
+        
+        ctx.fillStyle = '#3b82f6';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        
+        handles.forEach(handle => {
+            ctx.fillRect(handle.x, handle.y, handleSize, handleSize);
+            ctx.strokeRect(handle.x, handle.y, handleSize, handleSize);
+        });
+    }
+    
+    /**
      * 선택 박스 렌더링
      */
     renderSelectionBox(ctx, element) {
@@ -534,14 +608,8 @@ export default class FloorPlanCore {
      * 오버레이 렌더링 (UI 정보)
      */
     renderOverlay(ctx, width, height) {
-        // 줌 레벨 표시
-        ctx.save();
-        ctx.font = '12px Arial';
-        ctx.fillStyle = '#666666';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(`Zoom: ${(this.state.zoom * 100).toFixed(0)}%`, width - 10, height - 10);
-        ctx.restore();
+        // 줌 레벨 표시는 UI 컴포넌트(zoom-display)에서 처리
+        // 중복 표시 방지를 위해 캔버스 오버레이 제거
     }
     
     // ===== 좌표계 변환 =====
@@ -601,7 +669,8 @@ export default class FloorPlanCore {
      * 줌 설정
      */
     setZoom(zoom, centerX = null, centerY = null) {
-        const newZoom = Math.max(FloorPlanCore.MIN_ZOOM, Math.min(FloorPlanCore.MAX_ZOOM, zoom));
+        const minZoom = this.getMinZoomToFitCanvas();
+        const newZoom = Math.max(minZoom, Math.min(FloorPlanCore.MAX_ZOOM, zoom));
         
         if (centerX != null && centerY != null) {
             // 특정 점을 중심으로 줌
@@ -676,6 +745,217 @@ export default class FloorPlanCore {
      */
     markDirty() {
         this.state.isDirty = true;
+    }
+    
+    // ===== 줌 컨트롤 =====
+    
+    /**
+     * 확대 (10% 증가) - 화면 중앙 기준
+     */
+    zoomIn() {
+        const currentZoom = this.state.zoom;
+        const newZoom = Math.min(currentZoom * 1.1, FloorPlanCore.MAX_ZOOM);
+        
+        // 화면 중앙을 기준으로 줌
+        const screenWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const screenHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        const centerX = screenWidth / 2;
+        const centerY = screenHeight / 2;
+        
+        // 현재 화면 중앙의 캔버스 좌표 계산
+        const canvasCenterX = (centerX - this.state.panX) / currentZoom;
+        const canvasCenterY = (centerY - this.state.panY) / currentZoom;
+        
+        // 새로운 줌에서 같은 캔버스 지점이 화면 중앙에 오도록 pan 조정
+        const newPanX = centerX - canvasCenterX * newZoom;
+        const newPanY = centerY - canvasCenterY * newZoom;
+        
+        this.setState({ 
+            zoom: newZoom,
+            panX: newPanX,
+            panY: newPanY
+        });
+        
+        console.debug('🔍 확대:', newZoom.toFixed(2));
+    }
+    
+    /**
+     * 축소 (10% 감소) - 화면 중앙 기준
+     */
+    zoomOut() {
+        const currentZoom = this.state.zoom;
+        const minZoom = this.getMinZoomToFitCanvas();
+        const newZoom = Math.max(currentZoom / 1.1, minZoom);
+        
+        // 화면 중앙을 기준으로 줌
+        const screenWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const screenHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        const centerX = screenWidth / 2;
+        const centerY = screenHeight / 2;
+        
+        // 현재 화면 중앙의 캔버스 좌표 계산
+        const canvasCenterX = (centerX - this.state.panX) / currentZoom;
+        const canvasCenterY = (centerY - this.state.panY) / currentZoom;
+        
+        // 새로운 줌에서 같은 캔버스 지점이 화면 중앙에 오도록 pan 조정
+        const newPanX = centerX - canvasCenterX * newZoom;
+        const newPanY = centerY - canvasCenterY * newZoom;
+        
+        this.setState({ 
+            zoom: newZoom,
+            panX: newPanX,
+            panY: newPanY
+        });
+        
+        console.debug('🔍 축소:', newZoom.toFixed(2), '(최소:', minZoom.toFixed(2), ')');
+    }
+    
+    /**
+     * 줌 초기화 (100%) - 화면 중앙 기준
+     */
+    resetZoom() {
+        const currentZoom = this.state.zoom;
+        const newZoom = FloorPlanCore.DEFAULT_ZOOM;
+        
+        // 화면 중앙을 기준으로 줌
+        const screenWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const screenHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        const centerX = screenWidth / 2;
+        const centerY = screenHeight / 2;
+        
+        // 현재 화면 중앙의 캔버스 좌표 계산
+        const canvasCenterX = (centerX - this.state.panX) / currentZoom;
+        const canvasCenterY = (centerY - this.state.panY) / currentZoom;
+        
+        // 새로운 줌에서 같은 캔버스 지점이 화면 중앙에 오도록 pan 조정
+        const newPanX = centerX - canvasCenterX * newZoom;
+        const newPanY = centerY - canvasCenterY * newZoom;
+        
+        this.setState({ 
+            zoom: newZoom,
+            panX: newPanX,
+            panY: newPanY
+        });
+        
+        console.debug('🔍 줌 초기화 (100%)');
+    }
+    
+    /**
+     * 모든 요소가 보이도록 자동 피팅
+     */
+    fitToElements() {
+        const elements = this.state.elements;
+        
+        if (!elements || elements.length === 0) {
+            // 요소가 없으면 중앙으로
+            this.setState({
+                panX: 0,
+                panY: 0,
+                zoom: FloorPlanCore.DEFAULT_ZOOM
+            });
+            this.markDirty();
+            return;
+        }
+        
+        // 모든 요소의 경계 계산
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+        
+        elements.forEach(element => {
+            const x = element.x || element.xCoordinate || 0;
+            const y = element.y || element.yCoordinate || 0;
+            const width = element.width || 0;
+            const height = element.height || 0;
+            
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x + width);
+            maxY = Math.max(maxY, y + height);
+        });
+        
+        // 여유 공간 추가 (20%)
+        const padding = 0.2;
+        const contentWidth = maxX - minX;
+        const contentHeight = maxY - minY;
+        
+        minX -= contentWidth * padding;
+        minY -= contentHeight * padding;
+        maxX += contentWidth * padding;
+        maxY += contentHeight * padding;
+        
+        const totalWidth = maxX - minX;
+        const totalHeight = maxY - minY;
+        
+        // 캔버스 크기
+        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        
+        // 적절한 줌 레벨 계산
+        const zoomX = canvasWidth / totalWidth;
+        const zoomY = canvasHeight / totalHeight;
+        const newZoom = Math.min(zoomX, zoomY, FloorPlanCore.MAX_ZOOM);
+        
+        // 중앙 위치 계산
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        
+        const newPanX = canvasWidth / 2 - centerX * newZoom;
+        const newPanY = canvasHeight / 2 - centerY * newZoom;
+        
+        this.setState({
+            zoom: newZoom,
+            panX: newPanX,
+            panY: newPanY
+        });
+        
+        this.markDirty();
+        
+        console.debug('📐 자동 피팅:', { zoom: newZoom, panX: newPanX, panY: newPanY });
+    }
+    
+    /**
+     * 캔버스 중앙으로 뷰 설정 (100% 배율)
+     */
+    centerView() {
+        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        
+        // 논리적 캔버스의 중앙 좌표
+        const logicalCenterX = this.state.canvasWidth / 2;
+        const logicalCenterY = this.state.canvasHeight / 2;
+        
+        // 100% 줌에서 화면 중앙에 논리적 캔버스 중앙 배치
+        const newPanX = canvasWidth / 2 - logicalCenterX * 1.0;
+        const newPanY = canvasHeight / 2 - logicalCenterY * 1.0;
+        
+        this.setState({
+            zoom: 1.0,
+            panX: newPanX,
+            panY: newPanY
+        });
+        
+        this.markDirty();
+        
+        console.debug('🎯 중앙 뷰 설정:', { zoom: 1.0, panX: newPanX, panY: newPanY });
+    }
+    
+    /**
+     * 캔버스가 화면을 채우는 최소 줌 계산
+     * (캔버스 밖 영역이 보이지 않도록)
+     */
+    getMinZoomToFitCanvas() {
+        const screenWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const screenHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        
+        // 캔버스가 화면을 완전히 채우려면 필요한 최소 줌
+        const zoomX = screenWidth / this.state.canvasWidth;
+        const zoomY = screenHeight / this.state.canvasHeight;
+        
+        // 둘 중 큰 값을 사용 (캔버스가 화면을 완전히 채우도록)
+        const minZoom = Math.max(zoomX, zoomY);
+        
+        // 절대 최소값보다는 커야 함
+        return Math.max(minZoom, FloorPlanCore.MIN_ZOOM);
     }
     
     // ===== 정리 =====

@@ -431,6 +431,8 @@ export default class ElementManager {
                 return 10;
             case 'shape':
                 return 100;
+            case 'name_box':
+                return 70;
             case 'other_space':
                 return 100;
             default:
@@ -451,6 +453,8 @@ export default class ElementManager {
                 return 10;
             case 'shape':
                 return 100;
+            case 'name_box':
+                return 25;
             case 'other_space':
                 return 80;
             default:
@@ -511,6 +515,73 @@ export default class ElementManager {
     }
     
     /**
+     * 참조 ID로 요소 찾기
+     * @param {Number} referenceId - 참조 ID (교실, 건물 등의 ID)
+     * @returns {Object|null} 요소
+     */
+    findElementByReferenceId(referenceId) {
+        return this.core.state.elements.find(el => el.referenceId === referenceId) || null;
+    }
+    
+    /**
+     * 위치에서 요소 찾기
+     * @param {Number} x - X 좌표 (캔버스 좌표)
+     * @param {Number} y - Y 좌표 (캔버스 좌표)
+     * @returns {Object|null} 클릭된 요소 (z-index가 가장 높은 것)
+     */
+    getElementAtPosition(x, y) {
+        // z-index 순서대로 정렬 (높은 것부터)
+        const sortedElements = [...this.core.state.elements].sort((a, b) => {
+            const aOrder = a.layerOrder || a.zIndex || 0;
+            const bOrder = b.layerOrder || b.zIndex || 0;
+            return bOrder - aOrder;
+        });
+        
+        for (const element of sortedElements) {
+            if (this.isPointInElement(x, y, element)) {
+                return element;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 점이 요소 내부에 있는지 확인
+     * @param {Number} x - X 좌표
+     * @param {Number} y - Y 좌표
+     * @param {Object} element - 요소
+     * @returns {Boolean}
+     */
+    isPointInElement(x, y, element) {
+        // 원형 요소 (무선AP 등)
+        if (element.type === 'wireless_ap' && element.radius) {
+            const dx = x - element.x;
+            const dy = y - element.y;
+            return Math.sqrt(dx * dx + dy * dy) <= element.radius;
+        }
+        
+        // 사각형 요소
+        const elementX = element.x || element.xCoordinate || 0;
+        const elementY = element.y || element.yCoordinate || 0;
+        const elementWidth = element.width || 0;
+        const elementHeight = element.height || 0;
+        
+        return x >= elementX &&
+               x <= elementX + elementWidth &&
+               y >= elementY &&
+               y <= elementY + elementHeight;
+    }
+    
+    /**
+     * 모든 요소 가져오기
+     * @returns {Array} 요소 배열
+     */
+    getAllElements() {
+        return this.core.state.elements || [];
+    }
+    
+    /**
      * 타입별 요소 찾기
      * @param {String} elementType - 요소 타입
      * @returns {Array} 요소 배열
@@ -541,6 +612,30 @@ export default class ElementManager {
         }
         
         return stats;
+    }
+    
+    /**
+     * 요소 추가 (직접 추가)
+     * @param {Object} element - 추가할 요소
+     */
+    addElement(element) {
+        if (!element.id) {
+            element.id = this.generateElementId();
+        }
+        
+        this.applyDefaults(element);
+        this.core.addElement(element);
+        
+        console.debug('➕ 요소 추가:', element.id);
+    }
+    
+    /**
+     * 요소 제거
+     * @param {String} elementId - 요소 ID
+     */
+    removeElement(elementId) {
+        this.core.removeElement(elementId);
+        console.debug('➖ 요소 제거:', elementId);
     }
     
     /**

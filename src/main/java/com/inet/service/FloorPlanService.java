@@ -41,6 +41,12 @@ public class FloorPlanService {
     @Autowired
     private WirelessApRepository wirelessApRepository;
     
+    @Autowired
+    private DeviceService deviceService;
+    
+    @Autowired
+    private DeviceRepository deviceRepository;
+    
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     /**
@@ -573,5 +579,131 @@ public class FloorPlanService {
             return (Boolean) value;
         }
         return Boolean.valueOf(value.toString());
+    }
+    
+    // ===== 새로 추가된 메서드 (평면도 리빌딩) =====
+    
+    /**
+     * 미배치 교실 조회
+     * 평면도에 배치되지 않은 교실 목록을 반환
+     */
+    @Transactional(readOnly = true)
+    public List<Classroom> getUnplacedClassrooms(Long schoolId) {
+        // 해당 학교의 모든 교실 조회
+        School school = schoolRepository.findById(schoolId)
+            .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다"));
+        List<Classroom> allClassrooms = classroomRepository.findBySchool(school);
+        
+        // 평면도에 배치된 교실 ID 조회
+        FloorPlan floorPlan = getActiveFloorPlan(schoolId);
+        if (floorPlan == null) {
+            // 평면도가 없으면 모든 교실이 미배치
+            return allClassrooms;
+        }
+        
+        List<FloorPlanElement> elements = floorPlanElementRepository.findByFloorPlanId(floorPlan.getId());
+        Set<Long> placedClassroomIds = elements.stream()
+            .filter(e -> "room".equals(e.getElementType()) && e.getReferenceId() != null)
+            .map(FloorPlanElement::getReferenceId)
+            .collect(Collectors.toSet());
+        
+        // 미배치 교실만 필터링
+        return allClassrooms.stream()
+            .filter(c -> !placedClassroomIds.contains(c.getClassroomId()))
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * 학교별 무선AP 정보 조회
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getWirelessApsBySchool(Long schoolId) {
+        School school = schoolRepository.findById(schoolId)
+            .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다"));
+        List<com.inet.entity.WirelessAp> aps = wirelessApRepository.findBySchool(school);
+        
+        return aps.stream().map(ap -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("apId", ap.getAPId());
+            map.put("newLabelNumber", ap.getNewLabelNumber());
+            map.put("deviceNumber", ap.getDeviceNumber());
+            map.put("manufacturer", ap.getManufacturer());
+            map.put("model", ap.getModel());
+            if (ap.getLocation() != null) {
+                map.put("classroomId", ap.getLocation().getClassroomId());
+                map.put("classroomName", ap.getLocation().getRoomName() != null ? 
+                    ap.getLocation().getRoomName() : "");
+            }
+            return map;
+        }).collect(Collectors.toList());
+    }
+    
+    /**
+     * 교실별 장비 조회
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<Map<String, Object>>> getDevicesByClassroom(Long schoolId) {
+        School school = schoolRepository.findById(schoolId)
+            .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다"));
+        List<com.inet.entity.Device> devices = deviceRepository.findBySchool(school);
+        
+        return devices.stream()
+            .filter(d -> d.getClassroom() != null)
+            .collect(Collectors.groupingBy(
+                d -> d.getClassroom().getClassroomId(),
+                Collectors.mapping(this::convertDeviceToMap, Collectors.toList())
+            ));
+    }
+    
+    /**
+     * 특정 교실 장비 조회
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getClassroomDevices(Long classroomId) {
+        Classroom classroom = classroomRepository.findById(classroomId)
+            .orElseThrow(() -> new RuntimeException("교실을 찾을 수 없습니다"));
+        List<com.inet.entity.Device> devices = deviceRepository.findByClassroom(classroom);
+        
+        return devices.stream()
+            .map(this::convertDeviceToMap)
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * Device를 Map으로 변환
+     */
+    private Map<String, Object> convertDeviceToMap(com.inet.entity.Device device) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("deviceId", device.getDeviceId());
+        map.put("type", device.getType());
+        map.put("manufacturer", device.getManufacturer());
+        map.put("modelName", device.getModelName());
+        map.put("ipAddress", device.getIpAddress());
+        map.put("setType", device.getSetType());
+        
+        if (device.getUid() != null && device.getUid().getDisplayUid() != null) {
+            map.put("uidNumber", device.getUid().getDisplayUid());
+        }
+        if (device.getManage() != null && device.getManage().getManageNum() != null) {
+            map.put("manageNumber", device.getManage().getManageNum());
+        }
+        if (device.getOperator() != null && device.getOperator().getName() != null) {
+            map.put("operatorName", device.getOperator().getName());
+        }
+        
+        return map;
+    }
+    
+    /**
+     * 캔버스 초기화
+     * 해당 학교의 모든 평면도 요소 삭제
+     */
+    @Transactional
+    public void initializeCanvas(Long schoolId) {
+        FloorPlan floorPlan = getActiveFloorPlan(schoolId);
+        if (floorPlan != null) {
+            floorPlanElementRepository.deleteByFloorPlanId(floorPlan.getId());
+            logger.info("캔버스 초기화 완료 - schoolId: {}, floorPlanId: {}", schoolId, floorPlan.getId());
+        }
     }
 }

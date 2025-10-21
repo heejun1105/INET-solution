@@ -532,6 +532,160 @@ public class FloorPlanController {
         return permissionHelper.checkFeaturePermission(user, feature, redirectAttributes);
     }
     
+    // ===== 새로 추가된 API 엔드포인트 (평면도 리빌딩) =====
+    
+    /**
+     * 미배치 교실 조회
+     * GET /floorplan/api/schools/{schoolId}/unplaced-classrooms
+     */
+    @GetMapping("/api/schools/{schoolId}/unplaced-classrooms")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getUnplacedClassrooms(@PathVariable Long schoolId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                response.put("success", false);
+                response.put("message", "권한이 없습니다");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            List<Classroom> unplaced = floorPlanService.getUnplacedClassrooms(schoolId);
+            response.put("success", true);
+            response.put("classrooms", unplaced);
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("미배치 교실 조회 실패 - schoolId: {}", schoolId, e);
+            response.put("success", false);
+            response.put("message", "조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * 무선AP 정보 조회
+     * GET /floorplan/api/schools/{schoolId}/wireless-aps
+     */
+    @GetMapping("/api/schools/{schoolId}/wireless-aps")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getWirelessAps(@PathVariable Long schoolId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                response.put("success", false);
+                response.put("message", "권한이 없습니다");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            List<Map<String, Object>> wirelessAps = floorPlanService.getWirelessApsBySchool(schoolId);
+            response.put("success", true);
+            response.put("wirelessAps", wirelessAps);
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("무선AP 조회 실패 - schoolId: {}", schoolId, e);
+            response.put("success", false);
+            response.put("message", "조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * 교실별 장비 조회
+     * GET /floorplan/api/schools/{schoolId}/devices-by-classroom
+     */
+    @GetMapping("/api/schools/{schoolId}/devices-by-classroom")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getDevicesByClassroom(@PathVariable Long schoolId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                response.put("success", false);
+                response.put("message", "권한이 없습니다");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            Map<Long, List<Map<String, Object>>> devicesByClassroom = floorPlanService.getDevicesByClassroom(schoolId);
+            response.put("success", true);
+            response.put("devicesByClassroom", devicesByClassroom);
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("교실별 장비 조회 실패 - schoolId: {}", schoolId, e);
+            response.put("success", false);
+            response.put("message", "조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * 특정 교실 장비 상세 조회
+     * GET /floorplan/api/schools/{schoolId}/classroom/{classroomId}/devices
+     */
+    @GetMapping("/api/schools/{schoolId}/classroom/{classroomId}/devices")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getClassroomDevices(
+            @PathVariable Long schoolId,
+            @PathVariable Long classroomId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                response.put("success", false);
+                response.put("message", "권한이 없습니다");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            List<Map<String, Object>> devices = floorPlanService.getClassroomDevices(classroomId);
+            response.put("success", true);
+            response.put("devices", devices);
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("교실 장비 조회 실패 - classroomId: {}", classroomId, e);
+            response.put("success", false);
+            response.put("message", "조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * 캔버스 초기화
+     * POST /floorplan/api/schools/{schoolId}/initialize
+     */
+    @PostMapping("/api/schools/{schoolId}/initialize")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> initializeCanvas(@PathVariable Long schoolId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                response.put("success", false);
+                response.put("message", "권한이 없습니다");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            floorPlanService.initializeCanvas(schoolId);
+            response.put("success", true);
+            response.put("message", "캔버스가 초기화되었습니다");
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("캔버스 초기화 실패 - schoolId: {}", schoolId, e);
+            response.put("success", false);
+            response.put("message", "초기화 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
     /**
      * API 응답 표준화 클래스
      */

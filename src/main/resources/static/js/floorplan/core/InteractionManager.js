@@ -31,7 +31,8 @@ export default class InteractionManager {
             isPanning: false,
             isSelecting: false,
             isResizing: false,
-            isSpacePressed: false
+            isSpacePressed: false,
+            isZooming: false
         };
         
         // 드래그 시작 정보
@@ -48,6 +49,12 @@ export default class InteractionManager {
             y: 0,
             panX: 0,
             panY: 0
+        };
+        
+        // 줌 드래그 시작 정보
+        this.zoomStart = {
+            y: 0,
+            zoom: 1.0
         };
         
         // 선택 박스 정보
@@ -117,6 +124,12 @@ export default class InteractionManager {
         
         console.debug('🖱️ 마우스 다운:', canvasPos);
         
+        // Ctrl + 드래그: 줌 모드
+        if ((e.ctrlKey || e.metaKey) && e.button === 0) {
+            this.startZoom(y);
+            return;
+        }
+        
         // 스페이스바가 눌려있으면 팬 모드
         if (this.state.isSpacePressed || e.button === 1) { // 중간 버튼도 팬
             this.startPan(x, y);
@@ -133,13 +146,10 @@ export default class InteractionManager {
         const clickedElement = this.findElementAt(canvasPos.x, canvasPos.y);
         
         if (clickedElement) {
-            // 요소 클릭
+            // 요소 클릭: 단일 선택 (Ctrl은 줌 모드로 사용하므로 제거)
             if (e.shiftKey) {
                 // Shift + 클릭: 다중 선택 토글
                 this.toggleSelection(clickedElement);
-            } else if (e.ctrlKey || e.metaKey) {
-                // Ctrl/Cmd + 클릭: 다중 선택 추가
-                this.addToSelection(clickedElement);
             } else {
                 // 일반 클릭: 단일 선택
                 if (!this.isSelected(clickedElement)) {
@@ -150,8 +160,8 @@ export default class InteractionManager {
             // 드래그 시작
             this.startDrag(x, y);
         } else {
-            // 빈 공간 클릭: 선택 박스 시작
-            this.startSelectionBox(x, y);
+            // 빈 공간 클릭: 팬 시작 (일반 드래그는 상하 이동)
+            this.startPan(x, y);
         }
     }
     
@@ -161,6 +171,12 @@ export default class InteractionManager {
     onMouseMove(e) {
         const { x, y } = this.getMousePos(e);
         const canvasPos = this.core.screenToCanvas(x, y);
+        
+        // 줌 드래그 중
+        if (this.state.isZooming) {
+            this.updateZoom(y);
+            return;
+        }
         
         // 팬 중
         if (this.state.isPanning) {
@@ -190,6 +206,11 @@ export default class InteractionManager {
     onMouseUp(e) {
         console.debug('🖱️ 마우스 업');
         
+        // 줌 종료
+        if (this.state.isZooming) {
+            this.endZoom();
+        }
+        
         // 팬 종료
         if (this.state.isPanning) {
             this.endPan();
@@ -210,6 +231,11 @@ export default class InteractionManager {
      * 마우스 휠
      */
     onWheel(e) {
+        // Ctrl 키가 눌려있을 때만 줌 작동
+        if (!e.ctrlKey && !e.metaKey) {
+            return;
+        }
+        
         e.preventDefault();
         
         const { x, y } = this.getMousePos(e);
@@ -221,6 +247,11 @@ export default class InteractionManager {
         
         // 마우스 위치를 중심으로 줌
         this.core.setZoom(newZoom, x, y);
+        
+        // 줌 디스플레이 업데이트
+        if (window.floorPlanApp && window.floorPlanApp.updateZoomDisplay) {
+            window.floorPlanApp.updateZoomDisplay();
+        }
         
         console.debug('🔍 줌:', newZoom.toFixed(2));
     }
@@ -326,11 +357,67 @@ export default class InteractionManager {
                     newY = snapped.y;
                 }
                 
+                // 이름박스의 경우 부모 요소 경계 체크
+                if (element.elementType === 'name_box' && element.parentElementId) {
+                    const parent = this.core.state.elements.find(e => e.id === element.parentElementId);
+                    if (parent) {
+                        const minX = parent.xCoordinate;
+                        const minY = parent.yCoordinate;
+                        const maxX = parent.xCoordinate + parent.width - element.width;
+                        const maxY = parent.yCoordinate + parent.height - element.height;
+                        
+                        newX = Math.max(minX, Math.min(maxX, newX));
+                        newY = Math.max(minY, Math.min(maxY, newY));
+                    }
+                } else {
+                    // 일반 요소의 경우 캔버스 경계 체크
+                    const canvasWidth = this.core.state.canvasWidth;
+                    const canvasHeight = this.core.state.canvasHeight;
+                    const elementWidth = element.width || 0;
+                    const elementHeight = element.height || 0;
+                    
+                    newX = Math.max(0, Math.min(canvasWidth - elementWidth, newX));
+                    newY = Math.max(0, Math.min(canvasHeight - elementHeight, newY));
+                }
+                
                 // 요소 업데이트
                 this.core.updateElement(element.id, {
                     xCoordinate: newX,
                     yCoordinate: newY
                 });
+                
+                // 부모 요소가 이동하면 자식 요소(name_box)도 함께 이동
+                if (element.elementType === 'building' || element.elementType === 'room') {
+                    const children = this.core.state.elements.filter(e => e.parentElementId === element.id);
+                    for (const child of children) {
+                        const childOriginalPos = this.dragStart.originalPositions.get(child.id);
+                        if (childOriginalPos) {
+                            let childNewX = childOriginalPos.x + dx_canvas;
+                            let childNewY = childOriginalPos.y + dy_canvas;
+                            
+                            // 그리드 스냅 적용
+                            if (this.core.state.snapToGrid) {
+                                const snapped = this.core.snapToGrid(childNewX, childNewY);
+                                childNewX = snapped.x;
+                                childNewY = snapped.y;
+                            }
+                            
+                            this.core.updateElement(child.id, {
+                                xCoordinate: childNewX,
+                                yCoordinate: childNewY
+                            });
+                        } else {
+                            // originalPositions에 없는 경우 (부모 선택 시 자식은 자동 포함)
+                            const dx_child = newX - originalPos.x;
+                            const dy_child = newY - originalPos.y;
+                            
+                            this.core.updateElement(child.id, {
+                                xCoordinate: child.xCoordinate + dx_child,
+                                yCoordinate: child.yCoordinate + dy_child
+                            });
+                        }
+                    }
+                }
             }
         }
     }
@@ -368,13 +455,13 @@ export default class InteractionManager {
     }
     
     /**
-     * 팬 업데이트
+     * 팬 업데이트 (상하 이동만)
      */
     updatePan(x, y) {
-        const dx = x - this.panStart.x;
         const dy = y - this.panStart.y;
         
-        const newPanX = this.panStart.panX + dx;
+        // X축은 고정, Y축만 이동
+        const newPanX = this.panStart.panX;
         const newPanY = this.panStart.panY + dy;
         
         this.core.setPan(newPanX, newPanY);
@@ -388,6 +475,56 @@ export default class InteractionManager {
         
         this.state.isPanning = false;
         this.canvas.style.cursor = this.state.isSpacePressed ? 'grab' : 'default';
+    }
+    
+    // ===== 줌 드래그 =====
+    
+    /**
+     * 줌 드래그 시작
+     */
+    startZoom(y) {
+        this.state.isZooming = true;
+        
+        this.zoomStart.y = y;
+        this.zoomStart.zoom = this.core.state.zoom;
+        
+        this.canvas.style.cursor = 'ns-resize';
+        
+        console.debug('🔍 줌 드래그 시작');
+    }
+    
+    /**
+     * 줌 드래그 업데이트
+     */
+    updateZoom(y) {
+        const dy = this.zoomStart.y - y; // 위로 드래그 = 확대
+        
+        // 드래그 거리를 줌 변화량으로 변환 (100px = 1배)
+        const zoomDelta = dy / 100;
+        const newZoom = this.zoomStart.zoom * Math.pow(1.5, zoomDelta);
+        
+        // 줌 범위 제한 (동적 최소 줌 사용)
+        const minZoom = this.core.getMinZoomToFitCanvas();
+        const maxZoom = 5.0; // FloorPlanCore.MAX_ZOOM
+        const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+        
+        this.core.setState({ zoom: clampedZoom });
+        this.core.markDirty();
+        
+        // 줌 디스플레이 업데이트 (main_new_v3.js의 updateZoomDisplay 호출)
+        if (window.floorPlanApp && window.floorPlanApp.updateZoomDisplay) {
+            window.floorPlanApp.updateZoomDisplay();
+        }
+    }
+    
+    /**
+     * 줌 드래그 종료
+     */
+    endZoom() {
+        console.debug('✅ 줌 드래그 종료');
+        
+        this.state.isZooming = false;
+        this.canvas.style.cursor = 'default';
     }
     
     // ===== 선택 박스 =====

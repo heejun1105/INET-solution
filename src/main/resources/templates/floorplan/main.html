@@ -428,62 +428,91 @@
                     </div>
                 </div>
 
-                <!-- 보기 모드 컨테이너 -->
-                <div id="viewModeContainer" class="mode-container">
-                    <!-- 학교 선택 버튼 -->
-                    <div class="school-selector-button">
-                        <button id="viewSchoolSelectBtn" class="school-select-btn">
-                            <i class="fas fa-school"></i>
-                            <span>학교 선택</span>
-                            <small>저장된 평면도를 볼 학교를 선택하세요</small>
-                        </button>
-                        <button id="viewPptDownloadBtn" class="school-select-btn" style="margin-left: 1rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: none;">
-                            <i class="fas fa-file-powerpoint"></i>
-                            <span>PPT 다운로드</span>
-                            <small>평면도를 PowerPoint 파일로 저장</small>
-                        </button>
-                    </div>
-                        
-                    <!-- 뷰어 영역 -->
-                    <div class="viewer-container">
-                        <div id="viewerContent" class="viewer-content">
-                            <!-- 캔버스 컨테이너 (설계모드에서 사용) -->
-                            <div id="canvas" class="canvas-container" style="width: 4000px; height: 2500px; position: relative; background: white; border: 1px solid #ddd;"></div>
-                            <!-- 기존 FloorplanViewer가 여기에 렌더링됩니다 -->
-                            </div>
-                    </div>
-                </div>
-
-                <!-- 학교 선택 모달 -->
-                <div id="schoolSelectModal" class="modal-overlay">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h2>학교 선택</h2>
-                    </div>
-                        <div class="modal-body">
-                            <div class="school-search">
-                                <input type="text" id="schoolSearchInput" placeholder="학교명을 검색하세요...">
-                </div>
-                            <div id="schoolList" class="school-list">
-                                <!-- 학교 목록이 여기에 동적으로 로드됩니다 -->
-                    </div>
-                </div>
-                        <div class="modal-footer">
-                            <button id="cancelSchoolSelect" class="cancel-btn">취소</button>
-                            <button id="confirmSchoolSelect" class="confirm-btn">선택</button>
-                        </div>
-                        </div>
-                    </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- 이전 UI 요소들은 워크스페이스 모달로 통합됨 -->
+            </div>
+        </div>
+    </div>
 
     <!-- 알림 메시지 컨테이너 -->
     <div id="notificationContainer"></div>
+    
+    <!-- 전체화면 작업 공간 (설계/보기 모드) -->
+    <div id="workspace-modal" class="workspace-modal" style="display: none;">
+        <div class="workspace-content">
+            <!-- 상단 컨트롤바 -->
+            <div class="workspace-header">
+                <div class="workspace-controls">
+                    <select id="workspace-school-select" class="workspace-dropdown">
+                        <option value="">학교를 선택하세요</option>
+                        <!-- 학교 목록 동적 로드 -->
+                    </select>
+                    
+                    <select id="workspace-mode-select" class="workspace-dropdown">
+                        <option value="">모드를 선택하세요</option>
+                        <optgroup label="설계 모드">
+                            <option value="design-classroom">교실 설계</option>
+                            <option value="design-wireless">무선 AP 설계</option>
+                            <option value="design-seat">자리 배치 설계</option>
+                        </optgroup>
+                        <optgroup label="보기 모드">
+                            <option value="view-equipment">장비 보기</option>
+                            <option value="view-wireless">무선 AP 보기</option>
+                        </optgroup>
+                    </select>
+                    
+                    <button id="workspace-save-btn" class="workspace-btn save-btn">
+                        <i class="fas fa-save"></i>
+                        <span>저장</span>
+                    </button>
+                    
+                    <button id="workspace-ppt-btn" class="workspace-btn ppt-btn" style="display: none;">
+                        <i class="fas fa-file-powerpoint"></i>
+                        <span>PPT 다운로드</span>
+                    </button>
+                    
+                    <button id="workspace-close-btn" class="workspace-btn close-btn">
+                        <i class="fas fa-times"></i>
+                        <span>닫기</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 캔버스 영역 -->
+            <div class="workspace-canvas-container">
+                <div id="workspace-canvas-wrapper" class="canvas-wrapper">
+                    <!-- FloorPlanCore가 여기에 캔버스 생성 -->
+                </div>
+                
+                <!-- 줌 컨트롤 -->
+                <div class="zoom-controls">
+                    <button id="zoom-in-btn" class="zoom-btn" title="확대">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <div id="zoom-display" class="zoom-display">100%</div>
+                    <button id="zoom-out-btn" class="zoom-btn" title="축소">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <button id="zoom-reset-btn" class="zoom-btn" title="초기화">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                </div>
+                
+                <!-- 툴바 영역 (설계 모드에서만 표시) -->
+                <div id="design-toolbar-container" class="design-toolbar-container" style="display: none;">
+                    <div id="design-toolbar" class="design-toolbar">
+                        <!-- 모드별 툴바가 여기에 동적으로 생성됨 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="/css/floorplan-rebuild.css">
 
     <!-- JavaScript 모듈들 -->
-    <!-- 새로운 평면도 시스템 (재구축 버전) -->
-    <script type="module" src="/js/floorplan/main_new_v2.js"></script>
+    <!-- 새로운 평면도 시스템 (리빌딩 버전 v3) -->
+    <script type="module" src="/js/floorplan/main_new_v3.js"></script>
     
     <!-- 학교 데이터 주입 (Thymeleaf) -->
     <script th:inline="javascript">
