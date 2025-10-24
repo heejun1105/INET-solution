@@ -132,9 +132,18 @@ export default class ElementManager {
     
     /**
      * 요소를 앞으로
-     * @param {Object} element - 요소
+     * @param {String|Object} elementOrId - 요소 또는 요소 ID
      */
-    bringForward(element) {
+    bringForward(elementOrId) {
+        const element = typeof elementOrId === 'string' 
+            ? this.core.state.elements.find(el => el.id === elementOrId)
+            : elementOrId;
+        
+        if (!element) {
+            console.warn('⚠️ 요소를 찾을 수 없습니다:', elementOrId);
+            return;
+        }
+        
         const currentZ = element.zIndex || 0;
         this.updateElement(element, { zIndex: currentZ + 1 });
         
@@ -143,9 +152,18 @@ export default class ElementManager {
     
     /**
      * 요소를 뒤로
-     * @param {Object} element - 요소
+     * @param {String|Object} elementOrId - 요소 또는 요소 ID
      */
-    sendBackward(element) {
+    sendBackward(elementOrId) {
+        const element = typeof elementOrId === 'string' 
+            ? this.core.state.elements.find(el => el.id === elementOrId)
+            : elementOrId;
+        
+        if (!element) {
+            console.warn('⚠️ 요소를 찾을 수 없습니다:', elementOrId);
+            return;
+        }
+        
         const currentZ = element.zIndex || 0;
         this.updateElement(element, { zIndex: currentZ - 1 });
         
@@ -154,9 +172,18 @@ export default class ElementManager {
     
     /**
      * 요소를 맨 앞으로
-     * @param {Object} element - 요소
+     * @param {String|Object} elementOrId - 요소 또는 요소 ID
      */
-    bringToFront(element) {
+    bringToFront(elementOrId) {
+        const element = typeof elementOrId === 'string' 
+            ? this.core.state.elements.find(el => el.id === elementOrId)
+            : elementOrId;
+        
+        if (!element) {
+            console.warn('⚠️ 요소를 찾을 수 없습니다:', elementOrId);
+            return;
+        }
+        
         const maxZ = Math.max(...this.core.state.elements.map(el => el.zIndex || 0));
         this.updateElement(element, { zIndex: maxZ + 1 });
         
@@ -165,9 +192,18 @@ export default class ElementManager {
     
     /**
      * 요소를 맨 뒤로
-     * @param {Object} element - 요소
+     * @param {String|Object} elementOrId - 요소 또는 요소 ID
      */
-    sendToBack(element) {
+    sendToBack(elementOrId) {
+        const element = typeof elementOrId === 'string' 
+            ? this.core.state.elements.find(el => el.id === elementOrId)
+            : elementOrId;
+        
+        if (!element) {
+            console.warn('⚠️ 요소를 찾을 수 없습니다:', elementOrId);
+            return;
+        }
+        
         const minZ = Math.min(...this.core.state.elements.map(el => el.zIndex || 0));
         this.updateElement(element, { zIndex: minZ - 1 });
         
@@ -424,15 +460,15 @@ export default class ElementManager {
     getDefaultWidth(elementType) {
         switch (elementType) {
             case 'room':
-                return 100;
+                return 120;
             case 'building':
-                return 200;
+                return 400;  // 5배 증가
             case 'wireless_ap':
                 return 10;
             case 'shape':
                 return 100;
             case 'name_box':
-                return 70;
+                return 80;
             case 'other_space':
                 return 100;
             default:
@@ -448,7 +484,7 @@ export default class ElementManager {
             case 'room':
                 return 80;
             case 'building':
-                return 300;
+                return 750;  // 5배 증가
             case 'wireless_ap':
                 return 10;
             case 'shape':

@@ -463,26 +463,26 @@
                     <button id="workspace-save-btn" class="workspace-btn save-btn">
                         <i class="fas fa-save"></i>
                         <span>저장</span>
-                    </button>
+                        </button>
                     
                     <button id="workspace-ppt-btn" class="workspace-btn ppt-btn" style="display: none;">
-                        <i class="fas fa-file-powerpoint"></i>
-                        <span>PPT 다운로드</span>
+                            <i class="fas fa-file-powerpoint"></i>
+                            <span>PPT 다운로드</span>
                     </button>
                     
                     <button id="workspace-close-btn" class="workspace-btn close-btn">
                         <i class="fas fa-times"></i>
                         <span>닫기</span>
-                    </button>
+                        </button>
                 </div>
-            </div>
-            
+                    </div>
+                        
             <!-- 캔버스 영역 -->
             <div class="workspace-canvas-container">
                 <div id="workspace-canvas-wrapper" class="canvas-wrapper">
                     <!-- FloorPlanCore가 여기에 캔버스 생성 -->
                 </div>
-                
+
                 <!-- 줌 컨트롤 -->
                 <div class="zoom-controls">
                     <button id="zoom-in-btn" class="zoom-btn" title="확대">
@@ -501,18 +501,18 @@
                 <div id="design-toolbar-container" class="design-toolbar-container" style="display: none;">
                     <div id="design-toolbar" class="design-toolbar">
                         <!-- 모드별 툴바가 여기에 동적으로 생성됨 -->
+                        </div>
+                    </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-    
+
     <!-- CSS -->
-    <link rel="stylesheet" href="/css/floorplan-rebuild.css">
+    <link rel="stylesheet" href="/css/floorplan-rebuild.css?v=20251024v5">
 
     <!-- JavaScript 모듈들 -->
-    <!-- 새로운 평면도 시스템 (리빌딩 버전 v3) -->
-    <script type="module" src="/js/floorplan/main_new_v3.js"></script>
+    <!-- 새로운 평면도 시스템 (리빌딩 버전 v20251024v5 - 레이어 관리 기능 활성화) -->
+    <script type="module" src="/js/floorplan/main_new_v3.js?v=20251024v5"></script>
     
     <!-- 학교 데이터 주입 (Thymeleaf) -->
     <script th:inline="javascript">

@@ -64,7 +64,9 @@ export default class FloorPlanCore {
             // 플래그
             isDirty: true, // 리렌더링 필요 여부
             isLoading: false,
-            isSaving: false
+            isSaving: false,
+            isDragging: false,  // 드래그 중 여부
+            isResizing: false   // 리사이즈 중 여부
         };
         
         // 이벤트 리스너 저장 (나중에 제거하기 위함)
@@ -180,10 +182,13 @@ export default class FloorPlanCore {
         const width = this.canvas.width / (window.devicePixelRatio || 1);
         const height = this.canvas.height / (window.devicePixelRatio || 1);
         
-        // 1. 배경 클리어
-        ctx.clearRect(0, 0, width, height);
+        // 1. 완전 초기화: 캔버스 전체를 완전히 클리어하고 리셋
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // 변환 초기화
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         ctx.fillStyle = '#f8f9fa';
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.restore();
         
         // 2. 변환 적용 (줌/팬)
         ctx.save();
@@ -198,11 +203,17 @@ export default class FloorPlanCore {
         // 4. 요소들 렌더링 (z-index 순서대로)
         this.renderElements(ctx);
         
-        // 5. 선택 표시
-        this.renderSelection(ctx);
+        // 5. 선택 표시 (드래그/리사이즈 중이 아닐 때만 - 절대로 스킵!)
+        if (!this.state.isDragging && !this.state.isResizing) {
+            this.renderSelection(ctx);
+        } else {
+            // 드래그/리사이즈 중에는 절대로 선택 효과를 그리지 않음
+            console.debug('🚫 SKIPPING renderSelection | isDragging:', this.state.isDragging, '| isResizing:', this.state.isResizing);
+        }
         
-        // 6. 변환 복원
+        // 6. 변환 복원 및 스타일 완전 리셋
         ctx.restore();
+        ctx.setLineDash([]); // 점선 스타일 초기화 (중요!)
         
         // 7. UI 오버레이 (줌 레벨 등)
         this.renderOverlay(ctx, width, height);
@@ -366,7 +377,7 @@ export default class FloorPlanCore {
     renderNameBox(ctx, element) {
         const x = element.xCoordinate;
         const y = element.yCoordinate;
-        const w = element.width || 70;
+        const w = element.width || 80;
         const h = element.height || 25;
         
         // 배경
@@ -374,21 +385,29 @@ export default class FloorPlanCore {
         ctx.fillRect(x, y, w, h);
         
         // 테두리
-        ctx.strokeStyle = element.borderColor || '#3b82f6';
+        ctx.strokeStyle = element.borderColor || '#000000';
         ctx.lineWidth = element.borderWidth || 1;
         ctx.strokeRect(x, y, w, h);
         
-        // 텍스트
-        ctx.font = `${element.fontSize || 12}px ${element.fontFamily || 'Arial'}`;
+        // 텍스트 - 박스 높이에 비례하는 폰트 크기 (높이의 약 60%)
+        const dynamicFontSize = Math.max(10, h * 0.6); // 최소 10px
+        ctx.font = `bold ${dynamicFontSize}px ${element.fontFamily || 'Arial, sans-serif'}`;
         ctx.fillStyle = element.textColor || '#000000';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(element.label || '', x + w / 2, y + h / 2);
         
-        // 크기 조정 핸들 (선택된 경우)
-        if (this.state.selectedElements.includes(element)) {
-            this.renderResizeHandles(ctx, element);
+        // 텍스트가 박스를 벗어나지 않도록 자동 축소
+        const label = element.label || '';
+        let textWidth = ctx.measureText(label).width;
+        const maxWidth = w - 10; // 좌우 5px 여백
+        
+        if (textWidth > maxWidth) {
+            const scale = maxWidth / textWidth;
+            const adjustedFontSize = dynamicFontSize * scale;
+            ctx.font = `bold ${adjustedFontSize}px ${element.fontFamily || 'Arial, sans-serif'}`;
         }
+        
+        ctx.fillText(label, x + w / 2, y + h / 2);
     }
     
     /**
@@ -529,12 +548,22 @@ export default class FloorPlanCore {
     
     /**
      * 선택 표시 렌더링
+     * 주의: 이 메서드는 render()에서 이미 isDragging/isResizing 체크 후 호출됨
      */
     renderSelection(ctx) {
-        for (const element of this.state.selectedElements) {
-            this.renderSelectionBox(ctx, element);
+        // 이중 방어: render()에서 이미 체크했지만, 만약을 대비해 다시 체크
+        if (this.state.isDragging || this.state.isResizing) {
+            console.warn('⚠️ renderSelection이 드래그/리사이즈 중에 호출됨! 이는 버그일 수 있습니다.');
+            return;
         }
         
+        // 선택된 요소들에 대한 시각적 효과 렌더링
+        for (const element of this.state.selectedElements) {
+            this.renderSelectionBox(ctx, element);
+            this.renderResizeHandles(ctx, element);
+        }
+        
+        // 호버 효과
         if (this.state.hoveredElement) {
             this.renderHoverBox(ctx, this.state.hoveredElement);
         }
@@ -546,28 +575,28 @@ export default class FloorPlanCore {
     renderResizeHandles(ctx, element) {
         const x = element.xCoordinate;
         const y = element.yCoordinate;
-        const w = element.width || 70;
-        const h = element.height || 25;
-        const handleSize = 6;
+        const w = element.width || 100;
+        const h = element.height || 80;
+        const handleSize = 8 / this.state.zoom;  // 줌에 관계없이 화면에서 8px
         
         const handles = [
-            { x: x - handleSize / 2, y: y - handleSize / 2 }, // 좌상
-            { x: x + w - handleSize / 2, y: y - handleSize / 2 }, // 우상
-            { x: x - handleSize / 2, y: y + h - handleSize / 2 }, // 좌하
-            { x: x + w - handleSize / 2, y: y + h - handleSize / 2 }, // 우하
-            { x: x + w / 2 - handleSize / 2, y: y - handleSize / 2 }, // 상
-            { x: x + w / 2 - handleSize / 2, y: y + h - handleSize / 2 }, // 하
-            { x: x - handleSize / 2, y: y + h / 2 - handleSize / 2 }, // 좌
-            { x: x + w - handleSize / 2, y: y + h / 2 - handleSize / 2 }, // 우
+            { x: x, y: y }, // nw (좌상)
+            { x: x + w, y: y }, // ne (우상)
+            { x: x, y: y + h }, // sw (좌하)
+            { x: x + w, y: y + h }, // se (우하)
+            { x: x + w / 2, y: y }, // n (상)
+            { x: x + w / 2, y: y + h }, // s (하)
+            { x: x, y: y + h / 2 }, // w (좌)
+            { x: x + w, y: y + h / 2 }, // e (우)
         ];
         
         ctx.fillStyle = '#3b82f6';
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 / this.state.zoom;
         
         handles.forEach(handle => {
-            ctx.fillRect(handle.x, handle.y, handleSize, handleSize);
-            ctx.strokeRect(handle.x, handle.y, handleSize, handleSize);
+            ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
+            ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
         });
     }
     
@@ -709,10 +738,20 @@ export default class FloorPlanCore {
      * 요소 업데이트
      */
     updateElement(elementId, updates) {
+        // elements 배열 업데이트
         const elements = this.state.elements.map(el =>
             el.id === elementId ? { ...el, ...updates } : el
         );
-        this.setState({ elements });
+        
+        // selectedElements도 함께 업데이트 (중요!)
+        const selectedElements = this.state.selectedElements.map(el =>
+            el.id === elementId ? { ...el, ...updates } : el
+        );
+        
+        // 두 배열 모두 업데이트
+        this.state.elements = elements;
+        this.state.selectedElements = selectedElements;
+        this.markDirty();
     }
     
     /**

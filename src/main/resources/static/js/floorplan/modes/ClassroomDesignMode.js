@@ -39,6 +39,14 @@ export default class ClassroomDesignMode {
         // 모든 요소 잠금 해제
         this.unlockAllElements();
         
+        // 레이어 버튼 초기 상태 설정
+        this.updateLayerButtons();
+        
+        // 선택 상태 변경 감지를 위한 주기적 체크
+        this.selectionCheckInterval = setInterval(() => {
+            this.updateLayerButtons();
+        }, 200); // 200ms마다 체크
+        
         // 강제 렌더링
         this.core.markDirty();
     }
@@ -48,6 +56,13 @@ export default class ClassroomDesignMode {
      */
     deactivate() {
         console.log('❌ 교실설계 모드 비활성화');
+        
+        // 선택 체크 interval 정리
+        if (this.selectionCheckInterval) {
+            clearInterval(this.selectionCheckInterval);
+            this.selectionCheckInterval = null;
+        }
+        
         this.unbindEvents();
         this.clearSelection();
     }
@@ -346,29 +361,36 @@ export default class ClassroomDesignMode {
         const name = prompt('건물 이름을 입력하세요:', '본관');
         if (!name) return;
         
-        // 건물 요소 생성
+        // 건물 요소 생성 (크기 5배)
+        const buildingWidth = 400;
+        const buildingHeight = 750;
+        
         const building = this.elementManager.createElement('building', {
             xCoordinate: x,
             yCoordinate: y,
-            width: 80,
-            height: 150,
+            width: buildingWidth,
+            height: buildingHeight,
             label: name,
-            borderColor: this.currentColor,
-            backgroundColor: '#dbeafe',
+            borderColor: '#000000',  // 검정 테두리
+            backgroundColor: '#ffffff',  // 흰색 배경
             borderWidth: this.currentLineWidth
         });
         
         // 이름박스 자동 생성 (건물 상단 중앙)
+        const nameBoxWidth = 150;
+        const nameBoxHeight = 40;
         this.elementManager.createElement('name_box', {
-            xCoordinate: x + 10,
-            yCoordinate: y + 10,
-            width: 60,
-            height: 25,
+            xCoordinate: x + (buildingWidth - nameBoxWidth) / 2,  // 중앙 정렬
+            yCoordinate: y + 20,  // 상단에서 20px 아래
+            width: nameBoxWidth,
+            height: nameBoxHeight,
             label: name,
             backgroundColor: '#ffffff',
-            borderColor: '#3b82f6',
-            borderWidth: 1,
-            parentElementId: building.id
+            borderColor: '#000000',
+            borderWidth: 2,
+            fontSize: 16,
+            parentElementId: building.id,
+            zIndex: (building.zIndex || 0) + 1  // 부모보다 앞에 위치 (클릭 가능하도록)
         });
         
         this.selectTool(null);
@@ -384,28 +406,35 @@ export default class ClassroomDesignMode {
         if (!name) return;
         
         // 교실 요소 생성
+        const roomWidth = 120;
+        const roomHeight = 80;
+        
         const room = this.elementManager.createElement('room', {
             xCoordinate: x,
             yCoordinate: y,
-            width: 120,
-            height: 80,
+            width: roomWidth,
+            height: roomHeight,
             label: name,
-            borderColor: this.currentColor,
-            backgroundColor: this.currentFillColor,
+            borderColor: '#000000',  // 검정 테두리
+            backgroundColor: '#ffffff',  // 흰색 배경
             borderWidth: this.currentLineWidth
         });
         
         // 이름박스 자동 생성 (교실 상단 중앙)
+        const nameBoxWidth = 80;
+        const nameBoxHeight = 25;
         this.elementManager.createElement('name_box', {
-            xCoordinate: x + 25,
-            yCoordinate: y + 10,
-            width: 70,
-            height: 25,
+            xCoordinate: x + (roomWidth - nameBoxWidth) / 2,  // 중앙 정렬
+            yCoordinate: y + 5,  // 상단에서 5px 아래
+            width: nameBoxWidth,
+            height: nameBoxHeight,
             label: name,
             backgroundColor: '#ffffff',
-            borderColor: '#10b981',
+            borderColor: '#000000',
             borderWidth: 1,
-            parentElementId: room.id
+            fontSize: 12,
+            parentElementId: room.id,
+            zIndex: (room.zIndex || 0) + 1  // 부모보다 앞에 위치 (클릭 가능하도록)
         });
         
         this.selectTool(null);
@@ -476,26 +505,30 @@ export default class ClassroomDesignMode {
      * 앞으로 가져오기
      */
     bringForward() {
-        if (this.selectedElements.length === 0) return;
+        const selectedElements = this.core.state.selectedElements || [];
+        if (selectedElements.length === 0) return;
         
-        this.selectedElements.forEach(element => {
+        selectedElements.forEach(element => {
             this.elementManager.bringForward(element.id);
         });
         
         this.core.markDirty();
+        console.log('⬆️ 요소를 앞으로 이동:', selectedElements.length, '개');
     }
     
     /**
      * 뒤로 보내기
      */
     sendBackward() {
-        if (this.selectedElements.length === 0) return;
+        const selectedElements = this.core.state.selectedElements || [];
+        if (selectedElements.length === 0) return;
         
-        this.selectedElements.forEach(element => {
+        selectedElements.forEach(element => {
             this.elementManager.sendBackward(element.id);
         });
         
         this.core.markDirty();
+        console.log('⬇️ 요소를 뒤로 이동:', selectedElements.length, '개');
     }
     
     /**
@@ -669,10 +702,13 @@ export default class ClassroomDesignMode {
         const bringForward = document.getElementById('bring-forward');
         const sendBackward = document.getElementById('send-backward');
         
-        const hasSelection = this.selectedElements.length > 0;
+        // core의 선택 상태 확인
+        const hasSelection = this.core.state.selectedElements && this.core.state.selectedElements.length > 0;
         
         if (bringForward) bringForward.disabled = !hasSelection;
         if (sendBackward) sendBackward.disabled = !hasSelection;
+        
+        console.debug('🎚️ 레이어 버튼 업데이트:', hasSelection ? '활성화' : '비활성화', '(선택:', this.core.state.selectedElements.length, '개)');
     }
 }
 

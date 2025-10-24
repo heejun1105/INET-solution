@@ -65,6 +65,18 @@ export default class InteractionManager {
             endY: 0
         };
         
+        // 리사이즈 정보
+        this.resizeStart = {
+            element: null,
+            handle: null,  // 'nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'
+            originalX: 0,
+            originalY: 0,
+            originalWidth: 0,
+            originalHeight: 0,
+            startX: 0,
+            startY: 0
+        };
+        
         // 이벤트 리스너 참조 (정리용)
         this.handlers = {};
         
@@ -146,6 +158,15 @@ export default class InteractionManager {
         const clickedElement = this.findElementAt(canvasPos.x, canvasPos.y);
         
         if (clickedElement) {
+            // 선택된 요소의 리사이즈 핸들 확인
+            if (this.isSelected(clickedElement)) {
+                const handle = this.findResizeHandle(canvasPos.x, canvasPos.y, clickedElement);
+                if (handle) {
+                    this.startResize(x, y, clickedElement, handle);
+                    return;
+                }
+            }
+            
             // 요소 클릭: 단일 선택 (Ctrl은 줌 모드로 사용하므로 제거)
             if (e.shiftKey) {
                 // Shift + 클릭: 다중 선택 토글
@@ -178,6 +199,12 @@ export default class InteractionManager {
             return;
         }
         
+        // 리사이즈 중
+        if (this.state.isResizing) {
+            this.updateResize(x, y);
+            return;
+        }
+        
         // 팬 중
         if (this.state.isPanning) {
             this.updatePan(x, y);
@@ -196,7 +223,7 @@ export default class InteractionManager {
             return;
         }
         
-        // 호버 처리
+        // 호버 처리 (커서 변경 포함)
         this.updateHover(canvasPos.x, canvasPos.y);
     }
     
@@ -209,6 +236,11 @@ export default class InteractionManager {
         // 줌 종료
         if (this.state.isZooming) {
             this.endZoom();
+        }
+        
+        // 리사이즈 종료
+        if (this.state.isResizing) {
+            this.endResize();
         }
         
         // 팬 종료
@@ -314,28 +346,53 @@ export default class InteractionManager {
     startDrag(x, y) {
         this.state.isDragging = true;
         
+        // Core 상태 업데이트: isDragging = true, hoveredElement = null (중요!)
+        this.core.state.isDragging = true;  // 즉시 직접 설정
+        this.core.state.hoveredElement = null;  // 즉시 직접 설정
+        
         this.dragStart.x = x;
         this.dragStart.y = y;
         this.dragStart.elements = [...this.core.state.selectedElements];
         
-        // 원래 위치 저장
+        // 원래 위치 저장 (부모 요소 + 자식 요소 모두)
         this.dragStart.originalPositions.clear();
         for (const element of this.dragStart.elements) {
+            // 부모 요소의 원래 위치 저장
             this.dragStart.originalPositions.set(element.id, {
                 x: element.xCoordinate,
                 y: element.yCoordinate
             });
+            
+            // 부모 요소가 building 또는 room이면, 자식(name_box)의 원래 위치도 저장
+            if (element.elementType === 'building' || element.elementType === 'room') {
+                const children = this.core.state.elements.filter(e => e.parentElementId === element.id);
+                for (const child of children) {
+                    this.dragStart.originalPositions.set(child.id, {
+                        x: child.xCoordinate,
+                        y: child.yCoordinate
+                    });
+                }
+            }
         }
         
         this.canvas.style.cursor = 'move';
         
-        console.debug('🚀 드래그 시작:', this.dragStart.elements.length, '개 요소');
+        // 즉시 강제 렌더링 (선택 효과 제거를 즉시 반영)
+        this.core.markDirty();
+        this.core.render();  // 동기적으로 즉시 렌더링
+        
+        console.debug('🚀 드래그 시작 + 자식 포함:', this.dragStart.elements.length, '개 요소 +', this.dragStart.originalPositions.size - this.dragStart.elements.length, '개 자식');
     }
     
     /**
      * 드래그 업데이트
      */
     updateDrag(x, y) {
+        // 드래그 상태 확인
+        if (!this.state.isDragging) return;
+        
+        console.debug('🔄 드래그 업데이트 중 | isDragging:', this.state.isDragging, '| core.isDragging:', this.core.state.isDragging);
+        
         const dx_screen = x - this.dragStart.x;
         const dy_screen = y - this.dragStart.y;
         
@@ -392,44 +449,42 @@ export default class InteractionManager {
                     for (const child of children) {
                         const childOriginalPos = this.dragStart.originalPositions.get(child.id);
                         if (childOriginalPos) {
+                            // 자식의 원래 위치에서 동일한 dx, dy만큼 이동
                             let childNewX = childOriginalPos.x + dx_canvas;
                             let childNewY = childOriginalPos.y + dy_canvas;
                             
-                            // 그리드 스냅 적용
-                            if (this.core.state.snapToGrid) {
-                                const snapped = this.core.snapToGrid(childNewX, childNewY);
-                                childNewX = snapped.x;
-                                childNewY = snapped.y;
-                            }
+                            // 그리드 스냅은 적용하지 않음 (부모와 상대적 위치 유지)
+                            // 자식은 부모 내에서 상대적 위치만 유지하면 됨
                             
                             this.core.updateElement(child.id, {
                                 xCoordinate: childNewX,
                                 yCoordinate: childNewY
-                            });
-                        } else {
-                            // originalPositions에 없는 경우 (부모 선택 시 자식은 자동 포함)
-                            const dx_child = newX - originalPos.x;
-                            const dy_child = newY - originalPos.y;
-                            
-                            this.core.updateElement(child.id, {
-                                xCoordinate: child.xCoordinate + dx_child,
-                                yCoordinate: child.yCoordinate + dy_child
                             });
                         }
                     }
                 }
             }
         }
+        
+        // 강제 리렌더링
+        this.core.markDirty();
     }
     
     /**
      * 드래그 종료
      */
     endDrag() {
-        console.debug('✅ 드래그 종료');
+        console.debug('✅ 드래그 종료 | 변경 전 isDragging:', this.state.isDragging, '| core.isDragging:', this.core.state.isDragging);
         
         this.state.isDragging = false;
+        this.core.state.isDragging = false;  // 즉시 직접 설정
         this.canvas.style.cursor = 'default';
+        
+        // 즉시 강제 렌더링 (선택 효과 다시 표시)
+        this.core.markDirty();
+        this.core.render();  // 동기적으로 즉시 렌더링
+        
+        console.debug('✅ 드래그 종료 + 즉시 렌더링 | isDragging:', this.state.isDragging, '| core.isDragging:', this.core.state.isDragging);
         
         // 드래그 정보 초기화
         this.dragStart.elements = [];
@@ -720,6 +775,40 @@ export default class InteractionManager {
     }
     
     /**
+     * 리사이즈 핸들 찾기
+     * @returns {string|null} 핸들 위치 ('nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e') 또는 null
+     */
+    findResizeHandle(canvasX, canvasY, element) {
+        if (!element) return null;
+        
+        const ex = element.xCoordinate;
+        const ey = element.yCoordinate;
+        const ew = element.width || 100;
+        const eh = element.height || 80;
+        const handleSize = 8 / this.core.state.zoom;  // 화면에서 8px
+        
+        const handles = {
+            'nw': { x: ex, y: ey },
+            'ne': { x: ex + ew, y: ey },
+            'sw': { x: ex, y: ey + eh },
+            'se': { x: ex + ew, y: ey + eh },
+            'n': { x: ex + ew / 2, y: ey },
+            's': { x: ex + ew / 2, y: ey + eh },
+            'w': { x: ex, y: ey + eh / 2 },
+            'e': { x: ex + ew, y: ey + eh / 2 }
+        };
+        
+        for (const [position, handle] of Object.entries(handles)) {
+            if (Math.abs(canvasX - handle.x) <= handleSize && 
+                Math.abs(canvasY - handle.y) <= handleSize) {
+                return position;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
      * 박스 내의 요소들 찾기
      */
     findElementsInBox(startX, startY, endX, endY) {
@@ -761,6 +850,200 @@ export default class InteractionManager {
     showContextMenu(canvasX, canvasY) {
         console.debug('📋 컨텍스트 메뉴:', canvasX, canvasY);
         // 나중에 UIManager에서 처리
+    }
+    
+    // ===== 리사이즈 =====
+    
+    /**
+     * 리사이즈 시작
+     */
+    startResize(x, y, element, handle) {
+        this.state.isResizing = true;
+        
+        // Core 상태 업데이트: isResizing = true, hoveredElement = null (중요!)
+        this.core.state.isResizing = true;  // 즉시 직접 설정
+        this.core.state.hoveredElement = null;  // 즉시 직접 설정
+        
+        this.resizeStart.element = element;
+        this.resizeStart.handle = handle;
+        this.resizeStart.originalX = element.xCoordinate;
+        this.resizeStart.originalY = element.yCoordinate;
+        this.resizeStart.originalWidth = element.width;
+        this.resizeStart.originalHeight = element.height;
+        this.resizeStart.startX = x;
+        this.resizeStart.startY = y;
+        
+        this.canvas.style.cursor = this.getResizeCursor(handle);
+        
+        // 즉시 강제 렌더링 (선택 효과 제거를 즉시 반영)
+        this.core.markDirty();
+        this.core.render();  // 동기적으로 즉시 렌더링
+        
+        console.debug('📏 리사이즈 시작 + 즉시 렌더링:', handle, '| isResizing:', this.core.state.isResizing);
+    }
+    
+    /**
+     * 리사이즈 업데이트
+     */
+    updateResize(x, y) {
+        const element = this.resizeStart.element;
+        const handle = this.resizeStart.handle;
+        
+        // 화면 좌표 이동을 캔버스 좌표 이동으로 변환
+        const dx_screen = x - this.resizeStart.startX;
+        const dy_screen = y - this.resizeStart.startY;
+        const dx_canvas = dx_screen / this.core.state.zoom;
+        const dy_canvas = dy_screen / this.core.state.zoom;
+        
+        let newX = this.resizeStart.originalX;
+        let newY = this.resizeStart.originalY;
+        let newWidth = this.resizeStart.originalWidth;
+        let newHeight = this.resizeStart.originalHeight;
+        
+        // 핸들 위치에 따라 크기 조정
+        switch (handle) {
+            case 'nw':  // 북서 (좌상)
+                newX += dx_canvas;
+                newY += dy_canvas;
+                newWidth -= dx_canvas;
+                newHeight -= dy_canvas;
+                break;
+            case 'ne':  // 북동 (우상)
+                newY += dy_canvas;
+                newWidth += dx_canvas;
+                newHeight -= dy_canvas;
+                break;
+            case 'sw':  // 남서 (좌하)
+                newX += dx_canvas;
+                newWidth -= dx_canvas;
+                newHeight += dy_canvas;
+                break;
+            case 'se':  // 남동 (우하)
+                newWidth += dx_canvas;
+                newHeight += dy_canvas;
+                break;
+            case 'n':   // 북 (상)
+                newY += dy_canvas;
+                newHeight -= dy_canvas;
+                break;
+            case 's':   // 남 (하)
+                newHeight += dy_canvas;
+                break;
+            case 'w':   // 서 (좌)
+                newX += dx_canvas;
+                newWidth -= dx_canvas;
+                break;
+            case 'e':   // 동 (우)
+                newWidth += dx_canvas;
+                break;
+        }
+        
+        // 최소 크기 제한
+        const minWidth = 20;
+        const minHeight = 20;
+        
+        if (newWidth < minWidth) {
+            newWidth = minWidth;
+            if (handle.includes('w')) {
+                newX = this.resizeStart.originalX + this.resizeStart.originalWidth - minWidth;
+            }
+        }
+        
+        if (newHeight < minHeight) {
+            newHeight = minHeight;
+            if (handle.includes('n')) {
+                newY = this.resizeStart.originalY + this.resizeStart.originalHeight - minHeight;
+            }
+        }
+        
+        // 이름박스의 경우 부모 요소 경계 내로 제한
+        if (element.elementType === 'name_box' && element.parentElementId) {
+            const parent = this.core.state.elements.find(e => e.id === element.parentElementId);
+            if (parent) {
+                // 부모의 경계
+                const parentLeft = parent.xCoordinate;
+                const parentTop = parent.yCoordinate;
+                const parentRight = parent.xCoordinate + parent.width;
+                const parentBottom = parent.yCoordinate + parent.height;
+                
+                // 위치 제한
+                newX = Math.max(parentLeft, Math.min(newX, parentRight - newWidth));
+                newY = Math.max(parentTop, Math.min(newY, parentBottom - newHeight));
+                
+                // 크기 제한 (부모를 벗어나지 않도록)
+                const maxWidth = parentRight - newX;
+                const maxHeight = parentBottom - newY;
+                newWidth = Math.min(newWidth, maxWidth);
+                newHeight = Math.min(newHeight, maxHeight);
+            }
+        }
+        
+        // 요소 업데이트
+        this.core.updateElement(element.id, {
+            xCoordinate: newX,
+            yCoordinate: newY,
+            width: newWidth,
+            height: newHeight
+        });
+        
+        this.core.markDirty();
+    }
+    
+    /**
+     * 리사이즈 종료
+     */
+    endResize() {
+        console.debug('✅ 리사이즈 종료');
+        
+        this.state.isResizing = false;
+        this.core.state.isResizing = false;  // 즉시 직접 설정
+        this.resizeStart.element = null;
+        this.resizeStart.handle = null;
+        this.canvas.style.cursor = 'default';
+        
+        // 즉시 강제 렌더링 (선택 효과 다시 표시)
+        this.core.markDirty();
+        this.core.render();  // 동기적으로 즉시 렌더링
+        
+        console.debug('✅ 리사이즈 종료 + 즉시 렌더링 | isResizing:', this.core.state.isResizing);
+    }
+    
+    /**
+     * 리사이즈 커서 얻기
+     */
+    getResizeCursor(handle) {
+        const cursors = {
+            'nw': 'nw-resize',
+            'ne': 'ne-resize',
+            'sw': 'sw-resize',
+            'se': 'se-resize',
+            'n': 'n-resize',
+            's': 's-resize',
+            'w': 'w-resize',
+            'e': 'e-resize'
+        };
+        return cursors[handle] || 'default';
+    }
+    
+    /**
+     * 호버 업데이트 (커서 포함)
+     */
+    updateHover(canvasX, canvasY) {
+        const selectedElement = this.core.state.selectedElements[0];
+        
+        // 선택된 요소의 리사이즈 핸들 위에 있는지 확인
+        if (selectedElement) {
+            const handle = this.findResizeHandle(canvasX, canvasY, selectedElement);
+            if (handle) {
+                this.canvas.style.cursor = this.getResizeCursor(handle);
+                return;
+            }
+        }
+        
+        // 호버된 요소 확인
+        const hoveredElement = this.findElementAt(canvasX, canvasY);
+        this.core.setState({ hoveredElement });
+        this.canvas.style.cursor = hoveredElement ? 'move' : 'default';
     }
     
     // ===== 정리 =====
