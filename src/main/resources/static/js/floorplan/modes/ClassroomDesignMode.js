@@ -19,7 +19,7 @@ export default class ClassroomDesignMode {
         this.currentTool = null; // 'building', 'room', 'rectangle', 'circle', 'line', 'dashed-line'
         this.currentColor = '#000000';
         this.currentLineWidth = 2;
-        this.currentFillColor = '#f5f5f5';
+        this.currentFillColor = '#ffffff';  // 흰색
         
         this.selectedElements = [];
         this.isDrawing = false;
@@ -35,6 +35,13 @@ export default class ClassroomDesignMode {
         console.log('✅ 교실설계 모드 활성화');
         this.setupUI();
         this.bindEvents();
+        this.setupHeaderTools(); // 헤더 도구 설정
+        
+        // 헤더 도구 표시
+        const headerTools = document.getElementById('workspace-tools');
+        if (headerTools) {
+            headerTools.style.display = 'flex';
+        }
         
         // 모든 요소 잠금 해제
         this.unlockAllElements();
@@ -56,6 +63,12 @@ export default class ClassroomDesignMode {
      */
     deactivate() {
         console.log('❌ 교실설계 모드 비활성화');
+        
+        // 헤더 도구 숨기기
+        const headerTools = document.getElementById('workspace-tools');
+        if (headerTools) {
+            headerTools.style.display = 'none';
+        }
         
         // 선택 체크 interval 정리
         if (this.selectionCheckInterval) {
@@ -124,53 +137,10 @@ export default class ClassroomDesignMode {
             </div>
             
             <div class="toolbar-section">
-                <h3>스타일</h3>
-                <div class="style-controls">
-                    <label>
-                        선 색상:
-                        <input type="color" id="line-color" value="${this.currentColor}">
-                    </label>
-                    <label>
-                        채우기 색상:
-                        <input type="color" id="fill-color" value="${this.currentFillColor}">
-                    </label>
-                    <label>
-                        선 두께:
-                        <select id="line-width">
-                            <option value="1">1px</option>
-                            <option value="2" selected>2px</option>
-                            <option value="3">3px</option>
-                            <option value="4">4px</option>
-                            <option value="5">5px</option>
-                        </select>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="toolbar-section">
                 <h3>미배치 교실</h3>
                 <div id="unplaced-classrooms-list" class="unplaced-list">
                     <p class="loading">로딩 중...</p>
                 </div>
-            </div>
-            
-            <div class="toolbar-section">
-                <h3>레이어 관리</h3>
-                <div class="layer-controls">
-                    <button id="bring-forward" title="앞으로 가져오기" disabled>
-                        <i class="fas fa-arrow-up"></i> 앞으로
-                    </button>
-                    <button id="send-backward" title="뒤로 보내기" disabled>
-                        <i class="fas fa-arrow-down"></i> 뒤로
-                    </button>
-                </div>
-            </div>
-            
-            <div class="toolbar-section">
-                <h3>추가 기능</h3>
-                <button id="initialize-canvas" class="danger-btn">
-                    <i class="fas fa-trash"></i> 캔버스 초기화
-                </button>
             </div>
         `;
         
@@ -189,45 +159,95 @@ export default class ClassroomDesignMode {
                 this.selectTool(tool);
             });
         });
-        
-        // 색상 변경
-        const lineColorInput = document.getElementById('line-color');
+    }
+    
+    /**
+     * 헤더 도구 설정 및 이벤트 바인딩
+     */
+    setupHeaderTools() {
+        // 스타일 컨트롤
+        const lineColorInput = document.getElementById('header-line-color');
         if (lineColorInput) {
+            lineColorInput.value = this.currentColor;
             lineColorInput.addEventListener('change', (e) => {
                 this.currentColor = e.target.value;
             });
         }
         
-        const fillColorInput = document.getElementById('fill-color');
+        const fillColorInput = document.getElementById('header-fill-color');
         if (fillColorInput) {
+            fillColorInput.value = this.currentFillColor;
             fillColorInput.addEventListener('change', (e) => {
                 this.currentFillColor = e.target.value;
             });
         }
         
-        // 선 두께 변경
-        const lineWidthSelect = document.getElementById('line-width');
+        const lineWidthSelect = document.getElementById('header-line-width');
         if (lineWidthSelect) {
+            lineWidthSelect.value = this.currentLineWidth.toString();
             lineWidthSelect.addEventListener('change', (e) => {
                 this.currentLineWidth = parseInt(e.target.value);
             });
         }
         
         // 레이어 관리
-        const bringForward = document.getElementById('bring-forward');
+        const bringForward = document.getElementById('header-bring-forward');
         if (bringForward) {
             bringForward.addEventListener('click', () => this.bringForward());
         }
         
-        const sendBackward = document.getElementById('send-backward');
+        const sendBackward = document.getElementById('header-send-backward');
         if (sendBackward) {
             sendBackward.addEventListener('click', () => this.sendBackward());
         }
         
+        // 추가 기능 드롭다운
+        const moreBtn = document.getElementById('header-more-btn');
+        const moreMenu = document.getElementById('header-more-menu');
+        if (moreBtn && moreMenu) {
+            moreBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 도움말 메뉴가 열려있으면 닫기
+                const helpMenu = document.getElementById('help-menu');
+                if (helpMenu) helpMenu.style.display = 'none';
+                moreMenu.style.display = moreMenu.style.display === 'none' ? 'block' : 'none';
+            });
+            
+            // 드롭다운 외부 클릭 시 닫기
+            document.addEventListener('click', () => {
+                moreMenu.style.display = 'none';
+            });
+        }
+        
         // 캔버스 초기화
-        const initBtn = document.getElementById('initialize-canvas');
+        const initBtn = document.getElementById('header-initialize-canvas');
         if (initBtn) {
-            initBtn.addEventListener('click', () => this.initializeCanvas());
+            initBtn.addEventListener('click', () => {
+                moreMenu.style.display = 'none';
+                this.initializeCanvas();
+            });
+        }
+        
+        // 도움말 드롭다운
+        const helpBtn = document.getElementById('help-btn');
+        const helpMenu = document.getElementById('help-menu');
+        if (helpBtn && helpMenu) {
+            helpBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 추가 기능 메뉴가 열려있으면 닫기
+                if (moreMenu) moreMenu.style.display = 'none';
+                helpMenu.style.display = helpMenu.style.display === 'none' ? 'block' : 'none';
+            });
+            
+            // 드롭다운 외부 클릭 시 닫기
+            document.addEventListener('click', () => {
+                helpMenu.style.display = 'none';
+            });
+            
+            // 메뉴 내부 클릭 시 닫히지 않도록
+            helpMenu.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
         }
     }
     
@@ -236,11 +256,13 @@ export default class ClassroomDesignMode {
      */
     bindEvents() {
         this.canvasClickHandler = (e) => this.handleCanvasClick(e);
+        this.canvasMouseDownHandler = (e) => this.handleCanvasMouseDown(e);
         this.canvasMouseMoveHandler = (e) => this.handleCanvasMouseMove(e);
         this.canvasMouseUpHandler = (e) => this.handleCanvasMouseUp(e);
         
         const canvas = this.core.canvas;
         canvas.addEventListener('click', this.canvasClickHandler);
+        canvas.addEventListener('mousedown', this.canvasMouseDownHandler);
         canvas.addEventListener('mousemove', this.canvasMouseMoveHandler);
         canvas.addEventListener('mouseup', this.canvasMouseUpHandler);
     }
@@ -252,6 +274,9 @@ export default class ClassroomDesignMode {
         const canvas = this.core.canvas;
         if (this.canvasClickHandler) {
             canvas.removeEventListener('click', this.canvasClickHandler);
+        }
+        if (this.canvasMouseDownHandler) {
+            canvas.removeEventListener('mousedown', this.canvasMouseDownHandler);
         }
         if (this.canvasMouseMoveHandler) {
             canvas.removeEventListener('mousemove', this.canvasMouseMoveHandler);
@@ -267,6 +292,9 @@ export default class ClassroomDesignMode {
     selectTool(tool) {
         this.currentTool = tool;
         
+        // Core 상태 업데이트 (InteractionManager가 커서를 변경하지 않도록)
+        this.core.setState({ activeTool: tool });
+        
         // UI 업데이트
         document.querySelectorAll('.tool-btn').forEach(btn => {
             btn.classList.remove('active');
@@ -279,22 +307,21 @@ export default class ClassroomDesignMode {
         } else {
             this.core.canvas.style.cursor = 'default';
         }
-        
-        console.log(`🔧 도구 선택: ${tool}`);
     }
     
     /**
-     * 캔버스 클릭 처리
+     * 캔버스 클릭 처리 (건물, 교실만)
      */
     handleCanvasClick(e) {
         if (!this.currentTool) return;
         
-        const rect = this.core.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        // 도형은 mousedown/drag로 처리하므로 여기서는 제외
+        if (['rectangle', 'circle', 'line', 'dashed-line'].includes(this.currentTool)) {
+            return;
+        }
         
-        // 화면 좌표를 캔버스 좌표로 변환
-        const canvasPos = this.core.screenToCanvas(x, y);
+        // screenToCanvas는 내부에서 getBoundingClientRect를 처리하므로 clientX/Y를 직접 전달
+        const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
         
         // 캔버스 경계 체크
         if (!this.isWithinCanvasBounds(canvasPos.x, canvasPos.y)) {
@@ -306,9 +333,34 @@ export default class ClassroomDesignMode {
             this.createBuilding(canvasPos.x, canvasPos.y);
         } else if (this.currentTool === 'room') {
             this.createRoom(canvasPos.x, canvasPos.y);
-        } else if (['rectangle', 'circle', 'line', 'dashed-line'].includes(this.currentTool)) {
-            this.startDrawingShape(canvasPos.x, canvasPos.y);
         }
+    }
+    
+    /**
+     * 캔버스 마우스 다운 처리 (도형만)
+     */
+    handleCanvasMouseDown(e) {
+        if (!this.currentTool) return;
+        
+        // 도형 도구만 처리
+        if (!['rectangle', 'circle', 'line', 'dashed-line'].includes(this.currentTool)) {
+            return;
+        }
+        
+        // InteractionManager의 드래그와 충돌하지 않도록 이벤트 전파 중단
+        e.stopPropagation();
+        
+        // screenToCanvas는 내부에서 getBoundingClientRect를 처리하므로 clientX/Y를 직접 전달
+        const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
+        
+        // 캔버스 경계 체크
+        if (!this.isWithinCanvasBounds(canvasPos.x, canvasPos.y)) {
+            this.uiManager.showNotification('경고', '캔버스 영역 내에만 요소를 생성할 수 있습니다.', 'warning');
+            return;
+        }
+        
+        this.startDrawingShape(canvasPos.x, canvasPos.y);
+        console.log('✏️ 도형 그리기 시작:', this.currentTool, canvasPos);
     }
     
     /**
@@ -329,11 +381,8 @@ export default class ClassroomDesignMode {
     handleCanvasMouseMove(e) {
         if (!this.isDrawing) return;
         
-        const rect = this.core.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        const canvasPos = this.core.screenToCanvas(x, y);
+        // screenToCanvas는 내부에서 getBoundingClientRect를 처리하므로 clientX/Y를 직접 전달
+        const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
         
         // 도형 프리뷰 업데이트
         this.updateShapePreview(canvasPos.x, canvasPos.y);
@@ -345,11 +394,8 @@ export default class ClassroomDesignMode {
     handleCanvasMouseUp(e) {
         if (!this.isDrawing) return;
         
-        const rect = this.core.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        const canvasPos = this.core.screenToCanvas(x, y);
+        // screenToCanvas는 내부에서 getBoundingClientRect를 처리하므로 clientX/Y를 직접 전달
+        const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
         
         this.finishDrawingShape(canvasPos.x, canvasPos.y);
     }
@@ -358,16 +404,20 @@ export default class ClassroomDesignMode {
      * 건물 생성
      */
     createBuilding(x, y) {
-        const name = prompt('건물 이름을 입력하세요:', '본관');
+        const name = prompt('건물 이름을 입력하세요:', '새건물');
         if (!name) return;
         
         // 건물 요소 생성 (크기 5배)
         const buildingWidth = 400;
         const buildingHeight = 750;
         
+        // 클릭한 위치가 중앙이 되도록 조정
+        const buildingX = x - buildingWidth / 2;
+        const buildingY = y - buildingHeight / 2;
+        
         const building = this.elementManager.createElement('building', {
-            xCoordinate: x,
-            yCoordinate: y,
+            xCoordinate: buildingX,
+            yCoordinate: buildingY,
             width: buildingWidth,
             height: buildingHeight,
             label: name,
@@ -380,8 +430,8 @@ export default class ClassroomDesignMode {
         const nameBoxWidth = 150;
         const nameBoxHeight = 40;
         this.elementManager.createElement('name_box', {
-            xCoordinate: x + (buildingWidth - nameBoxWidth) / 2,  // 중앙 정렬
-            yCoordinate: y + 20,  // 상단에서 20px 아래
+            xCoordinate: buildingX + (buildingWidth - nameBoxWidth) / 2,  // 중앙 정렬
+            yCoordinate: buildingY + 25,  // 상단에서 25px 아래
             width: nameBoxWidth,
             height: nameBoxHeight,
             label: name,
@@ -390,7 +440,7 @@ export default class ClassroomDesignMode {
             borderWidth: 2,
             fontSize: 16,
             parentElementId: building.id,
-            zIndex: (building.zIndex || 0) + 1  // 부모보다 앞에 위치 (클릭 가능하도록)
+            zIndex: building.zIndex || 0  // 부모와 동일한 z-index
         });
         
         this.selectTool(null);
@@ -402,16 +452,20 @@ export default class ClassroomDesignMode {
      * 교실 생성
      */
     createRoom(x, y) {
-        const name = prompt('교실 이름을 입력하세요:', '3-1');
+        const name = prompt('교실 이름을 입력하세요:', '새교실');
         if (!name) return;
         
         // 교실 요소 생성
         const roomWidth = 120;
-        const roomHeight = 80;
+        const roomHeight = 100;
+        
+        // 클릭한 위치가 중앙이 되도록 조정
+        const roomX = x - roomWidth / 2;
+        const roomY = y - roomHeight / 2;
         
         const room = this.elementManager.createElement('room', {
-            xCoordinate: x,
-            yCoordinate: y,
+            xCoordinate: roomX,
+            yCoordinate: roomY,
             width: roomWidth,
             height: roomHeight,
             label: name,
@@ -424,8 +478,8 @@ export default class ClassroomDesignMode {
         const nameBoxWidth = 80;
         const nameBoxHeight = 25;
         this.elementManager.createElement('name_box', {
-            xCoordinate: x + (roomWidth - nameBoxWidth) / 2,  // 중앙 정렬
-            yCoordinate: y + 5,  // 상단에서 5px 아래
+            xCoordinate: roomX + (roomWidth - nameBoxWidth) / 2,  // 중앙 정렬
+            yCoordinate: roomY + 20,  // 상단에서 20px 아래
             width: nameBoxWidth,
             height: nameBoxHeight,
             label: name,
@@ -434,7 +488,7 @@ export default class ClassroomDesignMode {
             borderWidth: 1,
             fontSize: 12,
             parentElementId: room.id,
-            zIndex: (room.zIndex || 0) + 1  // 부모보다 앞에 위치 (클릭 가능하도록)
+            zIndex: room.zIndex || 0  // 부모와 동일한 z-index
         });
         
         this.selectTool(null);
@@ -454,7 +508,25 @@ export default class ClassroomDesignMode {
      * 도형 프리뷰 업데이트
      */
     updateShapePreview(x, y) {
-        // 임시 프리뷰 렌더링 (구현 예정)
+        if (!this.drawStartPos) return;
+        
+        const width = Math.abs(x - this.drawStartPos.x);
+        const height = Math.abs(y - this.drawStartPos.y);
+        
+        // Core의 drawingShape 상태 업데이트 (실시간 프리뷰)
+        this.core.updateDrawingShape({
+            shapeType: this.currentTool,
+            startX: Math.min(this.drawStartPos.x, x),
+            startY: Math.min(this.drawStartPos.y, y),
+            endX: Math.max(this.drawStartPos.x, x),
+            endY: Math.max(this.drawStartPos.y, y),
+            width: width,
+            height: height,
+            borderColor: this.currentColor,
+            borderWidth: this.currentLineWidth,
+            backgroundColor: this.currentTool === 'line' || this.currentTool === 'dashed-line' ? 'transparent' : this.currentFillColor
+        });
+        
         this.core.markDirty();
     }
     
@@ -467,11 +539,16 @@ export default class ClassroomDesignMode {
         const width = Math.abs(x - this.drawStartPos.x);
         const height = Math.abs(y - this.drawStartPos.y);
         
+        // 너무 작은 도형은 생성하지 않음
         if (width < 5 || height < 5) {
             this.isDrawing = false;
+            this.drawStartPos = null;
+            this.core.updateDrawingShape(null); // 프리뷰 제거
+            this.core.markDirty();
             return;
         }
         
+        // 실제 도형 요소 생성
         this.elementManager.createElement('shape', {
             shapeType: this.currentTool,
             xCoordinate: Math.min(this.drawStartPos.x, x),
@@ -483,11 +560,13 @@ export default class ClassroomDesignMode {
             backgroundColor: this.currentTool === 'line' || this.currentTool === 'dashed-line' ? 'transparent' : this.currentFillColor
         });
         
+        // 그리기 상태 초기화
         this.isDrawing = false;
         this.drawStartPos = null;
+        this.core.updateDrawingShape(null); // 프리뷰 제거
         this.selectTool(null);
         
-        console.log('📐 도형 생성 완료');
+        console.log('📐 도형 생성 완료:', this.currentTool, width, 'x', height);
     }
     
     /**
@@ -696,11 +775,11 @@ export default class ClassroomDesignMode {
     }
     
     /**
-     * 레이어 버튼 업데이트
+     * 레이어 버튼 업데이트 (헤더)
      */
     updateLayerButtons() {
-        const bringForward = document.getElementById('bring-forward');
-        const sendBackward = document.getElementById('send-backward');
+        const bringForward = document.getElementById('header-bring-forward');
+        const sendBackward = document.getElementById('header-send-backward');
         
         // core의 선택 상태 확인
         const hasSelection = this.core.state.selectedElements && this.core.state.selectedElements.length > 0;

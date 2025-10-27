@@ -83,15 +83,25 @@ export default class ElementManager {
     }
     
     /**
-     * 요소 삭제
+     * 요소 삭제 (자식 요소도 함께 삭제)
      * @param {String|Object} elementOrId - 요소 또는 요소 ID
      */
     deleteElement(elementOrId) {
         const elementId = typeof elementOrId === 'string' ? elementOrId : elementOrId.id;
         
+        // 자식 요소 찾기 (이름박스 등)
+        const children = this.core.state.elements.filter(el => el.parentElementId === elementId);
+        
+        // 자식 요소 먼저 삭제
+        children.forEach(child => {
+            this.core.removeElement(child.id);
+            console.debug('🗑️ 자식 요소 삭제:', child.id, '(부모:', elementId, ')');
+        });
+        
+        // 부모 요소 삭제
         this.core.removeElement(elementId);
         
-        console.debug('🗑️ 요소 삭제:', elementId);
+        console.debug('🗑️ 요소 삭제:', elementId, children.length > 0 ? `(자식 ${children.length}개 포함)` : '');
     }
     
     /**
@@ -107,7 +117,22 @@ export default class ElementManager {
     }
     
     /**
-     * 요소 복제
+     * 모든 요소 삭제
+     */
+    clearAllElements() {
+        const allElements = [...this.core.state.elements];
+        const count = allElements.length;
+        
+        // 모든 요소를 역순으로 삭제 (자식부터 삭제하기 위해)
+        allElements.reverse().forEach(element => {
+            this.core.removeElement(element.id);
+        });
+        
+        console.debug('🗑️ 모든 요소 삭제:', count, '개');
+    }
+    
+    /**
+     * 요소 복제 (자식 요소도 함께 복제)
      * @param {Object} element - 복제할 요소
      * @returns {Object} 복제된 요소
      */
@@ -123,7 +148,21 @@ export default class ElementManager {
         
         this.core.addElement(duplicated);
         
-        console.debug('📋 요소 복제:', element.id, '→', duplicated.id);
+        // 자식 요소(이름박스 등)도 함께 복제
+        const children = this.core.state.elements.filter(el => el.parentElementId === element.id);
+        children.forEach(child => {
+            const childDuplicated = {
+                ...child,
+                id: this.generateElementId(),
+                parentElementId: duplicated.id, // 새 부모 ID로 변경
+                xCoordinate: child.xCoordinate + 20,
+                yCoordinate: child.yCoordinate + 20
+            };
+            this.core.addElement(childDuplicated);
+            console.debug('📋 자식 요소 복제:', child.id, '→', childDuplicated.id);
+        });
+        
+        console.debug('📋 요소 복제:', element.id, '→', duplicated.id, children.length > 0 ? `(자식 ${children.length}개 포함)` : '');
         
         return duplicated;
     }
@@ -131,7 +170,7 @@ export default class ElementManager {
     // ===== 레이어/z-index 관리 =====
     
     /**
-     * 요소를 앞으로
+     * 요소를 앞으로 (자식 요소도 함께)
      * @param {String|Object} elementOrId - 요소 또는 요소 ID
      */
     bringForward(elementOrId) {
@@ -145,13 +184,22 @@ export default class ElementManager {
         }
         
         const currentZ = element.zIndex || 0;
-        this.updateElement(element, { zIndex: currentZ + 1 });
+        const newZ = currentZ + 1;
         
-        console.debug('⬆️ 앞으로:', element.id, currentZ, '→', currentZ + 1);
+        // 부모 요소 z-index 변경
+        this.updateElement(element, { zIndex: newZ });
+        
+        // 자식 요소(이름박스 등)도 함께 변경
+        const children = this.core.state.elements.filter(el => el.parentElementId === element.id);
+        children.forEach(child => {
+            this.updateElement(child, { zIndex: newZ });
+        });
+        
+        console.debug('⬆️ 앞으로:', element.id, currentZ, '→', newZ, '(자식:', children.length, '개)');
     }
     
     /**
-     * 요소를 뒤로
+     * 요소를 뒤로 (자식 요소도 함께)
      * @param {String|Object} elementOrId - 요소 또는 요소 ID
      */
     sendBackward(elementOrId) {
@@ -165,9 +213,18 @@ export default class ElementManager {
         }
         
         const currentZ = element.zIndex || 0;
-        this.updateElement(element, { zIndex: currentZ - 1 });
+        const newZ = currentZ - 1;
         
-        console.debug('⬇️ 뒤로:', element.id, currentZ, '→', currentZ - 1);
+        // 부모 요소 z-index 변경
+        this.updateElement(element, { zIndex: newZ });
+        
+        // 자식 요소(이름박스 등)도 함께 변경
+        const children = this.core.state.elements.filter(el => el.parentElementId === element.id);
+        children.forEach(child => {
+            this.updateElement(child, { zIndex: newZ });
+        });
+        
+        console.debug('⬇️ 뒤로:', element.id, currentZ, '→', newZ, '(자식:', children.length, '개)');
     }
     
     /**

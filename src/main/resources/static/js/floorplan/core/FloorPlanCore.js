@@ -60,6 +60,10 @@ export default class FloorPlanCore {
             // 모드
             mode: 'select', // select, pan, draw
             tool: null, // rectangle, circle, line, etc.
+            activeTool: null, // 현재 활성화된 도구 (십자 커서 유지용)
+            
+            // 그리기 상태 (도형 프리뷰용)
+            drawingShape: null, // { shapeType, startX, startY, endX, endY, width, height, borderColor, borderWidth, backgroundColor }
             
             // 플래그
             isDirty: true, // 리렌더링 필요 여부
@@ -205,10 +209,20 @@ export default class FloorPlanCore {
         
         // 5. 선택 표시 (드래그/리사이즈 중이 아닐 때만 - 절대로 스킵!)
         if (!this.state.isDragging && !this.state.isResizing) {
-            this.renderSelection(ctx);
+        this.renderSelection(ctx);
         } else {
             // 드래그/리사이즈 중에는 절대로 선택 효과를 그리지 않음
             console.debug('🚫 SKIPPING renderSelection | isDragging:', this.state.isDragging, '| isResizing:', this.state.isResizing);
+        }
+        
+        // 5.5. 그리는 중인 도형 프리뷰 렌더링
+        if (this.state.drawingShape) {
+            this.renderDrawingShape(ctx);
+        }
+        
+        // 5.6. 선택 박스 렌더링 (다중 선택 드래그 중)
+        if (this.state.selectionBox) {
+            this.renderMultiSelectionBox(ctx);
         }
         
         // 6. 변환 복원 및 스타일 완전 리셋
@@ -634,6 +648,95 @@ export default class FloorPlanCore {
     }
     
     /**
+     * 그리는 중인 도형 프리뷰 렌더링
+     */
+    renderDrawingShape(ctx) {
+        const shape = this.state.drawingShape;
+        if (!shape) return;
+        
+        ctx.save();
+        ctx.globalAlpha = 0.5; // 반투명 프리뷰
+        
+        const { shapeType, startX, startY, width, height, borderColor, borderWidth, backgroundColor } = shape;
+        
+        if (shapeType === 'rectangle') {
+            // 사각형
+            if (backgroundColor && backgroundColor !== 'transparent') {
+                ctx.fillStyle = backgroundColor;
+                ctx.fillRect(startX, startY, width, height);
+            }
+            ctx.strokeStyle = borderColor || '#000000';
+            ctx.lineWidth = borderWidth || 2;
+            ctx.strokeRect(startX, startY, width, height);
+        } else if (shapeType === 'circle') {
+            // 원
+            const centerX = startX + width / 2;
+            const centerY = startY + height / 2;
+            const radius = Math.min(width, height) / 2;
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            
+            if (backgroundColor && backgroundColor !== 'transparent') {
+                ctx.fillStyle = backgroundColor;
+                ctx.fill();
+            }
+            ctx.strokeStyle = borderColor || '#000000';
+            ctx.lineWidth = borderWidth || 2;
+            ctx.stroke();
+        } else if (shapeType === 'line') {
+            // 직선
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(startX + width, startY + height);
+            ctx.strokeStyle = borderColor || '#000000';
+            ctx.lineWidth = borderWidth || 2;
+            ctx.stroke();
+        } else if (shapeType === 'dashed-line') {
+            // 점선
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(startX + width, startY + height);
+            ctx.strokeStyle = borderColor || '#000000';
+            ctx.lineWidth = borderWidth || 2;
+            ctx.stroke();
+            ctx.setLineDash([]); // 리셋
+        }
+        
+        ctx.restore();
+    }
+    
+    /**
+     * 다중 선택 박스 렌더링 (드래그 중)
+     */
+    renderMultiSelectionBox(ctx) {
+        const box = this.state.selectionBox;
+        if (!box) return;
+        
+        const minX = Math.min(box.startX, box.endX);
+        const minY = Math.min(box.startY, box.endY);
+        const maxX = Math.max(box.startX, box.endX);
+        const maxY = Math.max(box.startY, box.endY);
+        const width = maxX - minX;
+        const height = maxY - minY;
+        
+        ctx.save();
+        
+        // 반투명 파란색 배경
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+        ctx.fillRect(minX, minY, width, height);
+        
+        // 파란색 점선 테두리
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2 / this.state.zoom;
+        ctx.setLineDash([5 / this.state.zoom, 5 / this.state.zoom]);
+        ctx.strokeRect(minX, minY, width, height);
+        
+        ctx.restore();
+    }
+    
+    /**
      * 오버레이 렌더링 (UI 정보)
      */
     renderOverlay(ctx, width, height) {
@@ -695,6 +798,15 @@ export default class FloorPlanCore {
     }
     
     /**
+     * 그리는 중인 도형 업데이트 (프리뷰용)
+     * @param {Object|null} shapeData - 도형 데이터 또는 null (제거)
+     */
+    updateDrawingShape(shapeData) {
+        this.state.drawingShape = shapeData;
+        this.markDirty();
+    }
+    
+    /**
      * 줌 설정
      */
     setZoom(zoom, centerX = null, centerY = null) {
@@ -713,17 +825,44 @@ export default class FloorPlanCore {
             const newPanX = x_screen - x_canvas * newZoom;
             const newPanY = y_screen - y_canvas * newZoom;
             
-            this.setState({ zoom: newZoom, panX: newPanX, panY: newPanY });
-        } else {
+            // 줌 먼저 설정하고 팬 경계 체크
             this.setState({ zoom: newZoom });
+            this.setPan(newPanX, newPanY);
+        } else {
+            // 줌만 변경하고 현재 팬 위치 재검증
+            this.setState({ zoom: newZoom });
+            this.setPan(this.state.panX, this.state.panY);
         }
     }
     
     /**
-     * 팬 설정
+     * 팬 설정 (경계 제한 포함)
      */
     setPan(panX, panY) {
-        this.setState({ panX, panY });
+        // 뷰포트 크기
+        const viewportWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const viewportHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        
+        // 캔버스 크기 (줌 적용)
+        const scaledCanvasWidth = this.state.canvasWidth * this.state.zoom;
+        const scaledCanvasHeight = this.state.canvasHeight * this.state.zoom;
+        
+        // 팬 범위 제한 계산
+        // 최소값: 캔버스 오른쪽 끝이 뷰포트 왼쪽 끝에 닿을 때
+        // 최대값: 캔버스 왼쪽 끝이 뷰포트 오른쪽 끝에 닿을 때
+        const minPanX = viewportWidth - scaledCanvasWidth;
+        const maxPanX = 0;
+        const minPanY = viewportHeight - scaledCanvasHeight;
+        const maxPanY = 0;
+        
+        // 팬 값을 범위 내로 제한
+        const clampedPanX = Math.max(minPanX, Math.min(maxPanX, panX));
+        const clampedPanY = Math.max(minPanY, Math.min(maxPanY, panY));
+        
+        this.setState({ 
+            panX: clampedPanX, 
+            panY: clampedPanY 
+        });
     }
     
     /**

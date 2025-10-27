@@ -136,10 +136,10 @@ export default class InteractionManager {
         
         console.debug('🖱️ 마우스 다운:', canvasPos);
         
-        // Ctrl + 드래그: 줌 모드
-        if ((e.ctrlKey || e.metaKey) && e.button === 0) {
-            this.startZoom(y);
-            return;
+        // 도형 그리기 도구가 활성화된 경우 InteractionManager는 처리하지 않음
+        const activeTool = this.core.state.activeTool;
+        if (activeTool && ['rectangle', 'circle', 'line', 'dashed-line'].includes(activeTool)) {
+            return; // ClassroomDesignMode에서 처리하도록 함
         }
         
         // 스페이스바가 눌려있으면 팬 모드
@@ -167,9 +167,9 @@ export default class InteractionManager {
                 }
             }
             
-            // 요소 클릭: 단일 선택 (Ctrl은 줌 모드로 사용하므로 제거)
-            if (e.shiftKey) {
-                // Shift + 클릭: 다중 선택 토글
+            // 요소 클릭: 단일 또는 다중 선택
+            if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                // Ctrl/Cmd/Shift + 클릭: 다중 선택 토글
                 this.toggleSelection(clickedElement);
             } else {
                 // 일반 클릭: 단일 선택
@@ -178,11 +178,17 @@ export default class InteractionManager {
                 }
             }
             
-            // 드래그 시작
-            this.startDrag(x, y);
+            // Ctrl/Shift 클릭이 아닐 때만 드래그 시작 (다중 선택 토글 시 드래그 방지)
+            if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                this.startDrag(x, y);
+            }
         } else {
-            // 빈 공간 클릭: 팬 시작 (일반 드래그는 상하 이동)
-            this.startPan(x, y);
+            // 빈 공간 클릭: 선택 박스 시작 (다중 선택) 또는 선택 해제
+            if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                // Ctrl/Shift 누른 채로 빈 공간 클릭: 아무것도 안 함 (기존 선택 유지)
+                return;
+            }
+            this.startSelectionBox(x, y);
         }
     }
     
@@ -263,29 +269,46 @@ export default class InteractionManager {
      * 마우스 휠
      */
     onWheel(e) {
-        // Ctrl 키가 눌려있을 때만 줌 작동
-        if (!e.ctrlKey && !e.metaKey) {
-            return;
-        }
-        
         e.preventDefault();
         
         const { x, y } = this.getMousePos(e);
-        const delta = -e.deltaY;
         
-        // 줌 레벨 계산
-        const zoomFactor = delta > 0 ? 1.1 : 0.9;
-        const newZoom = this.core.state.zoom * zoomFactor;
-        
-        // 마우스 위치를 중심으로 줌
-        this.core.setZoom(newZoom, x, y);
-        
-        // 줌 디스플레이 업데이트
-        if (window.floorPlanApp && window.floorPlanApp.updateZoomDisplay) {
-            window.floorPlanApp.updateZoomDisplay();
+        // Ctrl + 휠: 줌
+        if (e.ctrlKey || e.metaKey) {
+            const delta = -e.deltaY;
+            
+            // 줌 레벨 계산
+            const zoomFactor = delta > 0 ? 1.1 : 0.9;
+            const newZoom = this.core.state.zoom * zoomFactor;
+            
+            // 마우스 위치를 중심으로 줌
+            this.core.setZoom(newZoom, x, y);
+            
+            // 줌 디스플레이 업데이트
+            if (window.floorPlanApp && window.floorPlanApp.updateZoomDisplay) {
+                window.floorPlanApp.updateZoomDisplay();
+            }
+            
+            console.debug('🔍 줌:', newZoom.toFixed(2));
+            return;
         }
         
-        console.debug('🔍 줌:', newZoom.toFixed(2));
+        // Shift + 휠: 좌우 스크롤
+        if (e.shiftKey) {
+            const deltaX = e.deltaY; // 세로 휠을 가로 이동으로 변환
+            const newPanX = this.core.state.panX - deltaX;
+            
+            this.core.setPan(newPanX, this.core.state.panY);
+            console.debug('↔️ 좌우 스크롤:', newPanX.toFixed(2));
+            return;
+        }
+        
+        // 일반 휠: 상하 스크롤
+        const deltaY = e.deltaY;
+        const newPanY = this.core.state.panY - deltaY;
+        
+        this.core.setPan(this.core.state.panX, newPanY);
+        console.debug('↕️ 상하 스크롤:', newPanY.toFixed(2));
     }
     
     /**
@@ -354,25 +377,33 @@ export default class InteractionManager {
         this.dragStart.y = y;
         this.dragStart.elements = [...this.core.state.selectedElements];
         
-        // 원래 위치 저장 (부모 요소 + 자식 요소 모두)
+            // 원래 위치 저장 (부모 요소 + 자식 요소 모두)
         this.dragStart.originalPositions.clear();
         for (const element of this.dragStart.elements) {
-            // 부모 요소의 원래 위치 저장
+                // 부모 요소의 원래 위치 저장
             this.dragStart.originalPositions.set(element.id, {
                 x: element.xCoordinate,
                 y: element.yCoordinate
             });
-            
-            // 부모 요소가 building 또는 room이면, 자식(name_box)의 원래 위치도 저장
-            if (element.elementType === 'building' || element.elementType === 'room') {
-                const children = this.core.state.elements.filter(e => e.parentElementId === element.id);
-                for (const child of children) {
-                    this.dragStart.originalPositions.set(child.id, {
-                        x: child.xCoordinate,
-                        y: child.yCoordinate
-                    });
+                
+                // 부모 요소가 building 또는 room이면, 자식(name_box)의 원래 위치와 상대 위치도 저장
+                if (element.elementType === 'building' || element.elementType === 'room') {
+                    const children = this.core.state.elements.filter(e => e.parentElementId === element.id);
+                    for (const child of children) {
+                        // 절대 위치와 부모 기준 상대 위치(offset) 모두 저장
+                        const offsetX = child.xCoordinate - element.xCoordinate;
+                        const offsetY = child.yCoordinate - element.yCoordinate;
+                        
+                        this.dragStart.originalPositions.set(child.id, {
+                            x: child.xCoordinate,
+                            y: child.yCoordinate,
+                            offsetX: offsetX, // 부모 기준 상대 X
+                            offsetY: offsetY  // 부모 기준 상대 Y
+                        });
+                        
+                        console.debug('📌 자식 상대 위치 저장:', child.id, 'offset:', offsetX.toFixed(2), offsetY.toFixed(2));
+                    }
                 }
-            }
         }
         
         this.canvas.style.cursor = 'move';
@@ -448,13 +479,28 @@ export default class InteractionManager {
                     const children = this.core.state.elements.filter(e => e.parentElementId === element.id);
                     for (const child of children) {
                         const childOriginalPos = this.dragStart.originalPositions.get(child.id);
-                        if (childOriginalPos) {
-                            // 자식의 원래 위치에서 동일한 dx, dy만큼 이동
-                            let childNewX = childOriginalPos.x + dx_canvas;
-                            let childNewY = childOriginalPos.y + dy_canvas;
+                        if (childOriginalPos && childOriginalPos.offsetX !== undefined && childOriginalPos.offsetY !== undefined) {
+                            // 부모의 새 위치 + 상대 위치(offset)로 자식 위치 계산
+                            // 이렇게 하면 상대 위치가 정확히 유지됨
+                            let childNewX = newX + childOriginalPos.offsetX;
+                            let childNewY = newY + childOriginalPos.offsetY;
                             
-                            // 그리드 스냅은 적용하지 않음 (부모와 상대적 위치 유지)
-                            // 자식은 부모 내에서 상대적 위치만 유지하면 됨
+                            // 부모 요소 내부로 제한 (자식이 부모 밖으로 나가지 않도록)
+                            const minX = newX;
+                            const minY = newY;
+                            const maxX = newX + element.width - child.width;
+                            const maxY = newY + element.height - child.height;
+                            
+                            const beforeClampX = childNewX;
+                            const beforeClampY = childNewY;
+                            
+                            childNewX = Math.max(minX, Math.min(maxX, childNewX));
+                            childNewY = Math.max(minY, Math.min(maxY, childNewY));
+                            
+                            // 경계에 걸려서 clamp된 경우만 로그 출력
+                            if (childNewX !== beforeClampX || childNewY !== beforeClampY) {
+                                console.debug('⚠️ 자식 위치 제한됨:', child.id, 'before:', beforeClampX.toFixed(2), beforeClampY.toFixed(2), '→ after:', childNewX.toFixed(2), childNewY.toFixed(2));
+                            }
                             
                             this.core.updateElement(child.id, {
                                 xCoordinate: childNewX,
@@ -510,13 +556,14 @@ export default class InteractionManager {
     }
     
     /**
-     * 팬 업데이트 (상하 이동만)
+     * 팬 업데이트 (상하좌우 이동)
      */
     updatePan(x, y) {
+        const dx = x - this.panStart.x;
         const dy = y - this.panStart.y;
         
-        // X축은 고정, Y축만 이동
-        const newPanX = this.panStart.panX;
+        // X축, Y축 모두 이동
+        const newPanX = this.panStart.panX + dx;
         const newPanY = this.panStart.panY + dy;
         
         this.core.setPan(newPanX, newPanY);
@@ -595,6 +642,19 @@ export default class InteractionManager {
         this.selectionBox.endX = x;
         this.selectionBox.endY = y;
         
+        // 화면 좌표를 캔버스 좌표로 변환
+        const canvasStart = this.core.screenToCanvas(x, y);
+        
+        // Core state에도 저장 (렌더링용 - 캔버스 좌표)
+        this.core.setState({ 
+            selectionBox: {
+                startX: canvasStart.x,
+                startY: canvasStart.y,
+                endX: canvasStart.x,
+                endY: canvasStart.y
+            }
+        });
+        
         // 기존 선택 해제 (Shift 키가 안 눌려있으면)
         if (!window.event.shiftKey) {
             this.clearSelection();
@@ -610,6 +670,20 @@ export default class InteractionManager {
         this.selectionBox.endX = x;
         this.selectionBox.endY = y;
         
+        // 화면 좌표를 캔버스 좌표로 변환
+        const canvasStart = this.core.screenToCanvas(this.selectionBox.startX, this.selectionBox.startY);
+        const canvasEnd = this.core.screenToCanvas(x, y);
+        
+        // Core state 업데이트 (캔버스 좌표)
+        this.core.setState({ 
+            selectionBox: {
+                startX: canvasStart.x,
+                startY: canvasStart.y,
+                endX: canvasEnd.x,
+                endY: canvasEnd.y
+            }
+        });
+        
         // 선택 박스 렌더링을 위해 캔버스 다시 그리기
         this.core.markDirty();
     }
@@ -621,6 +695,9 @@ export default class InteractionManager {
         console.debug('✅ 선택 박스 종료');
         
         this.state.isSelecting = false;
+        
+        // Core state에서 선택 박스 제거
+        this.core.setState({ selectionBox: null });
         
         // 선택 박스 내의 요소들 찾기
         const selectedElements = this.findElementsInBox(
@@ -640,6 +717,9 @@ export default class InteractionManager {
                 this.selectElements(selectedElements);
             }
         }
+        
+        // 캔버스 다시 그리기
+        this.core.markDirty();
     }
     
     // ===== 선택 관리 =====
@@ -710,18 +790,29 @@ export default class InteractionManager {
     }
     
     /**
-     * 선택된 요소 삭제
+     * 선택된 요소 삭제 (자식 요소도 함께 삭제)
      */
     deleteSelected() {
-        const selectedIds = this.core.state.selectedElements.map(el => el.id);
+        const selectedElements = [...this.core.state.selectedElements];
         
-        for (const id of selectedIds) {
-            this.core.removeElement(id);
-        }
+        // ElementManager를 통해 삭제 (자식 요소도 함께 삭제됨)
+        selectedElements.forEach(element => {
+            // ElementManager가 없으면 core를 통해 직접 삭제
+            if (this.core.elementManager) {
+                this.core.elementManager.deleteElement(element.id);
+            } else {
+                // 자식 요소 찾기
+                const children = this.core.state.elements.filter(el => el.parentElementId === element.id);
+                children.forEach(child => this.core.removeElement(child.id));
+                
+                // 부모 요소 삭제
+                this.core.removeElement(element.id);
+            }
+        });
         
         this.clearSelection();
         
-        console.debug('🗑️ 선택 요소 삭제:', selectedIds.length, '개');
+        console.debug('🗑️ 선택 요소 삭제:', selectedElements.length, '개 (자식 포함)');
     }
     
     // ===== 호버 =====
@@ -732,34 +823,79 @@ export default class InteractionManager {
     updateHover(canvasX, canvasY) {
         const hoveredElement = this.findElementAt(canvasX, canvasY);
         
+        // 드래그/리사이즈 중에는 호버 효과를 표시하지 않음
+        if (this.core.state.isDragging || this.core.state.isResizing) {
+            if (this.core.state.hoveredElement !== null) {
+                this.core.setState({ hoveredElement: null }); // 호버 상태 강제 해제
+                this.core.markDirty();
+            }
+            return;
+        }
+        
+        // 도구가 활성화된 경우 (십자 커서 유지)
+        if (this.core.state.activeTool) {
+            // 호버 상태만 업데이트, 커서는 변경하지 않음
         if (hoveredElement !== this.core.state.hoveredElement) {
             this.core.setState({ hoveredElement });
-            
+            }
+            // 커서를 crosshair로 강제 설정
+            if (this.canvas.style.cursor !== 'crosshair') {
+                this.canvas.style.cursor = 'crosshair';
+            }
+            return;
+        }
+        
+        if (hoveredElement !== this.core.state.hoveredElement) {
+            this.core.setState({ hoveredElement });
+        }
+        
+        // 리사이즈 핸들 호버 시 커서 변경
+        if (this.core.state.selectedElements.length === 1 && hoveredElement === this.core.state.selectedElements[0]) {
+            const handle = this.findResizeHandle(canvasX, canvasY, hoveredElement);
+            if (handle) {
+                this.canvas.style.cursor = this.getResizeCursor(handle);
+                return;
+            }
+        }
+        
+        // 요소 위에 호버 시 커서 변경
             if (hoveredElement) {
                 this.canvas.style.cursor = 'pointer';
             } else {
                 this.canvas.style.cursor = 'default';
-            }
         }
     }
     
     // ===== 요소 찾기 =====
     
     /**
-     * 특정 위치의 요소 찾기 (z-index 역순으로)
+     * 특정 위치의 요소 찾기 (z-index 역순으로, name_box 우선)
      */
     findElementAt(canvasX, canvasY) {
         const elements = [...this.core.state.elements].sort(
             (a, b) => (b.zIndex || 0) - (a.zIndex || 0)
         );
         
+        // 클릭한 위치에 있는 모든 요소 찾기
+        const elementsAtPoint = [];
         for (const element of elements) {
             if (this.isPointInElement(canvasX, canvasY, element)) {
-                return element;
+                elementsAtPoint.push(element);
             }
         }
         
+        if (elementsAtPoint.length === 0) {
         return null;
+        }
+        
+        // name_box가 있으면 우선적으로 반환 (부모 요소와 겹칠 때 이름박스 선택 우선)
+        const nameBox = elementsAtPoint.find(el => el.elementType === 'name_box');
+        if (nameBox) {
+            return nameBox;
+        }
+        
+        // name_box가 없으면 z-index가 가장 높은 요소 반환 (첫 번째 요소)
+        return elementsAtPoint[0];
     }
     
     /**

@@ -611,20 +611,305 @@
 .workspace-controls {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+}
+
+.workspace-controls-left {
+    display: flex;
+    align-items: center;
     gap: 1rem;
 }
 
+.workspace-controls-center {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex: 1;
+    justify-content: center;
+}
+
+.workspace-controls-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* 헤더 도구 그룹 */
+.header-tool-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #bae6fd;
+}
+
+.header-group-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
+    margin-right: 0.15rem;
+}
+
+.header-tool-btn {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: white;
+    color: #334155;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.header-tool-btn:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #94a3b8;
+}
+
+.header-tool-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.header-tool-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.header-tool-btn i {
+    font-size: 0.9rem;
+}
+
+/* 헤더 색상 입력 */
+.header-color-input {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.header-color-input:hover {
+    border-color: #94a3b8;
+}
+
+/* 헤더 선택 입력 */
+.header-select {
+    padding: 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: white;
+    color: #334155;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.header-select:hover {
+    border-color: #94a3b8;
+}
+
+/* 헤더 드롭다운 */
+.header-dropdown {
+    position: relative;
+}
+
+.header-tool-btn.dropdown-toggle {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.75rem;
+}
+
+.header-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    min-width: 200px;
+    z-index: 1000;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: white;
+    color: #334155;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.dropdown-item:hover {
+    background: #f8fafc;
+}
+
+.dropdown-item.danger-item {
+    color: #ef4444;
+}
+
+.dropdown-item.danger-item:hover {
+    background: #fef2f2;
+}
+
+.dropdown-item i {
+    font-size: 1rem;
+}
+
+/* 도움말 버튼 */
+.help-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.help-btn {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #0ea5e9;
+    border-radius: 6px;
+    background: white;
+    color: #0ea5e9;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.help-btn:hover {
+    background: #f0f9ff;
+    border-color: #0ea5e9;
+    transform: scale(1.05);
+}
+
+.help-btn:active {
+    transform: scale(0.98);
+}
+
+/* 도움말 드롭다운 메뉴 */
+.help-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 0.75rem);
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    min-width: 350px;
+    max-width: 400px;
+    z-index: 10000;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.help-menu-header {
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+    color: white;
+    padding: 1rem 1.25rem;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.help-menu-header i {
+    font-size: 1.2rem;
+}
+
+.help-menu-content {
+    padding: 0.5rem;
+}
+
+.help-section {
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.help-section:last-child {
+    border-bottom: none;
+}
+
+.help-section h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.help-section h4 i {
+    color: #0ea5e9;
+    font-size: 0.9rem;
+}
+
+.help-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.8rem;
+    color: #475569;
+}
+
+.help-item kbd {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 0.15rem 0.4rem;
+    font-size: 0.75rem;
+    font-family: monospace;
+    font-weight: 600;
+    color: #334155;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.help-item span {
+    flex: 1;
+}
+
+.help-item i {
+    color: #64748b;
+    font-size: 0.85rem;
+    min-width: 16px;
+}
+
+.help-text {
+    color: #64748b;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
 .workspace-dropdown {
-    padding: 0.75rem 1.25rem;
+    padding: 0.5rem 0.85rem;
     border: 1px solid #7dd3fc;
     border-radius: 8px;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 500;
     background: #e0f2fe;
     color: #0c4a6e;
     cursor: pointer;
     transition: all 0.2s ease;
-    min-width: 200px;
+    min-width: 160px;
 }
 
 .workspace-dropdown:hover {
@@ -640,19 +925,19 @@
 }
 
 .workspace-btn {
-    padding: 0.75rem 1.25rem;
+    padding: 0.5rem 0.85rem;
     border: none;
     border-radius: 8px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    width: 110px;
+    gap: 0.4rem;
     white-space: nowrap;
+    min-width: 80px;
 }
 
 .workspace-btn:active {
