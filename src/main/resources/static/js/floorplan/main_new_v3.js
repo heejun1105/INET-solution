@@ -517,8 +517,36 @@ class FloorPlanApp {
             toolbarContainer.style.display = 'none';
         }
         
+        // 상태 초기화
         this.currentMode = null;
         this.currentSchoolId = null;
+        
+        // Core 상태 초기화
+        if (this.core) {
+            this.core.currentSchoolId = null;
+        }
+        
+        // 캔버스 요소 전체 삭제
+        if (this.elementManager) {
+            this.elementManager.clearAllElements();
+        }
+        
+        // 캔버스 뷰 초기화
+        if (this.core) {
+            this.core.centerView();
+            this.core.markDirty();
+        }
+        
+        // 드롭다운 초기화
+        const workspaceSchoolSelect = document.getElementById('workspace-school-select');
+        if (workspaceSchoolSelect) {
+            workspaceSchoolSelect.value = '';
+        }
+        
+        const workspaceModeSelect = document.getElementById('workspace-mode-select');
+        if (workspaceModeSelect) {
+            workspaceModeSelect.value = '';
+        }
         
         this.uiManager.showNotification('작업 공간 닫힘', '변경 사항이 저장되지 않았을 수 있습니다.', 'warning');
     }
@@ -555,32 +583,32 @@ class FloorPlanApp {
         this.currentSchoolId = parseInt(schoolId);
         this.core.currentSchoolId = this.currentSchoolId;
         
-        // 평면도 로드
+        // 평면도 로드 (DataSyncManager.load가 내부에서 applyLoadedData를 호출함)
         try {
-            const data = await this.dataSyncManager.load(this.currentSchoolId);
-            if (data.success) {
-                this.core.loadState(data.floorPlan, data.elements);
-                
-                // 요소가 있으면 fitToElements, 없으면 centerView
-                if (data.elements && data.elements.length > 0) {
-                    this.core.fitToElements();
-                } else {
-                    this.core.centerView();
-                }
-                
-                this.core.markDirty(); // 강제 렌더링
-                this.updateZoomDisplay(); // 줌 디스플레이 업데이트
-                this.uiManager.showNotification('평면도 로드', '평면도가 성공적으로 로드되었습니다.', 'success');
+            const success = await this.dataSyncManager.load(this.currentSchoolId);
+            
+            console.log('📥 평면도 로드 결과:', success);
+            
+            // 요소가 있으면 fitToElements, 없으면 centerView
+            if (success && this.core.state.elements && this.core.state.elements.length > 0) {
+                this.core.fitToElements();
             } else {
-                this.elementManager.clearAllElements();
-                this.core.centerView(); // 중앙 뷰로 설정
-                this.core.markDirty(); // 강제 렌더링
-                this.updateZoomDisplay(); // 줌 디스플레이 업데이트
-                this.uiManager.showNotification('평면도 없음', '저장된 평면도가 없습니다. 새로 설계해주세요.', 'info');
+                this.core.centerView();
+            }
+            
+            this.core.markDirty(); // 강제 렌더링
+            this.updateZoomDisplay(); // 줌 디스플레이 업데이트
+            
+            // 교실 설계 모드인 경우 미배치 교실 다시 로드
+            if (this.currentMode === 'design-classroom' && this.modeManager && this.modeManager.loadUnplacedClassrooms) {
+                this.modeManager.loadUnplacedClassrooms(this.currentSchoolId);
             }
         } catch (error) {
-            console.error('평면도 로드 오류:', error);
-            this.uiManager.showNotification('로드 실패', `평면도 로드 중 오류 발생: ${error.message}`, 'error');
+            console.error('❌ 평면도 로드 오류:', error);
+            this.elementManager.clearAllElements();
+            this.core.centerView();
+            this.core.markDirty();
+            this.updateZoomDisplay();
         }
     }
     
@@ -634,7 +662,87 @@ class FloorPlanApp {
             return;
         }
         
-        await this.saveData();
+        try {
+            // 1. 교실 좌표 저장 (교실 설계 모드인 경우)
+            if (this.currentMode === 'design-classroom' && this.modeManager) {
+                await this.saveClassroomCoordinates();
+            }
+            
+            // 2. 평면도 데이터 저장
+            const result = await this.dataSyncManager.save(this.currentSchoolId);
+            
+            console.log('💾 평면도 저장 결과:', result);
+            
+            // result가 객체인 경우와 boolean인 경우 모두 처리
+            if (result === true || (result && result.success)) {
+                this.uiManager.showNotification('저장 완료', 'success');
+            } else if (result === false || (result && result.success === false)) {
+                const errorMsg = (result && result.message) ? result.message : '알 수 없는 오류';
+                this.uiManager.showNotification('저장 실패: ' + errorMsg, 'error');
+            }
+            // result가 undefined이거나 예상치 못한 형태인 경우는 무시 (이미 성공 알림이 표시됨)
+        } catch (error) {
+            console.error('저장 오류:', error);
+            this.uiManager.showNotification('저장 중 오류 발생', 'error');
+        }
+    }
+    
+    /**
+     * 교실 좌표 저장
+     */
+    async saveClassroomCoordinates() {
+        const elements = this.core.state.elements;
+        const roomElements = elements.filter(el => el.elementType === 'room' && el.classroomId);
+        
+        if (roomElements.length === 0) {
+            console.log('💾 저장할 교실 좌표 없음');
+            return;
+        }
+        
+        console.log('💾 교실 좌표 저장 시작:', roomElements.length, '개');
+        
+        const savePromises = roomElements.map(async (room) => {
+            try {
+                const requestData = {
+                    xCoordinate: Math.round(room.xCoordinate),
+                    yCoordinate: Math.round(room.yCoordinate),
+                    width: Math.round(room.width),
+                    height: Math.round(room.height)
+                };
+                
+                const response = await fetch(`/floorplan/api/classrooms/${room.classroomId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (!response.ok) {
+                    const responseData = await response.json();
+                    console.error(`❌ 교실 좌표 저장 실패 - ${room.label} (ID: ${room.classroomId})`, responseData);
+                    return false;
+                }
+                
+                console.log(`✅ 교실 좌표 저장: ${room.label}`);
+                return true;
+            } catch (error) {
+                console.error(`❌ 교실 좌표 저장 오류 - ${room.label} (ID: ${room.classroomId}):`, error);
+                return false;
+            }
+        });
+        
+        const results = await Promise.all(savePromises);
+        const successCount = results.filter(r => r).length;
+        
+        console.log(`💾 교실 좌표 저장 완료: ${successCount}/${roomElements.length}`);
+        
+        if (successCount < roomElements.length) {
+            this.uiManager.showNotification(
+                `일부 교실 저장 실패 (${successCount}/${roomElements.length})`,
+                'warning'
+            );
+        }
     }
 }
 

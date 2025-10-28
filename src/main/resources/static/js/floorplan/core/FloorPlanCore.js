@@ -438,7 +438,10 @@ export default class FloorPlanCore {
                 this.renderCircleShape(ctx, element);
                 break;
             case 'line':
-                this.renderLineShape(ctx, element);
+                this.renderLineShape(ctx, element, false);
+                break;
+            case 'dashed-line':
+                this.renderLineShape(ctx, element, true);
                 break;
             case 'text':
                 this.renderTextShape(ctx, element);
@@ -475,10 +478,16 @@ export default class FloorPlanCore {
     renderCircleShape(ctx, element) {
         const x = element.xCoordinate;
         const y = element.yCoordinate;
-        const radius = element.width || 50;
+        const w = element.width || 50;
+        const h = element.height || 50;
+        
+        // 중심점과 반지름 계산 (타원이 아닌 원으로)
+        const centerX = x + w / 2;
+        const centerY = y + h / 2;
+        const radius = Math.min(w, h) / 2;
         
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         
         if (element.backgroundColor) {
             ctx.fillStyle = element.backgroundColor;
@@ -495,18 +504,24 @@ export default class FloorPlanCore {
     /**
      * 선 도형
      */
-    renderLineShape(ctx, element) {
+    renderLineShape(ctx, element, isDashed = false) {
         const startX = element.startX || element.xCoordinate;
         const startY = element.startY || element.yCoordinate;
         const endX = element.endX || (element.xCoordinate + (element.width || 100));
         const endY = element.endY || (element.yCoordinate + (element.height || 0));
         
         ctx.beginPath();
+        if (isDashed) {
+            ctx.setLineDash([5, 5]);
+        }
         ctx.moveTo(startX, startY);
         ctx.lineTo(endX, endY);
         ctx.strokeStyle = element.color || element.borderColor || '#000000';
         ctx.lineWidth = element.borderWidth || 2;
         ctx.stroke();
+        if (isDashed) {
+            ctx.setLineDash([]);  // 리셋
+        }
     }
     
     /**
@@ -587,47 +602,92 @@ export default class FloorPlanCore {
      * 크기 조정 핸들 렌더링
      */
     renderResizeHandles(ctx, element) {
-        const x = element.xCoordinate;
-        const y = element.yCoordinate;
-        const w = element.width || 100;
-        const h = element.height || 80;
         const handleSize = 8 / this.state.zoom;  // 줌에 관계없이 화면에서 8px
         
-        const handles = [
-            { x: x, y: y }, // nw (좌상)
-            { x: x + w, y: y }, // ne (우상)
-            { x: x, y: y + h }, // sw (좌하)
-            { x: x + w, y: y + h }, // se (우하)
-            { x: x + w / 2, y: y }, // n (상)
-            { x: x + w / 2, y: y + h }, // s (하)
-            { x: x, y: y + h / 2 }, // w (좌)
-            { x: x + w, y: y + h / 2 }, // e (우)
-        ];
-        
-        ctx.fillStyle = '#3b82f6';
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1 / this.state.zoom;
-        
-        handles.forEach(handle => {
-            ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
-            ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
-        });
+        // 선/점선의 경우 양끝 핸들만 표시
+        if (element.elementType === 'shape' && (element.shapeType === 'line' || element.shapeType === 'dashed-line')) {
+            const startX = element.startX || element.xCoordinate;
+            const startY = element.startY || element.yCoordinate;
+            const endX = element.endX || (element.xCoordinate + (element.width || 100));
+            const endY = element.endY || (element.yCoordinate + (element.height || 0));
+            
+            const handles = [
+                { x: startX, y: startY, type: 'start' },
+                { x: endX, y: endY, type: 'end' }
+            ];
+            
+            ctx.fillStyle = '#3b82f6';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2 / this.state.zoom;
+            
+            handles.forEach(handle => {
+                ctx.beginPath();
+                ctx.arc(handle.x, handle.y, handleSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            });
+        } else {
+            // 일반 요소의 경우 8방향 핸들
+            const x = element.xCoordinate;
+            const y = element.yCoordinate;
+            const w = element.width || 100;
+            const h = element.height || 80;
+            
+            const handles = [
+                { x: x, y: y }, // nw (좌상)
+                { x: x + w, y: y }, // ne (우상)
+                { x: x, y: y + h }, // sw (좌하)
+                { x: x + w, y: y + h }, // se (우하)
+                { x: x + w / 2, y: y }, // n (상)
+                { x: x + w / 2, y: y + h }, // s (하)
+                { x: x, y: y + h / 2 }, // w (좌)
+                { x: x + w, y: y + h / 2 }, // e (우)
+            ];
+            
+            ctx.fillStyle = '#3b82f6';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1 / this.state.zoom;
+            
+            handles.forEach(handle => {
+                ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
+                ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
+            });
+        }
     }
     
     /**
      * 선택 박스 렌더링
      */
     renderSelectionBox(ctx, element) {
-        const x = element.xCoordinate;
-        const y = element.yCoordinate;
-        const w = element.width || 100;
-        const h = element.height || 80;
-        
         ctx.save();
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 2 / this.state.zoom;
-        ctx.setLineDash([5 / this.state.zoom, 5 / this.state.zoom]);
-        ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+        
+        // 선/점선의 경우 선 자체를 강조
+        if (element.elementType === 'shape' && (element.shapeType === 'line' || element.shapeType === 'dashed-line')) {
+            const startX = element.startX || element.xCoordinate;
+            const startY = element.startY || element.yCoordinate;
+            const endX = element.endX || (element.xCoordinate + (element.width || 100));
+            const endY = element.endY || (element.yCoordinate + (element.height || 0));
+            
+            // 선택된 선 주변에 반투명 선 그리기
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+            ctx.lineWidth = (element.borderWidth || 2) + 6 / this.state.zoom;
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+        } else {
+            // 일반 요소의 경우 사각형 박스
+            const x = element.xCoordinate;
+            const y = element.yCoordinate;
+            const w = element.width || 100;
+            const h = element.height || 80;
+            
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2 / this.state.zoom;
+            ctx.setLineDash([5 / this.state.zoom, 5 / this.state.zoom]);
+            ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+        }
+        
         ctx.restore();
     }
     

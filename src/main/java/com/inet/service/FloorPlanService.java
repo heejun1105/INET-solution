@@ -189,48 +189,63 @@ public class FloorPlanService {
     private void saveFloorPlanElements(Long floorPlanId, Map<String, Object> floorPlanData) {
         int savedCount = 0;
         
-        // 교실 요소들
-        if (floorPlanData.containsKey("rooms")) {
-            List<Map<String, Object>> rooms = (List<Map<String, Object>>) floorPlanData.get("rooms");
-            for (Map<String, Object> room : rooms) {
-                saveElement(floorPlanId, "room", room);
-                savedCount++;
+        // 새로운 형식: elements 배열로 통합 (모든 타입 포함)
+        if (floorPlanData.containsKey("elements")) {
+            List<Map<String, Object>> elements = (List<Map<String, Object>>) floorPlanData.get("elements");
+            logger.info("평면도 요소 저장 시작 - floorPlanId: {}, 요소 수: {}", floorPlanId, elements.size());
+            
+            for (Map<String, Object> element : elements) {
+                String elementType = (String) element.get("elementType");
+                if (elementType != null) {
+                    saveElement(floorPlanId, elementType, element);
+                    savedCount++;
+                }
             }
-        }
-        
-        // 건물 요소들
-        if (floorPlanData.containsKey("buildings")) {
-            List<Map<String, Object>> buildings = (List<Map<String, Object>>) floorPlanData.get("buildings");
-            for (Map<String, Object> building : buildings) {
-                saveElement(floorPlanId, "building", building);
-                savedCount++;
+        } else {
+            // 이전 형식: 타입별로 분리된 배열 (하위 호환성)
+            // 교실 요소들
+            if (floorPlanData.containsKey("rooms")) {
+                List<Map<String, Object>> rooms = (List<Map<String, Object>>) floorPlanData.get("rooms");
+                for (Map<String, Object> room : rooms) {
+                    saveElement(floorPlanId, "room", room);
+                    savedCount++;
+                }
             }
-        }
-        
-        // 무선AP 요소들
-        if (floorPlanData.containsKey("wirelessAps")) {
-            List<Map<String, Object>> wirelessAps = (List<Map<String, Object>>) floorPlanData.get("wirelessAps");
-            for (Map<String, Object> wirelessAp : wirelessAps) {
-                saveElement(floorPlanId, "wireless_ap", wirelessAp);
-                savedCount++;
+            
+            // 건물 요소들
+            if (floorPlanData.containsKey("buildings")) {
+                List<Map<String, Object>> buildings = (List<Map<String, Object>>) floorPlanData.get("buildings");
+                for (Map<String, Object> building : buildings) {
+                    saveElement(floorPlanId, "building", building);
+                    savedCount++;
+                }
             }
-        }
-        
-        // 도형 요소들
-        if (floorPlanData.containsKey("shapes")) {
-            List<Map<String, Object>> shapes = (List<Map<String, Object>>) floorPlanData.get("shapes");
-            for (Map<String, Object> shape : shapes) {
-                saveElement(floorPlanId, "shape", shape);
-                savedCount++;
+            
+            // 무선AP 요소들
+            if (floorPlanData.containsKey("wirelessAps")) {
+                List<Map<String, Object>> wirelessAps = (List<Map<String, Object>>) floorPlanData.get("wirelessAps");
+                for (Map<String, Object> wirelessAp : wirelessAps) {
+                    saveElement(floorPlanId, "wireless_ap", wirelessAp);
+                    savedCount++;
+                }
             }
-        }
-        
-        // 기타 공간 요소들
-        if (floorPlanData.containsKey("otherSpaces")) {
-            List<Map<String, Object>> otherSpaces = (List<Map<String, Object>>) floorPlanData.get("otherSpaces");
-            for (Map<String, Object> otherSpace : otherSpaces) {
-                saveElement(floorPlanId, "other_space", otherSpace);
-                savedCount++;
+            
+            // 도형 요소들
+            if (floorPlanData.containsKey("shapes")) {
+                List<Map<String, Object>> shapes = (List<Map<String, Object>>) floorPlanData.get("shapes");
+                for (Map<String, Object> shape : shapes) {
+                    saveElement(floorPlanId, "shape", shape);
+                    savedCount++;
+                }
+            }
+            
+            // 기타 공간 요소들
+            if (floorPlanData.containsKey("otherSpaces")) {
+                List<Map<String, Object>> otherSpaces = (List<Map<String, Object>>) floorPlanData.get("otherSpaces");
+                for (Map<String, Object> otherSpace : otherSpaces) {
+                    saveElement(floorPlanId, "other_space", otherSpace);
+                    savedCount++;
+                }
             }
         }
         

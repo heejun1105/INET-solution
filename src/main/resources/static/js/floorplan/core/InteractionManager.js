@@ -917,11 +917,35 @@ export default class InteractionManager {
     findResizeHandle(canvasX, canvasY, element) {
         if (!element) return null;
         
+        const handleSize = 8 / this.core.state.zoom;  // 화면에서 8px
+        
+        // 선/점선의 경우 양끝 핸들만 확인
+        if (element.elementType === 'shape' && (element.shapeType === 'line' || element.shapeType === 'dashed-line')) {
+            const startX = element.startX || element.xCoordinate;
+            const startY = element.startY || element.yCoordinate;
+            const endX = element.endX || (element.xCoordinate + (element.width || 100));
+            const endY = element.endY || (element.yCoordinate + (element.height || 0));
+            
+            // 시작점 핸들
+            if (Math.abs(canvasX - startX) <= handleSize && 
+                Math.abs(canvasY - startY) <= handleSize) {
+                return 'line-start';
+            }
+            
+            // 끝점 핸들
+            if (Math.abs(canvasX - endX) <= handleSize && 
+                Math.abs(canvasY - endY) <= handleSize) {
+                return 'line-end';
+            }
+            
+            return null;
+        }
+        
+        // 일반 요소의 경우 8방향 핸들
         const ex = element.xCoordinate;
         const ey = element.yCoordinate;
         const ew = element.width || 100;
         const eh = element.height || 80;
-        const handleSize = 8 / this.core.state.zoom;  // 화면에서 8px
         
         const handles = {
             'nw': { x: ex, y: ey },
@@ -1009,6 +1033,14 @@ export default class InteractionManager {
         this.resizeStart.startX = x;
         this.resizeStart.startY = y;
         
+        // 선/점선의 경우 시작점과 끝점 저장
+        if (element.elementType === 'shape' && (element.shapeType === 'line' || element.shapeType === 'dashed-line')) {
+            this.resizeStart.originalStartX = element.startX || element.xCoordinate;
+            this.resizeStart.originalStartY = element.startY || element.yCoordinate;
+            this.resizeStart.originalEndX = element.endX || (element.xCoordinate + (element.width || 100));
+            this.resizeStart.originalEndY = element.endY || (element.yCoordinate + (element.height || 0));
+        }
+        
         this.canvas.style.cursor = this.getResizeCursor(handle);
         
         // 즉시 강제 렌더링 (선택 효과 제거를 즉시 반영)
@@ -1031,6 +1063,45 @@ export default class InteractionManager {
         const dx_canvas = dx_screen / this.core.state.zoom;
         const dy_canvas = dy_screen / this.core.state.zoom;
         
+        // 선/점선의 경우 특별 처리
+        if (element.elementType === 'shape' && (element.shapeType === 'line' || element.shapeType === 'dashed-line')) {
+            let newStartX = this.resizeStart.originalStartX;
+            let newStartY = this.resizeStart.originalStartY;
+            let newEndX = this.resizeStart.originalEndX;
+            let newEndY = this.resizeStart.originalEndY;
+            
+            if (handle === 'line-start') {
+                // 시작점 이동
+                newStartX += dx_canvas;
+                newStartY += dy_canvas;
+            } else if (handle === 'line-end') {
+                // 끝점 이동
+                newEndX += dx_canvas;
+                newEndY += dy_canvas;
+            }
+            
+            // xCoordinate, yCoordinate, width, height 계산 (바운딩 박스)
+            const minX = Math.min(newStartX, newEndX);
+            const minY = Math.min(newStartY, newEndY);
+            const maxX = Math.max(newStartX, newEndX);
+            const maxY = Math.max(newStartY, newEndY);
+            
+            this.core.updateElement(element.id, {
+                xCoordinate: minX,
+                yCoordinate: minY,
+                width: maxX - minX,
+                height: maxY - minY,
+                startX: newStartX,
+                startY: newStartY,
+                endX: newEndX,
+                endY: newEndY
+            });
+            
+            this.core.markDirty();
+            return;
+        }
+        
+        // 일반 요소의 경우 기존 로직
         let newX = this.resizeStart.originalX;
         let newY = this.resizeStart.originalY;
         let newWidth = this.resizeStart.originalWidth;
@@ -1156,7 +1227,9 @@ export default class InteractionManager {
             'n': 'n-resize',
             's': 's-resize',
             'w': 'w-resize',
-            'e': 'e-resize'
+            'e': 'e-resize',
+            'line-start': 'move',
+            'line-end': 'move'
         };
         return cursors[handle] || 'default';
     }

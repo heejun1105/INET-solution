@@ -565,6 +565,75 @@ public class FloorPlanController {
     }
     
     /**
+     * 교실 좌표 업데이트 (배치)
+     * PUT /api/classrooms/{classroomId}
+     */
+    @PutMapping("/api/classrooms/{classroomId}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateClassroomCoordinates(
+            @PathVariable Long classroomId,
+            @RequestBody Map<String, Integer> coordinates) {
+        Map<String, Object> response = new HashMap<>();
+        
+        logger.info("교실 좌표 업데이트 요청 - classroomId: {}, coordinates: {}", classroomId, coordinates);
+        
+        try {
+            User user = getCurrentUser();
+            if (user == null) {
+                response.put("success", false);
+                response.put("message", "로그인이 필요합니다");
+                logger.warn("인증되지 않은 사용자의 교실 좌표 업데이트 시도");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            }
+            
+            logger.debug("사용자 확인 완료 - username: {}", user.getUsername());
+            
+            // 교실 정보 조회
+            Optional<Classroom> classroomOpt = classroomService.getClassroomById(classroomId);
+            if (!classroomOpt.isPresent()) {
+                response.put("success", false);
+                response.put("message", "교실을 찾을 수 없습니다");
+                logger.warn("교실을 찾을 수 없음 - classroomId: {} (데이터베이스에 존재하지 않음)", classroomId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+            
+            Classroom classroom = classroomOpt.get();
+            logger.debug("교실 조회 성공 - classroomId: {}, roomName: {}, schoolId: {}", 
+                classroom.getClassroomId(), classroom.getRoomName(), 
+                classroom.getSchool() != null ? classroom.getSchool().getSchoolId() : null);
+            
+            // 학교 권한 체크
+            if (!hasSchoolPermission(user, classroom.getSchool().getSchoolId())) {
+                response.put("success", false);
+                response.put("message", "권한이 없습니다");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            // 좌표 업데이트
+            classroom.setXCoordinate(coordinates.get("xCoordinate"));
+            classroom.setYCoordinate(coordinates.get("yCoordinate"));
+            if (coordinates.containsKey("width")) {
+                classroom.setWidth(coordinates.get("width"));
+            }
+            if (coordinates.containsKey("height")) {
+                classroom.setHeight(coordinates.get("height"));
+            }
+            
+            classroomService.saveClassroom(classroom);
+            
+            response.put("success", true);
+            response.put("message", "교실 좌표가 업데이트되었습니다");
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("교실 좌표 업데이트 실패 - classroomId: {}", classroomId, e);
+            response.put("success", false);
+            response.put("message", "업데이트 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
      * 무선AP 정보 조회
      * GET /floorplan/api/schools/{schoolId}/wireless-aps
      */

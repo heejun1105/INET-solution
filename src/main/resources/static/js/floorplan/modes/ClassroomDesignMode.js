@@ -54,6 +54,19 @@ export default class ClassroomDesignMode {
             this.updateLayerButtons();
         }, 200); // 200ms마다 체크
         
+        // 캔버스에 이미 배치된 교실 ID 추적
+        this.placedClassroomIds = new Set();
+        const roomElements = this.core.state.elements.filter(el => el.shapeType === 'room' && el.classroomId);
+        roomElements.forEach(room => {
+            this.placedClassroomIds.add(String(room.classroomId));
+        });
+        console.log('📍 이미 배치된 교실:', this.placedClassroomIds.size, '개');
+        
+        // 미배치 교실 로드
+        if (this.core.currentSchoolId) {
+            this.loadUnplacedClassrooms(this.core.currentSchoolId);
+        }
+        
         // 강제 렌더링
         this.core.markDirty();
     }
@@ -423,7 +436,8 @@ export default class ClassroomDesignMode {
             label: name,
             borderColor: '#000000',  // 검정 테두리
             backgroundColor: '#ffffff',  // 흰색 배경
-            borderWidth: this.currentLineWidth
+            borderWidth: this.currentLineWidth,
+            zIndex: 0  // 건물은 기본 레이어
         });
         
         // 이름박스 자동 생성 (건물 상단 중앙)
@@ -440,7 +454,7 @@ export default class ClassroomDesignMode {
             borderWidth: 2,
             fontSize: 16,
             parentElementId: building.id,
-            zIndex: building.zIndex || 0  // 부모와 동일한 z-index
+            zIndex: 0  // 건물과 동일한 레이어
         });
         
         this.selectTool(null);
@@ -471,7 +485,8 @@ export default class ClassroomDesignMode {
             label: name,
             borderColor: '#000000',  // 검정 테두리
             backgroundColor: '#ffffff',  // 흰색 배경
-            borderWidth: this.currentLineWidth
+            borderWidth: this.currentLineWidth,
+            zIndex: 2  // 교실은 도형보다 위 (건물:0, 도형:1, 교실:2)
         });
         
         // 이름박스 자동 생성 (교실 상단 중앙)
@@ -488,7 +503,7 @@ export default class ClassroomDesignMode {
             borderWidth: 1,
             fontSize: 12,
             parentElementId: room.id,
-            zIndex: room.zIndex || 0  // 부모와 동일한 z-index
+            zIndex: 2  // 교실과 동일한 레이어
         });
         
         this.selectTool(null);
@@ -549,7 +564,7 @@ export default class ClassroomDesignMode {
         }
         
         // 실제 도형 요소 생성
-        this.elementManager.createElement('shape', {
+        const elementData = {
             shapeType: this.currentTool,
             xCoordinate: Math.min(this.drawStartPos.x, x),
             yCoordinate: Math.min(this.drawStartPos.y, y),
@@ -557,8 +572,19 @@ export default class ClassroomDesignMode {
             height: height,
             borderColor: this.currentColor,
             borderWidth: this.currentLineWidth,
-            backgroundColor: this.currentTool === 'line' || this.currentTool === 'dashed-line' ? 'transparent' : this.currentFillColor
-        });
+            backgroundColor: this.currentTool === 'line' || this.currentTool === 'dashed-line' ? 'transparent' : this.currentFillColor,
+            zIndex: 1  // 도형은 건물보다 위, 교실보다 아래
+        };
+        
+        // 선/점선의 경우 시작점과 끝점 저장
+        if (this.currentTool === 'line' || this.currentTool === 'dashed-line') {
+            elementData.startX = this.drawStartPos.x;
+            elementData.startY = this.drawStartPos.y;
+            elementData.endX = x;
+            elementData.endY = y;
+        }
+        
+        this.elementManager.createElement('shape', elementData);
         
         // 그리기 상태 초기화
         this.isDrawing = false;
@@ -652,10 +678,15 @@ export default class ClassroomDesignMode {
             const result = await response.json();
             
             if (result.success) {
-                this.renderUnplacedClassrooms(result.classrooms);
+                console.log('📚 미배치 교실:', result.classrooms?.length || 0, '개');
+                this.renderUnplacedClassrooms(result.classrooms || []);
+            } else {
+                console.warn('📚 미배치 교실 로드 실패:', result.message);
+                this.renderUnplacedClassrooms([]);
             }
         } catch (error) {
-            console.error('미배치 교실 로드 오류:', error);
+            console.error('❌ 미배치 교실 로드 오류:', error);
+            this.renderUnplacedClassrooms([]);
         }
     }
     
@@ -664,22 +695,63 @@ export default class ClassroomDesignMode {
      */
     renderUnplacedClassrooms(classrooms) {
         const container = document.getElementById('unplaced-classrooms-list');
-        if (!container) return;
+        if (!container) {
+            console.warn('📚 미배치 교실 컨테이너를 찾을 수 없습니다');
+            return;
+        }
         
-        if (classrooms.length === 0) {
+        // 원본 교실 목록 저장 (refreshUnplacedList용)
+        this.originalClassrooms = classrooms || [];
+        
+        // 배치된 교실 ID가 없으면 초기화
+        if (!this.placedClassroomIds) {
+            this.placedClassroomIds = new Set();
+        }
+        
+        // 이미 배치된 교실 필터링
+        const unplacedClassrooms = classrooms.filter(classroom => {
+            const id = String(classroom.classroomId || classroom.id || classroom.classroom_id);
+            return !this.placedClassroomIds.has(id);
+        });
+        
+        if (!unplacedClassrooms || unplacedClassrooms.length === 0) {
             container.innerHTML = '<p class="empty">모든 교실이 배치되었습니다</p>';
             return;
         }
         
-        container.innerHTML = classrooms.map(classroom => `
-            <div class="unplaced-classroom-item" draggable="true" data-classroom-id="${classroom.classroomId}">
-                <i class="fas fa-grip-vertical"></i>
-                <span>${classroom.classroomName}</span>
-            </div>
-        `).join('');
+        // 가나다 순으로 정렬
+        const sortedClassrooms = [...unplacedClassrooms].sort((a, b) => {
+            const nameA = a.roomName || a.classroomName || a.name || '';
+            const nameB = b.roomName || b.classroomName || b.name || '';
+            return nameA.localeCompare(nameB, 'ko-KR');
+        });
+        
+        container.innerHTML = sortedClassrooms.map(classroom => {
+            // Classroom 엔티티의 실제 필드명 사용
+            const id = classroom.classroomId || classroom.id || classroom.classroom_id;
+            const name = classroom.roomName || classroom.classroomName || classroom.name || classroom.className || classroom.class_name || `교실 ${id}`;
+            
+            return `
+                <div class="unplaced-classroom-item" draggable="true" 
+                     data-classroom-id="${id}"
+                     data-classroom-name="${name}">
+                    <i class="fas fa-grip-vertical"></i>
+                    <span>${name}</span>
+                </div>
+            `;
+        }).join('');
         
         // 드래그 이벤트 설정
         this.setupClassroomDragEvents();
+    }
+    
+    /**
+     * 미배치 교실 목록 새로고침 (배치된 교실 제외)
+     */
+    refreshUnplacedList() {
+        if (this.originalClassrooms) {
+            this.renderUnplacedClassrooms(this.originalClassrooms);
+        }
     }
     
     /**
@@ -688,63 +760,91 @@ export default class ClassroomDesignMode {
     setupClassroomDragEvents() {
         document.querySelectorAll('.unplaced-classroom-item').forEach(item => {
             item.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('classroomId', item.dataset.classroomId);
+                const classroomId = item.dataset.classroomId;
+                const classroomName = item.dataset.classroomName;
+                e.dataTransfer.setData('classroomId', classroomId);
+                e.dataTransfer.setData('classroomName', classroomName);
                 e.dataTransfer.effectAllowed = 'move';
+                console.log('🎯 드래그 시작:', { classroomId, classroomName });
             });
         });
         
-        // 캔버스에 드롭 이벤트 설정
-        const canvas = this.core.canvas;
-        canvas.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-        });
-        
-        canvas.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const classroomId = e.dataTransfer.getData('classroomId');
-            if (classroomId) {
-                const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                const canvasPos = this.core.screenToCanvas(x, y);
+        // 캔버스에 드롭 이벤트 설정 (중복 방지)
+        if (!this.canvasDragDropSetup) {
+            const canvas = this.core.canvas;
+            
+            canvas.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+            
+            canvas.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const classroomId = e.dataTransfer.getData('classroomId');
+                const classroomName = e.dataTransfer.getData('classroomName');
                 
-                this.placeClassroom(classroomId, canvasPos.x, canvasPos.y);
-            }
-        });
+                console.log('🎯 드롭:', { classroomId, classroomName });
+                
+                if (classroomId && classroomName) {
+                    const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
+                    this.placeClassroom(classroomId, classroomName, canvasPos.x, canvasPos.y);
+                }
+            });
+            
+            this.canvasDragDropSetup = true;
+        }
     }
     
     /**
-     * 교실 배치
+     * 교실 배치 (프론트엔드에서만 처리, 저장 버튼 클릭 시 백엔드에 저장)
      */
-    placeClassroom(classroomId, x, y) {
-        // 교실 정보 가져오기
-        fetch(`/api/classrooms/${classroomId}`)
-            .then(res => res.json())
-            .then(classroom => {
-                const element = {
-                    type: 'room',
-                    referenceId: classroom.classroomId,
-                    x: x,
-                    y: y,
-                    width: 120,
-                    height: 80,
-                    name: classroom.classroomName,
-                    color: '#000000',
-                    fillColor: '#f5f5f5',
-                    layerOrder: this.getNextLayerOrder()
-                };
-                
-                this.elementManager.addElement(element);
-                
-                // 미배치 교실 목록 갱신
-                this.loadUnplacedClassrooms(this.core.currentSchoolId);
-                
-                console.log('✅ 교실 배치:', element);
-            })
-            .catch(error => {
-                console.error('교실 정보 로드 오류:', error);
-            });
+    placeClassroom(classroomId, classroomName, x, y) {
+        // 교실 요소 생성 (중앙 정렬)
+        const roomWidth = 120;
+        const roomHeight = 100;
+        const roomX = Math.round(x - roomWidth / 2);
+        const roomY = Math.round(y - roomHeight / 2);
+        
+        // 캔버스에 교실 요소 생성
+        const room = this.elementManager.createElement('room', {
+            xCoordinate: roomX,
+            yCoordinate: roomY,
+            width: roomWidth,
+            height: roomHeight,
+            label: classroomName,
+            borderColor: '#000000',
+            backgroundColor: '#ffffff',
+            borderWidth: 2,
+            classroomId: classroomId,  // 교실 ID 저장 (좌표 업데이트 시 사용)
+            referenceId: classroomId,  // 평면도 저장/로드 시 교실 연결용
+            zIndex: 2  // 교실은 도형보다 위 (건물:0, 도형:1, 교실:2)
+        });
+        
+        // 이름박스 자동 생성
+        const nameBoxWidth = 80;
+        const nameBoxHeight = 25;
+        this.elementManager.createElement('name_box', {
+            xCoordinate: roomX + (roomWidth - nameBoxWidth) / 2,
+            yCoordinate: roomY + 20,
+            width: nameBoxWidth,
+            height: nameBoxHeight,
+            label: classroomName,
+            backgroundColor: '#ffffff',
+            borderColor: '#000000',
+            borderWidth: 1,
+            fontSize: 12,
+            parentElementId: room.id,
+            zIndex: 2  // 교실과 동일한 레이어
+        });
+        
+        // 배치된 교실 ID 추적 (미배치 리스트 필터링용)
+        if (!this.placedClassroomIds) {
+            this.placedClassroomIds = new Set();
+        }
+        this.placedClassroomIds.add(classroomId);
+        
+        // 미배치 교실 목록 갱신 (배치된 교실 필터링)
+        this.refreshUnplacedList();
     }
     
     /**

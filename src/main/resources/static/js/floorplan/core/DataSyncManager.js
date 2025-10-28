@@ -291,15 +291,8 @@ export default class DataSyncManager {
     prepareSaveData() {
         const { elements, canvasWidth, canvasHeight, zoom, panX, panY, gridSize, showGrid, snapToGrid } = this.core.state;
         
-        // 요소들을 타입별로 분류
-        const rooms = [];
-        const buildings = [];
-        const wirelessAps = [];
-        const shapes = [];
-        const otherSpaces = [];
-        
-        for (const element of elements) {
-            // 임시 ID는 제외하고 저장
+        // 모든 요소 저장 (타입 구분 없이)
+        const allElements = elements.map(element => {
             const elementData = { ...element };
             
             // temp로 시작하는 ID는 null로 설정
@@ -307,24 +300,14 @@ export default class DataSyncManager {
                 elementData.id = null;
             }
             
-            switch (element.elementType) {
-                case 'room':
-                    rooms.push(elementData);
-                    break;
-                case 'building':
-                    buildings.push(elementData);
-                    break;
-                case 'wireless_ap':
-                    wirelessAps.push(elementData);
-                    break;
-                case 'shape':
-                    shapes.push(elementData);
-                    break;
-                case 'other_space':
-                    otherSpaces.push(elementData);
-                    break;
-            }
-        }
+            return elementData;
+        });
+        
+        console.log('💾 저장할 요소들:', allElements.map(el => ({
+            type: el.elementType,
+            label: el.label,
+            parentId: el.parentElementId
+        })));
         
         return {
             canvasWidth,
@@ -335,11 +318,7 @@ export default class DataSyncManager {
             gridSize,
             showGrid,
             snapToGrid,
-            rooms,
-            buildings,
-            wirelessAps,
-            shapes,
-            otherSpaces
+            elements: allElements  // 모든 요소를 elements 배열로 저장
         };
     }
     
@@ -347,12 +326,16 @@ export default class DataSyncManager {
      * 로드된 데이터 적용
      */
     applyLoadedData(response) {
+        console.log('📥 평면도 데이터 적용 시작:', response);
+        
         // 응답이 래핑되어 있는 경우 처리 (response.data.floorPlan)
         const data = response.data || response;
         const { floorPlan, elements } = data;
         
+        console.log('📥 추출된 데이터:', { floorPlan, elements: elements?.length });
+        
         if (!floorPlan || !elements || !Array.isArray(elements)) {
-            console.warn('⚠️ 평면도 데이터가 비어있습니다');
+            console.warn('⚠️ 평면도 데이터가 비어있습니다', { floorPlan, elements });
             return;
         }
         
@@ -375,15 +358,34 @@ export default class DataSyncManager {
                 el.id = `temp_${Date.now()}_${Math.random()}`;
             }
             
+            // room 타입 요소의 경우 referenceId를 classroomId에도 복사
+            if (el.elementType === 'room' && el.referenceId) {
+                el.classroomId = el.referenceId;
+                console.log('🔄 교실 ID 복사:', { 
+                    elementId: el.id, 
+                    label: el.label,
+                    referenceId: el.referenceId, 
+                    classroomId: el.classroomId 
+                });
+            }
+            
             return el;
         });
+        
+        console.log('📊 로드된 요소들:', loadedElements.map(el => ({
+            id: el.id,
+            type: el.elementType,
+            label: el.label,
+            referenceId: el.referenceId,
+            classroomId: el.classroomId
+        })));
         
         this.core.setElements(loadedElements);
         
         // 로드 후 검증
         this.validateAfterLoad();
         
-        console.log('📊 로드된 데이터:', {
+        console.log('✅ 평면도 로드 완료:', {
             요소수: loadedElements.length,
             캔버스크기: `${floorPlan.canvasWidth}x${floorPlan.canvasHeight}`,
             줌: floorPlan.zoomLevel
