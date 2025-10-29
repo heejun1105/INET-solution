@@ -652,29 +652,62 @@ class FloorPlanApp {
         
         console.log('🏫 워크스페이스 학교 변경:', schoolId);
         
+        // 1. 이전 평면도 완전 초기화
+        console.log('🧹 이전 평면도 초기화 시작');
+        
+        // 선택 상태 초기화 (InteractionManager)
+        if (this.interactionManager && this.interactionManager.clearSelection) {
+            this.interactionManager.clearSelection();
+        }
+        
+        // 요소 모두 삭제
+        this.elementManager.clearAllElements();
+        this.core.setState({
+            elements: [],
+            selectedElements: [],
+            hoveredElement: null
+        });
+        this.core.markDirty();
+        
+        // 2. 학교 ID 업데이트
         this.currentSchoolId = parseInt(schoolId);
         this.core.currentSchoolId = this.currentSchoolId;
         
-        // 평면도 로드 (DataSyncManager.load가 내부에서 applyLoadedData를 호출함)
+        // 3. 현재 모드 저장 및 비활성화
+        const currentMode = this.currentMode;
+        if (this.modeManager && this.modeManager.deactivate) {
+            console.log('🔄 모드 비활성화:', currentMode);
+            this.modeManager.deactivate();
+            this.modeManager = null; // 명시적으로 null 설정
+        }
+        this.currentMode = null; // 모드 상태 초기화
+        
+        // 4. 평면도 로드
         try {
             const success = await this.dataSyncManager.load(this.currentSchoolId);
             
-            console.log('📥 평면도 로드 결과:', success);
+            console.log('📥 평면도 로드 결과:', success ? '성공 (요소 있음)' : '실패 또는 빈 평면도');
             
-            // 요소가 있으면 fitToElements, 없으면 centerView
+            // 5. 모드 재활성화 (로드 후)
+            if (currentMode) {
+                console.log('🔄 모드 재활성화:', currentMode);
+                await this.switchMode(currentMode);
+            } else {
+                console.warn('⚠️ 재활성화할 모드가 없음');
+            }
+            
+            // 6. 뷰 조정
             if (success && this.core.state.elements && this.core.state.elements.length > 0) {
+                console.log('📍 요소에 맞춰 뷰 조정:', this.core.state.elements.length, '개');
                 this.core.fitToElements();
             } else {
+                console.log('📍 기본 뷰 (빈 캔버스)');
                 this.core.centerView();
             }
             
-            this.core.markDirty(); // 강제 렌더링
-            this.updateZoomDisplay(); // 줌 디스플레이 업데이트
+            this.core.markDirty();
+            this.updateZoomDisplay();
             
-            // 교실 설계 모드인 경우 미배치 교실 다시 로드
-            if (this.currentMode === 'design-classroom' && this.modeManager && this.modeManager.loadUnplacedClassrooms) {
-                this.modeManager.loadUnplacedClassrooms(this.currentSchoolId);
-            }
         } catch (error) {
             console.error('❌ 평면도 로드 오류:', error);
             this.elementManager.clearAllElements();

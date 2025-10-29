@@ -41,7 +41,21 @@ export default class ClassroomDesignMode {
         // 헤더 도구 표시
         const headerTools = document.getElementById('workspace-tools');
         if (headerTools) {
+            console.log('🛠️ 헤더 도구 표시 설정 전:', headerTools.style.display);
             headerTools.style.display = 'flex';
+            console.log('🛠️ 헤더 도구 표시 설정 후:', headerTools.style.display);
+            
+            // 내부 요소들도 확인
+            const lineColor = document.getElementById('header-line-color');
+            const fillColor = document.getElementById('header-fill-color');
+            const lineWidth = document.getElementById('header-line-width');
+            console.log('🛠️ 헤더 도구 내부 요소 확인:', {
+                lineColor: !!lineColor,
+                fillColor: !!fillColor,
+                lineWidth: !!lineWidth
+            });
+        } else {
+            console.error('❌ workspace-tools 요소를 찾을 수 없음!');
         }
         
         // 모든 요소 잠금 해제

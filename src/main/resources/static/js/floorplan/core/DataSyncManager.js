@@ -538,9 +538,23 @@ export default class DataSyncManager {
         } catch (error) {
             console.error('HTTP 요청 실패:', error);
             
-            // 재시도
-            if (retryCount < this.maxRetries) {
-                console.log(`재시도 ${retryCount + 1}/${this.maxRetries}...`);
+            // 404 (Not Found)나 4xx 클라이언트 에러는 재시도하지 않음
+            // 재시도가 의미있는 경우는 5xx 서버 에러나 네트워크 오류만
+            const shouldRetry = !error.status || error.status >= 500;
+            
+            if (error.status === 404) {
+                console.log('ℹ️ 404 에러 - 리소스 없음 (재시도 안 함)');
+                throw error;
+            }
+            
+            if (error.status && error.status >= 400 && error.status < 500) {
+                console.log(`ℹ️ ${error.status} 클라이언트 에러 (재시도 안 함)`);
+                throw error;
+            }
+            
+            // 재시도 (네트워크 오류 또는 5xx 서버 에러)
+            if (shouldRetry && retryCount < this.maxRetries) {
+                console.log(`재시도 ${retryCount + 1}/${this.maxRetries}... (서버/네트워크 오류)`);
                 
                 // 지수 백오프
                 await this.sleep(this.retryDelay * Math.pow(2, retryCount));
