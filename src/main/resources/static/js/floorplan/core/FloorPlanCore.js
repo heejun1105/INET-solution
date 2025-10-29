@@ -12,12 +12,12 @@
 
 export default class FloorPlanCore {
     // 상수 정의
-    static MIN_ZOOM = 0.01;  // 절대 최소값 (동적 최소값이 우선)
+    static MIN_ZOOM = 0.005;  // 더 멀리 줌아웃 가능하도록 감소
     static MAX_ZOOM = 5.0;
     static DEFAULT_ZOOM = 1.0;
     static DEFAULT_GRID_SIZE = 20;
-    static DEFAULT_CANVAS_WIDTH = 16000;  // 4배 증가
-    static DEFAULT_CANVAS_HEIGHT = 10000;  // 4배 증가
+    static DEFAULT_CANVAS_WIDTH = 16000;  // 캔버스 기본 너비
+    static DEFAULT_CANVAS_HEIGHT = 12000;  // 캔버스 기본 높이
     
     /**
      * @param {HTMLElement} container - 캔버스를 렌더링할 컨테이너
@@ -342,7 +342,7 @@ export default class FloorPlanCore {
         // 배경 (있으면)
         if (element.backgroundColor && element.backgroundColor !== 'transparent') {
             ctx.fillStyle = element.backgroundColor;
-            ctx.fillRect(x, y, w, h);
+        ctx.fillRect(x, y, w, h);
         }
         
         // 테두리는 항상 그리기
@@ -363,7 +363,7 @@ export default class FloorPlanCore {
         // 배경 (있으면)
         if (element.backgroundColor && element.backgroundColor !== 'transparent') {
             ctx.fillStyle = element.backgroundColor;
-            ctx.fillRect(x, y, w, h);
+        ctx.fillRect(x, y, w, h);
         }
         
         // 테두리는 항상 그리기
@@ -473,7 +473,7 @@ export default class FloorPlanCore {
         // 테두리는 항상 그리기
         ctx.strokeStyle = element.borderColor || '#000000';
         ctx.lineWidth = element.borderWidth || 2;
-        ctx.strokeRect(x, y, w, h);
+            ctx.strokeRect(x, y, w, h);
     }
     
     /**
@@ -502,7 +502,7 @@ export default class FloorPlanCore {
         // 테두리는 항상 그리기
         ctx.strokeStyle = element.borderColor || '#000000';
         ctx.lineWidth = element.borderWidth || 2;
-        ctx.stroke();
+            ctx.stroke();
     }
     
     /**
@@ -681,15 +681,15 @@ export default class FloorPlanCore {
             ctx.stroke();
         } else {
             // 일반 요소의 경우 사각형 박스
-            const x = element.xCoordinate;
-            const y = element.yCoordinate;
-            const w = element.width || 100;
-            const h = element.height || 80;
-            
-            ctx.strokeStyle = '#3b82f6';
-            ctx.lineWidth = 2 / this.state.zoom;
-            ctx.setLineDash([5 / this.state.zoom, 5 / this.state.zoom]);
-            ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 100;
+        const h = element.height || 80;
+        
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2 / this.state.zoom;
+        ctx.setLineDash([5 / this.state.zoom, 5 / this.state.zoom]);
+        ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
         }
         
         ctx.restore();

@@ -194,9 +194,36 @@ public class FloorPlanService {
             List<Map<String, Object>> elements = (List<Map<String, Object>>) floorPlanData.get("elements");
             logger.info("평면도 요소 저장 시작 - floorPlanId: {}, 요소 수: {}", floorPlanId, elements.size());
             
+            // ID 매핑 테이블 (프론트엔드 임시 ID -> 백엔드 실제 ID)
+            Map<String, Long> idMapping = new HashMap<>();
+            
+            // 1단계: 부모 요소들을 먼저 저장 (building, room, shape)
             for (Map<String, Object> element : elements) {
                 String elementType = (String) element.get("elementType");
-                if (elementType != null) {
+                if (elementType != null && !elementType.equals("name_box")) {
+                    Object frontendId = element.get("id");
+                    FloorPlanElement savedElement = saveElementWithReturn(floorPlanId, elementType, element);
+                    if (frontendId != null && savedElement != null) {
+                        idMapping.put(frontendId.toString(), savedElement.getId());
+                        logger.debug("ID 매핑: {} -> {}", frontendId, savedElement.getId());
+                    }
+                    savedCount++;
+                }
+            }
+            
+            // 2단계: 자식 요소들을 저장 (name_box) - 매핑된 부모 ID 사용
+            for (Map<String, Object> element : elements) {
+                String elementType = (String) element.get("elementType");
+                if (elementType != null && elementType.equals("name_box")) {
+                    // parentId를 매핑된 실제 ID로 변경
+                    if (element.containsKey("parentId")) {
+                        Object parentId = element.get("parentId");
+                        if (parentId != null && idMapping.containsKey(parentId.toString())) {
+                            Long mappedParentId = idMapping.get(parentId.toString());
+                            element.put("parentId", mappedParentId);
+                            logger.debug("부모 ID 매핑 적용: {} -> {}", parentId, mappedParentId);
+                        }
+                    }
                     saveElement(floorPlanId, elementType, element);
                     savedCount++;
                 }
@@ -253,9 +280,25 @@ public class FloorPlanService {
     }
     
     /**
+     * 개별 요소 저장 (개선된 로직) - ID 반환
+     */
+    private FloorPlanElement saveElementWithReturn(Long floorPlanId, String elementType, Map<String, Object> elementData) {
+        FloorPlanElement element = createElementFromData(floorPlanId, elementType, elementData);
+        return floorPlanElementRepository.save(element);
+    }
+    
+    /**
      * 개별 요소 저장 (개선된 로직)
      */
     private void saveElement(Long floorPlanId, String elementType, Map<String, Object> elementData) {
+        FloorPlanElement element = createElementFromData(floorPlanId, elementType, elementData);
+        floorPlanElementRepository.save(element);
+    }
+    
+    /**
+     * elementData로부터 FloorPlanElement 객체 생성
+     */
+    private FloorPlanElement createElementFromData(Long floorPlanId, String elementType, Map<String, Object> elementData) {
         FloorPlanElement element = new FloorPlanElement();
         element.setFloorPlanId(floorPlanId);
         element.setElementType(elementType);
@@ -270,6 +313,15 @@ public class FloorPlanService {
         element.setHeight(getDoubleValue(elementData, "height", null));
         element.setZIndex(getIntValue(elementData, "zIndex", null));
         element.setRotation(getDoubleValue(elementData, "rotation", 0.0));
+        
+        // 부모-자식 관계 설정
+        if (elementData.containsKey("parentId")) {
+            Object parentIdValue = elementData.get("parentId");
+            if (parentIdValue != null && isValidLong(parentIdValue.toString())) {
+                element.setParentElementId(Long.valueOf(parentIdValue.toString()));
+                logger.debug("부모 요소 ID 설정: elementType={}, parentId={}", elementType, parentIdValue);
+            }
+        }
         
         // 스타일 정보
         element.setColor(getStringValue(elementData, "color", null));
@@ -304,7 +356,7 @@ public class FloorPlanService {
             element.setElementData("{}");
         }
         
-        floorPlanElementRepository.save(element);
+        return element;
     }
     
     /**
@@ -432,6 +484,9 @@ public class FloorPlanService {
             map.put("height", element.getHeight());
             map.put("zIndex", element.getZIndex());
             map.put("rotation", element.getRotation());
+            
+            // 부모-자식 관계
+            map.put("parentId", element.getParentElementId());
             
             // 스타일
             map.put("color", element.getColor());

@@ -11,10 +11,11 @@
  */
 
 export default class ClassroomDesignMode {
-    constructor(core, elementManager, uiManager) {
+    constructor(core, elementManager, uiManager, historyManager = null) {
         this.core = core;
         this.elementManager = elementManager;
         this.uiManager = uiManager;
+        this.historyManager = historyManager;
         
         this.currentTool = null; // 'building', 'room', 'rectangle', 'circle', 'line', 'dashed-line'
         this.currentColor = '#000000';
@@ -54,13 +55,33 @@ export default class ClassroomDesignMode {
             this.updateLayerButtons();
         }, 200); // 200ms마다 체크
         
-        // 캔버스에 이미 배치된 교실 ID 추적
+        // 캔버스에 이미 배치된 교실 ID 추적 및 데이터 수집
         this.placedClassroomIds = new Set();
-        const roomElements = this.core.state.elements.filter(el => el.shapeType === 'room' && el.classroomId);
+        this.loadedClassroomData = []; // 로드된 교실 데이터 (삭제 시 복원용)
+        
+        const roomElements = this.core.state.elements.filter(el => el.elementType === 'room' && el.classroomId);
         roomElements.forEach(room => {
-            this.placedClassroomIds.add(String(room.classroomId));
+            const classroomId = String(room.classroomId);
+            this.placedClassroomIds.add(classroomId);
+            
+            // 로드된 교실 데이터 저장 (미배치 목록 복원용)
+            this.loadedClassroomData.push({
+                classroomId: room.classroomId,
+                roomName: room.label || `교실 ${room.classroomId}`,
+                id: room.classroomId,
+                // 추가 필드가 있으면 여기 추가
+            });
+            
+            console.log('📍 배치된 교실 추적:', { 
+                classroomId: room.classroomId, 
+                label: room.label,
+                referenceId: room.referenceId 
+            });
         });
+        
         console.log('📍 이미 배치된 교실:', this.placedClassroomIds.size, '개');
+        console.log('📍 배치된 교실 ID 목록:', Array.from(this.placedClassroomIds));
+        console.log('💾 로드된 교실 데이터:', this.loadedClassroomData.length, '개');
         
         // 미배치 교실 로드
         if (this.core.currentSchoolId) {
@@ -311,12 +332,16 @@ export default class ClassroomDesignMode {
         this.canvasMouseDownHandler = (e) => this.handleCanvasMouseDown(e);
         this.canvasMouseMoveHandler = (e) => this.handleCanvasMouseMove(e);
         this.canvasMouseUpHandler = (e) => this.handleCanvasMouseUp(e);
+        this.keyDownHandler = (e) => this.handleKeyDown(e);
         
         const canvas = this.core.canvas;
         canvas.addEventListener('click', this.canvasClickHandler);
         canvas.addEventListener('mousedown', this.canvasMouseDownHandler);
         canvas.addEventListener('mousemove', this.canvasMouseMoveHandler);
         canvas.addEventListener('mouseup', this.canvasMouseUpHandler);
+        
+        // 키보드 이벤트 (스페이스바로 도구 해제)
+        window.addEventListener('keydown', this.keyDownHandler);
     }
     
     /**
@@ -336,6 +361,26 @@ export default class ClassroomDesignMode {
         if (this.canvasMouseUpHandler) {
             canvas.removeEventListener('mouseup', this.canvasMouseUpHandler);
         }
+        if (this.keyDownHandler) {
+            window.removeEventListener('keydown', this.keyDownHandler);
+        }
+    }
+    
+    /**
+     * 키보드 이벤트 처리
+     */
+    handleKeyDown(e) {
+        // Shift: 도구 선택 해제 (팬 모드 진입)
+        if (e.shiftKey && this.currentTool) {
+            this.selectTool(null);
+            console.log('🔧 Shift: 도구 선택 해제');
+        }
+        
+        // Escape: 도구 선택 해제
+        if (e.code === 'Escape' && this.currentTool) {
+            this.selectTool(null);
+            console.log('🔧 Escape: 도구 선택 해제');
+        }
     }
     
     /**
@@ -347,11 +392,18 @@ export default class ClassroomDesignMode {
         // Core 상태 업데이트 (InteractionManager가 커서를 변경하지 않도록)
         this.core.setState({ activeTool: tool });
         
-        // UI 업데이트
+        // UI 업데이트 - 모든 버튼의 active 상태 제거
         document.querySelectorAll('.tool-btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
+        
+        // tool이 null이 아닐 때만 active 클래스 추가
+        if (tool) {
+            const toolButton = document.querySelector(`[data-tool="${tool}"]`);
+            if (toolButton) {
+                toolButton.classList.add('active');
+            }
+        }
         
         // 커서 스타일 변경
         if (this.currentTool) {
@@ -359,6 +411,8 @@ export default class ClassroomDesignMode {
         } else {
             this.core.canvas.style.cursor = 'default';
         }
+        
+        console.log('🔧 도구 선택:', tool, '| currentTool:', this.currentTool, '| activeTool:', this.core.state.activeTool);
     }
     
     /**
@@ -456,9 +510,14 @@ export default class ClassroomDesignMode {
         const name = prompt('건물 이름을 입력하세요:', '새건물');
         if (!name) return;
         
-        // 건물 요소 생성 (크기 5배)
-        const buildingWidth = 400;
-        const buildingHeight = 750;
+        // 히스토리 저장 (작업 전 상태 저장)
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
+        // 건물 요소 생성
+        const buildingWidth = 600;   // 50% 축소, 20의 배수
+        const buildingHeight = 380;  // 50% 축소, 20의 배수
         
         // 클릭한 위치가 중앙이 되도록 조정
         const buildingX = x - buildingWidth / 2;
@@ -510,6 +569,11 @@ export default class ClassroomDesignMode {
     createRoom(x, y) {
         const name = prompt('교실 이름을 입력하세요:', '새교실');
         if (!name) return;
+        
+        // 히스토리 저장 (작업 전 상태 저장)
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
         
         // 교실 요소 생성
         const roomWidth = 120;
@@ -563,6 +627,11 @@ export default class ClassroomDesignMode {
      * 도형 그리기 시작
      */
     startDrawingShape(x, y) {
+        // 히스토리 저장 (작업 전 상태 저장)
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
         this.isDrawing = true;
         this.drawStartPos = { x, y };
     }
@@ -691,6 +760,11 @@ export default class ClassroomDesignMode {
         const selectedElements = this.core.state.selectedElements || [];
         if (selectedElements.length === 0) return;
         
+        // 히스토리 저장 (작업 전 상태 저장)
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
         selectedElements.forEach(element => {
             this.elementManager.bringForward(element.id);
         });
@@ -705,6 +779,11 @@ export default class ClassroomDesignMode {
     sendBackward() {
         const selectedElements = this.core.state.selectedElements || [];
         if (selectedElements.length === 0) return;
+        
+        // 히스토리 저장 (작업 전 상태 저장)
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
         
         selectedElements.forEach(element => {
             this.elementManager.sendBackward(element.id);
@@ -781,19 +860,40 @@ export default class ClassroomDesignMode {
         // 원본 교실 목록 저장 (refreshUnplacedList용)
         this.originalClassrooms = classrooms || [];
         
+        // 로드된 교실 데이터 병합 (삭제 후 복원용)
+        if (this.loadedClassroomData && this.loadedClassroomData.length > 0) {
+            // 중복 제거: originalClassrooms에 없는 로드된 교실만 추가
+            this.loadedClassroomData.forEach(loadedClassroom => {
+                const exists = this.originalClassrooms.some(c => 
+                    String(c.classroomId || c.id) === String(loadedClassroom.classroomId)
+                );
+                if (!exists) {
+                    this.originalClassrooms.push(loadedClassroom);
+                    console.log('➕ 로드된 교실 추가:', loadedClassroom.classroomId, '/', loadedClassroom.roomName);
+                }
+            });
+        }
+        
+        console.log('📚 전체 교실 목록 (원본 + 로드됨):', this.originalClassrooms.length, '개');
+        
         // 배치된 교실 ID가 없으면 초기화
         if (!this.placedClassroomIds) {
             this.placedClassroomIds = new Set();
         }
         
-        // 이미 배치된 교실 필터링
-        const unplacedClassrooms = classrooms.filter(classroom => {
+        // 이미 배치된 교실 필터링 (병합된 전체 목록에서)
+        const unplacedClassrooms = this.originalClassrooms.filter(classroom => {
             const id = String(classroom.classroomId || classroom.id || classroom.classroom_id);
-            return !this.placedClassroomIds.has(id);
+            const isUnplaced = !this.placedClassroomIds.has(id);
+            console.log(`📋 교실 필터링: ID=${id}, 배치여부=${!isUnplaced}, 미배치=${isUnplaced}`);
+            return isUnplaced;
         });
+        
+        console.log(`📊 필터링 결과: 전체 ${this.originalClassrooms.length}개 → 미배치 ${unplacedClassrooms.length}개`);
         
         if (!unplacedClassrooms || unplacedClassrooms.length === 0) {
             container.innerHTML = '<p class="empty">모든 교실이 배치되었습니다</p>';
+            console.log('✅ DOM 업데이트 완료 (모든 교실 배치됨)');
             return;
         }
         
@@ -819,16 +919,24 @@ export default class ClassroomDesignMode {
             `;
         }).join('');
         
+        console.log(`✅ DOM 업데이트 완료: ${sortedClassrooms.length}개 교실 렌더링됨`);
+        
         // 드래그 이벤트 설정
         this.setupClassroomDragEvents();
+        console.log('✅ 드래그 이벤트 재설정 완료');
     }
     
     /**
      * 미배치 교실 목록 새로고침 (배치된 교실 제외)
      */
     refreshUnplacedList() {
+        console.log('🔄 refreshUnplacedList 호출됨');
         if (this.originalClassrooms) {
+            console.log('📚 원본 교실 목록:', this.originalClassrooms.length, '개');
+            console.log('📍 배치된 교실 ID:', Array.from(this.placedClassroomIds || []));
             this.renderUnplacedClassrooms(this.originalClassrooms);
+        } else {
+            console.warn('⚠️ originalClassrooms가 없음');
         }
     }
     
@@ -858,6 +966,9 @@ export default class ClassroomDesignMode {
             
             canvas.addEventListener('drop', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
                 const classroomId = e.dataTransfer.getData('classroomId');
                 const classroomName = e.dataTransfer.getData('classroomName');
                 
@@ -877,6 +988,17 @@ export default class ClassroomDesignMode {
      * 교실 배치 (프론트엔드에서만 처리, 저장 버튼 클릭 시 백엔드에 저장)
      */
     placeClassroom(classroomId, classroomName, x, y) {
+        // 배치된 교실 ID 추적 초기화
+        if (!this.placedClassroomIds) {
+            this.placedClassroomIds = new Set();
+        }
+        
+        // 이미 배치된 교실인지 확인
+        if (this.placedClassroomIds.has(classroomId)) {
+            console.warn('⚠️ 이미 배치된 교실:', classroomId);
+            return;
+        }
+        
         // 교실 요소 생성 (중앙 정렬)
         const roomWidth = 120;
         const roomHeight = 100;
@@ -916,13 +1038,56 @@ export default class ClassroomDesignMode {
         });
         
         // 배치된 교실 ID 추적 (미배치 리스트 필터링용)
-        if (!this.placedClassroomIds) {
-            this.placedClassroomIds = new Set();
-        }
         this.placedClassroomIds.add(classroomId);
+        
+        console.log('✅ 교실 배치 완료:', { classroomId, classroomName, 배치된교실수: this.placedClassroomIds.size });
         
         // 미배치 교실 목록 갱신 (배치된 교실 필터링)
         this.refreshUnplacedList();
+    }
+    
+    /**
+     * 요소 삭제 후 처리 (미배치 교실 복원)
+     */
+    onElementsDeleted(deletedElements) {
+        console.log('🗑️ onElementsDeleted 호출됨:', deletedElements?.length || 0, '개');
+        
+        if (!this.placedClassroomIds) {
+            console.warn('⚠️ placedClassroomIds가 초기화되지 않음');
+            return;
+        }
+        
+        let needRefresh = false;
+        const restoredClassrooms = [];
+        
+        // 삭제된 요소 중 교실이 있는지 확인
+        deletedElements.forEach(element => {
+            console.log('🔍 삭제된 요소 확인:', { 
+                elementType: element.elementType, 
+                classroomId: element.classroomId,
+                label: element.label 
+            });
+            
+            if (element.elementType === 'room' && element.classroomId) {
+                const classroomId = String(element.classroomId);
+                if (this.placedClassroomIds.has(classroomId)) {
+                    // 배치 추적에서 제거
+                    this.placedClassroomIds.delete(classroomId);
+                    needRefresh = true;
+                    restoredClassrooms.push(classroomId);
+                    console.log('🔄 교실 배치 해제:', classroomId, '/', element.label);
+                }
+            }
+        });
+        
+        // 미배치 교실 목록 갱신
+        if (needRefresh) {
+            console.log('✅ 교실 복원 중:', restoredClassrooms);
+            this.refreshUnplacedList();
+            console.log('✅ 미배치 교실 목록 갱신 완료 (현재 배치된 교실 수:', this.placedClassroomIds.size, ')');
+        } else {
+            console.log('ℹ️ 복원할 교실 없음');
+        }
     }
     
     /**

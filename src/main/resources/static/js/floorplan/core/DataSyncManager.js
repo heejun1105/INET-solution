@@ -300,13 +300,19 @@ export default class DataSyncManager {
                 elementData.id = null;
             }
             
+            // parentElementId를 parentId로 변환 (백엔드 호환)
+            if (elementData.parentElementId) {
+                elementData.parentId = elementData.parentElementId;
+            }
+            
             return elementData;
         });
         
         console.log('💾 저장할 요소들:', allElements.map(el => ({
             type: el.elementType,
             label: el.label,
-            parentId: el.parentElementId
+            parentElementId: el.parentElementId,
+            parentId: el.parentId
         })));
         
         return {
@@ -341,8 +347,8 @@ export default class DataSyncManager {
         
         // 메타데이터 적용
         this.core.setState({
-            canvasWidth: floorPlan.canvasWidth || 4000,
-            canvasHeight: floorPlan.canvasHeight || 2500,
+            canvasWidth: 16000,  // 캔버스 크기 적용
+            canvasHeight: 12000,  // 캔버스 크기 적용
             zoom: floorPlan.zoomLevel || 1.0,
             panX: floorPlan.panX || 0,
             panY: floorPlan.panY || 0,
@@ -351,21 +357,59 @@ export default class DataSyncManager {
             snapToGrid: floorPlan.snapToGrid !== false
         });
         
-        // 요소들 적용
+        // 1단계: ID 매핑 테이블 생성 (백엔드 ID -> 프론트엔드 ID)
+        const idMap = new Map();
+        elements.forEach(el => {
+            if (el.id) {
+                // 백엔드 ID를 키로, 프론트엔드 ID를 값으로 저장
+                idMap.set(el.id, el.id);
+            }
+        });
+        
+        console.log('🗺️ ID 매핑 테이블:', Array.from(idMap.entries()));
+        
+        // 2단계: 요소들 적용
         const loadedElements = elements.map(el => {
             // ID가 없으면 임시 ID 생성
             if (!el.id) {
                 el.id = `temp_${Date.now()}_${Math.random()}`;
             }
             
-            // room 타입 요소의 경우 referenceId를 classroomId에도 복사
-            if (el.elementType === 'room' && el.referenceId) {
-                el.classroomId = el.referenceId;
-                console.log('🔄 교실 ID 복사:', { 
+            // room 타입 요소의 경우 referenceId를 classroomId에 복사 (없으면)
+            if (el.elementType === 'room') {
+                if (!el.classroomId && el.referenceId) {
+                    el.classroomId = el.referenceId;
+                    console.log('🔄 교실 ID 복사 (referenceId → classroomId):', { 
+                        elementId: el.id, 
+                        label: el.label,
+                        referenceId: el.referenceId, 
+                        classroomId: el.classroomId 
+                    });
+                } else if (el.classroomId) {
+                    console.log('✅ 교실 ID 이미 있음:', { 
+                        elementId: el.id, 
+                        label: el.label,
+                        classroomId: el.classroomId 
+                    });
+                } else {
+                    console.warn('⚠️ 교실 ID 없음:', { 
+                        elementId: el.id, 
+                        label: el.label,
+                        referenceId: el.referenceId 
+                    });
+                }
+            }
+            
+            // parentId를 parentElementId로 변환 및 매핑
+            if (el.parentId) {
+                // ID 매핑 테이블에서 실제 부모 ID 찾기
+                const mappedParentId = idMap.get(el.parentId) || el.parentId;
+                el.parentElementId = mappedParentId;
+                console.log('🔄 부모 ID 매핑:', { 
                     elementId: el.id, 
                     label: el.label,
-                    referenceId: el.referenceId, 
-                    classroomId: el.classroomId 
+                    원본_parentId: el.parentId, 
+                    매핑된_parentElementId: el.parentElementId 
                 });
             }
             
@@ -429,6 +473,27 @@ export default class DataSyncManager {
                 console.warn('⚠️ 중복 ID 발견:', element.id);
             }
             ids.add(element.id);
+        }
+        
+        // 부모-자식 관계 검증
+        const parentIds = new Set(elements.map(el => el.id));
+        for (const element of elements) {
+            if (element.parentElementId) {
+                if (!parentIds.has(element.parentElementId)) {
+                    console.warn('⚠️ 유효하지 않은 부모 ID:', {
+                        elementId: element.id,
+                        label: element.label,
+                        parentElementId: element.parentElementId,
+                        존재하는_부모: Array.from(parentIds)
+                    });
+                } else {
+                    console.log('✓ 부모-자식 관계 확인:', {
+                        자식: element.label,
+                        자식_ID: element.id,
+                        부모_ID: element.parentElementId
+                    });
+                }
+            }
         }
         
         console.debug('✓ 로드 후 검증 완료');

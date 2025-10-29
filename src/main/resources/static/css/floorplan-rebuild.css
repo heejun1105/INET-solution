@@ -35,8 +35,7 @@
 
 .design-toolbar-container.collapsed .toolbar-section p,
 .design-toolbar-container.collapsed .style-controls,
-.design-toolbar-container.collapsed .layer-controls,
-.design-toolbar-container.collapsed #unplaced-classrooms-list {
+.design-toolbar-container.collapsed .layer-controls {
     display: none;
 }
 
@@ -56,6 +55,24 @@
 
 .design-toolbar-container.collapsed .tool-btn i {
     font-size: 18px;
+}
+
+/* 소형화 상태에서 미배치 교실 스타일 */
+.design-toolbar-container.collapsed .unplaced-list {
+    max-height: 300px;
+}
+
+.design-toolbar-container.collapsed .unplaced-classroom-item {
+    padding: 6px 4px;
+    margin-bottom: 4px;
+    font-size: 10px;
+    flex-direction: column;
+    gap: 2px;
+    text-align: center;
+}
+
+.design-toolbar-container.collapsed .unplaced-classroom-item i {
+    font-size: 16px;
 }
 
 /* 토글 버튼 */

@@ -10,6 +10,7 @@ import ElementManager from './core/ElementManager.js';
 import InteractionManager from './core/InteractionManager.js';
 import DataSyncManager from './core/DataSyncManager.js';
 import UIManager from './core/UIManager.js';
+import HistoryManager from './core/HistoryManager.js';
 
 import ClassroomDesignMode from './modes/ClassroomDesignMode.js';
 import WirelessApDesignMode from './modes/WirelessApDesignMode.js';
@@ -27,6 +28,7 @@ class FloorPlanApp {
         this.interactionManager = null;
         this.dataSyncManager = null;
         this.uiManager = null;
+        this.historyManager = null;
         
         this.currentSchoolId = null;
         this.currentMode = null; // 'design-classroom', 'design-wireless', 'design-seat', 'view-equipment', 'view-wireless'
@@ -81,9 +83,10 @@ class FloorPlanApp {
         });
         
         this.elementManager = new ElementManager(this.core);
+        this.historyManager = new HistoryManager(this.core);
         this.dataSyncManager = new DataSyncManager(this.core, this.elementManager);
         this.uiManager = new UIManager(this.core, this.dataSyncManager, this.elementManager);
-        this.interactionManager = new InteractionManager(this.core, this.elementManager);
+        this.interactionManager = new InteractionManager(this.core, this.elementManager, this.historyManager);
         
         // Core에 schoolId 저장
         this.core.currentSchoolId = null;
@@ -145,6 +148,66 @@ class FloorPlanApp {
         const pptBtn = document.getElementById('ppt-download-btn');
         if (pptBtn) {
             pptBtn.addEventListener('click', () => this.downloadPPT());
+        }
+        
+        // 키보드 단축키 설정
+        this.setupKeyboardShortcuts();
+    }
+    
+    /**
+     * 키보드 단축키 설정
+     */
+    setupKeyboardShortcuts() {
+        window.addEventListener('keydown', (e) => {
+            // Ctrl+Z: 되돌리기
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                this.undo();
+                return;
+            }
+            
+            // Ctrl+Y 또는 Ctrl+Shift+Z: 다시 실행
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                e.preventDefault();
+                this.redo();
+                return;
+            }
+        });
+        
+        console.log('⌨️ 키보드 단축키 설정 완료');
+    }
+    
+    /**
+     * 되돌리기
+     */
+    undo() {
+        if (!this.historyManager) {
+            console.warn('⚠️ HistoryManager가 초기화되지 않았습니다');
+            return;
+        }
+        
+        const success = this.historyManager.undo();
+        if (success) {
+            this.uiManager?.showNotification('되돌리기', '이전 작업으로 되돌렸습니다', 'info');
+        } else {
+            this.uiManager?.showNotification('되돌리기', '되돌릴 작업이 없습니다', 'warning');
+        }
+    }
+    
+    /**
+     * 다시 실행
+     */
+    redo() {
+        if (!this.historyManager) {
+            console.warn('⚠️ HistoryManager가 초기화되지 않았습니다');
+            return;
+        }
+        
+        const success = this.historyManager.redo();
+        if (success) {
+            this.uiManager?.showNotification('다시 실행', '다시 실행했습니다', 'info');
+        } else {
+            this.uiManager?.showNotification('다시 실행', '다시 실행할 작업이 없습니다', 'warning');
         }
     }
     
@@ -363,7 +426,7 @@ class FloorPlanApp {
         // 새 모드 활성화
         switch (mode) {
             case 'design-classroom':
-                this.modeManager = new ClassroomDesignMode(this.core, this.elementManager, this.uiManager);
+                this.modeManager = new ClassroomDesignMode(this.core, this.elementManager, this.uiManager, this.historyManager);
                 break;
             case 'design-wireless':
                 this.modeManager = new WirelessApDesignMode(this.core, this.elementManager, this.uiManager);
@@ -385,6 +448,11 @@ class FloorPlanApp {
         // 모드 활성화
         if (this.modeManager) {
             await this.modeManager.activate();
+            
+            // InteractionManager에 현재 모드 설정 (삭제 콜백용)
+            if (this.interactionManager) {
+                this.interactionManager.setCurrentMode(this.modeManager);
+            }
         }
         
         this.uiManager.showNotification(`${mode} 활성화`, 'success');
@@ -500,6 +568,10 @@ class FloorPlanApp {
     closeWorkspace() {
         console.log('🚪 워크스페이스 닫기');
         
+        // /floorplan으로 이동 (새로고침 효과)
+        window.location.href = '/floorplan';
+        
+        // 아래 코드는 페이지 이동으로 실행되지 않지만 유지
         const workspaceModal = document.getElementById('workspace-modal');
         if (workspaceModal) {
             workspaceModal.style.display = 'none';

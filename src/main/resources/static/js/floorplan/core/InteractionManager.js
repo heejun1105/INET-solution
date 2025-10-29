@@ -14,8 +14,10 @@
 export default class InteractionManager {
     /**
      * @param {FloorPlanCore} core - FloorPlanCore 인스턴스
+     * @param {ElementManager} elementManager - ElementManager 인스턴스
+     * @param {HistoryManager} historyManager - HistoryManager 인스턴스 (선택적)
      */
-    constructor(core) {
+    constructor(core, elementManager, historyManager = null) {
         if (!core) {
             throw new Error('FloorPlanCore instance is required');
         }
@@ -24,6 +26,9 @@ export default class InteractionManager {
         
         this.core = core;
         this.canvas = core.canvas;
+        this.elementManager = elementManager;
+        this.historyManager = historyManager;
+        this.currentMode = null; // 현재 활성 모드 (삭제 콜백용)
         
         // 상태 플래그 (이벤트 충돌 방지)
         this.state = {
@@ -31,7 +36,7 @@ export default class InteractionManager {
             isPanning: false,
             isSelecting: false,
             isResizing: false,
-            isSpacePressed: false,
+            isShiftPressed: false,
             isZooming: false
         };
         
@@ -142,8 +147,8 @@ export default class InteractionManager {
             return; // ClassroomDesignMode에서 처리하도록 함
         }
         
-        // 스페이스바가 눌려있으면 팬 모드
-        if (this.state.isSpacePressed || e.button === 1) { // 중간 버튼도 팬
+        // Shift가 눌려있으면 팬 모드 (최우선)
+        if (this.state.isShiftPressed || e.button === 1) { // 중간 버튼도 팬
             this.startPan(x, y);
             return;
         }
@@ -168,8 +173,8 @@ export default class InteractionManager {
             }
             
             // 요소 클릭: 단일 또는 다중 선택
-            if (e.ctrlKey || e.metaKey || e.shiftKey) {
-                // Ctrl/Cmd/Shift + 클릭: 다중 선택 토글
+            if (e.ctrlKey || e.metaKey) {
+                // Ctrl/Cmd + 클릭: 다중 선택 토글
                 this.toggleSelection(clickedElement);
             } else {
                 // 일반 클릭: 단일 선택
@@ -178,14 +183,14 @@ export default class InteractionManager {
                 }
             }
             
-            // Ctrl/Shift 클릭이 아닐 때만 드래그 시작 (다중 선택 토글 시 드래그 방지)
-            if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
-                this.startDrag(x, y);
+            // Ctrl 클릭이 아닐 때만 드래그 시작 (다중 선택 토글 시 드래그 방지)
+            if (!e.ctrlKey && !e.metaKey) {
+            this.startDrag(x, y);
             }
         } else {
             // 빈 공간 클릭: 선택 박스 시작 (다중 선택) 또는 선택 해제
-            if (e.ctrlKey || e.metaKey || e.shiftKey) {
-                // Ctrl/Shift 누른 채로 빈 공간 클릭: 아무것도 안 함 (기존 선택 유지)
+            if (e.ctrlKey || e.metaKey) {
+                // Ctrl 누른 채로 빈 공간 클릭: 아무것도 안 함 (기존 선택 유지)
                 return;
             }
             this.startSelectionBox(x, y);
@@ -275,26 +280,26 @@ export default class InteractionManager {
         
         // Ctrl + 휠: 줌
         if (e.ctrlKey || e.metaKey) {
-            const delta = -e.deltaY;
-            
-            // 줌 레벨 계산
-            const zoomFactor = delta > 0 ? 1.1 : 0.9;
-            const newZoom = this.core.state.zoom * zoomFactor;
-            
-            // 마우스 위치를 중심으로 줌
-            this.core.setZoom(newZoom, x, y);
+        const delta = -e.deltaY;
+        
+        // 줌 레벨 계산
+        const zoomFactor = delta > 0 ? 1.1 : 0.9;
+        const newZoom = this.core.state.zoom * zoomFactor;
+        
+        // 마우스 위치를 중심으로 줌
+        this.core.setZoom(newZoom, x, y);
             
             // 줌 디스플레이 업데이트
             if (window.floorPlanApp && window.floorPlanApp.updateZoomDisplay) {
                 window.floorPlanApp.updateZoomDisplay();
             }
-            
-            console.debug('🔍 줌:', newZoom.toFixed(2));
+        
+        console.debug('🔍 줌:', newZoom.toFixed(2));
             return;
         }
         
-        // Shift + 휠: 좌우 스크롤
-        if (e.shiftKey) {
+        // Alt + 휠: 좌우 스크롤
+        if (e.altKey) {
             const deltaX = e.deltaY; // 세로 휠을 가로 이동으로 변환
             const newPanX = this.core.state.panX - deltaX;
             
@@ -324,11 +329,16 @@ export default class InteractionManager {
      * 키 다운
      */
     onKeyDown(e) {
-        // 스페이스바: 팬 모드
-        if (e.code === 'Space' && !this.state.isSpacePressed) {
-            e.preventDefault();
-            this.state.isSpacePressed = true;
+        // Shift: 팬 모드
+        if (e.shiftKey && !this.state.isShiftPressed) {
+            this.state.isShiftPressed = true;
             this.canvas.style.cursor = 'grab';
+            
+            // 도구 선택 해제 (팬 모드에서는 요소 생성 불가)
+            if (this.core.state.activeTool) {
+                this.core.setState({ activeTool: null });
+                console.log('🔧 Shift 누름: 도구 선택 해제');
+            }
         }
         
         // Delete/Backspace: 선택 요소 삭제
@@ -354,10 +364,13 @@ export default class InteractionManager {
      * 키 업
      */
     onKeyUp(e) {
-        // 스페이스바 해제
-        if (e.code === 'Space') {
-            this.state.isSpacePressed = false;
+        // Shift 해제
+        if (!e.shiftKey && this.state.isShiftPressed) {
+            this.state.isShiftPressed = false;
+            // 팬 중이 아니면 커서를 기본으로 변경
+            if (!this.state.isPanning) {
             this.canvas.style.cursor = 'default';
+            }
         }
     }
     
@@ -367,6 +380,11 @@ export default class InteractionManager {
      * 드래그 시작
      */
     startDrag(x, y) {
+        // 히스토리 저장 (작업 전 상태 저장)
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
         this.state.isDragging = true;
         
         // Core 상태 업데이트: isDragging = true, hoveredElement = null (중요!)
@@ -507,11 +525,11 @@ export default class InteractionManager {
                     });
                 } else {
                     // 일반 요소 업데이트
-                    this.core.updateElement(element.id, {
-                        xCoordinate: newX,
-                        yCoordinate: newY
-                    });
-                }
+                this.core.updateElement(element.id, {
+                    xCoordinate: newX,
+                    yCoordinate: newY
+                });
+            }
                 
                 // 부모 요소가 이동하면 자식 요소(name_box)도 함께 이동
                 if (element.elementType === 'building' || element.elementType === 'room') {
@@ -694,10 +712,8 @@ export default class InteractionManager {
             }
         });
         
-        // 기존 선택 해제 (Shift 키가 안 눌려있으면)
-        if (!window.event.shiftKey) {
-            this.clearSelection();
-        }
+        // 기존 선택 해제
+        this.clearSelection();
         
         console.debug('📦 선택 박스 시작');
     }
@@ -747,15 +763,8 @@ export default class InteractionManager {
         );
         
         if (selectedElements.length > 0) {
-            // Shift 키가 눌려있으면 기존 선택에 추가
-            if (window.event.shiftKey) {
-                for (const element of selectedElements) {
-                    this.addToSelection(element);
-                }
-            } else {
                 this.selectElements(selectedElements);
             }
-        }
         
         // 캔버스 다시 그리기
         this.core.markDirty();
@@ -834,14 +843,32 @@ export default class InteractionManager {
     deleteSelected() {
         const selectedElements = [...this.core.state.selectedElements];
         
+        // 삭제할 요소가 없으면 리턴
+        if (selectedElements.length === 0) {
+            return;
+        }
+        
+        // 히스토리 저장 (작업 전 상태 저장)
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
+        // 실제로 삭제될 모든 요소 수집 (자식 포함)
+        const allDeletedElements = [];
+        
         // ElementManager를 통해 삭제 (자식 요소도 함께 삭제됨)
         selectedElements.forEach(element => {
+            allDeletedElements.push(element);
+            
+            // 자식 요소도 수집
+            const children = this.core.state.elements.filter(el => el.parentElementId === element.id);
+            allDeletedElements.push(...children);
+            
             // ElementManager가 없으면 core를 통해 직접 삭제
             if (this.core.elementManager) {
                 this.core.elementManager.deleteElement(element.id);
             } else {
-                // 자식 요소 찾기
-                const children = this.core.state.elements.filter(el => el.parentElementId === element.id);
+                // 자식 요소 삭제
                 children.forEach(child => this.core.removeElement(child.id));
                 
                 // 부모 요소 삭제
@@ -851,7 +878,25 @@ export default class InteractionManager {
         
         this.clearSelection();
         
-        console.debug('🗑️ 선택 요소 삭제:', selectedElements.length, '개 (자식 포함)');
+        console.log('🗑️ 요소 삭제 완료:', selectedElements.length, '개 (자식 포함:', allDeletedElements.length, '개)');
+        console.log('🔍 삭제된 요소 목록:', allDeletedElements.map(el => ({
+            type: el.elementType,
+            id: el.id,
+            classroomId: el.classroomId,
+            label: el.label
+        })));
+        
+        // 현재 모드에 삭제 알림 (미배치 교실 복원용)
+        if (this.currentMode && typeof this.currentMode.onElementsDeleted === 'function') {
+            console.log('📞 currentMode.onElementsDeleted 콜백 호출 시작');
+            this.currentMode.onElementsDeleted(allDeletedElements);
+            console.log('✅ currentMode.onElementsDeleted 콜백 호출 완료');
+        } else {
+            console.warn('⚠️ currentMode 또는 onElementsDeleted 콜백이 없음:', {
+                currentMode: !!this.currentMode,
+                hasCallback: this.currentMode && typeof this.currentMode.onElementsDeleted === 'function'
+            });
+        }
     }
     
     // ===== 호버 =====
@@ -1110,6 +1155,11 @@ export default class InteractionManager {
      * 리사이즈 시작
      */
     startResize(x, y, element, handle) {
+        // 히스토리 저장 (작업 전 상태 저장)
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
         this.state.isResizing = true;
         
         // Core 상태 업데이트: isResizing = true, hoveredElement = null (중요!)
@@ -1348,6 +1398,13 @@ export default class InteractionManager {
     }
     
     // ===== 정리 =====
+    
+    /**
+     * 현재 모드 설정 (삭제 콜백용)
+     */
+    setCurrentMode(mode) {
+        this.currentMode = mode;
+    }
     
     /**
      * 리소스 정리
