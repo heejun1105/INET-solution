@@ -339,12 +339,14 @@ export default class FloorPlanCore {
         const w = element.width || 100;
         const h = element.height || 80;
         
-        // 배경
-        ctx.fillStyle = element.backgroundColor || element.color || '#10b981';
-        ctx.fillRect(x, y, w, h);
+        // 배경 (있으면)
+        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
+            ctx.fillStyle = element.backgroundColor;
+            ctx.fillRect(x, y, w, h);
+        }
         
-        // 테두리
-        ctx.strokeStyle = element.borderColor || '#059669';
+        // 테두리는 항상 그리기
+        ctx.strokeStyle = element.borderColor || '#000000';
         ctx.lineWidth = element.borderWidth || 2;
         ctx.strokeRect(x, y, w, h);
     }
@@ -358,12 +360,14 @@ export default class FloorPlanCore {
         const w = element.width || 200;
         const h = element.height || 300;
         
-        // 배경
-        ctx.fillStyle = element.backgroundColor || element.color || '#3b82f6';
-        ctx.fillRect(x, y, w, h);
+        // 배경 (있으면)
+        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
+            ctx.fillStyle = element.backgroundColor;
+            ctx.fillRect(x, y, w, h);
+        }
         
-        // 테두리
-        ctx.strokeStyle = element.borderColor || '#1d4ed8';
+        // 테두리는 항상 그리기
+        ctx.strokeStyle = element.borderColor || '#000000';
         ctx.lineWidth = element.borderWidth || 2;
         ctx.strokeRect(x, y, w, h);
     }
@@ -460,16 +464,16 @@ export default class FloorPlanCore {
         const w = element.width || 100;
         const h = element.height || 100;
         
-        if (element.backgroundColor) {
+        // 배경색 (있으면)
+        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
             ctx.fillStyle = element.backgroundColor;
             ctx.fillRect(x, y, w, h);
         }
         
-        if (element.borderColor) {
-            ctx.strokeStyle = element.borderColor;
-            ctx.lineWidth = element.borderWidth || 1;
-            ctx.strokeRect(x, y, w, h);
-        }
+        // 테두리는 항상 그리기
+        ctx.strokeStyle = element.borderColor || '#000000';
+        ctx.lineWidth = element.borderWidth || 2;
+        ctx.strokeRect(x, y, w, h);
     }
     
     /**
@@ -489,16 +493,16 @@ export default class FloorPlanCore {
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         
-        if (element.backgroundColor) {
+        // 배경색 (있으면)
+        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
             ctx.fillStyle = element.backgroundColor;
             ctx.fill();
         }
         
-        if (element.borderColor) {
-            ctx.strokeStyle = element.borderColor;
-            ctx.lineWidth = element.borderWidth || 1;
-            ctx.stroke();
-        }
+        // 테두리는 항상 그리기
+        ctx.strokeStyle = element.borderColor || '#000000';
+        ctx.lineWidth = element.borderWidth || 2;
+        ctx.stroke();
     }
     
     /**
@@ -516,7 +520,7 @@ export default class FloorPlanCore {
         }
         ctx.moveTo(startX, startY);
         ctx.lineTo(endX, endY);
-        ctx.strokeStyle = element.color || element.borderColor || '#000000';
+        ctx.strokeStyle = element.borderColor || '#000000';
         ctx.lineWidth = element.borderWidth || 2;
         ctx.stroke();
         if (isDashed) {
@@ -745,19 +749,25 @@ export default class FloorPlanCore {
             ctx.lineWidth = borderWidth || 2;
             ctx.stroke();
         } else if (shapeType === 'line') {
-            // 직선
+            // 직선 - endX, endY 사용
+            const lineEndX = shape.endX || (startX + width);
+            const lineEndY = shape.endY || (startY + height);
+            
             ctx.beginPath();
             ctx.moveTo(startX, startY);
-            ctx.lineTo(startX + width, startY + height);
+            ctx.lineTo(lineEndX, lineEndY);
             ctx.strokeStyle = borderColor || '#000000';
             ctx.lineWidth = borderWidth || 2;
             ctx.stroke();
         } else if (shapeType === 'dashed-line') {
-            // 점선
+            // 점선 - endX, endY 사용
+            const lineEndX = shape.endX || (startX + width);
+            const lineEndY = shape.endY || (startY + height);
+            
             ctx.beginPath();
             ctx.setLineDash([5, 5]);
             ctx.moveTo(startX, startY);
-            ctx.lineTo(startX + width, startY + height);
+            ctx.lineTo(lineEndX, lineEndY);
             ctx.strokeStyle = borderColor || '#000000';
             ctx.lineWidth = borderWidth || 2;
             ctx.stroke();

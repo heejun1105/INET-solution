@@ -178,30 +178,69 @@ export default class ClassroomDesignMode {
      * 헤더 도구 설정 및 이벤트 바인딩
      */
     setupHeaderTools() {
+        console.log('🔧 헤더 도구 설정 시작');
+        
         // 스타일 컨트롤
         const lineColorInput = document.getElementById('header-line-color');
+        console.log('🎨 선 색상 입력 요소:', lineColorInput ? '찾음' : '못 찾음', lineColorInput);
+        
         if (lineColorInput) {
-            lineColorInput.value = this.currentColor;
+            // HTML 요소의 현재 값을 읽어와서 this.currentColor에 설정
+            this.currentColor = lineColorInput.value || this.currentColor;
+            console.log('🎨 초기 선 색상:', this.currentColor);
+            
+            lineColorInput.addEventListener('input', (e) => {
+                this.currentColor = e.target.value;
+                console.log('🎨 선 색상 변경 (input):', this.currentColor);
+            });
             lineColorInput.addEventListener('change', (e) => {
                 this.currentColor = e.target.value;
+                console.log('🎨 선 색상 확정 (change):', this.currentColor);
             });
+        } else {
+            console.error('❌ header-line-color 요소를 찾을 수 없습니다!');
         }
         
         const fillColorInput = document.getElementById('header-fill-color');
+        console.log('🎨 채우기 색상 입력 요소:', fillColorInput ? '찾음' : '못 찾음');
+        
         if (fillColorInput) {
-            fillColorInput.value = this.currentFillColor;
+            // HTML 요소의 현재 값을 읽어와서 this.currentFillColor에 설정
+            this.currentFillColor = fillColorInput.value || this.currentFillColor;
+            console.log('🎨 초기 채우기 색상:', this.currentFillColor);
+            
+            fillColorInput.addEventListener('input', (e) => {
+                this.currentFillColor = e.target.value;
+                console.log('🎨 채우기 색상 변경 (input):', this.currentFillColor);
+            });
             fillColorInput.addEventListener('change', (e) => {
                 this.currentFillColor = e.target.value;
+                console.log('🎨 채우기 색상 확정 (change):', this.currentFillColor);
             });
+        } else {
+            console.error('❌ header-fill-color 요소를 찾을 수 없습니다!');
         }
         
         const lineWidthSelect = document.getElementById('header-line-width');
+        console.log('📏 선 두께 선택 요소:', lineWidthSelect ? '찾음' : '못 찾음');
+        
         if (lineWidthSelect) {
-            lineWidthSelect.value = this.currentLineWidth.toString();
+            this.currentLineWidth = parseInt(lineWidthSelect.value) || this.currentLineWidth;
+            console.log('📏 초기 선 두께:', this.currentLineWidth);
+            
             lineWidthSelect.addEventListener('change', (e) => {
                 this.currentLineWidth = parseInt(e.target.value);
+                console.log('📏 선 두께 변경:', this.currentLineWidth);
             });
+        } else {
+            console.error('❌ header-line-width 요소를 찾을 수 없습니다!');
         }
+        
+        console.log('🔧 헤더 도구 설정 완료 - 현재 상태:', {
+            currentColor: this.currentColor,
+            currentFillColor: this.currentFillColor,
+            currentLineWidth: this.currentLineWidth
+        });
         
         // 레이어 관리
         const bringForward = document.getElementById('header-bring-forward');
@@ -360,9 +399,6 @@ export default class ClassroomDesignMode {
             return;
         }
         
-        // InteractionManager의 드래그와 충돌하지 않도록 이벤트 전파 중단
-        e.stopPropagation();
-        
         // screenToCanvas는 내부에서 getBoundingClientRect를 처리하므로 clientX/Y를 직접 전달
         const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
         
@@ -428,17 +464,25 @@ export default class ClassroomDesignMode {
         const buildingX = x - buildingWidth / 2;
         const buildingY = y - buildingHeight / 2;
         
+        console.log('🏢 건물 생성 시작 - 현재 색상:', {
+            borderColor: this.currentColor,
+            backgroundColor: this.currentFillColor,
+            borderWidth: this.currentLineWidth
+        });
+        
         const building = this.elementManager.createElement('building', {
             xCoordinate: buildingX,
             yCoordinate: buildingY,
             width: buildingWidth,
             height: buildingHeight,
             label: name,
-            borderColor: '#000000',  // 검정 테두리
-            backgroundColor: '#ffffff',  // 흰색 배경
+            borderColor: this.currentColor,  // 현재 선택된 선 색상
+            backgroundColor: this.currentFillColor,  // 현재 선택된 채우기 색상
             borderWidth: this.currentLineWidth,
             zIndex: 0  // 건물은 기본 레이어
         });
+        
+        console.log('🏢 건물 생성 완료:', building);
         
         // 이름박스 자동 생성 (건물 상단 중앙)
         const nameBoxWidth = 150;
@@ -458,8 +502,6 @@ export default class ClassroomDesignMode {
         });
         
         this.selectTool(null);
-        
-        console.log('🏢 건물 생성:', name);
     }
     
     /**
@@ -477,17 +519,25 @@ export default class ClassroomDesignMode {
         const roomX = x - roomWidth / 2;
         const roomY = y - roomHeight / 2;
         
+        console.log('🚪 교실 생성 시작 - 현재 색상:', {
+            borderColor: this.currentColor,
+            backgroundColor: this.currentFillColor,
+            borderWidth: this.currentLineWidth
+        });
+        
         const room = this.elementManager.createElement('room', {
             xCoordinate: roomX,
             yCoordinate: roomY,
             width: roomWidth,
             height: roomHeight,
             label: name,
-            borderColor: '#000000',  // 검정 테두리
-            backgroundColor: '#ffffff',  // 흰색 배경
+            borderColor: this.currentColor,  // 현재 선택된 선 색상
+            backgroundColor: this.currentFillColor,  // 현재 선택된 채우기 색상
             borderWidth: this.currentLineWidth,
             zIndex: 2  // 교실은 도형보다 위 (건물:0, 도형:1, 교실:2)
         });
+        
+        console.log('🚪 교실 생성 완료:', room);
         
         // 이름박스 자동 생성 (교실 상단 중앙)
         const nameBoxWidth = 80;
@@ -507,8 +557,6 @@ export default class ClassroomDesignMode {
         });
         
         this.selectTool(null);
-        
-        console.log('🚪 교실 생성:', name);
     }
     
     /**
@@ -528,19 +576,28 @@ export default class ClassroomDesignMode {
         const width = Math.abs(x - this.drawStartPos.x);
         const height = Math.abs(y - this.drawStartPos.y);
         
-        // Core의 drawingShape 상태 업데이트 (실시간 프리뷰)
-        this.core.updateDrawingShape({
+        // 선/점선의 경우 실제 드래그 방향 유지
+        const previewData = {
             shapeType: this.currentTool,
-            startX: Math.min(this.drawStartPos.x, x),
-            startY: Math.min(this.drawStartPos.y, y),
-            endX: Math.max(this.drawStartPos.x, x),
-            endY: Math.max(this.drawStartPos.y, y),
+            startX: this.drawStartPos.x,
+            startY: this.drawStartPos.y,
+            endX: x,
+            endY: y,
             width: width,
             height: height,
             borderColor: this.currentColor,
             borderWidth: this.currentLineWidth,
             backgroundColor: this.currentTool === 'line' || this.currentTool === 'dashed-line' ? 'transparent' : this.currentFillColor
-        });
+        };
+        
+        // 일반 도형은 정규화된 사각형 좌표로 조정
+        if (this.currentTool !== 'line' && this.currentTool !== 'dashed-line') {
+            previewData.startX = Math.min(this.drawStartPos.x, x);
+            previewData.startY = Math.min(this.drawStartPos.y, y);
+        }
+        
+        // Core의 drawingShape 상태 업데이트 (실시간 프리뷰)
+        this.core.updateDrawingShape(previewData);
         
         this.core.markDirty();
     }
@@ -554,16 +611,36 @@ export default class ClassroomDesignMode {
         const width = Math.abs(x - this.drawStartPos.x);
         const height = Math.abs(y - this.drawStartPos.y);
         
-        // 너무 작은 도형은 생성하지 않음
-        if (width < 5 || height < 5) {
-            this.isDrawing = false;
-            this.drawStartPos = null;
-            this.core.updateDrawingShape(null); // 프리뷰 제거
-            this.core.markDirty();
-            return;
+        // 선/점선의 경우 선의 길이로 체크, 일반 도형은 width와 height 체크
+        if (this.currentTool === 'line' || this.currentTool === 'dashed-line') {
+            // 선의 길이 계산 (피타고라스 정리)
+            const lineLength = Math.sqrt(width * width + height * height);
+            if (lineLength < 5) {
+                this.isDrawing = false;
+                this.drawStartPos = null;
+                this.core.updateDrawingShape(null); // 프리뷰 제거
+                this.core.markDirty();
+                return;
+            }
+        } else {
+            // 일반 도형: width와 height 모두 체크
+            if (width < 5 || height < 5) {
+                this.isDrawing = false;
+                this.drawStartPos = null;
+                this.core.updateDrawingShape(null); // 프리뷰 제거
+                this.core.markDirty();
+                return;
+            }
         }
         
         // 실제 도형 요소 생성
+        console.log('📐 도형 생성 시작 - 현재 색상:', {
+            tool: this.currentTool,
+            borderColor: this.currentColor,
+            backgroundColor: this.currentFillColor,
+            borderWidth: this.currentLineWidth
+        });
+        
         const elementData = {
             shapeType: this.currentTool,
             xCoordinate: Math.min(this.drawStartPos.x, x),
@@ -584,7 +661,8 @@ export default class ClassroomDesignMode {
             elementData.endY = y;
         }
         
-        this.elementManager.createElement('shape', elementData);
+        const createdElement = this.elementManager.createElement('shape', elementData);
+        console.log('📐 도형 생성 완료:', createdElement);
         
         // 그리기 상태 초기화
         this.isDrawing = false;
@@ -812,9 +890,9 @@ export default class ClassroomDesignMode {
             width: roomWidth,
             height: roomHeight,
             label: classroomName,
-            borderColor: '#000000',
-            backgroundColor: '#ffffff',
-            borderWidth: 2,
+            borderColor: this.currentColor,  // 현재 선택된 선 색상
+            backgroundColor: this.currentFillColor,  // 현재 선택된 채우기 색상
+            borderWidth: this.currentLineWidth,
             classroomId: classroomId,  // 교실 ID 저장 (좌표 업데이트 시 사용)
             referenceId: classroomId,  // 평면도 저장/로드 시 교실 연결용
             zIndex: 2  // 교실은 도형보다 위 (건물:0, 도형:1, 교실:2)

@@ -559,24 +559,24 @@ export default class ElementManager {
      * 요소에 기본값 적용
      */
     applyDefaults(element) {
-        // 색상 기본값
+        // 색상 기본값 - borderColor가 이미 설정되어 있으면 유지
         if (!element.color) {
             switch (element.elementType) {
                 case 'room':
                     element.color = '#10b981';
-                    element.borderColor = '#059669';
+                    if (!element.borderColor) element.borderColor = '#059669';
                     break;
                 case 'building':
                     element.color = '#3b82f6';
-                    element.borderColor = '#1d4ed8';
+                    if (!element.borderColor) element.borderColor = '#1d4ed8';
                     break;
                 case 'wireless_ap':
                     element.color = '#ef4444';
-                    element.borderColor = '#dc2626';
+                    if (!element.borderColor) element.borderColor = '#dc2626';
                     break;
                 default:
                     element.color = '#6b7280';
-                    element.borderColor = '#4b5563';
+                    if (!element.borderColor) element.borderColor = '#4b5563';
             }
         }
         

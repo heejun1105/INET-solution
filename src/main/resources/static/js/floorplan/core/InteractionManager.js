@@ -381,10 +381,20 @@ export default class InteractionManager {
         this.dragStart.originalPositions.clear();
         for (const element of this.dragStart.elements) {
                 // 부모 요소의 원래 위치 저장
-            this.dragStart.originalPositions.set(element.id, {
+            const posData = {
                 x: element.xCoordinate,
                 y: element.yCoordinate
-            });
+            };
+            
+            // 선/점선의 경우 startX, startY, endX, endY도 저장
+            if (element.elementType === 'shape' && (element.shapeType === 'line' || element.shapeType === 'dashed-line')) {
+                posData.startX = element.startX || element.xCoordinate;
+                posData.startY = element.startY || element.yCoordinate;
+                posData.endX = element.endX || (element.xCoordinate + (element.width || 0));
+                posData.endY = element.endY || (element.yCoordinate + (element.height || 0));
+            }
+            
+            this.dragStart.originalPositions.set(element.id, posData);
                 
                 // 부모 요소가 building 또는 room이면, 자식(name_box)의 원래 위치와 상대 위치도 저장
                 if (element.elementType === 'building' || element.elementType === 'room') {
@@ -468,11 +478,40 @@ export default class InteractionManager {
                     newY = Math.max(0, Math.min(canvasHeight - elementHeight, newY));
                 }
                 
-                // 요소 업데이트
-                this.core.updateElement(element.id, {
-                    xCoordinate: newX,
-                    yCoordinate: newY
-                });
+                // 선/점선의 경우 startX, startY, endX, endY도 함께 업데이트
+                if (element.elementType === 'shape' && (element.shapeType === 'line' || element.shapeType === 'dashed-line')) {
+                    // originalPos에서 원래 좌표 가져오기
+                    const originalStartX = originalPos.startX;
+                    const originalStartY = originalPos.startY;
+                    const originalEndX = originalPos.endX;
+                    const originalEndY = originalPos.endY;
+                    
+                    const newStartX = originalStartX + dx_canvas;
+                    const newStartY = originalStartY + dy_canvas;
+                    const newEndX = originalEndX + dx_canvas;
+                    const newEndY = originalEndY + dy_canvas;
+                    
+                    // width와 height 재계산
+                    const newWidth = Math.abs(newEndX - newStartX);
+                    const newHeight = Math.abs(newEndY - newStartY);
+                    
+                    this.core.updateElement(element.id, {
+                        xCoordinate: Math.min(newStartX, newEndX),
+                        yCoordinate: Math.min(newStartY, newEndY),
+                        width: newWidth,
+                        height: newHeight,
+                        startX: newStartX,
+                        startY: newStartY,
+                        endX: newEndX,
+                        endY: newEndY
+                    });
+                } else {
+                    // 일반 요소 업데이트
+                    this.core.updateElement(element.id, {
+                        xCoordinate: newX,
+                        yCoordinate: newY
+                    });
+                }
                 
                 // 부모 요소가 이동하면 자식 요소(name_box)도 함께 이동
                 if (element.elementType === 'building' || element.elementType === 'room') {
@@ -902,12 +941,65 @@ export default class InteractionManager {
      * 점이 요소 안에 있는지 확인
      */
     isPointInElement(x, y, element) {
+        // 선/점선의 경우 특별 처리 (선 근처를 클릭해야 선택됨)
+        if (element.elementType === 'shape' && (element.shapeType === 'line' || element.shapeType === 'dashed-line')) {
+            const startX = element.startX || element.xCoordinate;
+            const startY = element.startY || element.yCoordinate;
+            const endX = element.endX || (element.xCoordinate + (element.width || 100));
+            const endY = element.endY || (element.yCoordinate + (element.height || 0));
+            
+            // 점과 선분 사이의 거리 계산
+            const distance = this.pointToLineDistance(x, y, startX, startY, endX, endY);
+            
+            // 클릭 허용 범위 (선 두께 + 여유 공간)
+            const threshold = ((element.borderWidth || 2) / 2) + (10 / this.core.state.zoom);
+            
+            return distance <= threshold;
+        }
+        
+        // 일반 요소의 경우 사각형 영역 체크
         const ex = element.xCoordinate;
         const ey = element.yCoordinate;
         const ew = element.width || 100;
         const eh = element.height || 80;
         
         return x >= ex && x <= ex + ew && y >= ey && y <= ey + eh;
+    }
+    
+    /**
+     * 점과 선분 사이의 최단 거리 계산
+     */
+    pointToLineDistance(px, py, x1, y1, x2, y2) {
+        const A = px - x1;
+        const B = py - y1;
+        const C = x2 - x1;
+        const D = y2 - y1;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        
+        let param = -1;
+        if (lenSq !== 0) {
+            param = dot / lenSq;
+        }
+        
+        let xx, yy;
+        
+        if (param < 0) {
+            xx = x1;
+            yy = y1;
+        } else if (param > 1) {
+            xx = x2;
+            yy = y2;
+        } else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+        }
+        
+        const dx = px - xx;
+        const dy = py - yy;
+        
+        return Math.sqrt(dx * dx + dy * dy);
     }
     
     /**
