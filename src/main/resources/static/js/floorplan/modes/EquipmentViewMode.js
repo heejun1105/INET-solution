@@ -62,59 +62,130 @@ export default class EquipmentViewMode {
      * 장비 카드 렌더링
      */
     renderEquipmentCards() {
-        const elements = this.elementManager.getAllElements();
-        const roomElements = elements.filter(e => e.type === 'room');
+        const elements = this.core.state.elements;
+        const roomElements = elements.filter(e => e.elementType === 'room');
         
         roomElements.forEach(room => {
-            if (!room.referenceId) return;
+            if (!room.referenceId && !room.classroomId) return;
             
-            const devices = this.devicesByClassroom[room.referenceId] || [];
+            const classroomId = room.referenceId || room.classroomId;
+            const devices = this.devicesByClassroom[classroomId] || [];
             if (devices.length === 0) return;
             
             // 장비 종류별 개수 집계
             const deviceCounts = {};
             devices.forEach(device => {
-                const type = device.type;
+                const type = device.deviceType || device.type || '기타';
                 deviceCounts[type] = (deviceCounts[type] || 0) + 1;
             });
             
-            // 카드 요소 생성
-            Object.entries(deviceCounts).forEach(([type, count], index) => {
-                const cardElement = {
-                    type: 'equipment_card',
-                    parentElementId: room.id,
-                    x: room.x + 5,
-                    y: room.y + room.height - 30 - (index * 25),
-                    width: room.width - 10,
-                    height: 20,
-                    deviceType: type,
-                    count: count,
-                    color: this.getDeviceColor(type),
-                    layerOrder: 1000
-                };
-                
-                this.elementManager.addElement(cardElement);
-            });
+            // 카드 배치 계산
+            const cards = Object.entries(deviceCounts).map(([type, count]) => ({
+                type,
+                count,
+                color: this.getDeviceColor(type),
+                text: `${type} ${count}`
+            }));
+            
+            this.layoutCards(room, cards);
         });
         
         this.core.markDirty();
     }
     
     /**
-     * 장비 종류별 색상
+     * 카드 배치 계산 (여러 줄 지원, 이름박스 회피)
+     */
+    layoutCards(room, cards) {
+        const roomX = room.xCoordinate;
+        const roomY = room.yCoordinate;
+        const roomW = room.width || 100;
+        const roomH = room.height || 80;
+        
+        // 카드 설정 (3x3 배치, 가로형 교실 240x180)
+        // 가로: 240px에 3개 = (240 - 10패딩 - 10간격) / 3 = 73.3px
+        // 세로: 180px - 이름박스80px(40+35+5) = 100px
+        // 카드: 3줄 × 28px + 2간격 × 3px = 84 + 6 = 90px (여유 10px)
+        const cardHeight = 28;     // 30 → 28 (사용자 요청)
+        const cardPadding = 5;     // 상하좌우 여백
+        const cardMargin = 3;      // 5 → 3 (카드 간 세로 간격)
+        const cardsPerRow = 3;     // 가로 3개 고정
+        
+        // 이름박스 위치 찾기 (겹침 방지)
+        const nameBox = this.core.state.elements.find(
+            el => el.elementType === 'name_box' && el.parentElementId === room.id
+        );
+        
+        let nameBoxBottom = 0;
+        if (nameBox) {
+            // 이름박스 하단 절대 위치 + 안전 여백
+            nameBoxBottom = nameBox.yCoordinate + (nameBox.height || 35) + 5;  // 40 → 35
+        }
+        
+        // 카드 너비 계산 (가로 3개)
+        const cardWidth = (roomW - cardPadding * 2 - cardMargin * (cardsPerRow - 1)) / cardsPerRow;
+        
+        // 필요한 줄 수
+        const totalRows = Math.ceil(cards.length / cardsPerRow);
+        
+        // 카드 생성
+        cards.forEach((card, index) => {
+            const row = Math.floor(index / cardsPerRow);
+            const col = index % cardsPerRow;
+            
+            // 하단에서 위로 쌓기
+            const cardX = roomX + cardPadding + col * (cardWidth + cardMargin);
+            let cardY = roomY + roomH - cardPadding - cardHeight - row * (cardHeight + cardMargin);
+            
+            // 이름박스와 겹치지 않도록 체크
+            if (nameBoxBottom > 0 && cardY < nameBoxBottom) {
+                console.warn('⚠️ 카드가 이름박스와 겹침 방지:', {
+                    카드Y: cardY,
+                    이름박스하단: nameBoxBottom,
+                    교실: room.label
+                });
+                // 카드를 이름박스 아래로 제한
+                cardY = nameBoxBottom;
+            }
+            
+            const cardElement = {
+                id: `equipment_card_${room.id}_${index}`,
+                elementType: 'equipment_card',
+                parentElementId: room.id,
+                xCoordinate: cardX,
+                yCoordinate: cardY,
+                width: cardWidth,
+                height: cardHeight,
+                deviceType: card.type,
+                count: card.count,
+                color: card.color,
+                zIndex: 1000
+            };
+            
+            this.core.state.elements.push(cardElement);
+        });
+    }
+    
+    /**
+     * 장비 종류별 색상 (데이터베이스 기준, 가시성 최적화)
      */
     getDeviceColor(type) {
+        // 데이터베이스에 존재하는 8가지 장비 종류 (2025-10-30 기준)
         const colors = {
-            'TV': '#ef4444',
-            'PC': '#3b82f6',
-            '전자교탁': '#10b981',
-            '프로젝터': '#f59e0b',
-            '스피커': '#8b5cf6',
-            '실물화상기': '#ec4899',
-            '기타': '#6b7280'
+            'TV': '#dc2626',           // 진한 빨강 (Red 700)
+            '노트북': '#7c3aed',        // 진한 보라 (Violet 600)
+            '데스크톱': '#4b5563',      // 진한 회색 (Gray 600)
+            '모니터': '#2563eb',        // 진한 파랑 (Blue 600)
+            '전자칠판': '#16a34a',      // 진한 녹색 (Green 600)
+            '키오스크': '#0891b2',      // 진한 청록 (Cyan 600)
+            '프로젝터': '#ea580c',      // 진한 주황 (Orange 600)
+            '프린터': '#db2777',        // 진한 핑크 (Pink 600)
+            // 기타 장비는 기본 회색으로 통일
+            'default': '#6b7280'       // 회색 (Gray 500)
         };
         
-        return colors[type] || colors['기타'];
+        // 데이터베이스에 없는 장비는 기본 색상 사용
+        return colors[type] || colors['default'];
     }
     
     /**
@@ -161,12 +232,11 @@ export default class EquipmentViewMode {
      * 장비 카드 제거
      */
     clearEquipmentCards() {
-        const elements = this.elementManager.getAllElements();
-        const cardElements = elements.filter(e => e.type === 'equipment_card');
-        
-        cardElements.forEach(element => {
-            this.elementManager.removeElement(element.id);
-        });
+        // core.state.elements에서 직접 제거
+        this.core.state.elements = this.core.state.elements.filter(
+            e => e.elementType !== 'equipment_card'
+        );
+        this.core.markDirty();
     }
 }
 

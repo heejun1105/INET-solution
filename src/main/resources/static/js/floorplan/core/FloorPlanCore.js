@@ -323,6 +323,9 @@ export default class FloorPlanCore {
             case 'other_space':
                 this.renderOtherSpace(ctx, element);
                 break;
+            case 'equipment_card':
+                this.renderEquipmentCard(ctx, element);
+                break;
             default:
                 this.renderDefault(ctx, element);
         }
@@ -395,8 +398,8 @@ export default class FloorPlanCore {
     renderNameBox(ctx, element) {
         const x = element.xCoordinate;
         const y = element.yCoordinate;
-        const w = element.width || 80;
-        const h = element.height || 25;
+        const w = element.width || 120;  // 교실 기본값
+        const h = element.height || 35;  // 40 → 35 (교실 기본값)
         
         // 배경
         ctx.fillStyle = element.backgroundColor || '#ffffff';
@@ -407,8 +410,8 @@ export default class FloorPlanCore {
         ctx.lineWidth = element.borderWidth || 1;
         ctx.strokeRect(x, y, w, h);
         
-        // 텍스트 - 박스 높이에 비례하는 폰트 크기 (높이의 약 60%)
-        const dynamicFontSize = Math.max(10, h * 0.6); // 최소 10px
+        // 텍스트 - 박스 높이에 비례하는 폰트 크기 (높이의 약 50%)
+        const dynamicFontSize = Math.max(12, h * 0.5); // 최소 12px, 0.6 → 0.5
         ctx.font = `bold ${dynamicFontSize}px ${element.fontFamily || 'Arial, sans-serif'}`;
         ctx.fillStyle = element.textColor || '#000000';
         ctx.textAlign = 'center';
@@ -548,6 +551,65 @@ export default class FloorPlanCore {
      */
     renderOtherSpace(ctx, element) {
         this.renderRoom(ctx, element); // 교실과 동일하게 렌더링
+    }
+    
+    /**
+     * 장비 카드 렌더링 (개선된 가시성)
+     */
+    renderEquipmentCard(ctx, element) {
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 73;  // 240px 교실, 3x3 배치
+        const h = element.height || 28; // 30 → 28 (사용자 요청)
+        const radius = 5; // 작은 카드에 맞춤
+        
+        // 그림자 효과 (depth)
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        
+        // 둥근 모서리 사각형 (배경)
+        ctx.fillStyle = element.color || '#6b7280';
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + w - radius, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+        ctx.lineTo(x + w, y + h - radius);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+        ctx.lineTo(x + radius, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 그림자 초기화
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // 테두리
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 2;  // 1.5 → 2 (큰 카드에 맞춤)
+        ctx.stroke();
+        
+        // 텍스트 렌더링 (3x3 배치, 240x180 교실에 맞는 폰트)
+        const text = `${element.deviceType || '장비'} ${element.count || 0}`;
+        const fontSize = Math.min(14, h - 10); // 15 → 14 (사용자 요청)
+        ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // 텍스트 외곽선 (가독성 향상)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.lineWidth = 3;  // 2 → 3
+        ctx.strokeText(text, x + w / 2, y + h / 2);
+        
+        // 텍스트 본문 (흰색)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(text, x + w / 2, y + h / 2);
     }
     
     /**

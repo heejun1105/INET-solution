@@ -589,9 +589,9 @@ export default class ClassroomDesignMode {
             this.historyManager.saveState('작업 전');
         }
         
-        // 교실 요소 생성
-        const roomWidth = 120;
-        const roomHeight = 100;
+        // 교실 요소 생성 (3x3 장비 카드 수용, 가로형)
+        const roomWidth = 240;   // 220 → 240
+        const roomHeight = 180;  // 200 → 180
         
         // 클릭한 위치가 중앙이 되도록 조정
         const roomX = x - roomWidth / 2;
@@ -618,18 +618,18 @@ export default class ClassroomDesignMode {
         console.log('🚪 교실 생성 완료:', room);
         
         // 이름박스 자동 생성 (교실 상단 중앙)
-        const nameBoxWidth = 80;
-        const nameBoxHeight = 25;
+        const nameBoxWidth = 120;
+        const nameBoxHeight = 35;  // 40 → 35
         this.elementManager.createElement('name_box', {
             xCoordinate: roomX + (roomWidth - nameBoxWidth) / 2,  // 중앙 정렬
-            yCoordinate: roomY + 20,  // 상단에서 20px 아래
+            yCoordinate: roomY + 40,  // 상단에서 40px 아래
             width: nameBoxWidth,
             height: nameBoxHeight,
             label: name,
             backgroundColor: '#ffffff',
             borderColor: '#000000',
             borderWidth: 1,
-            fontSize: 12,
+            fontSize: 15,  // 16 → 15 (35px 높이에 맞춤)
             parentElementId: room.id,
             zIndex: 2  // 교실과 동일한 레이어
         });
@@ -820,6 +820,14 @@ export default class ClassroomDesignMode {
         if (!confirmed) return;
         
         try {
+            // 1. 삭제될 교실 정보 수집 (미배치 리스트 복원용)
+            const roomElements = this.core.state.elements.filter(
+                el => el.elementType === 'room' && el.classroomId
+            );
+            
+            console.log('🗑️ 캔버스 초기화: 교실 요소', roomElements.length, '개 삭제 예정');
+            
+            // 2. 서버에 초기화 요청
             const schoolId = this.core.currentSchoolId;
             const response = await fetch(`/floorplan/api/schools/${schoolId}/initialize`, {
                 method: 'POST'
@@ -828,9 +836,25 @@ export default class ClassroomDesignMode {
             const result = await response.json();
             
             if (result.success) {
+                // 3. 캔버스 초기화
                 this.elementManager.clearAllElements();
+                
+                // 4. 배치된 교실 추적 초기화 (모든 교실을 미배치로)
+                if (this.placedClassroomIds) {
+                    roomElements.forEach(room => {
+                        const classroomId = String(room.classroomId);
+                        this.placedClassroomIds.delete(classroomId);
+                        console.log('🔄 교실 미배치로 복원:', classroomId, '/', room.label);
+                    });
+                }
+                
+                // 5. 미배치 교실 목록 갱신
+                this.refreshUnplacedList();
+                
                 this.uiManager.showNotification('캔버스가 초기화되었습니다', 'success');
                 this.core.markDirty();
+                
+                console.log('✅ 캔버스 초기화 완료 - 미배치 교실 목록 갱신됨');
             } else {
                 this.uiManager.showNotification('초기화 실패: ' + result.message, 'error');
             }
@@ -1013,9 +1037,9 @@ export default class ClassroomDesignMode {
             return;
         }
         
-        // 교실 요소 생성 (중앙 정렬)
-        const roomWidth = 120;
-        const roomHeight = 100;
+        // 교실 요소 생성 (중앙 정렬, 3x3 장비 카드 수용, 가로형)
+        const roomWidth = 240;   // 220 → 240
+        const roomHeight = 180;  // 200 → 180
         const roomX = Math.round(x - roomWidth / 2);
         const roomY = Math.round(y - roomHeight / 2);
         
@@ -1035,18 +1059,18 @@ export default class ClassroomDesignMode {
         });
         
         // 이름박스 자동 생성
-        const nameBoxWidth = 80;
-        const nameBoxHeight = 25;
+        const nameBoxWidth = 120;
+        const nameBoxHeight = 35;  // 40 → 35
         this.elementManager.createElement('name_box', {
             xCoordinate: roomX + (roomWidth - nameBoxWidth) / 2,
-            yCoordinate: roomY + 20,
+            yCoordinate: roomY + 40,  // 상단에서 40px 아래
             width: nameBoxWidth,
             height: nameBoxHeight,
             label: classroomName,
             backgroundColor: '#ffffff',
             borderColor: '#000000',
             borderWidth: 1,
-            fontSize: 12,
+            fontSize: 15,  // 16 → 15 (35px 높이에 맞춤)
             parentElementId: room.id,
             zIndex: 2  // 교실과 동일한 레이어
         });
