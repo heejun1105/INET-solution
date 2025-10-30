@@ -559,18 +559,18 @@ export default class FloorPlanCore {
     renderEquipmentCard(ctx, element) {
         const x = element.xCoordinate;
         const y = element.yCoordinate;
-        const w = element.width || 73;  // 240px 교실, 3x3 배치
-        const h = element.height || 28; // 30 → 28 (사용자 요청)
-        const radius = 5; // 작은 카드에 맞춤
+        const w = element.width || 88;  // 280px 교실, 3x3 배치 (73 → 88)
+        const h = element.height || 28; // 28px 높이
+        const radius = 5; // 둥근 모서리
         
-        // 그림자 효과 (depth)
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
+        // 그림자 효과 강화 (입체감, PPT 호환)
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';  // 0.3 → 0.5 (더 진하게)
+        ctx.shadowBlur = 6;  // 4 → 6 (더 크게)
+        ctx.shadowOffsetX = 3;  // 2 → 3 (더 멀리)
+        ctx.shadowOffsetY = 3;  // 2 → 3 (더 멀리)
         
-        // 둥근 모서리 사각형 (배경)
-        ctx.fillStyle = element.color || '#6b7280';
+        // 둥근 모서리 사각형 (배경 - 더 어두운 색상)
+        ctx.fillStyle = element.color || '#4b5563';  // 기본값도 어둡게
         ctx.beginPath();
         ctx.moveTo(x + radius, y);
         ctx.lineTo(x + w - radius, y);
@@ -590,21 +590,21 @@ export default class FloorPlanCore {
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         
-        // 테두리
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.lineWidth = 2;  // 1.5 → 2 (큰 카드에 맞춤)
+        // 테두리 강화 (더 불투명하고 두껍게, PPT 호환)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';  // 0.5 → 0.8 (더 밝게)
+        ctx.lineWidth = 2.5;  // 2 → 2.5 (더 두껍게)
         ctx.stroke();
         
-        // 텍스트 렌더링 (3x3 배치, 240x180 교실에 맞는 폰트)
+        // 텍스트 렌더링 (초굵은 폰트로 가시성 향상)
         const text = `${element.deviceType || '장비'} ${element.count || 0}`;
-        const fontSize = Math.min(14, h - 10); // 15 → 14 (사용자 요청)
-        ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+        const fontSize = Math.min(14, h - 10);
+        ctx.font = `900 ${fontSize}px Arial, sans-serif`;  // bold → 900 (더 굵게)
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // 텍스트 외곽선 (가독성 향상)
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.lineWidth = 3;  // 2 → 3
+        // 텍스트 외곽선 (단순 버전, PPT 호환)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';  // 0.5 → 0.8 (더 진하게)
+        ctx.lineWidth = 3;
         ctx.strokeText(text, x + w / 2, y + h / 2);
         
         // 텍스트 본문 (흰색)

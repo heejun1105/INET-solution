@@ -590,8 +590,8 @@ export default class ClassroomDesignMode {
         }
         
         // 교실 요소 생성 (3x3 장비 카드 수용, 가로형)
-        const roomWidth = 240;   // 220 → 240
-        const roomHeight = 180;  // 200 → 180
+        const roomWidth = 280;   // 240 → 280 (+40px)
+        const roomHeight = 180;  // 유지
         
         // 클릭한 위치가 중앙이 되도록 조정
         const roomX = x - roomWidth / 2;
@@ -1038,8 +1038,8 @@ export default class ClassroomDesignMode {
         }
         
         // 교실 요소 생성 (중앙 정렬, 3x3 장비 카드 수용, 가로형)
-        const roomWidth = 240;   // 220 → 240
-        const roomHeight = 180;  // 200 → 180
+        const roomWidth = 280;   // 240 → 280 (+40px)
+        const roomHeight = 180;  // 유지
         const roomX = Math.round(x - roomWidth / 2);
         const roomY = Math.round(y - roomHeight / 2);
         
