@@ -612,11 +612,18 @@
                         </div>
                     </div>
                     
-                    <!-- 우측: 저장/닫기 버튼 -->
+                    <!-- 우측: 저장/설계 버튼 -->
                     <div class="workspace-controls-right">
+                        <!-- 저장 버튼 (설계 모드에서만 표시) -->
                         <button id="workspace-save-btn" class="workspace-btn save-btn">
                             <i class="fas fa-save"></i>
                             <span>저장</span>
+                        </button>
+                        
+                        <!-- 설계 버튼 (보기 모드에서만 표시) -->
+                        <button id="workspace-design-btn" class="workspace-btn design-btn" style="display: none;">
+                            <i class="fas fa-pencil-ruler"></i>
+                            <span>설계</span>
                         </button>
                         
                         <button id="workspace-ppt-btn" class="workspace-btn ppt-btn" style="display: none;">
@@ -663,11 +670,11 @@
                 </div>
 
     <!-- CSS -->
-    <link rel="stylesheet" href="/css/floorplan-rebuild.css?v=20251030v24">
+    <link rel="stylesheet" href="/css/floorplan-rebuild.css?v=20251030v28">
 
     <!-- JavaScript 모듈들 -->
-    <!-- 새로운 평면도 시스템 (카드색상=고유번호카테) -->
-    <script type="module" src="/js/floorplan/main_new_v3.js?v=20251030v24"></script>
+    <!-- 새로운 평면도 시스템 (PPT다운로드 URL 수정) -->
+    <script type="module" src="/js/floorplan/main_new_v3.js?v=20251030v28"></script>
     
     <!-- 학교 데이터 주입 (Thymeleaf) -->
     <script th:inline="javascript">

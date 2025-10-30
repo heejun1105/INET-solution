@@ -442,11 +442,13 @@ public class FloorPlanController {
     
     /**
      * PPT 내보내기
-     * GET /floorplan/export/ppt?schoolId={schoolId}
+     * GET /floorplan/export/ppt?schoolId={schoolId}&mode={mode}
      */
     @GetMapping("/export/ppt")
     @ResponseBody
-    public ResponseEntity<byte[]> exportToPPT(@RequestParam Long schoolId) {
+    public ResponseEntity<byte[]> exportToPPT(
+            @RequestParam Long schoolId,
+            @RequestParam(defaultValue = "design") String mode) {
         try {
             User user = getCurrentUser();
             if (user == null || !hasSchoolPermission(user, schoolId)) {
@@ -462,7 +464,7 @@ public class FloorPlanController {
             
             School school = schoolOpt.get();
             
-            java.io.ByteArrayOutputStream pptStream = pptExportService.exportFloorPlanToPPT(schoolId);
+            java.io.ByteArrayOutputStream pptStream = pptExportService.exportFloorPlanToPPT(schoolId, mode);
             byte[] pptBytes = pptStream.toByteArray();
             
             String fileName = String.format("평면도_%s_%s.pptx", 

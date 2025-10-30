@@ -145,6 +145,10 @@ export default class InteractionManager {
         
         console.debug('🖱️ 마우스 다운:', canvasPos);
         
+        // 보기 모드일 때는 요소 선택/이동 비활성화 (팬/줌만 허용)
+        const currentMode = this.core.state.currentMode;
+        const isViewMode = currentMode === 'equipment-view' || currentMode === 'wireless-ap-view';
+        
         // 도형 그리기 도구가 활성화된 경우 InteractionManager는 처리하지 않음
         const activeTool = this.core.state.activeTool;
         if (activeTool && ['rectangle', 'circle', 'line', 'dashed-line', 'entrance', 'stairs'].includes(activeTool)) {
@@ -154,6 +158,11 @@ export default class InteractionManager {
         // Shift가 눌려있으면 팬 모드 (최우선)
         if (this.state.isShiftPressed || e.button === 1) { // 중간 버튼도 팬
             this.startPan(x, y);
+            return;
+        }
+        
+        // 보기 모드에서는 여기서 종료 (요소 선택/이동 불가)
+        if (isViewMode) {
             return;
         }
         

@@ -53,6 +53,9 @@ export default class FloorPlanCore {
             // 요소들
             elements: [],
             
+            // 현재 모드
+            currentMode: null,
+            
             // 선택 상태
             selectedElements: [],
             hoveredElement: null,
@@ -629,12 +632,12 @@ export default class FloorPlanCore {
         ctx.lineWidth = borderWidth;
         ctx.strokeRect(x, y, w, h);
         
-        // 화장실 아이콘 (WC 텍스트)
+        // 화장실 아이콘 (WC 텍스트) - 이름박스와 같은 높이
         ctx.fillStyle = borderColor;
-        ctx.font = 'bold 48px Arial, sans-serif';
+        ctx.font = 'bold 22px Arial, sans-serif';  // 48 → 22 (교실 이름박스와 동일)
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('WC', x + w / 2, y + h / 2);
+        ctx.fillText('WC', x + w / 2, y + 40 + 20);  // y + 60 (이름박스와 같은 높이)
     }
     
     /**
@@ -659,12 +662,12 @@ export default class FloorPlanCore {
         ctx.lineWidth = borderWidth;
         ctx.strokeRect(x, y, w, h);
         
-        // EV 텍스트
+        // EV 텍스트 - 이름박스와 같은 높이
         ctx.fillStyle = borderColor;
-        ctx.font = 'bold 48px Arial, sans-serif';
+        ctx.font = 'bold 22px Arial, sans-serif';  // 48 → 22 (교실 이름박스와 동일)
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('EV', x + w / 2, y + h / 2);
+        ctx.fillText('EV', x + w / 2, y + 40 + 20);  // y + 60 (이름박스와 같은 높이)
     }
     
     /**

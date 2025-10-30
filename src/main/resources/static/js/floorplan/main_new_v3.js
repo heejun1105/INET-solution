@@ -138,14 +138,20 @@ class FloorPlanApp {
         // 배율 조정 버튼
         this.setupZoomControls();
         
-        // 저장 버튼
-        const saveBtn = document.getElementById('save-btn');
+        // 저장 버튼 (설계 모드용)
+        const saveBtn = document.getElementById('workspace-save-btn');
         if (saveBtn) {
             saveBtn.addEventListener('click', () => this.save());
         }
         
+        // 설계 버튼 (보기 모드용)
+        const designBtn = document.getElementById('workspace-design-btn');
+        if (designBtn) {
+            designBtn.addEventListener('click', () => this.switchToDesignMode());
+        }
+        
         // PPT 다운로드 버튼
-        const pptBtn = document.getElementById('ppt-download-btn');
+        const pptBtn = document.getElementById('workspace-ppt-btn');
         if (pptBtn) {
             pptBtn.addEventListener('click', () => this.downloadPPT());
         }
@@ -422,6 +428,7 @@ class FloorPlanApp {
         }
         
         this.currentMode = mode;
+        this.core.state.currentMode = mode;  // Core에도 저장
         
         // 새 모드 활성화
         switch (mode) {
@@ -497,7 +504,7 @@ class FloorPlanApp {
         
         try {
             const mode = this.currentMode === 'view-equipment' ? 'equipment' : 'wireless-ap';
-            window.location.href = `/floorplan/export/ppt/${this.currentSchoolId}?mode=${mode}`;
+            window.location.href = `/floorplan/export/ppt?schoolId=${this.currentSchoolId}&mode=${mode}`;
             
             this.uiManager.showNotification('PPT 다운로드 시작', 'success');
         } catch (error) {
@@ -740,10 +747,32 @@ class FloorPlanApp {
         // 새 모드 시작
         await this.switchMode(mode);
         
+        // 저장/설계 버튼 전환
+        const saveBtn = document.getElementById('workspace-save-btn');
+        const designBtn = document.getElementById('workspace-design-btn');
+        const isViewMode = mode.startsWith('view-');
+        
+        if (saveBtn) {
+            saveBtn.style.display = isViewMode ? 'none' : 'flex';
+        }
+        if (designBtn) {
+            designBtn.style.display = isViewMode ? 'flex' : 'none';
+            
+            // 설계 버튼 텍스트 변경
+            const designBtnText = designBtn.querySelector('span');
+            if (designBtnText) {
+                if (mode === 'view-equipment') {
+                    designBtnText.textContent = '교실 설계';
+                } else if (mode === 'view-wireless') {
+                    designBtnText.textContent = '무선AP 설계';
+                }
+            }
+        }
+        
         // PPT 버튼 표시 여부
         const pptBtn = document.getElementById('workspace-ppt-btn');
         if (pptBtn) {
-            pptBtn.style.display = mode.startsWith('view-') ? 'flex' : 'none';
+            pptBtn.style.display = isViewMode ? 'flex' : 'none';
         }
         
         // 도구창 표시/숨김
@@ -755,6 +784,34 @@ class FloorPlanApp {
         // 강제 렌더링
         if (this.core) {
             this.core.markDirty();
+        }
+    }
+    
+    /**
+     * 보기 모드에서 해당 설계 모드로 전환
+     */
+    async switchToDesignMode() {
+        const currentMode = this.currentMode;
+        let targetMode = null;
+        
+        // 현재 보기 모드에 따라 해당 설계 모드로 전환
+        if (currentMode === 'view-equipment') {
+            targetMode = 'design-classroom';
+        } else if (currentMode === 'view-wireless') {
+            targetMode = 'design-wireless';
+        }
+        
+        if (targetMode) {
+            console.log(`🔀 설계 모드로 전환: ${currentMode} → ${targetMode}`);
+            
+            // 모드 선택 UI 업데이트
+            const modeSelect = document.getElementById('workspace-mode-select');
+            if (modeSelect) {
+                modeSelect.value = targetMode;
+            }
+            
+            // 모드 전환
+            await this.onWorkspaceModeChange(targetMode);
         }
     }
     
