@@ -36,6 +36,7 @@ export default class InteractionManager {
             isPanning: false,
             isSelecting: false,
             isResizing: false,
+            isRotating: false,
             isShiftPressed: false,
             isZooming: false
         };
@@ -81,6 +82,9 @@ export default class InteractionManager {
             startX: 0,
             startY: 0
         };
+        
+        // 회전 정보
+        this.rotateStart = null;
         
         // 이벤트 리스너 참조 (정리용)
         this.handlers = {};
@@ -143,7 +147,7 @@ export default class InteractionManager {
         
         // 도형 그리기 도구가 활성화된 경우 InteractionManager는 처리하지 않음
         const activeTool = this.core.state.activeTool;
-        if (activeTool && ['rectangle', 'circle', 'line', 'dashed-line'].includes(activeTool)) {
+        if (activeTool && ['rectangle', 'circle', 'line', 'dashed-line', 'entrance', 'stairs'].includes(activeTool)) {
             return; // ClassroomDesignMode에서 처리하도록 함
         }
         
@@ -159,18 +163,23 @@ export default class InteractionManager {
             return;
         }
         
+        // 선택된 요소가 있으면 먼저 핸들 확인 (회전 핸들은 요소 바깥에 있음)
+        const selectedElement = this.core.state.selectedElements[0];
+        if (selectedElement) {
+            const handle = this.findResizeHandle(canvasPos.x, canvasPos.y, selectedElement);
+            if (handle) {
+                console.debug('🎯 핸들 클릭:', handle, '| 요소:', selectedElement.id);
+                this.startResize(x, y, selectedElement, handle);
+                return;
+            }
+        }
+        
         // 요소 위에서 클릭했는지 확인
         const clickedElement = this.findElementAt(canvasPos.x, canvasPos.y);
         
         if (clickedElement) {
-            // 선택된 요소의 리사이즈 핸들 확인
-            if (this.isSelected(clickedElement)) {
-                const handle = this.findResizeHandle(canvasPos.x, canvasPos.y, clickedElement);
-                if (handle) {
-                    this.startResize(x, y, clickedElement, handle);
-                    return;
-                }
-            }
+            // 선택된 요소의 리사이즈 핸들 확인 (중복 확인 제거됨 - 위에서 이미 확인)
+            // (회전 핸들이 아닌 일반 리사이즈 핸들은 요소 위에 있으므로 여기서도 확인)
             
             // 요소 클릭: 단일 또는 다중 선택
             if (e.ctrlKey || e.metaKey) {
@@ -207,6 +216,12 @@ export default class InteractionManager {
         // 줌 드래그 중
         if (this.state.isZooming) {
             this.updateZoom(y);
+            return;
+        }
+        
+        // 회전 중
+        if (this.state.isRotating) {
+            this.updateRotate(x, y);
             return;
         }
         
@@ -247,6 +262,11 @@ export default class InteractionManager {
         // 줌 종료
         if (this.state.isZooming) {
             this.endZoom();
+        }
+        
+        // 회전 종료
+        if (this.state.isRotating) {
+            this.endRotate();
         }
         
         // 리사이즈 종료
@@ -1056,6 +1076,33 @@ export default class InteractionManager {
         
         const handleSize = 8 / this.core.state.zoom;  // 화면에서 8px
         
+        // 현관, 계단의 경우 회전 핸들 확인 (회전 핸들은 더 크게)
+        if (element.elementType === 'entrance' || element.elementType === 'stairs') {
+            const ex = element.xCoordinate;
+            const ey = element.yCoordinate;
+            const ew = element.width || 100;
+            const eh = element.height || 80;
+            const handleDistance = 30 / this.core.state.zoom;
+            const centerX = ex + ew / 2;
+            const handleY = ey - handleDistance;
+            const rotateHandleSize = 12 / this.core.state.zoom;  // 회전 핸들은 더 크게 (12px)
+            
+            // 회전 핸들 (상단 중앙)
+            const distX = Math.abs(canvasX - centerX);
+            const distY = Math.abs(canvasY - handleY);
+            
+            if (distX <= rotateHandleSize && distY <= rotateHandleSize) {
+                console.debug('🔄 회전 핸들 감지:', {
+                    elementType: element.elementType,
+                    handlePos: { x: centerX.toFixed(0), y: handleY.toFixed(0) },
+                    mousePos: { x: canvasX.toFixed(0), y: canvasY.toFixed(0) },
+                    distance: { x: distX.toFixed(1), y: distY.toFixed(1) },
+                    handleSize: rotateHandleSize.toFixed(1)
+                });
+                return 'rotate';
+            }
+        }
+        
         // 선/점선의 경우 양끝 핸들만 확인
         if (element.elementType === 'shape' && (element.shapeType === 'line' || element.shapeType === 'dashed-line')) {
             const startX = element.startX || element.xCoordinate;
@@ -1155,6 +1202,12 @@ export default class InteractionManager {
      * 리사이즈 시작
      */
     startResize(x, y, element, handle) {
+        // 회전 핸들의 경우 startRotate로 전환
+        if (handle === 'rotate') {
+            this.startRotate(x, y, element);
+            return;
+        }
+        
         // 히스토리 저장 (작업 전 상태 저장)
         if (this.historyManager) {
             this.historyManager.saveState('작업 전');
@@ -1190,6 +1243,111 @@ export default class InteractionManager {
         this.core.render();  // 동기적으로 즉시 렌더링
         
         console.debug('📏 리사이즈 시작 + 즉시 렌더링:', handle, '| isResizing:', this.core.state.isResizing);
+    }
+    
+    /**
+     * 회전 시작
+     */
+    startRotate(x, y, element) {
+        // 히스토리 저장
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
+        this.state.isRotating = true;
+        
+        // 요소의 중심 계산
+        const centerX = element.xCoordinate + (element.width || 100) / 2;
+        const centerY = element.yCoordinate + (element.height || 80) / 2;
+        
+        // 화면 좌표를 캔버스 좌표로 변환
+        const canvasPos = this.core.screenToCanvas(x, y);
+        
+        // 시작 각도 계산 (중심에서 마우스까지)
+        const startAngle = Math.atan2(
+            canvasPos.y - centerY,
+            canvasPos.x - centerX
+        ) * (180 / Math.PI);
+        
+        this.rotateStart = {
+            element: element,
+            originalRotation: element.rotation || 0,
+            centerX: centerX,
+            centerY: centerY,
+            startAngle: startAngle
+        };
+        
+        // Core 상태 업데이트
+        this.core.state.isRotating = true;
+        this.core.state.hoveredElement = null;
+        
+        this.canvas.style.cursor = 'grabbing';
+        
+        this.core.markDirty();
+        this.core.render();
+        
+        console.debug('🔄 회전 시작:', {
+            element: element.id,
+            originalRotation: this.rotateStart.originalRotation,
+            startAngle: startAngle,
+            center: { x: centerX, y: centerY }
+        });
+    }
+    
+    /**
+     * 회전 업데이트
+     */
+    updateRotate(x, y) {
+        const element = this.rotateStart.element;
+        const centerX = this.rotateStart.centerX;
+        const centerY = this.rotateStart.centerY;
+        const startAngle = this.rotateStart.startAngle;
+        const originalRotation = this.rotateStart.originalRotation;
+        
+        // 화면 좌표를 캔버스 좌표로 변환
+        const canvasPos = this.core.screenToCanvas(x, y);
+        
+        // 중심에서 현재 마우스 위치까지의 각도 계산
+        const currentAngle = Math.atan2(
+            canvasPos.y - centerY,
+            canvasPos.x - centerX
+        ) * (180 / Math.PI);
+        
+        // 각도 차이 계산
+        let angleDelta = currentAngle - startAngle;
+        
+        // 새 회전 각도 = 원래 회전 + 각도 변화
+        let newRotation = originalRotation + angleDelta;
+        
+        // 0-360 범위로 정규화
+        while (newRotation < 0) newRotation += 360;
+        while (newRotation >= 360) newRotation -= 360;
+        
+        // 요소 회전 업데이트
+        element.rotation = newRotation;
+        
+        this.core.markDirty();
+        
+        console.debug('🔄 회전 중:', {
+            currentAngle: currentAngle.toFixed(1),
+            angleDelta: angleDelta.toFixed(1),
+            newRotation: newRotation.toFixed(1)
+        });
+    }
+    
+    /**
+     * 회전 종료
+     */
+    endRotate() {
+        const finalRotation = this.rotateStart?.element?.rotation || 0;
+        
+        this.state.isRotating = false;
+        this.core.state.isRotating = false;
+        this.rotateStart = null;
+        this.canvas.style.cursor = 'default';
+        
+        this.core.markDirty();
+        console.debug('🔄 회전 종료 - 최종 각도:', finalRotation.toFixed(1) + '°');
     }
     
     /**
@@ -1371,7 +1529,8 @@ export default class InteractionManager {
             'w': 'w-resize',
             'e': 'e-resize',
             'line-start': 'move',
-            'line-end': 'move'
+            'line-end': 'move',
+            'rotate': 'grab'  // ✅ 회전 핸들 커서 추가
         };
         return cursors[handle] || 'default';
     }

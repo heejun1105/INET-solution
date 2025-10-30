@@ -169,6 +169,18 @@ export default class ClassroomDesignMode {
                     <button class="tool-btn" data-tool="room" title="교실 추가">
                         <i class="fas fa-door-open"></i> 교실
                     </button>
+                    <button class="tool-btn" data-tool="toilet" title="화장실">
+                        <i class="fas fa-restroom"></i> 화장실
+                    </button>
+                    <button class="tool-btn" data-tool="elevator" title="엘리베이터">
+                        <i class="fas fa-elevator"></i> EV
+                    </button>
+                    <button class="tool-btn" data-tool="entrance" title="현관">
+                        <i class="fas fa-door-open"></i> 현관
+                    </button>
+                    <button class="tool-btn" data-tool="stairs" title="계단">
+                        <i class="fas fa-stairs"></i> 계단
+                    </button>
                     <button class="tool-btn" data-tool="rectangle" title="사각형">
                         <i class="fas fa-square"></i> 사각형
                     </button>
@@ -436,7 +448,7 @@ export default class ClassroomDesignMode {
         if (!this.currentTool) return;
         
         // 도형은 mousedown/drag로 처리하므로 여기서는 제외
-        if (['rectangle', 'circle', 'line', 'dashed-line'].includes(this.currentTool)) {
+        if (['rectangle', 'circle', 'line', 'dashed-line', 'entrance', 'stairs'].includes(this.currentTool)) {
             return;
         }
         
@@ -453,6 +465,10 @@ export default class ClassroomDesignMode {
             this.createBuilding(canvasPos.x, canvasPos.y);
         } else if (this.currentTool === 'room') {
             this.createRoom(canvasPos.x, canvasPos.y);
+        } else if (this.currentTool === 'toilet') {
+            this.createToilet(canvasPos.x, canvasPos.y);
+        } else if (this.currentTool === 'elevator') {
+            this.createElevator(canvasPos.x, canvasPos.y);
         }
     }
     
@@ -462,8 +478,8 @@ export default class ClassroomDesignMode {
     handleCanvasMouseDown(e) {
         if (!this.currentTool) return;
         
-        // 도형 도구만 처리
-        if (!['rectangle', 'circle', 'line', 'dashed-line'].includes(this.currentTool)) {
+        // 도형 도구만 처리 (현관, 계단 포함)
+        if (!['rectangle', 'circle', 'line', 'dashed-line', 'entrance', 'stairs'].includes(this.currentTool)) {
             return;
         }
         
@@ -558,7 +574,7 @@ export default class ClassroomDesignMode {
         console.log('🏢 건물 생성 완료:', building);
         
         // 이름박스 자동 생성 (건물 상단 중앙)
-        const nameBoxWidth = 150;
+        const nameBoxWidth = 160;  // 150 → 160
         const nameBoxHeight = 40;
         this.elementManager.createElement('name_box', {
             xCoordinate: buildingX + (buildingWidth - nameBoxWidth) / 2,  // 중앙 정렬
@@ -569,7 +585,7 @@ export default class ClassroomDesignMode {
             backgroundColor: '#ffffff',
             borderColor: '#000000',
             borderWidth: 2,
-            fontSize: 16,
+            fontSize: 18,  // 16 → 18 (+2px)
             parentElementId: building.id,
             zIndex: 0  // 건물과 동일한 레이어
         });
@@ -618,8 +634,8 @@ export default class ClassroomDesignMode {
         console.log('🚪 교실 생성 완료:', room);
         
         // 이름박스 자동 생성 (교실 상단 중앙)
-        const nameBoxWidth = 120;
-        const nameBoxHeight = 35;  // 40 → 35
+        const nameBoxWidth = 160;  // 120 → 160
+        const nameBoxHeight = 40;  // 35 → 40
         this.elementManager.createElement('name_box', {
             xCoordinate: roomX + (roomWidth - nameBoxWidth) / 2,  // 중앙 정렬
             yCoordinate: roomY + 40,  // 상단에서 40px 아래
@@ -629,9 +645,137 @@ export default class ClassroomDesignMode {
             backgroundColor: '#ffffff',
             borderColor: '#000000',
             borderWidth: 1,
-            fontSize: 15,  // 16 → 15 (35px 높이에 맞춤)
+            fontSize: 18,  // 16 → 18 (+2px)
             parentElementId: room.id,
             zIndex: 2  // 교실과 동일한 레이어
+        });
+        
+        this.selectTool(null);
+    }
+    
+    /**
+     * 화장실 생성 (아이콘 표시)
+     */
+    createToilet(x, y) {
+        // 히스토리 저장
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
+        // 화장실 크기 (교실의 절반 너비)
+        const toiletWidth = 140;   // 280 / 2
+        const toiletHeight = 180;
+        
+        // 클릭한 위치가 중앙이 되도록 조정
+        const toiletX = x - toiletWidth / 2;
+        const toiletY = y - toiletHeight / 2;
+        
+        // 화장실 요소 생성 (특수 타입 - 아이콘 표시)
+        this.elementManager.createElement('toilet', {
+            xCoordinate: toiletX,
+            yCoordinate: toiletY,
+            width: toiletWidth,
+            height: toiletHeight,
+            borderColor: this.currentColor,
+            backgroundColor: this.currentFillColor,
+            borderWidth: this.currentLineWidth,
+            zIndex: 2
+        });
+        
+        this.selectTool(null);
+    }
+    
+    /**
+     * 엘리베이터 생성 (아이콘 표시)
+     */
+    createElevator(x, y) {
+        // 히스토리 저장
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
+        // EV 크기 (교실의 절반 너비)
+        const evWidth = 140;   // 280 / 2
+        const evHeight = 180;
+        
+        // 클릭한 위치가 중앙이 되도록 조정
+        const evX = x - evWidth / 2;
+        const evY = y - evHeight / 2;
+        
+        // EV 요소 생성 (특수 타입 - 아이콘 표시)
+        this.elementManager.createElement('elevator', {
+            xCoordinate: evX,
+            yCoordinate: evY,
+            width: evWidth,
+            height: evHeight,
+            borderColor: this.currentColor,
+            backgroundColor: this.currentFillColor,
+            borderWidth: this.currentLineWidth,
+            zIndex: 2
+        });
+        
+        this.selectTool(null);
+    }
+    
+    /**
+     * 현관 생성 (아이콘 표시)
+     */
+    createEntrance(x, y) {
+        // 히스토리 저장
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
+        // 현관 크기 (교실의 절반 너비)
+        const entranceWidth = 140;   // 280 / 2
+        const entranceHeight = 180;
+        
+        // 클릭한 위치가 중앙이 되도록 조정
+        const entranceX = x - entranceWidth / 2;
+        const entranceY = y - entranceHeight / 2;
+        
+        // 현관 요소 생성 (특수 타입 - 아이콘 표시)
+        this.elementManager.createElement('entrance', {
+            xCoordinate: entranceX,
+            yCoordinate: entranceY,
+            width: entranceWidth,
+            height: entranceHeight,
+            borderColor: this.currentColor,
+            backgroundColor: this.currentFillColor,
+            borderWidth: this.currentLineWidth,
+            zIndex: 2
+        });
+        
+        this.selectTool(null);
+    }
+    
+    /**
+     * 계단 생성 (시각적 표현, 이름박스 없음)
+     */
+    createStairs(x, y) {
+        // 히스토리 저장
+        if (this.historyManager) {
+            this.historyManager.saveState('작업 전');
+        }
+        
+        // 계단 크기 (교실의 절반 너비)
+        const stairsWidth = 140;   // 280 / 2
+        const stairsHeight = 180;
+        
+        // 클릭한 위치가 중앙이 되도록 조정
+        const stairsX = x - stairsWidth / 2;
+        const stairsY = y - stairsHeight / 2;
+        
+        // 계단 요소 생성 (특수 타입)
+        this.elementManager.createElement('stairs', {
+            xCoordinate: stairsX,
+            yCoordinate: stairsY,
+            width: stairsWidth,
+            height: stairsHeight,
+            borderColor: this.currentColor,
+            backgroundColor: this.currentFillColor,
+            borderWidth: this.currentLineWidth,
+            zIndex: 2
         });
         
         this.selectTool(null);
@@ -744,7 +888,15 @@ export default class ClassroomDesignMode {
             elementData.endY = y;
         }
         
-        const createdElement = this.elementManager.createElement('shape', elementData);
+        // 현관, 계단의 경우 전용 타입으로 생성
+        let elementType = 'shape';
+        if (this.currentTool === 'entrance') {
+            elementType = 'entrance';
+            elementData.rotation = 180;  // 기본 180도 회전 (캐시 우회)
+        } else if (this.currentTool === 'stairs') {
+            elementType = 'stairs';
+        }
+        const createdElement = this.elementManager.createElement(elementType, elementData);
         console.log('📐 도형 생성 완료:', createdElement);
         
         // 그리기 상태 초기화
@@ -1059,8 +1211,8 @@ export default class ClassroomDesignMode {
         });
         
         // 이름박스 자동 생성
-        const nameBoxWidth = 120;
-        const nameBoxHeight = 35;  // 40 → 35
+        const nameBoxWidth = 160;  // 120 → 160
+        const nameBoxHeight = 40;  // 35 → 40
         this.elementManager.createElement('name_box', {
             xCoordinate: roomX + (roomWidth - nameBoxWidth) / 2,
             yCoordinate: roomY + 40,  // 상단에서 40px 아래
@@ -1070,7 +1222,7 @@ export default class ClassroomDesignMode {
             backgroundColor: '#ffffff',
             borderColor: '#000000',
             borderWidth: 1,
-            fontSize: 15,  // 16 → 15 (35px 높이에 맞춤)
+            fontSize: 18,  // 16 → 18 (+2px)
             parentElementId: room.id,
             zIndex: 2  // 교실과 동일한 레이어
         });

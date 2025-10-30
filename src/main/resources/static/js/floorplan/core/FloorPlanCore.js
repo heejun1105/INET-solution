@@ -326,6 +326,18 @@ export default class FloorPlanCore {
             case 'equipment_card':
                 this.renderEquipmentCard(ctx, element);
                 break;
+            case 'toilet':
+                this.renderToilet(ctx, element);
+                break;
+            case 'elevator':
+                this.renderElevator(ctx, element);
+                break;
+            case 'entrance':
+                this.renderEntrance(ctx, element);
+                break;
+            case 'stairs':
+                this.renderStairs(ctx, element);
+                break;
             default:
                 this.renderDefault(ctx, element);
         }
@@ -398,8 +410,8 @@ export default class FloorPlanCore {
     renderNameBox(ctx, element) {
         const x = element.xCoordinate;
         const y = element.yCoordinate;
-        const w = element.width || 120;  // 교실 기본값
-        const h = element.height || 35;  // 40 → 35 (교실 기본값)
+        const w = element.width || 160;  // 120 → 160
+        const h = element.height || 40;  // 35 → 40
         
         // 배경
         ctx.fillStyle = element.backgroundColor || '#ffffff';
@@ -410,8 +422,8 @@ export default class FloorPlanCore {
         ctx.lineWidth = element.borderWidth || 1;
         ctx.strokeRect(x, y, w, h);
         
-        // 텍스트 - 박스 높이에 비례하는 폰트 크기 (높이의 약 50%)
-        const dynamicFontSize = Math.max(12, h * 0.5); // 최소 12px, 0.6 → 0.5
+        // 텍스트 - 박스 높이에 비례하는 폰트 크기 + 2px
+        const dynamicFontSize = Math.max(12, h * 0.5 + 2); // 최소 12px, +2px 증가
         ctx.font = `bold ${dynamicFontSize}px ${element.fontFamily || 'Arial, sans-serif'}`;
         ctx.fillStyle = element.textColor || '#000000';
         ctx.textAlign = 'center';
@@ -559,18 +571,12 @@ export default class FloorPlanCore {
     renderEquipmentCard(ctx, element) {
         const x = element.xCoordinate;
         const y = element.yCoordinate;
-        const w = element.width || 88;  // 280px 교실, 3x3 배치 (73 → 88)
+        const w = element.width || 88;  // 280px 교실, 3x3 배치
         const h = element.height || 28; // 28px 높이
         const radius = 5; // 둥근 모서리
         
-        // 그림자 효과 강화 (입체감, PPT 호환)
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';  // 0.3 → 0.5 (더 진하게)
-        ctx.shadowBlur = 6;  // 4 → 6 (더 크게)
-        ctx.shadowOffsetX = 3;  // 2 → 3 (더 멀리)
-        ctx.shadowOffsetY = 3;  // 2 → 3 (더 멀리)
-        
-        // 둥근 모서리 사각형 (배경 - 더 어두운 색상)
-        ctx.fillStyle = element.color || '#4b5563';  // 기본값도 어둡게
+        // 둥근 모서리 사각형 (배경만)
+        ctx.fillStyle = element.color || '#4b5563';
         ctx.beginPath();
         ctx.moveTo(x + radius, y);
         ctx.lineTo(x + w - radius, y);
@@ -584,32 +590,152 @@ export default class FloorPlanCore {
         ctx.closePath();
         ctx.fill();
         
-        // 그림자 초기화
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        
-        // 테두리 강화 (더 불투명하고 두껍게, PPT 호환)
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';  // 0.5 → 0.8 (더 밝게)
-        ctx.lineWidth = 2.5;  // 2 → 2.5 (더 두껍게)
-        ctx.stroke();
-        
-        // 텍스트 렌더링 (초굵은 폰트로 가시성 향상)
+        // 텍스트 렌더링
         const text = `${element.deviceType || '장비'} ${element.count || 0}`;
         const fontSize = Math.min(14, h - 10);
-        ctx.font = `900 ${fontSize}px Arial, sans-serif`;  // bold → 900 (더 굵게)
+        ctx.font = `900 ${fontSize}px Arial, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // 텍스트 외곽선 (단순 버전, PPT 호환)
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';  // 0.5 → 0.8 (더 진하게)
+        // 텍스트 외곽선 (가시성 향상)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.lineWidth = 3;
         ctx.strokeText(text, x + w / 2, y + h / 2);
         
         // 텍스트 본문 (흰색)
         ctx.fillStyle = '#ffffff';
         ctx.fillText(text, x + w / 2, y + h / 2);
+    }
+    
+    /**
+     * 화장실 렌더링 (아이콘 표시)
+     */
+    renderToilet(ctx, element) {
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 140;
+        const h = element.height || 180;
+        
+        // 배경
+        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
+            ctx.fillStyle = element.backgroundColor;
+            ctx.fillRect(x, y, w, h);
+        }
+        
+        // 외곽선
+        const borderColor = element.borderColor || '#000000';
+        const borderWidth = element.borderWidth || 2;
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth;
+        ctx.strokeRect(x, y, w, h);
+        
+        // 화장실 아이콘 (WC 텍스트)
+        ctx.fillStyle = borderColor;
+        ctx.font = 'bold 48px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('WC', x + w / 2, y + h / 2);
+    }
+    
+    /**
+     * 엘리베이터 렌더링 (아이콘 표시)
+     */
+    renderElevator(ctx, element) {
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 140;
+        const h = element.height || 180;
+        
+        // 배경
+        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
+            ctx.fillStyle = element.backgroundColor;
+            ctx.fillRect(x, y, w, h);
+        }
+        
+        // 외곽선
+        const borderColor = element.borderColor || '#000000';
+        const borderWidth = element.borderWidth || 2;
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth;
+        ctx.strokeRect(x, y, w, h);
+        
+        // EV 텍스트
+        ctx.fillStyle = borderColor;
+        ctx.font = 'bold 48px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('EV', x + w / 2, y + h / 2);
+    }
+    
+    /**
+     * 현관 렌더링 (열린 문 기호만 - 좌우반전)
+     */
+    renderEntrance(ctx, element) {
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 140;
+        const h = element.height || 180;
+        
+        // 열린 문 기호만 그리기 (배경/외곽선 없음)
+        const doorSize = Math.min(w, h);  // 전체 크기 사용
+        const centerX = x + w / 2;
+        const centerY = y + h / 2;
+        const startX = centerX + doorSize / 2;  // 오른쪽으로 변경
+        const startY = centerY - doorSize / 2;
+        
+        const borderColor = element.borderColor || '#000000';
+        const borderWidth = element.borderWidth || 2;
+        
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth * 2;
+        
+        // 수직선 (문틀 - 오른쪽)
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(startX, startY + doorSize);
+        ctx.stroke();
+        
+        // 1/4 원호 (문 열림 - 왼쪽으로)
+        ctx.beginPath();
+        ctx.arc(startX, startY, doorSize, Math.PI / 2, Math.PI);
+        ctx.stroke();
+    }
+    
+    /**
+     * 계단 렌더링 (zigzag 패턴만)
+     */
+    renderStairs(ctx, element) {
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 140;
+        const h = element.height || 180;
+        
+        // Zigzag 계단 패턴만 그리기 (배경/외곽선 없음)
+        const borderColor = element.borderColor || '#000000';
+        const borderWidth = element.borderWidth || 2;
+        const stepCount = 7;  // 계단 단수
+        
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth * 2;
+        
+        ctx.beginPath();
+        // 왼쪽 하단에서 시작
+        ctx.moveTo(x, y + h);
+        
+        for (let i = 0; i < stepCount; i++) {
+            const stepX = x + (w / stepCount) * i;
+            const stepY = y + h - (h / stepCount) * i;
+            const nextStepX = x + (w / stepCount) * (i + 1);
+            
+            // 위로
+            ctx.lineTo(stepX, stepY);
+            // 오른쪽으로
+            ctx.lineTo(nextStepX, stepY);
+        }
+        
+        // 마지막 단 연결
+        ctx.lineTo(x + w, y);
+        ctx.stroke();
     }
     
     /**
@@ -752,6 +878,32 @@ export default class FloorPlanCore {
         ctx.lineWidth = 2 / this.state.zoom;
         ctx.setLineDash([5 / this.state.zoom, 5 / this.state.zoom]);
         ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+            
+            // 현관, 계단의 경우 회전 핸들 추가
+            if (element.elementType === 'entrance' || element.elementType === 'stairs') {
+                const handleSize = 10 / this.state.zoom;  // 더 크게 (8 -> 10)
+                const handleDistance = 30 / this.state.zoom;
+                const centerX = x + w / 2;
+                const centerY = y + h / 2;
+                
+                // 회전 핸들 (상단 중앙)
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#3b82f6';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2 / this.state.zoom;
+                ctx.beginPath();
+                ctx.arc(centerX, y - handleDistance, handleSize, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                
+                // 회전 핸들 연결선
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2 / this.state.zoom;  // 더 두껍게 (1 -> 2)
+                ctx.beginPath();
+                ctx.moveTo(centerX, y);
+                ctx.lineTo(centerX, y - handleDistance);
+                ctx.stroke();
+            }
         }
         
         ctx.restore();
@@ -834,6 +986,57 @@ export default class FloorPlanCore {
             ctx.lineWidth = borderWidth || 2;
             ctx.stroke();
             ctx.setLineDash([]); // 리셋
+        } else if (shapeType === 'entrance') {
+            // 현관 (열린 문 기호만 - 180도 회전 적용)
+            const doorSize = Math.min(width, height);
+            const centerX = startX + width / 2;
+            const centerY = startY + height / 2;
+            
+            // 180도 회전 적용 (미리보기)
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(Math.PI);  // 180도 = PI 라디안
+            ctx.translate(-centerX, -centerY);
+            
+            const doorStartX = centerX + doorSize / 2;  // 오른쪽
+            const doorStartY = centerY - doorSize / 2;
+            
+            ctx.strokeStyle = borderColor || '#000000';
+            ctx.lineWidth = (borderWidth || 2) * 2;
+            
+            // 수직선 (오른쪽)
+            ctx.beginPath();
+            ctx.moveTo(doorStartX, doorStartY);
+            ctx.lineTo(doorStartX, doorStartY + doorSize);
+            ctx.stroke();
+            
+            // 1/4 원호 (왼쪽으로)
+            ctx.beginPath();
+            ctx.arc(doorStartX, doorStartY, doorSize, Math.PI / 2, Math.PI);
+            ctx.stroke();
+            
+        ctx.restore();
+        } else if (shapeType === 'stairs') {
+            // 계단 (zigzag 패턴만)
+            const stepCount = 7;
+            
+            ctx.strokeStyle = borderColor || '#000000';
+            ctx.lineWidth = (borderWidth || 2) * 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY + height);
+            
+            for (let i = 0; i < stepCount; i++) {
+                const stepX = startX + (width / stepCount) * i;
+                const stepY = startY + height - (height / stepCount) * i;
+                const nextStepX = startX + (width / stepCount) * (i + 1);
+                
+                ctx.lineTo(stepX, stepY);
+                ctx.lineTo(nextStepX, stepY);
+            }
+            
+            ctx.lineTo(startX + width, startY);
+            ctx.stroke();
         }
         
         ctx.restore();

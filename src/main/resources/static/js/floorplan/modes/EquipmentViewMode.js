@@ -119,7 +119,7 @@ export default class EquipmentViewMode {
         let nameBoxBottom = 0;
         if (nameBox) {
             // 이름박스 하단 절대 위치 + 안전 여백
-            nameBoxBottom = nameBox.yCoordinate + (nameBox.height || 35) + 5;  // 40 → 35
+            nameBoxBottom = nameBox.yCoordinate + (nameBox.height || 40) + 5;  // 35 → 40
         }
         
         // 카드 너비 계산 (가로 3개)
