@@ -751,8 +751,14 @@ public class FloorPlanService {
         map.put("ipAddress", device.getIpAddress());
         map.put("setType", device.getSetType());
         
-        if (device.getUid() != null && device.getUid().getDisplayUid() != null) {
-            map.put("uidNumber", device.getUid().getDisplayUid());
+        if (device.getUid() != null) {
+            if (device.getUid().getDisplayUid() != null) {
+                map.put("uidNumber", device.getUid().getDisplayUid());
+            }
+            // 고유번호 카테고리 추가 (장비 카드 표시용)
+            if (device.getUid().getCate() != null) {
+                map.put("uidCate", device.getUid().getCate());
+            }
         }
         if (device.getManage() != null && device.getManage().getManageNum() != null) {
             map.put("manageNumber", device.getManage().getManageNum());

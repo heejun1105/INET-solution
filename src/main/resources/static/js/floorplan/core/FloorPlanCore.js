@@ -571,8 +571,8 @@ export default class FloorPlanCore {
     renderEquipmentCard(ctx, element) {
         const x = element.xCoordinate;
         const y = element.yCoordinate;
-        const w = element.width || 88;  // 280px 교실, 3x3 배치
-        const h = element.height || 28; // 28px 높이
+        const w = element.width || 65;  // 65px 고정 (4x2 배치)
+        const h = element.height || 43; // 43px 높이
         const radius = 5; // 둥근 모서리
         
         // 둥근 모서리 사각형 (배경만)
@@ -592,7 +592,7 @@ export default class FloorPlanCore {
         
         // 텍스트 렌더링
         const text = `${element.deviceType || '장비'} ${element.count || 0}`;
-        const fontSize = Math.min(14, h - 10);
+        const fontSize = 17;  // 17px 고정
         ctx.font = `900 ${fontSize}px Arial, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

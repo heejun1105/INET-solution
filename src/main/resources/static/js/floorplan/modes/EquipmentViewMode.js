@@ -72,19 +72,19 @@ export default class EquipmentViewMode {
             const devices = this.devicesByClassroom[classroomId] || [];
             if (devices.length === 0) return;
             
-            // 장비 종류별 개수 집계
+            // 고유번호 카테고리별 개수 집계
             const deviceCounts = {};
             devices.forEach(device => {
-                const type = device.deviceType || device.type || '기타';
-                deviceCounts[type] = (deviceCounts[type] || 0) + 1;
+                const cate = device.uidCate || '미분류';  // 고유번호 카테고리 사용
+                deviceCounts[cate] = (deviceCounts[cate] || 0) + 1;
             });
             
             // 카드 배치 계산
-            const cards = Object.entries(deviceCounts).map(([type, count]) => ({
-                type,
+            const cards = Object.entries(deviceCounts).map(([cate, count]) => ({
+                type: cate,  // 카테고리를 type으로 전달
                 count,
-                color: this.getDeviceColor(type),
-                text: `${type} ${count}`
+                color: this.getDeviceColor(cate),
+                text: `${cate} ${count}`
             }));
             
             this.layoutCards(room, cards);
@@ -102,14 +102,14 @@ export default class EquipmentViewMode {
         const roomW = room.width || 100;
         const roomH = room.height || 80;
         
-        // 카드 설정 (3x3 배치, 가로형 교실 280x180)
-        // 가로: 280px에 3개 = (280 - 10패딩 - 6간격) / 3 = 88px
-        // 세로: 180px - 이름박스80px(40+35+5) = 100px
-        // 카드: 3줄 × 28px + 2간격 × 3px = 84 + 6 = 90px (여유 10px)
-        const cardHeight = 28;     // 카드 높이
+        // 카드 설정 (4x2 배치, 가로형 교실 280x180)
+        // 가로: 65px 고정 × 4개
+        // 세로: 43px × 2줄
+        const cardWidth = 65;      // 카드 너비 고정
+        const cardHeight = 43;     // 카드 높이
         const cardPadding = 5;     // 상하좌우 여백
-        const cardMargin = 3;      // 카드 간 간격
-        const cardsPerRow = 3;     // 가로 3개 고정
+        const cardMargin = 3;      // 카드 간 간격 (위아래)
+        const cardsPerRow = 4;     // 가로 4개 고정
         
         // 이름박스 위치 찾기 (겹침 방지)
         const nameBox = this.core.state.elements.find(
@@ -119,11 +119,8 @@ export default class EquipmentViewMode {
         let nameBoxBottom = 0;
         if (nameBox) {
             // 이름박스 하단 절대 위치 + 안전 여백
-            nameBoxBottom = nameBox.yCoordinate + (nameBox.height || 40) + 5;  // 35 → 40
+            nameBoxBottom = nameBox.yCoordinate + (nameBox.height || 40) + 5;
         }
-        
-        // 카드 너비 계산 (가로 3개)
-        const cardWidth = (roomW - cardPadding * 2 - cardMargin * (cardsPerRow - 1)) / cardsPerRow;
         
         // 필요한 줄 수
         const totalRows = Math.ceil(cards.length / cardsPerRow);
@@ -169,24 +166,27 @@ export default class EquipmentViewMode {
     /**
      * 장비 종류별 색상 (데이터베이스 기준, 가시성 최적화 - WCAG AAA 대비)
      */
-    getDeviceColor(type) {
-        // 데이터베이스에 존재하는 8가지 장비 종류 (2025-10-30 기준)
-        // 더 어두운 800 계열 사용 → 흰색 텍스트와 대비비율 7:1 이상
+    getDeviceColor(cate) {
+        // 고유번호 카테고리별 색상 매핑 (데이터베이스 기준)
+        // 더 어두운 700-800 계열 사용 → 흰색 텍스트와 대비비율 7:1 이상 (WCAG AAA)
         const colors = {
-            'TV': '#b91c1c',           // 매우 진한 빨강 (Red 800) - 대비 8.2:1
-            '노트북': '#6d28d9',        // 매우 진한 보라 (Violet 700) - 대비 9.1:1
-            '데스크톱': '#374151',      // 매우 진한 회색 (Gray 700) - 대비 10.5:1
-            '모니터': '#1e40af',        // 매우 진한 파랑 (Blue 800) - 대비 9.8:1
-            '전자칠판': '#15803d',      // 매우 진한 녹색 (Green 700) - 대비 7.8:1
-            '키오스크': '#0e7490',      // 매우 진한 청록 (Cyan 700) - 대비 7.5:1
-            '프로젝터': '#c2410c',      // 매우 진한 주황 (Orange 700) - 대비 7.9:1
-            '프린터': '#be185d',        // 매우 진한 핑크 (Pink 700) - 대비 8.3:1
-            // 기타 장비는 기본 회색으로 통일
-            'default': '#4b5563'       // 진한 회색 (Gray 600) - 대비 7.8:1
+            // 데이터베이스 카테고리 (9개)
+            'TV': '#b91c1c',           // 매우 진한 빨강 (Red 800) - TV
+            'MO': '#1e40af',           // 매우 진한 파랑 (Blue 800) - 모니터
+            'DC': '#374151',           // 매우 진한 회색 (Gray 700) - 데스크톱
+            'DK': '#6d28d9',           // 매우 진한 보라 (Violet 700) - 도킹스테이션
+            'DW': '#0e7490',           // 매우 진한 청록 (Cyan 700) - 무선장비
+            'ET': '#15803d',           // 매우 진한 녹색 (Green 700) - 전자칠판
+            'ID': '#be185d',           // 매우 진한 핑크 (Pink 700) - 학생용ID
+            'PJ': '#c2410c',           // 매우 진한 주황 (Orange 700) - 프로젝터
+            'PR': '#9333ea',           // 매우 진한 자주 (Purple 700) - 프린터
+            // 미분류
+            '미분류': '#4b5563',       // 진한 회색 (Gray 600)
+            'default': '#4b5563'       // 진한 회색 (Gray 600)
         };
         
-        // 데이터베이스에 없는 장비는 기본 색상 사용
-        return colors[type] || colors['default'];
+        // 매핑에 없는 카테고리는 기본 색상 사용
+        return colors[cate] || colors['default'];
     }
     
     /**
