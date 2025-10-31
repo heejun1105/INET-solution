@@ -758,6 +758,18 @@ class FloorPlanApp {
             this.modeManager = null;
         }
         
+        // 교실 설계 모드에서 저장 후 다른 모드로 전환하는 경우 평면도 재로드
+        // (교실 좌표가 업데이트되었을 수 있으므로)
+        if (this.currentMode === 'design-classroom') {
+            console.log('🔄 교실 설계 모드에서 전환 - 평면도 재로드');
+            try {
+                await this.dataSyncManager.load(this.currentSchoolId);
+                console.log('✅ 평면도 재로드 완료');
+            } catch (error) {
+                console.error('❌ 평면도 재로드 오류:', error);
+            }
+        }
+        
         // 새 모드 시작
         await this.switchMode(mode);
         

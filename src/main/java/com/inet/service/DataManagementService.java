@@ -177,8 +177,23 @@ public class DataManagementService {
     @Transactional
     public void deleteWirelessApsBySchool(Long schoolId) {
         logger.info("Deleting wireless APs for school: {}", schoolId);
-        int deletedCount = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
-        logger.info("Deleted {} wireless APs for school: {}", deletedCount, schoolId);
+        // 1) 히스토리 먼저 삭제 (FK 제약 회피)
+        try {
+            wirelessApHistoryRepository.deleteBySchoolId(schoolId);
+            logger.debug("Deleted wireless AP histories for school: {}", schoolId);
+        } catch (Exception e) {
+            logger.error("Error deleting wireless AP histories for school {}: {}", schoolId, e.getMessage());
+            throw new RuntimeException("무선AP 이력 삭제 중 오류가 발생했습니다. 관리자에게 문의해주세요.");
+        }
+
+        // 2) AP 삭제
+        try {
+            int deletedCount = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
+            logger.info("Deleted {} wireless APs for school: {}", deletedCount, schoolId);
+        } catch (Exception e) {
+            logger.error("Error deleting wireless APs for school {}: {}", schoolId, e.getMessage());
+            throw new RuntimeException("무선AP 삭제 중 오류가 발생했습니다. 관리자에게 문의해주세요.");
+        }
     }
 
     @Transactional
@@ -324,12 +339,17 @@ public class DataManagementService {
         
         if (deleteWirelessAps) {
             try {
-            int deletedWirelessAps = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
-            totalDeleted += deletedWirelessAps;
-            logger.debug("Deleted {} wireless APs", deletedWirelessAps);
+                // 1) 히스토리 먼저 삭제
+                wirelessApHistoryRepository.deleteBySchoolId(schoolId);
+                logger.debug("Deleted wireless AP histories for school {}", schoolId);
+
+                // 2) AP 삭제
+                int deletedWirelessAps = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
+                totalDeleted += deletedWirelessAps;
+                logger.debug("Deleted {} wireless APs", deletedWirelessAps);
             } catch (Exception e) {
                 logger.error("Error deleting wireless APs for school {}: {}", schoolId, e.getMessage());
-                throw new RuntimeException("무선AP 삭제 중 오류가 발생했습니다. 무선AP가 다른 시스템에서 사용 중일 수 있습니다. 관리자에게 문의해주세요.");
+                throw new RuntimeException("무선AP 삭제 중 오류가 발생했습니다. 관리자에게 문의해주세요.");
             }
         }
         

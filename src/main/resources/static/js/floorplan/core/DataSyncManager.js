@@ -315,6 +315,15 @@ export default class DataSyncManager {
                 elementData.parentId = elementData.parentElementId;
             }
             
+            // wireless_ap 요소의 경우: 좌상단 좌표를 중앙 좌표로 변환하여 저장
+            if (elementData.elementType === 'wireless_ap') {
+                const radius = elementData.radius || 20; // 기본값 20 (지름 40의 반지름)
+                if (elementData.xCoordinate != null && elementData.yCoordinate != null) {
+                    elementData.xCoordinate = (elementData.xCoordinate || 0) + radius; // 중앙 X 좌표
+                    elementData.yCoordinate = (elementData.yCoordinate || 0) + radius; // 중앙 Y 좌표
+                }
+            }
+            
             return elementData;
         });
         
@@ -379,7 +388,20 @@ export default class DataSyncManager {
         console.log('🗺️ ID 매핑 테이블:', Array.from(idMap.entries()));
         
         // 2단계: 요소들 적용
-        const loadedElements = elements.map(el => {
+        // wireless_ap, mdf_idf 요소는 제외 (무선AP 설계 모드에서 동적으로 생성/저장되므로 여기서는 로드하지 않음)
+        const filteredElements = elements.filter(el => {
+            if (el.elementType === 'wireless_ap') {
+                console.log('⏭️ wireless_ap 요소 제외 (무선AP 모드에서 별도 로드):', el.referenceId);
+                return false;
+            }
+            if (el.elementType === 'mdf_idf') {
+                console.log('⏭️ mdf_idf 요소 제외 (무선AP 모드에서 별도 로드):', el.id);
+                return false;
+            }
+            return true;
+        });
+        
+        const loadedElements = filteredElements.map(el => {
             // ID가 없으면 임시 ID 생성
             if (!el.id) {
                 el.id = `temp_${Date.now()}_${Math.random()}`;

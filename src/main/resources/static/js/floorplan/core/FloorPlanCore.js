@@ -317,6 +317,9 @@ export default class FloorPlanCore {
             case 'wireless_ap':
                 this.renderWirelessAp(ctx, element);
                 break;
+            case 'mdf_idf':
+                this.renderMdfIdf(ctx, element);
+                break;
             case 'shape':
                 this.renderShape(ctx, element);
                 break;
@@ -394,17 +397,42 @@ export default class FloorPlanCore {
      * 무선AP 렌더링
      */
     renderWirelessAp(ctx, element) {
+        // 지름 40 = 반지름 20
+        const radius = element.radius || (element.width ? element.width / 2 : 20);
+        const centerX = element.xCoordinate + radius;
+        const centerY = element.yCoordinate + radius;
+        
+        // 채우기 (빨간색)
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.fillStyle = element.backgroundColor || '#ef4444';
+        ctx.fill();
+        
+        // 테두리 (검은색)
+        ctx.strokeStyle = element.borderColor || '#000000';
+        ctx.lineWidth = element.borderWidth || 2;
+        ctx.stroke();
+    }
+    
+    /**
+     * MDF(IDF) 렌더링
+     */
+    renderMdfIdf(ctx, element) {
         const x = element.xCoordinate;
         const y = element.yCoordinate;
-        const radius = element.width || 10;
+        const w = element.width || 40;
+        const h = element.height || 60;
         
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = element.color || '#ef4444';
-        ctx.fill();
-        ctx.strokeStyle = element.borderColor || '#dc2626';
-        ctx.lineWidth = element.borderWidth || 1;
-        ctx.stroke();
+        // 채우기 (빨간색)
+        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
+            ctx.fillStyle = element.backgroundColor;
+            ctx.fillRect(x, y, w, h);
+        }
+        
+        // 테두리 (검은색)
+        ctx.strokeStyle = element.borderColor || '#000000';
+        ctx.lineWidth = element.borderWidth || 2;
+        ctx.strokeRect(x, y, w, h);
     }
     
     /**
