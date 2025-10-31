@@ -383,6 +383,44 @@ export default class InteractionManager {
             this.selectAll();
         }
         
+        // Ctrl/Cmd + C: 복사 (교실 설계 모드에서만 도형 요소 복사)
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC') {
+            const currentMode = this.core.state.currentMode;
+            if (currentMode === 'design-classroom') {
+                e.preventDefault();
+                const selectedElements = this.core.state.selectedElements || [];
+                if (selectedElements.length > 0) {
+                    this.elementManager.copyElements(selectedElements);
+                    // 알림 표시 (UI 매니저가 있으면)
+                    if (this.uiManager) {
+                        this.uiManager.showNotification(`${selectedElements.length}개 요소 복사됨`, 'success');
+                    }
+                }
+            }
+        }
+        
+        // Ctrl/Cmd + V: 붙여넣기 (교실 설계 모드에서만)
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') {
+            const currentMode = this.core.state.currentMode;
+            if (currentMode === 'design-classroom') {
+                e.preventDefault();
+                const pastedElements = this.elementManager.pasteElements();
+                if (pastedElements.length > 0) {
+                    // 알림 표시
+                    if (this.uiManager) {
+                        this.uiManager.showNotification(`${pastedElements.length}개 요소 붙여넣기됨`, 'success');
+                    }
+                    // 히스토리 추가
+                    if (this.historyManager) {
+                        this.historyManager.addState({
+                            type: 'paste',
+                            elements: pastedElements
+                        });
+                    }
+                }
+            }
+        }
+        
         // Escape: 선택 해제
         if (e.code === 'Escape') {
             this.clearSelection();

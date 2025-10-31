@@ -454,11 +454,23 @@ class FloorPlanApp {
         
         // 모드 활성화
         if (this.modeManager) {
-            await this.modeManager.activate();
-            
-            // InteractionManager에 현재 모드 설정 (삭제 콜백용)
-            if (this.interactionManager) {
-                this.interactionManager.setCurrentMode(this.modeManager);
+            try {
+                await this.modeManager.activate();
+                
+                // InteractionManager에 현재 모드 설정 (삭제 콜백용)
+                if (this.interactionManager) {
+                    this.interactionManager.setCurrentMode(this.modeManager);
+                }
+                
+                // 캔버스 강제 렌더링
+                if (this.core) {
+                    this.core.markDirty();
+                    this.core.render();
+                }
+            } catch (error) {
+                console.error('❌ 모드 활성화 오류:', error);
+                this.uiManager.showNotification('모드 활성화 중 오류가 발생했습니다.', 'error');
+                throw error;
             }
         }
         
@@ -477,10 +489,12 @@ class FloorPlanApp {
         try {
             const result = await this.dataSyncManager.save(this.currentSchoolId);
             
-            if (result.success) {
+            // result가 객체인 경우와 boolean인 경우 모두 처리
+            if (result === true || (result && result.success === true)) {
                 this.uiManager.showNotification('저장 완료', 'success');
             } else {
-                this.uiManager.showNotification('저장 실패: ' + result.message, 'error');
+                const errorMsg = (result && result.message) ? result.message : '알 수 없는 오류';
+                this.uiManager.showNotification('저장 실패: ' + errorMsg, 'error');
             }
         } catch (error) {
             console.error('저장 오류:', error);
@@ -840,17 +854,17 @@ class FloorPlanApp {
             console.log('💾 평면도 저장 결과:', result);
             
             // result가 객체인 경우와 boolean인 경우 모두 처리
-            if (result === true || (result && result.success)) {
+            if (result === true || (result && result.success === true)) {
                 if (classroomSaveFailed) {
                     this.uiManager.showNotification('저장 완료 (일부 교실 저장 실패)', 'warning');
                 } else {
                     this.uiManager.showNotification('저장 완료', 'success');
                 }
-            } else if (result === false || (result && result.success === false)) {
+            } else {
+                // result가 false이거나 success가 false인 경우
                 const errorMsg = (result && result.message) ? result.message : '알 수 없는 오류';
                 this.uiManager.showNotification('저장 실패: ' + errorMsg, 'error');
             }
-            // result가 undefined이거나 예상치 못한 형태인 경우는 무시
         } catch (error) {
             console.error('저장 오류:', error);
             this.uiManager.showNotification('저장 중 오류 발생', 'error');

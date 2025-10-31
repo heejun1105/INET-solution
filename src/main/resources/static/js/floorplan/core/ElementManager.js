@@ -29,6 +29,9 @@ export default class ElementManager {
         // 클립보드
         this.clipboard = [];
         
+        // 복사/붙여넣기 오프셋 (붙여넣기 시 약간 이동)
+        this.copyOffset = 30;
+        
         console.log('✅ ElementManager 초기화 완료');
     }
     
@@ -737,6 +740,108 @@ export default class ElementManager {
     clearAllElements() {
         this.core.setState({ elements: [], selectedElements: [] });
         console.debug('🗑️ 모든 요소 초기화');
+    }
+    
+    // ===== 복사/붙여넣기 =====
+    
+    /**
+     * 선택된 도형 요소 복사 (도형 요소만 복사)
+     * @param {Array} selectedElements - 선택된 요소 배열
+     */
+    copyElements(selectedElements) {
+        if (!selectedElements || selectedElements.length === 0) {
+            console.log('📋 복사할 요소가 없습니다');
+            return;
+        }
+        
+        // 도형 요소만 필터링 (room, building, wireless_ap, name_box 등 제외)
+        const shapeTypes = ['shape', 'entrance', 'stairs', 'toilet', 'elevator'];
+        const elementsToCopy = selectedElements.filter(el => {
+            return shapeTypes.includes(el.elementType);
+        });
+        
+        if (elementsToCopy.length === 0) {
+            console.log('📋 복사할 도형 요소가 없습니다');
+            return;
+        }
+        
+        // 요소들을 깊은 복사하여 클립보드에 저장 (ID 매핑 저장)
+        this.clipboard = elementsToCopy.map(el => {
+            const copied = {
+                ...el,
+                originalId: el.id // 원본 ID 저장 (참조용)
+            };
+            // ID는 나중에 새로 생성할 것이므로 제거
+            delete copied.id;
+            return copied;
+        });
+        
+        console.log('📋 요소 복사:', this.clipboard.length, '개');
+    }
+    
+    /**
+     * 클립보드의 요소들 붙여넣기
+     * @returns {Array} 붙여넣기된 요소들
+     */
+    pasteElements() {
+        if (!this.clipboard || this.clipboard.length === 0) {
+            console.log('📋 붙여넣기할 요소가 없습니다');
+            return [];
+        }
+        
+        // 선택 해제
+        this.core.setState({ selectedElements: [] });
+        
+        // 클립보드의 요소들을 복제하여 생성
+        const pastedElements = [];
+        const idMapping = {}; // 원본 ID → 새 ID 매핑
+        
+        // 1단계: 모든 요소 복제 (ID 매핑 생성)
+        for (const copiedElement of this.clipboard) {
+            const newElement = {
+                ...copiedElement,
+                id: this.generateElementId(),
+                xCoordinate: copiedElement.xCoordinate + this.copyOffset,
+                yCoordinate: copiedElement.yCoordinate + this.copyOffset
+            };
+            
+            // originalId 저장
+            if (copiedElement.originalId) {
+                idMapping[copiedElement.originalId] = newElement.id;
+            }
+            
+            // referenceId는 제거 (도형은 referenceId가 없어야 함)
+            delete newElement.referenceId;
+            delete newElement.originalId;
+            
+            pastedElements.push(newElement);
+        }
+        
+        // 2단계: 부모-자식 관계 업데이트
+        for (const pastedElement of pastedElements) {
+            if (pastedElement.parentElementId) {
+                // 부모 ID가 클립보드에 있다면 매핑된 새 ID로 변경
+                const mappedParentId = idMapping[pastedElement.parentElementId];
+                if (mappedParentId) {
+                    pastedElement.parentElementId = mappedParentId;
+                } else {
+                    // 클립보드에 없는 부모면 관계 제거
+                    delete pastedElement.parentElementId;
+                }
+            }
+        }
+        
+        // 3단계: 요소들을 캔버스에 추가
+        pastedElements.forEach(element => {
+            this.core.addElement(element);
+        });
+        
+        // 4단계: 붙여넣기된 요소들 선택
+        this.core.setState({ selectedElements: pastedElements });
+        
+        console.log('📋 요소 붙여넣기:', pastedElements.length, '개');
+        
+        return pastedElements;
     }
 }
 

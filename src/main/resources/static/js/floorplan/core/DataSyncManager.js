@@ -81,19 +81,29 @@ export default class DataSyncManager {
                     this.showNotification('평면도가 저장되었습니다.', 'success');
                 }
                 
-                return true;
+                return { success: true, message: '저장 완료' };
             } else {
-                throw new Error(response.message || '평면도 저장에 실패했습니다.');
+                const errorMessage = response.message || '평면도 저장에 실패했습니다.';
+                console.error('❌ 평면도 저장 실패:', errorMessage);
+                
+                if (showNotification) {
+                    this.showNotification('평면도 저장 중 오류가 발생했습니다.', 'error');
+                }
+                
+                return { success: false, message: errorMessage };
             }
             
         } catch (error) {
             console.error('❌ 평면도 저장 실패:', error);
             
+            const errorMessage = error.message || '평면도 저장 중 오류가 발생했습니다.';
+            
             if (showNotification) {
                 this.showNotification('평면도 저장 중 오류가 발생했습니다.', 'error');
             }
             
-            throw error;
+            // 예외를 던지지 않고 오류 객체 반환
+            return { success: false, message: errorMessage };
             
         } finally {
             this.core.setState({ isSaving: false });
