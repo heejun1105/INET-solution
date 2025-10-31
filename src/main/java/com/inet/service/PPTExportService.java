@@ -43,10 +43,18 @@ public class PPTExportService {
     private static final double PPT_HEIGHT = 540.0; // 7.5인치 * 72 포인트
     private static final double SCALE_X = PPT_WIDTH / CANVAS_WIDTH;
     private static final double SCALE_Y = PPT_HEIGHT / CANVAS_HEIGHT;
-    // 폰트 비율 상수 (도형 높이 기반)
-    private static final double FONT_RATIO_NAMEBOX = 0.28;   // 이름박스 = height * 0.28 (더 작게)
-    private static final double FONT_RATIO_CARD    = 0.30;   // 장비카드 = height * 0.30
-    private static final double FONT_RATIO_ICON    = 0.40;   // WC/EV   = height * 0.40
+    
+    // 보기모드 배율 기반 폰트 조정
+    // 배율이 15% (0.15)일 때 PPT 폰트 크기가 2.5pt가 되어야 함
+    // 기본 이름박스: 원본 높이 40px, 원본 폰트 18pt
+    // PPT 폰트 크기 = 원본폰트 * (스케일 / 기준스케일) * PPT보정값
+    // 2.5 = 18.0 * (0.15 / 0.15) * PPT보정값
+    // 2.5 = 18.0 * PPT보정값
+    // PPT보정값 = 2.5 / 18.0 ≈ 0.139
+    // 일반화: PPT폰트 = 원본폰트 * (스케일 / 기준스케일) * (기준PPT폰트 / 원본폰트)
+    //          = 기준PPT폰트 * (스케일 / 기준스케일)
+    private static final double REFERENCE_ZOOM = 0.15;        // 기준 배율 (15%)
+    private static final double REFERENCE_PPT_FONT = 2.5;     // 기준 배율일 때의 PPT 폰트 크기 (pt)
     
     /**
      * 학교별 평면도를 PPT 파일로 내보내기
@@ -186,7 +194,12 @@ public class PPTExportService {
         double offsetX = 20 + (availableWidth - bounds.width * scale) / 2 - bounds.minX * scale;
         double offsetY = 50 + (availableHeight - bounds.height * scale) / 2 - bounds.minY * scale;
         
-        System.out.println(String.format("동적 스케일: %.4f, 오프셋: (%.2f, %.2f)", scale, offsetX, offsetY));
+        System.out.println(String.format("=== PPT 폰트 계산용 스케일 정보 ==="));
+        System.out.println(String.format("동적 스케일: %.6f (%.2f%%)", scale, scale * 100));
+        System.out.println(String.format("기준 스케일: %.6f (%.2f%%)", REFERENCE_ZOOM, REFERENCE_ZOOM * 100));
+        System.out.println(String.format("스케일 비율: %.6f (실제/기준)", scale / REFERENCE_ZOOM));
+        System.out.println(String.format("기준 PPT 폰트: %.2fpt", REFERENCE_PPT_FONT));
+        System.out.println(String.format("오프셋: (%.2f, %.2f)", offsetX, offsetY));
         System.out.println("장비 보기 모드: " + mode + ", 장비 데이터: " + (devicesByClassroom != null ? devicesByClassroom.size() + "개 교실" : "null"));
         
         // 평면도 요소들을 z-index 순서대로 추가
@@ -511,8 +524,18 @@ public class PPTExportService {
         paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
         XSLFTextRun textRun = paragraph.addNewTextRun();
         textRun.setText(label);
-        // 도형 높이 비율로 폰트 결정 (브라우저 대비 안정)
-        double fontSize = Math.max(8.0, height * FONT_RATIO_NAMEBOX);
+        // 동적 스케일 기반 폰트 크기
+        // 기본 이름박스: 원본 높이 40px, 원본 폰트 18pt
+        // 스케일이 0.15일 때 PPT 폰트 크기가 2.5pt가 되려면:
+        // PPT폰트 = 기준PPT폰트 * (실제스케일 / 기준스케일) * (높이비율)
+        //         = 2.5 * (scale / 0.15) * (originalHeight / 40)
+        double originalHeight = element.getHeight();
+        double scaleRatio = scale / REFERENCE_ZOOM;
+        double heightRatio = originalHeight / 40.0;
+        double fontSize = REFERENCE_PPT_FONT * scaleRatio * heightRatio * 1.2; // 20% 증가
+        // 최소값 제거 - 계산된 값 그대로 사용 (스케일이 작을 때는 작은 폰트가 정상)
+        System.out.println(String.format("[이름박스 폰트 계산] 원본높이=%.1fpx, 스케일=%.6f, 스케일비율=%.6f, 높이비율=%.6f, 계산결과=%.6fpt, 최종=%.2fpt", 
+            originalHeight, scale, scaleRatio, heightRatio, REFERENCE_PPT_FONT * scaleRatio * heightRatio * 1.2, fontSize));
         textRun.setFontSize(fontSize);
         textRun.setFontColor(Color.BLACK);
         textRun.setBold(true);
@@ -579,8 +602,16 @@ public class PPTExportService {
         paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
         XSLFTextRun textRun = paragraph.addNewTextRun();
         textRun.setText("WC");
-        // 도형 높이 비율
-        double fontSize = Math.max(10.0, height * FONT_RATIO_ICON);
+        // 동적 스케일 기반 폰트 크기 (기본 높이 180px 기준 22pt)
+        // 이름박스와 동일한 방식으로 계산 (22pt → PPT 폰트 비율 적용)
+        double baseFontSize = 22.0; // WC 원본 폰트
+        double nameBoxFontSize = 18.0; // 이름박스 원본 폰트
+        double scaleRatio = scale / REFERENCE_ZOOM;
+        double fontRatio = baseFontSize / nameBoxFontSize;
+        double fontSize = REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2; // 20% 증가
+        // 최소값 제거 - 계산된 값 그대로 사용
+        System.out.println(String.format("[WC 폰트 계산] 스케일=%.6f, 스케일비율=%.6f, 폰트비율=%.6f, 계산결과=%.6fpt, 최종=%.2fpt", 
+            scale, scaleRatio, fontRatio, REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2, fontSize));
         textRun.setFontSize(fontSize);
         textRun.setFontColor(Color.BLACK);
         textRun.setBold(true);
@@ -610,8 +641,16 @@ public class PPTExportService {
         paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
         XSLFTextRun textRun = paragraph.addNewTextRun();
         textRun.setText("EV");
-        // 도형 높이 비율
-        double fontSize = Math.max(10.0, height * FONT_RATIO_ICON);
+        // 동적 스케일 기반 폰트 크기 (기본 높이 180px 기준 22pt)
+        // 이름박스와 동일한 방식으로 계산 (22pt → PPT 폰트 비율 적용)
+        double baseFontSize = 22.0; // EV 원본 폰트
+        double nameBoxFontSize = 18.0; // 이름박스 원본 폰트
+        double scaleRatio = scale / REFERENCE_ZOOM;
+        double fontRatio = baseFontSize / nameBoxFontSize;
+        double fontSize = REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2; // 20% 증가
+        // 최소값 제거 - 계산된 값 그대로 사용
+        System.out.println(String.format("[EV 폰트 계산] 스케일=%.6f, 스케일비율=%.6f, 폰트비율=%.6f, 계산결과=%.6fpt, 최종=%.2fpt", 
+            scale, scaleRatio, fontRatio, REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2, fontSize));
         textRun.setFontSize(fontSize);
         textRun.setFontColor(Color.BLACK);
         textRun.setBold(true);
@@ -781,8 +820,22 @@ public class PPTExportService {
             paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
             XSLFTextRun textRun = paragraph.addNewTextRun();
             textRun.setText(cate + " " + count);
-        // 카드 높이의 비율로 폰트 결정
-        double fontSize = Math.max(8.0, cardHeight * FONT_RATIO_CARD);
+            // 동적 스케일 기반 폰트 크기
+            // 기본 장비카드: 원본 높이 43px, 원본 폰트 17pt
+            // 스케일 0.15일 때 PPT 폰트 크기 계산:
+            // 이름박스: 18pt → 2.5pt (비율 2.5/18 = 0.139)
+            // 장비카드: 17pt → 2.5pt * (17/18) = 2.36pt (동일 비율 적용)
+            // 일반화: PPT폰트 = 2.5 * (scale/0.15) * (17/18)
+            double baseCardFontSize = 17.0; // 장비카드 원본 폰트
+            double nameBoxFontSize = 18.0; // 이름박스 원본 폰트
+            double scaleRatio = scale / REFERENCE_ZOOM;
+            double fontRatio = baseCardFontSize / nameBoxFontSize;
+            double fontSize = REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2; // 20% 증가
+            // 최소값 제거 - 계산된 값 그대로 사용
+            if (i == 0) { // 첫 번째 카드만 로그 출력
+                System.out.println(String.format("[장비카드 폰트 계산] 스케일=%.6f, 스케일비율=%.6f, 폰트비율=%.6f, 계산결과=%.6fpt, 최종=%.2fpt", 
+                    scale, scaleRatio, fontRatio, REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2, fontSize));
+            }
             textRun.setFontSize(fontSize);
             textRun.setFontColor(Color.WHITE);
             textRun.setBold(true);
