@@ -826,23 +826,31 @@ class FloorPlanApp {
         
         try {
             // 1. 교실 좌표 저장 (교실 설계 모드인 경우)
+            let classroomSaveFailed = false;
             if (this.currentMode === 'design-classroom' && this.modeManager) {
-                await this.saveClassroomCoordinates();
+                const classroomSaveResult = await this.saveClassroomCoordinates();
+                if (classroomSaveResult === false) {
+                    classroomSaveFailed = true;
+                }
             }
             
-            // 2. 평면도 데이터 저장
-            const result = await this.dataSyncManager.save(this.currentSchoolId);
+            // 2. 평면도 데이터 저장 (알림은 여기서 통합 표시)
+            const result = await this.dataSyncManager.save(this.currentSchoolId, false); // 내부 알림 비활성화
             
             console.log('💾 평면도 저장 결과:', result);
             
             // result가 객체인 경우와 boolean인 경우 모두 처리
             if (result === true || (result && result.success)) {
-                this.uiManager.showNotification('저장 완료', 'success');
+                if (classroomSaveFailed) {
+                    this.uiManager.showNotification('저장 완료 (일부 교실 저장 실패)', 'warning');
+                } else {
+                    this.uiManager.showNotification('저장 완료', 'success');
+                }
             } else if (result === false || (result && result.success === false)) {
                 const errorMsg = (result && result.message) ? result.message : '알 수 없는 오류';
                 this.uiManager.showNotification('저장 실패: ' + errorMsg, 'error');
             }
-            // result가 undefined이거나 예상치 못한 형태인 경우는 무시 (이미 성공 알림이 표시됨)
+            // result가 undefined이거나 예상치 못한 형태인 경우는 무시
         } catch (error) {
             console.error('저장 오류:', error);
             this.uiManager.showNotification('저장 중 오류 발생', 'error');
@@ -851,6 +859,7 @@ class FloorPlanApp {
     
     /**
      * 교실 좌표 저장
+     * @returns {Boolean} 모든 교실 저장 성공 여부
      */
     async saveClassroomCoordinates() {
         const elements = this.core.state.elements;
@@ -858,7 +867,7 @@ class FloorPlanApp {
         
         if (roomElements.length === 0) {
             console.log('💾 저장할 교실 좌표 없음');
-            return;
+            return true; // 저장할 교실이 없으면 성공으로 간주
         }
         
         console.log('💾 교실 좌표 저장 시작:', roomElements.length, '개');
@@ -899,12 +908,8 @@ class FloorPlanApp {
         
         console.log(`💾 교실 좌표 저장 완료: ${successCount}/${roomElements.length}`);
         
-        if (successCount < roomElements.length) {
-            this.uiManager.showNotification(
-                `일부 교실 저장 실패 (${successCount}/${roomElements.length})`,
-                'warning'
-            );
-        }
+        // 알림은 saveCurrentWork에서 통합 표시하므로 여기서는 반환만
+        return successCount === roomElements.length;
     }
 }
 

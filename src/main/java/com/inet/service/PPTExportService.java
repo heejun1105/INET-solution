@@ -336,19 +336,50 @@ public class PPTExportService {
         Map<String, Object> elementData = parseElementData(element.getElementData());
         String roomName = (String) elementData.getOrDefault("roomName", "교실");
         String borderColor = (String) elementData.getOrDefault("borderColor", "#000000");
-        String borderThickness = (String) elementData.getOrDefault("borderThickness", "2");
+        
+        // borderWidth (JavaScript에서 사용) 또는 borderThickness 우선순위로 확인
+        String borderThicknessStr = null;
+        if (elementData.containsKey("borderWidth")) {
+            Object borderWidthObj = elementData.get("borderWidth");
+            if (borderWidthObj instanceof Number) {
+                borderThicknessStr = String.valueOf(borderWidthObj);
+            } else if (borderWidthObj instanceof String) {
+                borderThicknessStr = (String) borderWidthObj;
+            }
+        }
+        if (borderThicknessStr == null && elementData.containsKey("borderThickness")) {
+            borderThicknessStr = String.valueOf(elementData.get("borderThickness"));
+        }
+        if (borderThicknessStr == null) {
+            borderThicknessStr = "2"; // 기본값
+        }
+        
+        double borderThickness = Double.parseDouble(borderThicknessStr);
+        System.out.println(String.format("[교실 선 굵기] borderWidth=%s, scale=%.6f, 계산결과=%.6fpt", 
+            borderThicknessStr, scale, borderThickness * scale));
+        
+        // 배경색 가져오기 (없으면 투명)
+        String bgColorStr = (String) elementData.getOrDefault("backgroundColor", null);
+        Color bgColor = null;
+        if (bgColorStr != null && !bgColorStr.equals("transparent") && !bgColorStr.isEmpty()) {
+            bgColor = parseColor(bgColorStr);
+        } else {
+            bgColor = new Color(245, 245, 245); // 기본 연한 회색
+        }
         
         // 사각형 도형 생성
         XSLFAutoShape shape = slide.createAutoShape();
         shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
         shape.setAnchor(new Rectangle(x, y, width, height));
         
-        // 테두리 설정
+        // 테두리 설정 (스케일에 비례)
         shape.setLineColor(parseColor(borderColor));
-        shape.setLineWidth(Double.parseDouble(borderThickness));
+        // 스케일이 작아도 선이 보이도록 최소값 조정 (0.2pt)
+        double roomLineWidth = Math.max(0.2, borderThickness * scale);
+        shape.setLineWidth(roomLineWidth);
         
-        // 배경색 설정 (연한 회색)
-        shape.setFillColor(new Color(245, 245, 245));
+        // 배경색 설정
+        shape.setFillColor(bgColor);
         
         // 텍스트 추가 (교실 내부, 일반적으로 표시 안 함)
         // 교실 이름은 name_box 요소로 별도 표시됨
@@ -364,21 +395,54 @@ public class PPTExportService {
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
-        // element_data에서 건물명 파싱
+        // element_data에서 건물 정보 파싱
         Map<String, Object> elementData = parseElementData(element.getElementData());
         String buildingName = (String) elementData.getOrDefault("buildingName", "건물");
+        String borderColor = (String) elementData.getOrDefault("borderColor", "#000000");
+        
+        // borderWidth (JavaScript에서 사용) 또는 borderThickness 우선순위로 확인
+        String borderThicknessStr = null;
+        if (elementData.containsKey("borderWidth")) {
+            Object borderWidthObj = elementData.get("borderWidth");
+            if (borderWidthObj instanceof Number) {
+                borderThicknessStr = String.valueOf(borderWidthObj);
+            } else if (borderWidthObj instanceof String) {
+                borderThicknessStr = (String) borderWidthObj;
+            }
+        }
+        if (borderThicknessStr == null && elementData.containsKey("borderThickness")) {
+            borderThicknessStr = String.valueOf(elementData.get("borderThickness"));
+        }
+        if (borderThicknessStr == null) {
+            borderThicknessStr = "2"; // 기본값
+        }
+        
+        double borderThickness = Double.parseDouble(borderThicknessStr);
+        System.out.println(String.format("[건물 선 굵기] borderWidth=%s, scale=%.6f, 계산결과=%.6fpt", 
+            borderThicknessStr, scale, borderThickness * scale));
+        
+        // 배경색 가져오기 (없으면 연한 파란색)
+        String bgColorStr = (String) elementData.getOrDefault("backgroundColor", null);
+        Color bgColor = null;
+        if (bgColorStr != null && !bgColorStr.equals("transparent") && !bgColorStr.isEmpty()) {
+            bgColor = parseColor(bgColorStr);
+        } else {
+            bgColor = new Color(219, 234, 254); // 기본 연한 파란색
+        }
         
         // 사각형 도형 생성
         XSLFAutoShape shape = slide.createAutoShape();
         shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
         shape.setAnchor(new Rectangle(x, y, width, height));
         
-        // 테두리 설정 (파란색)
-        shape.setLineColor(new Color(59, 130, 246));
-        shape.setLineWidth(3.0);
+        // 테두리 설정 (스케일에 비례)
+        shape.setLineColor(parseColor(borderColor));
+        // 스케일이 작아도 선이 보이도록 최소값 조정 (0.2pt)
+        double buildingLineWidth = Math.max(0.2, borderThickness * scale);
+        shape.setLineWidth(buildingLineWidth);
         
-        // 배경색 설정 (연한 파란색)
-        shape.setFillColor(new Color(219, 234, 254));
+        // 배경색 설정
+        shape.setFillColor(bgColor);
         
         // 건물 내부 텍스트는 표시하지 않음
     }
@@ -397,16 +461,49 @@ public class PPTExportService {
         Map<String, Object> elementData = parseElementData(element.getElementData());
         String shapeType = (String) elementData.getOrDefault("shapeType", "rectangle");
         String color = (String) elementData.getOrDefault("color", "#000000");
-        String thickness = (String) elementData.getOrDefault("thickness", "2");
+        String borderColor = (String) elementData.getOrDefault("borderColor", color);
+        
+        // borderWidth (JavaScript에서 사용) 또는 borderThickness 또는 thickness 우선순위로 확인
+        String lineWidthStr = null;
+        if (elementData.containsKey("borderWidth")) {
+            Object borderWidthObj = elementData.get("borderWidth");
+            if (borderWidthObj instanceof Number) {
+                lineWidthStr = String.valueOf(borderWidthObj);
+            } else if (borderWidthObj instanceof String) {
+                lineWidthStr = (String) borderWidthObj;
+            }
+        }
+        if (lineWidthStr == null && elementData.containsKey("borderThickness")) {
+            lineWidthStr = String.valueOf(elementData.get("borderThickness"));
+        }
+        if (lineWidthStr == null && elementData.containsKey("thickness")) {
+            lineWidthStr = String.valueOf(elementData.get("thickness"));
+        }
+        if (lineWidthStr == null) {
+            lineWidthStr = "2"; // 기본값
+        }
+        
+        double lineWidth = Double.parseDouble(lineWidthStr);
+        System.out.println(String.format("[도형 선 굵기] shapeType=%s, borderWidth=%s, scale=%.6f, 계산결과=%.6fpt", 
+            shapeType, lineWidthStr, scale, lineWidth * scale));
+        
+        // 배경색 가져오기
+        String bgColorStr = (String) elementData.getOrDefault("backgroundColor", null);
+        Color bgColor = null;
+        if (bgColorStr != null && !bgColorStr.equals("transparent") && !bgColorStr.isEmpty()) {
+            bgColor = parseColor(bgColorStr);
+        }
         
         XSLFAutoShape shape = slide.createAutoShape();
         
         // 도형 타입에 따라 설정
+        boolean isDashed = shapeType.equals("dashed-line");
         switch (shapeType) {
             case "circle":
                 shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
                 break;
             case "line":
+            case "dashed-line":
                 shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.LINE);
                 break;
             case "arrow":
@@ -420,16 +517,47 @@ public class PPTExportService {
         
         shape.setAnchor(new Rectangle(x, y, width, height));
         
-        // 선 색상 및 두께 설정
-        shape.setLineColor(parseColor(color));
-        shape.setLineWidth(Double.parseDouble(thickness));
+        // 선 색상 및 두께 설정 (스케일에 비례)
+        shape.setLineColor(parseColor(borderColor));
+        // 스케일이 작아도 선이 보이도록 최소값 조정 (0.2pt)
+        double customLineWidth = Math.max(0.2, lineWidth * scale);
+        shape.setLineWidth(customLineWidth);
+        
+        // 점선 스타일 처리
+        if (isDashed) {
+            // 점선 스타일 설정 (XML 객체에 직접 접근)
+            try {
+                // XSLFAutoShape의 XML 객체는 CTShape
+                org.openxmlformats.schemas.presentationml.x2006.main.CTShape ctShape = 
+                    (org.openxmlformats.schemas.presentationml.x2006.main.CTShape) shape.getXmlObject();
+                if (ctShape != null && ctShape.getSpPr() != null) {
+                    org.openxmlformats.schemas.drawingml.x2006.main.CTLineProperties lineProps = 
+                        ctShape.getSpPr().getLn();
+                    if (lineProps != null) {
+                        // 점선 스타일 설정 (DASH)
+                        org.openxmlformats.schemas.drawingml.x2006.main.CTPresetLineDashProperties presetDash = 
+                            org.openxmlformats.schemas.drawingml.x2006.main.CTPresetLineDashProperties.Factory.newInstance();
+                        presetDash.setVal(org.openxmlformats.schemas.drawingml.x2006.main.STPresetLineDashVal.DASH);
+                        lineProps.setPrstDash(presetDash);
+                        System.out.println("[점선 도형] 점선 스타일 적용: " + shapeType);
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("[점선 도형] 점선 스타일 설정 실패: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
         
         // 선/화살표는 배경색 없음
-        if (shapeType.equals("line") || shapeType.equals("arrow")) {
+        if (shapeType.equals("line") || shapeType.equals("arrow") || isDashed) {
             shape.setFillColor(null);
         } else {
-            // 사각형/원은 투명 배경
+            // 사각형/원은 배경색 설정 (없으면 투명)
+            if (bgColor != null) {
+                shape.setFillColor(bgColor);
+            } else {
             shape.setFillColor(new Color(255, 255, 255, 0));
+            }
         }
     }
     
@@ -447,17 +575,58 @@ public class PPTExportService {
         Map<String, Object> elementData = parseElementData(element.getElementData());
         String spaceType = (String) elementData.getOrDefault("spaceType", "corridor");
         String spaceName = (String) elementData.getOrDefault("spaceName", "기타공간");
+        String borderColorStr = (String) elementData.getOrDefault("borderColor", null);
+        
+        // borderWidth (JavaScript에서 사용) 또는 borderThickness 우선순위로 확인
+        String borderThicknessStr = null;
+        if (elementData.containsKey("borderWidth")) {
+            Object borderWidthObj = elementData.get("borderWidth");
+            if (borderWidthObj instanceof Number) {
+                borderThicknessStr = String.valueOf(borderWidthObj);
+            } else if (borderWidthObj instanceof String) {
+                borderThicknessStr = (String) borderWidthObj;
+            }
+        }
+        if (borderThicknessStr == null && elementData.containsKey("borderThickness")) {
+            borderThicknessStr = String.valueOf(elementData.get("borderThickness"));
+        }
+        
+        String bgColorStr = (String) elementData.getOrDefault("backgroundColor", null);
+        
+        // 배경색 설정
+        Color bgColor = null;
+        if (bgColorStr != null && !bgColorStr.equals("transparent") && !bgColorStr.isEmpty()) {
+            bgColor = parseColor(bgColorStr);
+        } else {
+            bgColor = getOtherSpaceColor(spaceType);
+        }
         
         // 사각형 도형 생성
         XSLFAutoShape shape = slide.createAutoShape();
         shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
         shape.setAnchor(new Rectangle(x, y, width, height));
         
-        // 공간 타입별 색상 설정
-        Color bgColor = getOtherSpaceColor(spaceType);
         shape.setFillColor(bgColor);
-        shape.setLineColor(darkenColor(bgColor, 0.3));
-        shape.setLineWidth(2.0);
+        
+        // 테두리 색상 설정
+        Color lineColor = null;
+        if (borderColorStr != null && !borderColorStr.isEmpty()) {
+            lineColor = parseColor(borderColorStr);
+        } else {
+            lineColor = darkenColor(bgColor, 0.3);
+        }
+        shape.setLineColor(lineColor);
+        
+        // 테두리 굵기 설정 (스케일에 비례)
+        double lineWidth = 2.0;
+        if (borderThicknessStr != null && !borderThicknessStr.isEmpty()) {
+            lineWidth = Double.parseDouble(borderThicknessStr);
+        }
+        // 스케일이 작아도 선이 보이도록 최소값 조정 (0.2pt)
+        double otherSpaceLineWidth = Math.max(0.2, lineWidth * scale);
+        shape.setLineWidth(otherSpaceLineWidth);
+        System.out.println(String.format("[기타공간 선 굵기] borderWidth=%s, scale=%.6f, 계산결과=%.6fpt", 
+            borderThicknessStr != null ? borderThicknessStr : "2.0", scale, otherSpaceLineWidth));
         
         // 텍스트 추가
         XSLFTextParagraph paragraph = shape.addNewTextParagraph();
@@ -509,13 +678,19 @@ public class PPTExportService {
         
         Map<String, Object> elementData = parseElementData(element.getElementData());
         String label = (String) elementData.getOrDefault("label", "");
+        String borderColorStr = (String) elementData.getOrDefault("borderColor", "#000000");
+        String borderThicknessStr = (String) elementData.getOrDefault("borderThickness", "1");
+        double borderThickness = Double.parseDouble(borderThicknessStr);
         
         XSLFAutoShape shape = slide.createAutoShape();
         shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
         shape.setAnchor(new Rectangle(x, y, width, height));
         
-        shape.setLineColor(Color.BLACK);
-        shape.setLineWidth(1.0);
+        // 테두리 색상 및 굵기 설정 (스케일에 비례, 이름박스는 얇게)
+        shape.setLineColor(parseColor(borderColorStr));
+        // 이름박스는 기본적으로 얇은 테두리 (1px 기준, 스케일 적용 시 최소값 보장)
+        double nameBoxLineWidth = Math.max(0.3, borderThickness * scale);
+        shape.setLineWidth(nameBoxLineWidth);
         shape.setFillColor(Color.WHITE);
         
         // 텍스트 설정: 자동맞춤 사용하지 않고 고정 비율 폰트 적용
@@ -594,7 +769,9 @@ public class PPTExportService {
         shape.setAnchor(new Rectangle(x, y, width, height));
         
         shape.setLineColor(Color.BLACK);
-        shape.setLineWidth(2.0 * scale);
+        // 스케일이 작아도 선이 보이도록 최소값 조정 (0.2pt)
+        double toiletLineWidth = Math.max(0.2, 2.0 * scale);
+        shape.setLineWidth(toiletLineWidth);
         shape.setFillColor(Color.WHITE);
         
         // WC 텍스트 추가 (중앙, 이름박스와 같은 높이)
@@ -633,7 +810,9 @@ public class PPTExportService {
         shape.setAnchor(new Rectangle(x, y, width, height));
         
         shape.setLineColor(Color.BLACK);
-        shape.setLineWidth(2.0 * scale);
+        // 스케일이 작아도 선이 보이도록 최소값 조정 (0.2pt)
+        double elevatorLineWidth = Math.max(0.2, 2.0 * scale);
+        shape.setLineWidth(elevatorLineWidth);
         shape.setFillColor(Color.WHITE);
         
         // EV 텍스트 추가 (중앙, 이름박스와 같은 높이)
@@ -659,7 +838,7 @@ public class PPTExportService {
     }
     
     /**
-     * 현관 생성 (동적 스케일 적용) - 간단한 문 표시
+     * 현관 생성 (동적 스케일 적용) - JavaScript와 동일한 로직
      */
     private void createEntranceShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
         int x = (int)(element.getXCoordinate() * scale + offsetX);
@@ -667,38 +846,120 @@ public class PPTExportService {
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
-        // 세로선 (문틀)
+        // element_data에서 회전 정보 파싱
+        Map<String, Object> elementData = parseElementData(element.getElementData());
+        Object rotationObj = elementData.getOrDefault("rotation", 0);
+        double rotation = 0.0;
+        if (rotationObj instanceof Number) {
+            rotation = ((Number) rotationObj).doubleValue();
+        } else if (rotationObj instanceof String) {
+            try {
+                rotation = Double.parseDouble((String) rotationObj);
+            } catch (NumberFormatException e) {
+                rotation = 0.0;
+            }
+        }
+        
+        // JavaScript와 동일한 계산: doorSize = Math.min(w, h)
+        int doorSize = Math.min(width, height);
+        // 중심 계산: centerX = x + w / 2, centerY = y + h / 2
+        double centerX = x + width / 2.0;
+        double centerY = y + height / 2.0;
+        // 문틀 위치: startX = centerX + doorSize / 2 (오른쪽)
+        double startX = centerX + doorSize / 2.0;
+        double startY = centerY - doorSize / 2.0;
+        
+        // borderWidth 가져오기
+        double borderWidth = 2.0;
+        if (elementData.containsKey("borderWidth")) {
+            Object borderWidthObj = elementData.get("borderWidth");
+            if (borderWidthObj instanceof Number) {
+                borderWidth = ((Number) borderWidthObj).doubleValue();
+            } else if (borderWidthObj instanceof String) {
+                try {
+                    borderWidth = Double.parseDouble((String) borderWidthObj);
+                } catch (NumberFormatException e) {
+                    borderWidth = 2.0;
+                }
+            }
+        }
+        // JavaScript: lineWidth = borderWidth * 2
+        double lineWidth = Math.max(0.2, borderWidth * 2.0 * scale);
+        
+        // 원호를 더 매끈하게 하기 위해 선분 수 증가 (48개로 충분히 부드럽게)
+        int segments = 48;
+        // JavaScript: arc(startX, startY, doorSize, Math.PI / 2, Math.PI)
+        // Canvas arc는 (centerX, centerY, radius, startAngle, endAngle) 형식
+        // startX, startY가 원호의 중심점
+        double arcCenterX = startX;  // 원호 중심 X
+        double arcCenterY = startY;  // 원호 중심 Y
+        double arcRadius = doorSize; // 원호 반지름
+        double arcStartAngle = Math.PI / 2;  // 위쪽 방향 (90도)
+        double arcEndAngle = Math.PI;         // 왼쪽 방향 (180도)
+        
+        // 회전 적용을 위한 변환 행렬 계산
+        double rotationRad = rotation * Math.PI / 180.0;
+        
+        // 회전 변환 함수 (요소의 중심 기준 회전)
+        java.util.function.BiFunction<Double, Double, double[]> rotatePoint = (px, py) -> {
+            double dx = px - centerX;
+            double dy = py - centerY;
+            double rotatedX = dx * Math.cos(rotationRad) - dy * Math.sin(rotationRad);
+            double rotatedY = dx * Math.sin(rotationRad) + dy * Math.cos(rotationRad);
+            return new double[]{rotatedX + centerX, rotatedY + centerY};
+        };
+        
+        // 수직선 (문틀) - 회전 적용
+        // JavaScript: moveTo(startX, startY), lineTo(startX, startY + doorSize)
+        double[] lineStart = rotatePoint.apply(startX, startY);
+        double[] lineEnd = rotatePoint.apply(startX, startY + doorSize);
+        
         XSLFAutoShape line = slide.createAutoShape();
         line.setShapeType(org.apache.poi.sl.usermodel.ShapeType.LINE);
-        int lineX = x + width - (int)Math.max(2, 2 * scale);
-        line.setAnchor(new Rectangle(lineX, y, 2, height));
+        line.setAnchor(new Rectangle(
+            (int)Math.min(lineStart[0], lineEnd[0]), 
+            (int)Math.min(lineStart[1], lineEnd[1]),
+            (int)Math.abs(lineEnd[0] - lineStart[0]),
+            (int)Math.abs(lineEnd[1] - lineStart[1])
+        ));
         line.setLineColor(Color.BLACK);
-        line.setLineWidth(Math.max(1.5, 3.0 * scale));
+        line.setLineWidth(lineWidth);
         
-        // 1/4 원호를 폴리라인으로 근사 (오른쪽 아래 힌지, 반지름은 짧은 변의 90%)
-        int radius = (int)(Math.min(width, height) * 0.9);
-        int segments = 16; // 더 크게 하면 더 매끈
-        double cx = lineX;                 // 회전축(경첩)
-        double cy = y + height;            // 아래쪽 기준
-        double startAngle = -Math.PI / 2;  // 위쪽 방향
-        double endAngle = Math.PI;         // 왼쪽 방향
-        for (int i = 0; i < segments; i++) {
-            double a1 = startAngle + (endAngle - startAngle) * (i / (double)segments);
-            double a2 = startAngle + (endAngle - startAngle) * ((i + 1) / (double)segments);
-            int sx = (int)(cx + Math.cos(a1) * radius);
-            int sy = (int)(cy + Math.sin(a1) * radius);
-            int ex = (int)(cx + Math.cos(a2) * radius);
-            int ey = (int)(cy + Math.sin(a2) * radius);
-            XSLFAutoShape seg = slide.createAutoShape();
-            seg.setShapeType(org.apache.poi.sl.usermodel.ShapeType.LINE);
-            seg.setAnchor(new Rectangle(Math.min(sx, ex), Math.min(sy, ey), Math.abs(ex - sx), Math.abs(ey - sy)));
-            seg.setLineColor(Color.BLACK);
-            seg.setLineWidth(Math.max(1.2, 2.4 * scale));
+        // 1/4 원호를 Path2D로 생성하여 단일 Path로 그리기 (회전 적용)
+        // JavaScript와 동일하게: arc(startX, startY, doorSize, Math.PI / 2, Math.PI)
+        java.awt.geom.Path2D.Double arcPath = new java.awt.geom.Path2D.Double();
+        
+        // 원호의 시작점 계산 (회전 전)
+        double startAngleX = arcCenterX + Math.cos(arcStartAngle) * arcRadius;
+        double startAngleY = arcCenterY + Math.sin(arcStartAngle) * arcRadius;
+        
+        // 회전 적용하여 시작점 결정
+        double[] arcPathStart = rotatePoint.apply(startAngleX, startAngleY);
+        arcPath.moveTo(arcPathStart[0], arcPathStart[1]);
+        
+        // 원호를 작은 선분으로 근사하여 Path에 추가
+        for (int i = 1; i <= segments; i++) {
+            double angle = arcStartAngle + (arcEndAngle - arcStartAngle) * (i / (double)segments);
+            
+            // 원호 상의 점 계산 (원호 중심 기준)
+            double px = arcCenterX + Math.cos(angle) * arcRadius;
+            double py = arcCenterY + Math.sin(angle) * arcRadius;
+            
+            // 회전 적용 (요소의 중심 기준)
+            double[] rotatedPoint = rotatePoint.apply(px, py);
+            arcPath.lineTo(rotatedPoint[0], rotatedPoint[1]);
         }
+        
+        // XSLFFreeformShape로 단일 Path 생성
+        XSLFFreeformShape arcShape = slide.createFreeform();
+        arcShape.setPath(arcPath);
+        arcShape.setLineColor(Color.BLACK);
+        arcShape.setLineWidth(lineWidth);
+        arcShape.setFillColor(null); // 배경 없음
     }
     
     /**
-     * 계단 생성 (동적 스케일 적용) - 대각선으로 표시
+     * 계단 생성 (동적 스케일 적용) - JavaScript와 동일한 로직 (단일 Path)
      */
     private void createStairsShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
         int x = (int)(element.getXCoordinate() * scale + offsetX);
@@ -706,30 +967,53 @@ public class PPTExportService {
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
-        // 지그재그 계단: 우상향 대각선과 수평선 반복
-        int steps = 6;
-        int stepW = width / steps;
-        int stepH = height / steps;
-        int curX = x;
-        int curY = y + height;
-        for (int i = 0; i < steps; i++) {
-            int nextX = curX + stepW;
-            int nextY = curY - stepH;
-            // 대각선
-            XSLFAutoShape diag = slide.createAutoShape();
-            diag.setShapeType(org.apache.poi.sl.usermodel.ShapeType.LINE);
-            diag.setAnchor(new Rectangle(Math.min(curX, nextX), Math.min(curY, nextY), Math.abs(nextX - curX), Math.abs(nextY - curY)));
-            diag.setLineColor(Color.BLACK);
-            diag.setLineWidth(Math.max(1.2, 2.0 * scale));
-            // 수평선
-            XSLFAutoShape hor = slide.createAutoShape();
-            hor.setShapeType(org.apache.poi.sl.usermodel.ShapeType.LINE);
-            hor.setAnchor(new Rectangle(Math.min(nextX - stepW / 3, nextX), nextY, stepW / 3, 1));
-            hor.setLineColor(Color.BLACK);
-            hor.setLineWidth(Math.max(1.2, 2.0 * scale));
-            curX = nextX;
-            curY = nextY;
+        // element_data에서 borderWidth 파싱
+        Map<String, Object> elementData = parseElementData(element.getElementData());
+        double borderWidth = 2.0;
+        if (elementData.containsKey("borderWidth")) {
+            Object borderWidthObj = elementData.get("borderWidth");
+            if (borderWidthObj instanceof Number) {
+                borderWidth = ((Number) borderWidthObj).doubleValue();
+            } else if (borderWidthObj instanceof String) {
+                try {
+                    borderWidth = Double.parseDouble((String) borderWidthObj);
+                } catch (NumberFormatException e) {
+                    borderWidth = 2.0;
+                }
+            }
         }
+        // JavaScript: lineWidth = borderWidth * 2
+        double lineWidth = Math.max(0.2, borderWidth * 2.0 * scale);
+        
+        // JavaScript와 동일: stepCount = 7
+        int stepCount = 7;
+        
+        // Path2D를 사용하여 단일 Path로 계단 그리기
+        // JavaScript: ctx.moveTo(x, y + h) - 왼쪽 하단에서 시작
+        java.awt.geom.Path2D.Double path = new java.awt.geom.Path2D.Double();
+        path.moveTo(x, y + height);
+        
+        // JavaScript와 동일한 알고리즘
+        for (int i = 0; i < stepCount; i++) {
+            double stepX = x + (width / (double)stepCount) * i;
+            double stepY = y + height - (height / (double)stepCount) * i;
+            double nextStepX = x + (width / (double)stepCount) * (i + 1);
+            
+            // 위로 (JavaScript: ctx.lineTo(stepX, stepY))
+            path.lineTo(stepX, stepY);
+            // 오른쪽으로 (JavaScript: ctx.lineTo(nextStepX, stepY))
+            path.lineTo(nextStepX, stepY);
+        }
+        
+        // 마지막 단 연결 (JavaScript: ctx.lineTo(x + w, y))
+        path.lineTo(x + width, y);
+        
+        // XSLFFreeformShape로 단일 Path 생성
+        XSLFFreeformShape stairsPath = slide.createFreeform();
+        stairsPath.setPath(path);
+        stairsPath.setLineColor(Color.BLACK);
+        stairsPath.setLineWidth(lineWidth);
+        stairsPath.setFillColor(null); // 배경 없음
     }
     
     /**

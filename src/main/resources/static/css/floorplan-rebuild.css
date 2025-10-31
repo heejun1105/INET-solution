@@ -735,6 +735,12 @@
     border-color: #94a3b8;
 }
 
+/* 선 굵기 드롭다운 스크롤 설정 */
+#header-line-width {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
 /* 헤더 드롭다운 */
 .header-dropdown {
     position: relative;
