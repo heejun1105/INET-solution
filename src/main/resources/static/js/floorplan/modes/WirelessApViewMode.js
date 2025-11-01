@@ -22,6 +22,9 @@ export default class WirelessApViewMode {
     async activate() {
         console.log('✅ 무선AP보기 모드 활성화');
         
+        // 모든 요소 잠금 (보기 모드에서는 이동 불가)
+        this.lockAllElements();
+        
         // 먼저 기존 AP/MDF 요소 제거
         this.clearApElements();
         
@@ -33,6 +36,18 @@ export default class WirelessApViewMode {
         
         // 강제 렌더링
         this.core.markDirty();
+    }
+    
+    /**
+     * 모든 요소 잠금
+     */
+    lockAllElements() {
+        const elements = this.elementManager.getAllElements();
+        elements.forEach(element => {
+            element.isLocked = true;
+            this.elementManager.updateElement(element.id, { isLocked: true });
+        });
+        console.log('🔒 모든 요소 잠금 (무선AP보기 모드)');
     }
     
     /**

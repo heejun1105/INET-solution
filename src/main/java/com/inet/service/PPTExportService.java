@@ -178,8 +178,21 @@ public class PPTExportService {
         headerRun.setBold(true);
         headerRun.setFontColor(new Color(31, 78, 121));
         
-        // 요소들의 실제 바운딩 박스 계산
-        BoundingBox bounds = calculateBoundingBox(elements);
+        // 모드별 필터링 (바운딩 박스 계산 전에 먼저 필터링)
+        List<FloorPlanElement> elementsToProcess = elements;
+        if ("wireless-ap".equals(mode)) {
+            // 무선 AP 보기 모드: 장비 카드(equipment_card)만 제외, 나머지는 모두 포함
+            elementsToProcess = elements.stream()
+                .filter(el -> !"equipment_card".equals(el.getElementType()))
+                .collect(java.util.stream.Collectors.toList());
+            System.out.println("무선 AP 보기 모드: 장비 카드 제외, " + elementsToProcess.size() + "개 요소 포함 (전체: " + elements.size() + "개)");
+        } else if ("equipment".equals(mode)) {
+            // 장비 보기 모드: 모든 요소 처리 (교실에 장비 카드 추가)
+            System.out.println("장비 보기 모드: 모든 요소 처리 (교실에 장비 카드 추가)");
+        }
+        
+        // 필터링된 요소들로 바운딩 박스 계산
+        BoundingBox bounds = calculateBoundingBox(elementsToProcess);
         System.out.println("실제 평면도 범위: " + bounds);
         
         // 동적 스케일 및 오프셋 계산 (헤더 영역 제외)
@@ -200,13 +213,26 @@ public class PPTExportService {
         System.out.println(String.format("스케일 비율: %.6f (실제/기준)", scale / REFERENCE_ZOOM));
         System.out.println(String.format("기준 PPT 폰트: %.2fpt", REFERENCE_PPT_FONT));
         System.out.println(String.format("오프셋: (%.2f, %.2f)", offsetX, offsetY));
-        System.out.println("장비 보기 모드: " + mode + ", 장비 데이터: " + (devicesByClassroom != null ? devicesByClassroom.size() + "개 교실" : "null"));
+        System.out.println("모드: " + mode + ", 장비 데이터: " + (devicesByClassroom != null ? devicesByClassroom.size() + "개 교실" : "null"));
         
         // 평면도 요소들을 z-index 순서대로 추가
         int roomCount = 0;
-        for (FloorPlanElement element : elements) {
+        int apCount = 0;
+        int mdfCount = 0;
+        
+        for (FloorPlanElement element : elementsToProcess) {
             try {
+                // 모든 모드에서 요소 추가 (필터링된 요소들은 이미 처리됨)
                 addElementToSlide(floorPlanSlide, element, scale, offsetX, offsetY);
+                
+                // 무선 AP 보기 모드: AP와 MDF 개수 카운트
+                if ("wireless-ap".equals(mode)) {
+                    if ("wireless_ap".equals(element.getElementType())) {
+                        apCount++;
+                    } else if ("mdf_idf".equals(element.getElementType())) {
+                        mdfCount++;
+                    }
+                }
                 
                 // 장비 보기 모드이고 교실 요소인 경우 장비 카드 추가
                 if ("equipment".equals(mode) && "room".equals(element.getElementType())) {
@@ -223,7 +249,12 @@ public class PPTExportService {
                 e.printStackTrace();
             }
         }
-        System.out.println("총 " + roomCount + "개의 교실 처리됨");
+        
+        if ("equipment".equals(mode)) {
+            System.out.println("총 " + roomCount + "개의 교실 처리됨");
+        } else if ("wireless-ap".equals(mode)) {
+            System.out.println("총 " + apCount + "개의 AP, " + mdfCount + "개의 MDF 처리됨");
+        }
     }
     
     /**
@@ -252,6 +283,11 @@ public class PPTExportService {
      * 모든 요소의 바운딩 박스 계산
      */
     private BoundingBox calculateBoundingBox(List<FloorPlanElement> elements) {
+        if (elements == null || elements.isEmpty()) {
+            // 빈 리스트인 경우 기본 바운딩 박스 반환
+            return new BoundingBox(0, 0, 1000, 1000);
+        }
+        
         double minX = Double.MAX_VALUE;
         double minY = Double.MAX_VALUE;
         double maxX = Double.MIN_VALUE;
@@ -260,10 +296,38 @@ public class PPTExportService {
         int padding = 100; // 여유 공간
         
         for (FloorPlanElement element : elements) {
-            double x = element.getXCoordinate();
-            double y = element.getYCoordinate();
-            double w = element.getWidth();
-            double h = element.getHeight();
+            double x = element.getXCoordinate() != null ? element.getXCoordinate() : 0;
+            double y = element.getYCoordinate() != null ? element.getYCoordinate() : 0;
+            Double wObj = element.getWidth();
+            Double hObj = element.getHeight();
+            double w = wObj != null ? wObj : 0;
+            double h = hObj != null ? hObj : 0;
+            
+            // wireless_ap의 경우 좌표가 중앙 좌표로 저장되어 있으므로 좌상단 좌표로 변환
+            if ("wireless_ap".equals(element.getElementType())) {
+                double radius = 20.0; // 기본 반지름
+                if (w > 0 && h > 0) {
+                    radius = Math.min(w, h) / 2.0;
+                } else {
+                    // element_data에서 radius 확인
+                    try {
+                        Map<String, Object> elementData = parseElementData(element.getElementData());
+                        if (elementData != null && elementData.containsKey("radius")) {
+                            Object radiusObj = elementData.get("radius");
+                            if (radiusObj instanceof Number) {
+                                radius = ((Number) radiusObj).doubleValue();
+                            }
+                        }
+                    } catch (Exception e) {
+                        // 파싱 실패 시 기본값 사용
+                    }
+                }
+                // 중앙 좌표에서 반지름을 빼서 좌상단 좌표로 변환
+                x = x - radius;
+                y = y - radius;
+                w = radius * 2;
+                h = radius * 2;
+            }
             
             minX = Math.min(minX, x);
             minY = Math.min(minY, y);
@@ -316,6 +380,12 @@ public class PPTExportService {
                 break;
             case "stairs":
                 createStairsShape(slide, element, scale, offsetX, offsetY);
+                break;
+            case "wireless_ap":
+                createWirelessApShape(slide, element, scale, offsetX, offsetY);
+                break;
+            case "mdf_idf":
+                createMdfIdfShape(slide, element, scale, offsetX, offsetY);
                 break;
             default:
                 System.err.println("알 수 없는 요소 타입: " + elementType);
@@ -1169,8 +1239,92 @@ public class PPTExportService {
     }
     
     /**
-     * 16진수 색상 코드를 Color 객체로 변환
+     * 무선AP 생성 (동적 스케일 적용) - 원형
      */
+    private void createWirelessApShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
+        Map<String, Object> elementData = parseElementData(element.getElementData());
+        
+        // 저장된 좌표는 중앙 좌표로 저장되어 있음
+        double centerX = element.getXCoordinate();
+        double centerY = element.getYCoordinate();
+        
+        // 반지름 계산 (width/height가 있으면 그걸 사용, 아니면 20)
+        double radius = 20.0;
+        if (element.getWidth() != null && element.getHeight() != null) {
+            radius = Math.min(element.getWidth(), element.getHeight()) / 2.0;
+        } else if (elementData.containsKey("radius")) {
+            Object radiusObj = elementData.get("radius");
+            if (radiusObj instanceof Number) {
+                radius = ((Number) radiusObj).doubleValue();
+            }
+        }
+        
+        // 원형 도형 생성 (좌상단 좌표로 변환)
+        int x = (int)((centerX - radius) * scale + offsetX);
+        int y = (int)((centerY - radius) * scale + offsetY);
+        int diameter = (int)(radius * 2 * scale);
+        
+        XSLFAutoShape shape = slide.createAutoShape();
+        shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
+        shape.setAnchor(new Rectangle(x, y, diameter, diameter));
+        
+        // 배경색 (빨간색 기본값)
+        String bgColorStr = (String) elementData.getOrDefault("backgroundColor", "#ef4444");
+        Color bgColor = parseColor(bgColorStr);
+        shape.setFillColor(bgColor);
+        
+        // 테두리 색 (검은색 기본값)
+        String borderColorStr = (String) elementData.getOrDefault("borderColor", "#000000");
+        Color borderColor = parseColor(borderColorStr);
+        shape.setLineColor(borderColor);
+        
+        // 테두리 두께
+        double borderWidth = 2.0;
+        if (elementData.containsKey("borderWidth")) {
+            Object borderWidthObj = elementData.get("borderWidth");
+            if (borderWidthObj instanceof Number) {
+                borderWidth = ((Number) borderWidthObj).doubleValue();
+            }
+        }
+        shape.setLineWidth(Math.max(0.2, borderWidth * scale));
+    }
+    
+    /**
+     * MDF(IDF) 생성 (동적 스케일 적용) - 사각형
+     */
+    private void createMdfIdfShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
+        int x = (int)(element.getXCoordinate() * scale + offsetX);
+        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        int width = (int)(element.getWidth() * scale);
+        int height = (int)(element.getHeight() * scale);
+        
+        Map<String, Object> elementData = parseElementData(element.getElementData());
+        
+        XSLFAutoShape shape = slide.createAutoShape();
+        shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
+        shape.setAnchor(new Rectangle(x, y, width, height));
+        
+        // 배경색 (빨간색 기본값)
+        String bgColorStr = (String) elementData.getOrDefault("backgroundColor", "#ef4444");
+        Color bgColor = parseColor(bgColorStr);
+        shape.setFillColor(bgColor);
+        
+        // 테두리 색 (검은색 기본값)
+        String borderColorStr = (String) elementData.getOrDefault("borderColor", "#000000");
+        Color borderColor = parseColor(borderColorStr);
+        shape.setLineColor(borderColor);
+        
+        // 테두리 두께
+        double borderWidth = 2.0;
+        if (elementData.containsKey("borderWidth")) {
+            Object borderWidthObj = elementData.get("borderWidth");
+            if (borderWidthObj instanceof Number) {
+                borderWidth = ((Number) borderWidthObj).doubleValue();
+            }
+        }
+        shape.setLineWidth(Math.max(0.2, borderWidth * scale));
+    }
+    
     private Color parseColor(String hexColor) {
         try {
             if (hexColor.startsWith("#")) {

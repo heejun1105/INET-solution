@@ -560,18 +560,36 @@ class FloorPlanApp {
         if (workspaceModeSelect && type) {
             // 설계 모드면 설계 관련 옵션만, 보기 모드면 보기 관련 옵션만 보이도록
             Array.from(workspaceModeSelect.options).forEach(option => {
-                const optgroup = option.parentElement;
-                if (optgroup && optgroup.tagName === 'OPTGROUP') {
-                    const isDesignGroup = optgroup.label.includes('설계');
-                    if (type === 'design' && !isDesignGroup) {
-                        option.style.display = 'none';
-                    } else if (type === 'view' && isDesignGroup) {
-                        option.style.display = 'none';
-                    } else {
-                        option.style.display = '';
-                    }
+                if (!option.value) {
+                    // 빈 옵션은 항상 표시
+                    option.style.display = '';
+                    return;
+                }
+                
+                const isDesignOption = option.value.startsWith('design-');
+                if (type === 'design' && !isDesignOption) {
+                    option.style.display = 'none';
+                } else if (type === 'view' && isDesignOption) {
+                    option.style.display = 'none';
+                } else {
+                    option.style.display = '';
                 }
             });
+        }
+        
+        // 저장/설계 버튼 표시/숨김 설정 (초기에는 모두 숨김, 모드 선택 후 표시)
+        const saveBtn = document.getElementById('workspace-save-btn');
+        const designBtn = document.getElementById('workspace-design-btn');
+        const pptBtn = document.getElementById('workspace-ppt-btn');
+        
+        if (saveBtn) {
+            saveBtn.style.display = 'none'; // 초기에는 숨김
+        }
+        if (designBtn) {
+            designBtn.style.display = 'none'; // 초기에는 숨김
+        }
+        if (pptBtn) {
+            pptBtn.style.display = 'none'; // 초기에는 숨김, 모드 선택 후 표시
         }
         
         // 학교 목록 로드
@@ -773,6 +791,9 @@ class FloorPlanApp {
         // 새 모드 시작
         await this.switchMode(mode);
         
+        // 모드 선택 드롭다운 필터링 업데이트
+        this.updateModeSelectFilter(mode);
+        
         // 저장/설계 버튼 전환
         const saveBtn = document.getElementById('workspace-save-btn');
         const designBtn = document.getElementById('workspace-design-btn');
@@ -811,6 +832,40 @@ class FloorPlanApp {
         if (this.core) {
             this.core.markDirty();
         }
+    }
+    
+    /**
+     * 모드 선택 드롭다운 필터링 업데이트
+     */
+    updateModeSelectFilter(mode) {
+        const workspaceModeSelect = document.getElementById('workspace-mode-select');
+        if (!workspaceModeSelect) return;
+        
+        // 모드 타입 결정 (design 또는 view)
+        const modeType = mode.startsWith('design-') ? 'design' : 'view';
+        
+        // 모든 옵션 표시/숨김 처리
+        Array.from(workspaceModeSelect.options).forEach(option => {
+            if (!option.value) {
+                // 빈 옵션은 항상 표시
+                option.style.display = '';
+                return;
+            }
+            
+            const isDesignOption = option.value.startsWith('design-');
+            if (modeType === 'design' && !isDesignOption) {
+                // 설계 모드로 전환했는데 보기 옵션이면 숨김
+                option.style.display = 'none';
+            } else if (modeType === 'view' && isDesignOption) {
+                // 보기 모드로 전환했는데 설계 옵션이면 숨김
+                option.style.display = 'none';
+            } else {
+                // 같은 타입이면 표시
+                option.style.display = '';
+            }
+        });
+        
+        console.log('🔄 모드 선택 드롭다운 필터링 업데이트:', modeType);
     }
     
     /**

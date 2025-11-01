@@ -175,11 +175,16 @@ export default class InteractionManager {
         // 선택된 요소가 있으면 먼저 핸들 확인 (회전 핸들은 요소 바깥에 있음)
         const selectedElement = this.core.state.selectedElements[0];
         if (selectedElement) {
-            const handle = this.findResizeHandle(canvasPos.x, canvasPos.y, selectedElement);
-            if (handle) {
-                console.debug('🎯 핸들 클릭:', handle, '| 요소:', selectedElement.id);
-                this.startResize(x, y, selectedElement, handle);
-                return;
+            // 잠긴 요소는 리사이즈 불가
+            if (selectedElement.isLocked) {
+                console.debug('🔒 잠긴 요소는 리사이즈 불가:', selectedElement.id);
+            } else {
+                const handle = this.findResizeHandle(canvasPos.x, canvasPos.y, selectedElement);
+                if (handle) {
+                    console.debug('🎯 핸들 클릭:', handle, '| 요소:', selectedElement.id);
+                    this.startResize(x, y, selectedElement, handle);
+                    return;
+                }
             }
         }
         
@@ -187,6 +192,12 @@ export default class InteractionManager {
         const clickedElement = this.findElementAt(canvasPos.x, canvasPos.y);
         
         if (clickedElement) {
+            // 잠긴 요소는 드래그/리사이즈 불가
+            if (clickedElement.isLocked) {
+                console.debug('🔒 잠긴 요소는 이동/조작 불가:', clickedElement.id);
+                return;
+            }
+            
             // 선택된 요소의 리사이즈 핸들 확인 (중복 확인 제거됨 - 위에서 이미 확인)
             // (회전 핸들이 아닌 일반 리사이즈 핸들은 요소 위에 있으므로 여기서도 확인)
             
@@ -447,6 +458,14 @@ export default class InteractionManager {
      * 드래그 시작
      */
     startDrag(x, y) {
+        // 선택된 요소 중 잠긴 요소가 있으면 드래그 불가
+        const selectedElements = this.core.state.selectedElements;
+        const hasLockedElement = selectedElements.some(el => el.isLocked);
+        if (hasLockedElement) {
+            console.debug('🔒 잠긴 요소는 드래그 불가');
+            return;
+        }
+        
         // 히스토리 저장 (작업 전 상태 저장)
         if (this.historyManager) {
             this.historyManager.saveState('작업 전');
@@ -460,7 +479,7 @@ export default class InteractionManager {
         
         this.dragStart.x = x;
         this.dragStart.y = y;
-        this.dragStart.elements = [...this.core.state.selectedElements];
+        this.dragStart.elements = [...selectedElements];
         
             // 원래 위치 저장 (부모 요소 + 자식 요소 모두)
         this.dragStart.originalPositions.clear();
@@ -540,10 +559,11 @@ export default class InteractionManager {
                     newY = snapped.y;
                 }
                 
-                // 이름박스의 경우 부모 요소 경계 체크
+                // 이름박스의 경우 부모 요소 경계 체크 (건물의 이름박스는 제외)
                 if (element.elementType === 'name_box' && element.parentElementId) {
                     const parent = this.core.state.elements.find(e => e.id === element.parentElementId);
-                    if (parent) {
+                    if (parent && parent.elementType !== 'building') {
+                        // 건물이 아닌 부모의 이름박스만 경계 제한
                         const minX = parent.xCoordinate;
                         const minY = parent.yCoordinate;
                         const maxX = parent.xCoordinate + parent.width - element.width;
@@ -552,16 +572,17 @@ export default class InteractionManager {
                         newX = Math.max(minX, Math.min(maxX, newX));
                         newY = Math.max(minY, Math.min(maxY, newY));
                     }
-                } else {
-                    // 일반 요소의 경우 캔버스 경계 체크
-                    const canvasWidth = this.core.state.canvasWidth;
-                    const canvasHeight = this.core.state.canvasHeight;
-                    const elementWidth = element.width || 0;
-                    const elementHeight = element.height || 0;
-                    
-                    newX = Math.max(0, Math.min(canvasWidth - elementWidth, newX));
-                    newY = Math.max(0, Math.min(canvasHeight - elementHeight, newY));
+                    // 건물의 이름박스는 경계 제한 없음 (캔버스 경계만 체크)
                 }
+                
+                // 모든 요소에 대해 캔버스 경계 체크
+                const canvasWidth = this.core.state.canvasWidth;
+                const canvasHeight = this.core.state.canvasHeight;
+                const elementWidth = element.width || 0;
+                const elementHeight = element.height || 0;
+                
+                newX = Math.max(0, Math.min(canvasWidth - elementWidth, newX));
+                newY = Math.max(0, Math.min(canvasHeight - elementHeight, newY));
                 
                 // 선/점선의 경우 startX, startY, endX, endY도 함께 업데이트
                 if (element.elementType === 'shape' && (element.shapeType === 'line' || element.shapeType === 'dashed-line')) {
@@ -609,21 +630,33 @@ export default class InteractionManager {
                             let childNewX = newX + childOriginalPos.offsetX;
                             let childNewY = newY + childOriginalPos.offsetY;
                             
-                            // 부모 요소 내부로 제한 (자식이 부모 밖으로 나가지 않도록)
-                            const minX = newX;
-                            const minY = newY;
-                            const maxX = newX + element.width - child.width;
-                            const maxY = newY + element.height - child.height;
-                            
-                            const beforeClampX = childNewX;
-                            const beforeClampY = childNewY;
-                            
-                            childNewX = Math.max(minX, Math.min(maxX, childNewX));
-                            childNewY = Math.max(minY, Math.min(maxY, childNewY));
-                            
-                            // 경계에 걸려서 clamp된 경우만 로그 출력
-                            if (childNewX !== beforeClampX || childNewY !== beforeClampY) {
-                                console.debug('⚠️ 자식 위치 제한됨:', child.id, 'before:', beforeClampX.toFixed(2), beforeClampY.toFixed(2), '→ after:', childNewX.toFixed(2), childNewY.toFixed(2));
+                            // 건물의 이름박스는 경계 제한 없음, 교실의 이름박스만 제한
+                            if (element.elementType === 'building' || child.elementType !== 'name_box') {
+                                // 건물이거나 이름박스가 아닌 자식: 경계 제한 없음 (캔버스 경계만 체크)
+                                const canvasWidth = this.core.state.canvasWidth;
+                                const canvasHeight = this.core.state.canvasHeight;
+                                const childWidth = child.width || 0;
+                                const childHeight = child.height || 0;
+                                
+                                childNewX = Math.max(0, Math.min(canvasWidth - childWidth, childNewX));
+                                childNewY = Math.max(0, Math.min(canvasHeight - childHeight, childNewY));
+                            } else {
+                                // 교실의 이름박스: 부모 요소 내부로 제한
+                                const minX = newX;
+                                const minY = newY;
+                                const maxX = newX + element.width - child.width;
+                                const maxY = newY + element.height - child.height;
+                                
+                                const beforeClampX = childNewX;
+                                const beforeClampY = childNewY;
+                                
+                                childNewX = Math.max(minX, Math.min(maxX, childNewX));
+                                childNewY = Math.max(minY, Math.min(maxY, childNewY));
+                                
+                                // 경계에 걸려서 clamp된 경우만 로그 출력
+                                if (childNewX !== beforeClampX || childNewY !== beforeClampY) {
+                                    console.debug('⚠️ 자식 위치 제한됨:', child.id, 'before:', beforeClampX.toFixed(2), beforeClampY.toFixed(2), '→ after:', childNewX.toFixed(2), childNewY.toFixed(2));
+                                }
                             }
                             
                             this.core.updateElement(child.id, {
@@ -912,6 +945,13 @@ export default class InteractionManager {
         
         // 삭제할 요소가 없으면 리턴
         if (selectedElements.length === 0) {
+            return;
+        }
+        
+        // 잠긴 요소가 있으면 삭제 불가
+        const hasLockedElement = selectedElements.some(el => el.isLocked);
+        if (hasLockedElement) {
+            console.debug('🔒 잠긴 요소는 삭제 불가');
             return;
         }
         
@@ -1249,6 +1289,12 @@ export default class InteractionManager {
      * 리사이즈 시작
      */
     startResize(x, y, element, handle) {
+        // 잠긴 요소는 리사이즈 불가
+        if (element.isLocked) {
+            console.debug('🔒 잠긴 요소는 리사이즈 불가:', element.id);
+            return;
+        }
+        
         // 회전 핸들의 경우 startRotate로 전환
         if (handle === 'rotate') {
             this.startRotate(x, y, element);
@@ -1296,6 +1342,12 @@ export default class InteractionManager {
      * 회전 시작
      */
     startRotate(x, y, element) {
+        // 잠긴 요소는 회전 불가
+        if (element.isLocked) {
+            console.debug('🔒 잠긴 요소는 회전 불가:', element.id);
+            return;
+        }
+        
         // 히스토리 저장
         if (this.historyManager) {
             this.historyManager.saveState('작업 전');
@@ -1510,10 +1562,11 @@ export default class InteractionManager {
             }
         }
         
-        // 이름박스의 경우 부모 요소 경계 내로 제한
+        // 이름박스의 경우 부모 요소 경계 내로 제한 (건물의 이름박스는 제외)
         if (element.elementType === 'name_box' && element.parentElementId) {
             const parent = this.core.state.elements.find(e => e.id === element.parentElementId);
-            if (parent) {
+            if (parent && parent.elementType !== 'building') {
+                // 건물이 아닌 부모의 이름박스만 경계 제한
                 // 부모의 경계
                 const parentLeft = parent.xCoordinate;
                 const parentTop = parent.yCoordinate;
@@ -1530,6 +1583,7 @@ export default class InteractionManager {
                 newWidth = Math.min(newWidth, maxWidth);
                 newHeight = Math.min(newHeight, maxHeight);
             }
+            // 건물의 이름박스는 경계 제한 없음 (캔버스 경계만 체크)
         }
         
         // 요소 업데이트

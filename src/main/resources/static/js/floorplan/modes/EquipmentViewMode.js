@@ -24,12 +24,28 @@ export default class EquipmentViewMode {
      */
     async activate() {
         console.log('✅ 장비보기 모드 활성화');
+        
+        // 모든 요소 잠금 (보기 모드에서는 이동 불가)
+        this.lockAllElements();
+        
         await this.loadDevices();
         this.renderEquipmentCards();
         this.bindEvents();
         
         // 강제 렌더링
         this.core.markDirty();
+    }
+    
+    /**
+     * 모든 요소 잠금
+     */
+    lockAllElements() {
+        const elements = this.elementManager.getAllElements();
+        elements.forEach(element => {
+            element.isLocked = true;
+            this.elementManager.updateElement(element.id, { isLocked: true });
+        });
+        console.log('🔒 모든 요소 잠금 (장비보기 모드)');
     }
     
     /**
