@@ -626,7 +626,7 @@
 /* 상단 컨트롤바 - Blue Theme */
 .workspace-header {
     background: #f0f9ff;
-    padding: 0.75rem 1.25rem; /* 상단 높이 축소 */
+    padding: 1.25rem 2.5rem;
     box-shadow: 0 1px 3px rgba(14, 165, 233, 0.1);
     border-bottom: 1px solid #bae6fd;
     flex-shrink: 0; /* 헤더는 축소되지 않음 */
@@ -635,88 +635,9 @@
 .workspace-controls {
     display: flex;
     align-items: center;
-    justify-content: space-between; /* 데스크톱 원래 배치 */
+    justify-content: space-between;
     gap: 1rem;
     width: 100%;
-}
-
-/* 상단 탑바: 좌측 드롭다운 / 우측 버튼을 양끝 정렬 (데스크톱 기본) */
-.workspace-topbar-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    width: 100%;
-}
-.workspace-topbar-row .workspace-dropdown { min-width: 120px; height: 34px; font-size: 0.8rem; padding: 6px 10px; }
-.workspace-topbar-row .workspace-btn { white-space: nowrap; }
-
-@media (max-width: 768px) {
-    /* 헤더를 기준 컨테이너로 사용 */
-    .workspace-header { position: relative; }
-
-    .workspace-topbar-row {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start; /* 좌측부터 배치 */
-        gap: 0.5rem;
-        width: 100%;
-        flex-wrap: nowrap;
-        overflow-x: auto; -webkit-overflow-scrolling: touch;
-        padding-right: 190px; /* 우측 액션 버튼 영역만큼 여백 확보 → 겹침 방지 */
-    }
-    .workspace-topbar-row .workspace-controls-left,
-    .workspace-topbar-row .workspace-controls-right {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: nowrap;
-    }
-    /* 모바일: 드롭다운/버튼 더 작게 */
-    .workspace-topbar-row .workspace-dropdown {
-        min-width: 60px;
-        width: 90px;            /* 불필요한 확장 방지 */
-        max-width: 110px;
-        height: 30px;
-        font-size: 0.72rem;
-        padding: 4px 6px;
-        flex: 0 0 auto;         /* flex-grow:0, 고정 폭 유지 */
-    }
-    /* 모바일: 액션 버튼(보기/저장/닫기) 동일 크기 */
-    .workspace-topbar-row .workspace-btn,
-    .workspace-actions-right .workspace-btn {
-        width: 72px;
-        height: 28px;
-        padding: 0.25rem 0.45rem;
-        font-size: 0.7rem;
-        border-radius: 6px;
-        flex: 0 0 auto;
-    }
-    .workspace-topbar-row::-webkit-scrollbar { height: 6px; }
-    /* 드롭다운 컨테이너가 드릴다운을 늘리지 않도록 */
-    .workspace-topbar-row .workspace-controls-left { flex: 0 1 auto; }
-
-    /* 모바일: 액션 버튼을 드롭다운 라인(우측)으로 올림 */
-    .workspace-actions-right {
-        position: absolute;
-        right: 10px;
-        top: 8px;
-        margin-left: 0;
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-        flex-shrink: 0;
-    }
-
-    /* 모바일: 도구 영역은 다음 줄에 표시 (사라지지 않도록 보장) */
-    .workspace-controls-center {
-        display: flex !important;
-        flex-wrap: wrap;
-        justify-content: flex-start;
-        gap: 0.5rem;
-        margin-top: 6px;
-    }
-    .workspace-controls-center .header-tool-group { display: flex !important; }
-    .workspace-controls-center .help-dropdown { display: block !important; }
 }
 
 .workspace-controls-left {
@@ -739,26 +660,12 @@
     gap: 1rem;
 }
 
-/* 도움말 오른쪽에 액션 버튼 묶음을 우측으로 밀착 */
-.workspace-actions-right {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-@media (min-width: 769px) {
-    /* PC에서는 상단 도구배너 접기/펼치기 버튼 숨김 */
-    #header-collapse-btn,
-    #header-show-btn { display: none !important; }
-}
-
 /* 헤더 도구 그룹 */
 .header-tool-group {
     display: flex;
     align-items: center;
-    gap: 0.425rem; /* -15% */
-    padding: 0.2125rem 0.6375rem; /* -15% */
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
     background: white;
     border-radius: 8px;
     border: 1px solid #bae6fd;
@@ -773,12 +680,12 @@
 }
 
 .header-tool-btn {
-    padding: 0.425rem 0.6375rem; /* -15% */
+    padding: 0.5rem 0.75rem;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     background: white;
     color: #334155;
-    font-size: 0.8rem; /* -~6% 가독성 유지 */
+    font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.2s ease;
     display: inline-flex;
@@ -806,8 +713,8 @@
 
 /* 헤더 색상 입력 */
 .header-color-input {
-    width: 27px;   /* -15% */
-    height: 27px;  /* -15% */
+    width: 32px;
+    height: 32px;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     cursor: pointer;
@@ -821,12 +728,12 @@
 
 /* 헤더 선택 입력 */
 .header-select {
-    padding: 0.425rem; /* -15% */
+    padding: 0.5rem;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     background: white;
     color: #334155;
-    font-size: 0.8rem; /* 소폭 축소 */
+    font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -901,12 +808,12 @@
 }
 
 .help-btn {
-    padding: 0.425rem 0.51rem; /* -15% */
+    padding: 0.5rem 0.6rem;
     border: 1px solid #0ea5e9;
     border-radius: 6px;
     background: white;
     color: #0ea5e9;
-    font-size: 0.85rem;
+    font-size: 1rem;
     cursor: pointer;
     transition: all 0.2s ease;
     display: inline-flex;
@@ -1049,10 +956,10 @@
 }
 
 .workspace-btn {
-    padding: 0.34rem 0.595rem; /* -15% */
+    padding: 0.5rem 0.85rem;
     border: none;
     border-radius: 8px;
-    font-size: 0.78rem;
+    font-size: 0.85rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1061,14 +968,7 @@
     justify-content: center;
     gap: 0.4rem;
     white-space: nowrap;
-    min-width: 58px; /* -15% */
-}
-
-/* 데스크톱: 액션 버튼 높이를 통일(장비 보기/저장/닫기) */
-@media (min-width: 769px) {
-    .workspace-btn {
-        min-height: 34px;
-    }
+    min-width: 80px;
 }
 
 .workspace-btn:active {
@@ -1111,9 +1011,6 @@
 .workspace-btn.view-btn:hover {
     background: #059669;
 }
-
-/* 장비보기 버튼(모든 해상도)에서 아이콘 숨김 */
-.workspace-btn.view-btn i { display: none !important; }
 
 .workspace-btn.design-btn {
     background: #8b5cf6;
@@ -1158,8 +1055,8 @@
     top: auto !important;
     bottom: -18px !important; /* 배너 아래로 살짝 튀어나오게 */
     transform: translateX(-50%) !important;
-    width: 32px !important;
-    height: 32px !important;
+    width: 36px !important;
+    height: 36px !important;
     border-radius: 50% !important;
     background: #f3f4f6 !important;
     color: #334155 !important;
@@ -1177,8 +1074,8 @@
     left: 50% !important;
     top: 8px !important;
     transform: translateX(-50%) !important;
-    width: 32px !important;
-    height: 32px !important;
+    width: 36px !important;
+    height: 36px !important;
     border-radius: 50% !important;
     background: #f3f4f6 !important;
     color: #334155 !important;
@@ -1252,32 +1149,6 @@
         padding: 0.6rem 0.8rem;
         font-size: 0.85rem;
     }
-    /* 태블릿: 장비보기/저장/닫기 버튼 동일 크기 (PC 영향 없음) */
-    .workspace-actions-right .workspace-btn {
-        width: 100px;
-        height: 36px;
-        padding: 0.55rem 0.9rem;
-        font-size: 0.85rem;
-        flex: 0 0 auto;
-    }
-
-    /* 1024~1200 랩톱 대응 - 가로 스크롤 + 2줄 래핑 + 고정폭 플렉스 */
-    .workspace-header { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .workspace-controls { flex-wrap: wrap; }
-    /* 1줄: 드롭다운 + 우측 액션 */
-    .workspace-topbar-row { flex: 0 0 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    /* 액션은 도구줄 우측으로 (controls-center 내부) */
-    .workspace-actions-right { position: static; margin-left: auto; flex: 0 0 auto; }
-    /* 2줄: 도구 그룹 */
-    .workspace-controls-center { flex: 0 0 100%; overflow-x: auto; }
-    /* 아이템은 고정폭 */
-    .workspace-controls-left,
-    .workspace-controls_right,
-    .workspace-dropdown,
-    .header-tool-group,
-    .help-dropdown,
-    .workspace-actions-right .workspace-btn,
-    .workspace-controls-right .workspace-btn { flex: 0 0 auto; white-space: nowrap; }
     
     /* 툴바 조정 */
     .design-toolbar-container {
@@ -1296,41 +1167,6 @@
         left: 15px;
         top: 15px;
     }
-}
-
-/* 랩톱(1025px ~ 1200px): 도구줄 + 액션 2줄 구성, 액션은 우측 정렬 */
-@media (min-width: 1025px) and (max-width: 1200px) {
-    .workspace-header { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .workspace-controls { flex-wrap: wrap; }
-    /* 1줄: 드롭다운 */
-    .workspace-topbar-row { flex: 0 0 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    /* 2줄: 도구 + 우측 액션 */
-    .workspace-controls-center { flex: 0 0 100%; display: flex; align-items: center; gap: 0.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .workspace-actions-right { position: static; margin-left: auto; flex: 0 0 auto; }
-    /* 모든 항목은 한 줄에서 줄바꿈 없이 가로 스크롤 */
-    .workspace-topbar-row .workspace-dropdown,
-    .workspace-controls-center .header-tool-group,
-    .workspace-actions-right .workspace-btn,
-    .workspace-controls-right .workspace-btn {
-        flex: 0 0 auto; white-space: nowrap;
-    }
-}
-
-/* 공통: 769~1200px 구간에서 순서 재배치 (1줄: 드롭다운+버튼, 2줄: 도구들) */
-@media (min-width: 769px) and (max-width: 1200px) {
-    /* 컨테이너는 감싸기 허용 */
-    .workspace-controls { flex-wrap: wrap; align-items: center; }
-    /* 1줄: 드롭다운 + 버튼(우측 정렬) */
-    .workspace-topbar-row { order: 1; flex: 1 1 auto; display: flex; align-items: center; gap: 0.5rem; overflow-x: auto; }
-    .workspace-actions-right { order: 2; position: static; right: auto; top: auto; transform: none; margin-left: auto; display: flex !important; gap: 0.35rem; flex: 0 0 auto; }
-    /* 2줄: 도구들 */
-    .workspace-controls-center { order: 3; flex: 0 0 100%; display: flex; align-items: center; gap: 0.5rem; overflow-x: auto; }
-}
-
-/* 데스크톱(≥1201px): 한 줄에서 버튼을 항상 우측 정렬 */
-@media (min-width: 1201px) {
-    .workspace-controls { justify-content: flex-start; }
-    .workspace-actions-right { margin-left: auto; display: flex; gap: 0.5rem; }
 }
 
 /* 모바일 (768px 이하) */
@@ -1789,21 +1625,6 @@
     /* 추가 기능 버튼 모바일 최적화 */
     .header-tool-btn.dropdown-toggle {
         min-width: 80px;
-    }
-
-    /* 모바일 전용: 보기 버튼 숨김, 저장/닫기 아이콘 숨김 */
-    #workspace-view-btn { display: none !important; }
-    .workspace-btn.save-btn i,
-    .workspace-btn.close-btn i { display: none !important; }
-
-    /* 모바일 전용: 저장/닫기 버튼 가로폭 더 축소 */
-    .workspace-btn.save-btn,
-    .workspace-btn.close-btn {
-        min-width: 35px;
-        width: 45px;
-        padding-left: 0.4rem;
-        padding-right: 0.4rem;
-        text-align: center;
     }
 }
 
