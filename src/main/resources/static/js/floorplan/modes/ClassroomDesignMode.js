@@ -129,6 +129,271 @@ export default class ClassroomDesignMode {
     }
     
     /**
+     * 모바일 툴바 좌측 사이드바 설정
+     */
+    setupMobileToolbar(toolbarContainer) {
+        // 초기 상태: 접힌 형태가 기본 (한 줄 상태)
+        toolbarContainer.classList.remove('hidden', 'expanded');
+        toolbarContainer.classList.add('collapsed');
+        
+        const canvasContainer = document.querySelector('.workspace-canvas-container');
+        
+        // 캔버스 패딩 업데이트 함수
+        const updateCanvasPadding = () => {
+            if (!canvasContainer) return;
+            canvasContainer.classList.remove('toolbar-hidden', 'toolbar-expanded', 'toolbar-collapsed');
+            if (toolbarContainer.classList.contains('hidden')) {
+                canvasContainer.classList.add('toolbar-hidden');
+            } else if (toolbarContainer.classList.contains('expanded')) {
+                canvasContainer.classList.add('toolbar-expanded');
+            } else if (toolbarContainer.classList.contains('collapsed')) {
+                canvasContainer.classList.add('toolbar-collapsed');
+            }
+        };
+        
+        // 초기 패딩 설정 (접힌 상태)
+        updateCanvasPadding();
+        
+        // 토글 버튼 아이콘 업데이트
+        const toggleBtn = document.getElementById('toolbar-toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.innerHTML = '<i class=\"fas fa-chevron-right\"></i>';
+            toggleBtn.title = '도구창 숨기기';
+        }
+        
+        // 토글 버튼 클릭 이벤트 재설정
+        if (toggleBtn) {
+            // 기존 이벤트 리스너 제거하고 새로 등록
+            const newToggleBtn = toggleBtn.cloneNode(true);
+            if (toggleBtn.parentNode) {
+                toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+            }
+            
+            // 토글 버튼 참조를 새로 만든 버튼으로 업데이트
+            const self = this;
+            const toolbarToggleBtn = newToggleBtn;
+            
+            newToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                if (toolbarContainer.classList.contains('collapsed')) {
+                    // 접힌 상태 (기본 상태) -> 완전히 숨김
+                    toolbarContainer.classList.remove('collapsed');
+                    toolbarContainer.classList.add('hidden');
+                    
+                    // 숨김 상태일 때 토글 버튼을 body에 직접 추가
+                    self.moveToggleButtonToBody(toolbarToggleBtn);
+                } else if (toolbarContainer.classList.contains('hidden')) {
+                    // 숨김 상태 -> 접힌 상태로 복귀 (기본 상태)
+                    toolbarContainer.classList.remove('hidden');
+                    toolbarContainer.classList.add('collapsed');
+                    
+                    // 토글 버튼을 도구창으로 다시 이동
+                    self.moveToggleButtonToToolbar(toolbarToggleBtn, toolbarContainer);
+                } else if (toolbarContainer.classList.contains('expanded')) {
+                    // 확장 상태 -> 접힌 상태 (기본 상태로 복귀)
+                    toolbarContainer.classList.remove('expanded');
+                    toolbarContainer.classList.add('collapsed');
+                }
+                updateCanvasPadding();
+                self.updateToolbarToggleIcon(toolbarContainer, toolbarToggleBtn);
+            });
+        }
+        
+        // 숨김 상태에서 다시 표시할 버튼 생성 (호환성 유지)
+        this.createToolbarShowButton(toolbarContainer);
+    }
+    
+    /**
+     * 숨김 상태일 때 토글 버튼을 body로 이동
+     */
+    moveToggleButtonToBody(toggleBtn) {
+        if (!toggleBtn) return;
+        
+        // 이미 body에 있으면 스타일만 재적용
+        if (toggleBtn.parentElement === document.body) {
+            toggleBtn.classList.add('toolbar-toggle-hidden');
+            this.applyHiddenToggleStyles(toggleBtn);
+            return;
+        }
+        
+        // 현재 부모에서 제거하고 body에 추가
+        try {
+            if (toggleBtn.parentElement) {
+                toggleBtn.parentElement.removeChild(toggleBtn);
+            }
+            document.body.appendChild(toggleBtn);
+            
+            // 숨김 상태용 클래스 추가
+            toggleBtn.classList.add('toolbar-toggle-hidden');
+            
+            // 강제로 표시되도록 스타일 적용
+            this.applyHiddenToggleStyles(toggleBtn);
+            
+            console.log('✅ 토글 버튼을 body로 이동 완료', {
+                parent: toggleBtn.parentElement,
+                classes: toggleBtn.className,
+                styles: {
+                    position: toggleBtn.style.position,
+                    left: toggleBtn.style.left,
+                    top: toggleBtn.style.top,
+                    opacity: toggleBtn.style.opacity,
+                    display: toggleBtn.style.display,
+                    zIndex: toggleBtn.style.zIndex
+                }
+            });
+            
+            // 디버깅: DOM에 실제로 있는지 확인
+            setTimeout(() => {
+                const checkBtn = document.querySelector('body > .toolbar-toggle-btn');
+                console.log('🔍 body에 토글 버튼 확인:', checkBtn, checkBtn ? checkBtn.offsetParent : 'null');
+                if (checkBtn) {
+                    console.log('🔍 컴퓨팅된 스타일:', {
+                        position: window.getComputedStyle(checkBtn).position,
+                        left: window.getComputedStyle(checkBtn).left,
+                        top: window.getComputedStyle(checkBtn).top,
+                        opacity: window.getComputedStyle(checkBtn).opacity,
+                        display: window.getComputedStyle(checkBtn).display,
+                        visibility: window.getComputedStyle(checkBtn).visibility,
+                        zIndex: window.getComputedStyle(checkBtn).zIndex,
+                        transform: window.getComputedStyle(checkBtn).transform
+                    });
+                }
+            }, 100);
+        } catch (error) {
+            console.error('❌ 토글 버튼 이동 오류:', error);
+        }
+    }
+    
+    /**
+     * 숨김 상태 토글 버튼 스타일 적용
+     */
+    applyHiddenToggleStyles(toggleBtn) {
+        if (!toggleBtn) return;
+        
+        // 모든 스타일을 인라인으로 강제 적용 (내부 토글과 동일한 외관)
+        toggleBtn.style.cssText = `
+            position: fixed !important;
+            left: 10px !important;
+            top: 50% !important;
+            right: auto !important;
+            transform: translateY(-50%) !important;
+            width: 36px !important;
+            height: 36px !important;
+            background: #f3f4f6 !important;
+            color: #334155 !important;
+            border-radius: 6px !important;
+            font-size: 0.9rem !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+            z-index: 20001 !important;
+            pointer-events: auto !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            transition: none !important;
+        `;
+    }
+    
+    /**
+     * 토글 버튼을 도구창으로 다시 이동
+     */
+    moveToggleButtonToToolbar(toggleBtn, toolbarContainer) {
+        if (!toggleBtn || !toolbarContainer) return;
+        
+        // body에 있으면 도구창으로 이동
+        try {
+            if (toggleBtn.parentElement === document.body) {
+                document.body.removeChild(toggleBtn);
+                toolbarContainer.insertBefore(toggleBtn, toolbarContainer.firstChild);
+            }
+            
+            // 숨김 상태용 클래스 제거 및 스타일 초기화
+            toggleBtn.classList.remove('toolbar-toggle-hidden');
+            toggleBtn.style.position = '';
+            toggleBtn.style.left = '';
+            toggleBtn.style.top = '';
+            toggleBtn.style.transform = '';
+            toggleBtn.style.opacity = '';
+            toggleBtn.style.visibility = '';
+            toggleBtn.style.pointerEvents = '';
+            
+            console.log('✅ 토글 버튼을 도구창으로 복귀 완료');
+        } catch (error) {
+            console.error('❌ 토글 버튼 복귀 오류:', error);
+        }
+    }
+    
+    /**
+     * 도구창 표시 버튼 생성
+     */
+    createToolbarShowButton(toolbarContainer) {
+        // 이미 있으면 제거
+        const existingBtn = document.querySelector('.toolbar-show-btn');
+        if (existingBtn) {
+            existingBtn.remove();
+        }
+        
+        const showBtn = document.createElement('button');
+        showBtn.className = 'toolbar-show-btn';
+        showBtn.innerHTML = '<i class="fas fa-bars"></i>';
+        showBtn.title = '도구창 표시';
+        showBtn.style.display = 'none';
+        
+        showBtn.addEventListener('click', () => {
+            toolbarContainer.classList.remove('hidden');
+            showBtn.style.display = 'none';
+            const canvasContainer = document.querySelector('.workspace-canvas-container');
+            if (canvasContainer) {
+                canvasContainer.classList.remove('toolbar-hidden');
+            }
+            const toggleBtn = document.getElementById('toolbar-toggle-btn');
+            if (toggleBtn) {
+                this.updateToolbarToggleIcon(toolbarContainer, toggleBtn);
+            }
+        });
+        
+        document.body.appendChild(showBtn);
+    }
+    
+    /**
+     * 도구창 표시 버튼 표시
+     */
+    showToolbarShowButton() {
+        const showBtn = document.querySelector('.toolbar-show-btn');
+        if (showBtn) {
+            showBtn.style.display = 'flex';
+        }
+    }
+    
+    /**
+     * 토글 버튼 아이콘 업데이트
+     */
+    updateToolbarToggleIcon(toolbarContainer, toggleBtn) {
+        if (!toggleBtn) return;
+        
+        if (toolbarContainer.classList.contains('hidden')) {
+            // 숨김 상태: 내부 토글과 동일한 아이콘(> 방향) 유지
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            toggleBtn.title = '도구창 표시';
+        } else if (toolbarContainer.classList.contains('collapsed')) {
+            // 접힌 상태 (기본 상태): 도구창 내부 우측 상단
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            toggleBtn.title = '도구창 숨기기';
+        } else if (toolbarContainer.classList.contains('expanded')) {
+            // 확장 상태: 도구창 내부 우측 상단
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            toggleBtn.title = '도구창 접기';
+        }
+    }
+    
+    /**
      * UI 설정
      */
     setupUI() {
@@ -145,17 +410,46 @@ export default class ClassroomDesignMode {
             toggleBtn.title = '도구창 접기/펼치기';
             toolbarContainer.insertBefore(toggleBtn, toolbar);
             
-            // 저장된 상태 불러오기
-            const isCollapsed = localStorage.getItem('toolbar-collapsed') === 'true';
-            if (isCollapsed) {
-                toolbarContainer.classList.add('collapsed');
+            // 모바일 감지 및 바텀 시트 기능 설정
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                this.setupMobileToolbar(toolbarContainer);
             }
             
-            // 토글 이벤트
-            toggleBtn.addEventListener('click', () => {
-                toolbarContainer.classList.toggle('collapsed');
-                const collapsed = toolbarContainer.classList.contains('collapsed');
-                localStorage.setItem('toolbar-collapsed', collapsed);
+            // 저장된 상태 불러오기 (데스크톱만)
+            if (!isMobile) {
+                const isCollapsed = localStorage.getItem('toolbar-collapsed') === 'true';
+                if (isCollapsed) {
+                    toolbarContainer.classList.add('collapsed');
+                }
+            }
+            
+            // 토글 이벤트 (데스크톱만, 모바일은 setupMobileToolbar에서 처리)
+            if (!isMobile) {
+                toggleBtn.addEventListener('click', () => {
+                    toolbarContainer.classList.toggle('collapsed');
+                    const collapsed = toolbarContainer.classList.contains('collapsed');
+                    localStorage.setItem('toolbar-collapsed', collapsed);
+                    
+                    // 아이콘 업데이트
+                    if (collapsed) {
+                        toggleBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+                    } else {
+                        toggleBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+                    }
+                });
+            }
+            
+            // 윈도우 리사이즈 감지
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    const nowMobile = window.innerWidth <= 768;
+                    if (nowMobile !== isMobile) {
+                        location.reload(); // 모바일/데스크톱 전환 시 리로드
+                    }
+                }, 250);
             });
         }
         
@@ -304,18 +598,55 @@ export default class ClassroomDesignMode {
         const moreBtn = document.getElementById('header-more-btn');
         const moreMenu = document.getElementById('header-more-menu');
         if (moreBtn && moreMenu) {
-            moreBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                // 도움말 메뉴가 열려있으면 닫기
-                const helpMenu = document.getElementById('help-menu');
-                if (helpMenu) helpMenu.style.display = 'none';
-                moreMenu.style.display = moreMenu.style.display === 'none' ? 'block' : 'none';
-            });
+            let lastToggleAt = 0;
+            const doToggle = () => {
+                const now = Date.now();
+                if (now - lastToggleAt < 200) return; // 중복 방지
+                lastToggleAt = now;
+                const helpMenuEl = document.getElementById('help-menu');
+                if (helpMenuEl) helpMenuEl.style.display = 'none';
+                const willOpen = (moreMenu.style.display === 'none' || !moreMenu.style.display);
+                if (willOpen) {
+                    // 위치 계산: 버튼 아래에 고정 위치로 띄우기 (오버플로우/스택 컨텍스트 회피)
+                    const rect = moreBtn.getBoundingClientRect();
+                    // body에 붙여 최상위 레이어로 이동
+                    if (moreMenu.parentElement !== document.body) {
+                        try { moreMenu.parentElement.removeChild(moreMenu); } catch(_) {}
+                        document.body.appendChild(moreMenu);
+                    }
+                    Object.assign(moreMenu.style, {
+                        position: 'fixed',
+                        left: `${Math.max(8, rect.left)}px`,
+                        top: `${rect.bottom + 6}px`,
+                        right: 'auto',
+                        maxWidth: 'min(90vw, 420px)',
+                        zIndex: '20020',
+                        display: 'block',
+                        pointerEvents: 'auto',
+                        background: '#ffffff',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                        borderRadius: '8px'
+                    });
+                } else {
+                    moreMenu.style.display = 'none';
+                }
+            };
+            const toggleMoreMenu = (e) => {
+                if (e) { e.preventDefault && e.preventDefault(); e.stopPropagation && e.stopPropagation(); }
+                doToggle();
+            };
             
-            // 드롭다운 외부 클릭 시 닫기
-            document.addEventListener('click', () => {
-                moreMenu.style.display = 'none';
-            });
+            // 입력은 pointerup 하나로 통일 (모바일/데스크톱 공통)
+            moreBtn.addEventListener('pointerup', toggleMoreMenu);
+            
+            // 외부 탭/클릭 시 닫기 (pointerdown 하나로 통일)
+            const closeIfOutside = (e) => {
+                const target = e.target;
+                if (!moreMenu.contains(target) && !moreBtn.contains(target)) {
+                    moreMenu.style.display = 'none';
+                }
+            };
+            document.addEventListener('pointerdown', closeIfOutside, true);
         }
         
         // 캔버스 초기화

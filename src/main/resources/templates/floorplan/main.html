@@ -442,24 +442,29 @@
             <!-- 상단 컨트롤바 -->
             <div class="workspace-header">
                 <div class="workspace-controls">
-                    <!-- 좌측: 학교/모드 선택 -->
-                    <div class="workspace-controls-left">
+                    <!-- 상단 탑바: 학교/모드 선택 -->
+                    <div class="workspace-topbar-row">
+                        <div class="workspace-controls-left">
                         <select id="workspace-school-select" class="workspace-dropdown">
-                            <option value="">학교를 선택하세요</option>
+                            <option value="">학교선택</option>
                             <!-- 학교 목록 동적 로드 -->
                         </select>
                         
                         <select id="workspace-mode-select" class="workspace-dropdown">
-                            <option value="">모드를 선택하세요</option>
+                            <option value="">모드선택</option>
                             <option value="design-classroom">교실 설계</option>
                             <option value="design-wireless">무선 AP 설계</option>
                             <option value="design-seat">자리 배치 설계</option>
                             <option value="view-equipment">장비 보기</option>
                             <option value="view-wireless">무선 AP 보기</option>
                         </select>
+                        
+                        
+                        </div>
                     </div>
+            
                     
-                    <!-- 중앙: 레이어 관리/스타일/추가 기능 -->
+                    <!-- 중앙: 레이어 관리/스타일/추가 기능 (두 번째 줄) -->
                     <div class="workspace-controls-center" id="workspace-tools" style="display: none;">
                         <!-- 레이어 관리 -->
                         <div class="header-tool-group">
@@ -527,15 +532,15 @@
                             <div class="header-dropdown">
                                 <button id="header-more-btn" class="header-tool-btn dropdown-toggle">
                                     <span>Tool+</span>
-                                </button>
+                        </button>
                                 <div id="header-more-menu" class="header-dropdown-menu" style="display: none;">
                                     <button id="header-initialize-canvas" class="dropdown-item danger-item">
                                         <i class="fas fa-trash"></i>
                                         캔버스 초기화
-                                    </button>
+                        </button>
                                 </div>
                             </div>
-                        </div>
+                    </div>
                         
                         <!-- 도움말 드롭다운 -->
                         <div class="header-tool-group">
@@ -641,31 +646,37 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <!-- 우측: 저장/설계 버튼 -->
-                    <div class="workspace-controls-right">
-                        <!-- 저장 버튼 (설계 모드에서만 표시) -->
-                        <button id="workspace-save-btn" class="workspace-btn save-btn">
-                            <i class="fas fa-save"></i>
-                            <span>저장</span>
-                        </button>
-                        
-                        <!-- 설계 버튼 (보기 모드에서만 표시) -->
-                        <button id="workspace-design-btn" class="workspace-btn design-btn" style="display: none;">
-                            <i class="fas fa-pencil-ruler"></i>
-                            <span>설계</span>
-                        </button>
-                        
-                        <button id="workspace-ppt-btn" class="workspace-btn ppt-btn" style="display: none;">
-                            <i class="fas fa-file-powerpoint"></i>
-                            <span>PPT 다운로드</span>
-                        </button>
-                        
-                        <button id="workspace-close-btn" class="workspace-btn close-btn">
-                            <i class="fas fa-times"></i>
-                            <span>닫기</span>
-                        </button>
+
+                        <!-- 우측 액션: 도움말 버튼 오른쪽 정렬 -->
+                        <div class="workspace-actions-right">
+                            <!-- 보기 버튼 (설계 모드에서만 표시) -->
+                            <button id="workspace-view-btn" class="workspace-btn view-btn" style="display: none;">
+                                <i class="fas fa-eye"></i>
+                                <span>보기</span>
+                            </button>
+                            
+                            <!-- 저장 버튼 (설계 모드에서만 표시) -->
+                            <button id="workspace-save-btn" class="workspace-btn save-btn">
+                                <i class="fas fa-save"></i>
+                                <span>저장</span>
+                            </button>
+                            
+                            <!-- 설계 버튼 (보기 모드에서만 표시) -->
+                            <button id="workspace-design-btn" class="workspace-btn design-btn" style="display: none;">
+                                <i class="fas fa-pencil-ruler"></i>
+                                <span>설계</span>
+                            </button>
+                            
+                            <button id="workspace-ppt-btn" class="workspace-btn ppt-btn" style="display: none;">
+                                <i class="fas fa-file-powerpoint"></i>
+                                <span>PPT 다운로드</span>
+                            </button>
+                            
+                            <button id="workspace-close-btn" class="workspace-btn close-btn">
+                                <i class="fas fa-times"></i>
+                                <span>닫기</span>
+                            </button>
+                        </div>
                             </div>
                     </div>
                 </div>

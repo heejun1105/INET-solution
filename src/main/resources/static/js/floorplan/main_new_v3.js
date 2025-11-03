@@ -91,6 +91,52 @@ class FloorPlanApp {
         // Core에 schoolId 저장
         this.core.currentSchoolId = null;
     }
+
+    // 뷰포트 크기 변화에 맞춰 배율/팬을 보정 (필요 시만 확대)
+    fitCanvasToViewportDebounced() {
+        clearTimeout(this._fitTimer);
+        this._fitTimer = setTimeout(() => this.fitCanvasToViewport(), 80);
+    }
+
+    fitCanvasToViewport() {
+        try {
+            if (!this.core || !this.core.canvas) return;
+            const container = document.querySelector('.workspace-canvas-container');
+            if (!container) return;
+            const rect = container.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return;
+
+            // 최소 맞춤 줌 계산 (코어 제공 메서드 사용)
+            const minZoom = (typeof this.core.getMinZoomToFitCanvas === 'function')
+                ? this.core.getMinZoomToFitCanvas()
+                : this.core.state.zoom;
+
+            const currentZoom = this.core.state.zoom || 1.0;
+            const targetZoom = Math.max(minZoom, currentZoom);
+
+            // 화면 중앙을 기준으로 줌 적용 (screen 좌표)
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            if (typeof this.core.setZoom === 'function') {
+                this.core.setZoom(targetZoom, centerX, centerY);
+            } else {
+                this.core.setState({ zoom: targetZoom });
+            }
+
+            // pan 클램프 유도 (코어의 setPan이 내부 클램프 처리 가정)
+            if (typeof this.core.setPan === 'function') {
+                this.core.setPan(this.core.state.panX, this.core.state.panY);
+            }
+
+            this.core.markDirty();
+            this.core.render && this.core.render();
+            if (window.floorPlanApp && window.floorPlanApp.updateZoomDisplay) {
+                window.floorPlanApp.updateZoomDisplay();
+            }
+        } catch (err) {
+            console.warn('fitCanvasToViewport 오류:', err);
+        }
+    }
     
     /**
      * UI 설정
@@ -144,6 +190,12 @@ class FloorPlanApp {
             saveBtn.addEventListener('click', () => this.save());
         }
         
+        // 보기 버튼 (설계 모드용)
+        const viewBtn = document.getElementById('workspace-view-btn');
+        if (viewBtn) {
+            viewBtn.addEventListener('click', () => this.switchToViewMode());
+        }
+        
         // 설계 버튼 (보기 모드용)
         const designBtn = document.getElementById('workspace-design-btn');
         if (designBtn) {
@@ -154,6 +206,37 @@ class FloorPlanApp {
         const pptBtn = document.getElementById('workspace-ppt-btn');
         if (pptBtn) {
             pptBtn.addEventListener('click', () => this.downloadPPT());
+        }
+
+        // 헤더 접기/펼치기
+        const header = document.querySelector('.workspace-header');
+        const headerCollapseBtn = document.getElementById('header-collapse-btn');
+        const headerShowBtn = document.getElementById('header-show-btn');
+        if (header && headerCollapseBtn && headerShowBtn) {
+            headerCollapseBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                header.classList.add('collapsed');
+                headerShowBtn.style.display = 'flex';
+                // 레이아웃 변화 후 배율/팬 자동 보정
+                this.fitCanvasToViewportDebounced();
+            });
+            headerShowBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                header.classList.remove('collapsed');
+                headerShowBtn.style.display = 'none';
+                // 레이아웃 변화 후 배율/팬 자동 보정 (필요 시만 확대)
+                this.fitCanvasToViewportDebounced();
+            });
+        }
+
+        // 캔버스 컨테이너 리사이즈 감지하여 배율/팬 자동 보정
+        const canvasContainer = document.querySelector('.workspace-canvas-container');
+        if (canvasContainer) {
+            const resizeObserver = new ResizeObserver(() => {
+                this.fitCanvasToViewportDebounced();
+            });
+            resizeObserver.observe(canvasContainer);
+            this._viewportResizeObserver = resizeObserver;
         }
         
         // 키보드 단축키 설정
@@ -794,10 +877,12 @@ class FloorPlanApp {
         // 모드 선택 드롭다운 필터링 업데이트
         this.updateModeSelectFilter(mode);
         
-        // 저장/설계 버튼 전환
+        // 저장/설계/보기 버튼 전환
         const saveBtn = document.getElementById('workspace-save-btn');
         const designBtn = document.getElementById('workspace-design-btn');
+        const viewBtn = document.getElementById('workspace-view-btn');
         const isViewMode = mode.startsWith('view-');
+        const isDesignMode = mode.startsWith('design-');
         
         if (saveBtn) {
             saveBtn.style.display = isViewMode ? 'none' : 'flex';
@@ -812,6 +897,21 @@ class FloorPlanApp {
                     designBtnText.textContent = '교실 설계';
                 } else if (mode === 'view-wireless') {
                     designBtnText.textContent = '무선AP 설계';
+                }
+            }
+        }
+        if (viewBtn) {
+            viewBtn.style.display = isDesignMode ? 'flex' : 'none';
+            
+            // 보기 버튼 텍스트 변경
+            const viewBtnText = viewBtn.querySelector('span');
+            if (viewBtnText) {
+                if (mode === 'design-classroom') {
+                    viewBtnText.textContent = '장비 보기';
+                } else if (mode === 'design-wireless') {
+                    viewBtnText.textContent = '무선AP 보기';
+                } else {
+                    viewBtnText.textContent = '보기';
                 }
             }
         }
@@ -884,6 +984,34 @@ class FloorPlanApp {
         
         if (targetMode) {
             console.log(`🔀 설계 모드로 전환: ${currentMode} → ${targetMode}`);
+            
+            // 모드 선택 UI 업데이트
+            const modeSelect = document.getElementById('workspace-mode-select');
+            if (modeSelect) {
+                modeSelect.value = targetMode;
+            }
+            
+            // 모드 전환
+            await this.onWorkspaceModeChange(targetMode);
+        }
+    }
+    
+    /**
+     * 설계 모드에서 해당 보기 모드로 전환
+     */
+    async switchToViewMode() {
+        const currentMode = this.currentMode;
+        let targetMode = null;
+        
+        // 현재 설계 모드에 따라 해당 보기 모드로 전환
+        if (currentMode === 'design-classroom') {
+            targetMode = 'view-equipment';
+        } else if (currentMode === 'design-wireless') {
+            targetMode = 'view-wireless';
+        }
+        
+        if (targetMode) {
+            console.log(`🔀 보기 모드로 전환: ${currentMode} → ${targetMode}`);
             
             // 모드 선택 UI 업데이트
             const modeSelect = document.getElementById('workspace-mode-select');

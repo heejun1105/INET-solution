@@ -63,6 +63,13 @@ export default class InteractionManager {
             zoom: 1.0
         };
         
+        // 모바일 드래그 판별 상태 (요소 위 드래그도 팬으로 처리)
+        this.mobileDrag = {
+            pending: false,
+            downX: 0,
+            downY: 0
+        };
+        
         // 선택 박스 정보
         this.selectionBox = {
             startX: 0,
@@ -122,6 +129,38 @@ export default class InteractionManager {
         this.canvas.addEventListener('wheel', this.handlers.wheel, { passive: false });
         this.canvas.addEventListener('contextmenu', this.handlers.contextmenu);
         
+        // 터치 이벤트(모바일/태블릿): 마우스 이벤트에 위임
+        this.handlers.touchstart = (e) => {
+            if (e.touches && e.touches.length > 0) {
+                const touch = e.touches[0];
+                // 터치를 마우스 다운처럼 처리
+                this.onMouseDown({
+                    preventDefault: () => e.preventDefault(),
+                    button: 0,
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    ctrlKey: false,
+                    metaKey: false
+                });
+            }
+        };
+        this.handlers.touchmove = (e) => {
+            if (e.touches && e.touches.length > 0) {
+                const touch = e.touches[0];
+                this.onMouseMove({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                e.preventDefault();
+            }
+        };
+        this.handlers.touchend = (e) => {
+            this.onMouseUp(e);
+        };
+        this.canvas.addEventListener('touchstart', this.handlers.touchstart, { passive: false });
+        this.canvas.addEventListener('touchmove', this.handlers.touchmove, { passive: false });
+        this.canvas.addEventListener('touchend', this.handlers.touchend, { passive: false });
+        
         window.addEventListener('keydown', this.handlers.keydown);
         window.addEventListener('keyup', this.handlers.keyup);
         
@@ -142,6 +181,7 @@ export default class InteractionManager {
         
         const { x, y } = this.getMousePos(e);
         const canvasPos = this.core.screenToCanvas(x, y);
+        const isMobile = window.innerWidth <= 768;
         
         console.debug('🖱️ 마우스 다운:', canvasPos);
         
@@ -212,17 +252,32 @@ export default class InteractionManager {
                 }
             }
             
-            // Ctrl 클릭이 아닐 때만 드래그 시작 (다중 선택 토글 시 드래그 방지)
-            if (!e.ctrlKey && !e.metaKey) {
-            this.startDrag(x, y);
+            // 모바일에서는 요소 위 드래그도 팬 동작으로 전환하기 위해 즉시 드래그 시작을 지연
+            if (isMobile) {
+                this.mobileDrag.pending = true;
+                this.mobileDrag.downX = x;
+                this.mobileDrag.downY = y;
+            } else {
+                // 데스크탑: Ctrl 클릭이 아닐 때만 드래그 시작
+                if (!e.ctrlKey && !e.metaKey) {
+                    this.startDrag(x, y);
+                }
             }
         } else {
-            // 빈 공간 클릭: 선택 박스 시작 (다중 선택) 또는 선택 해제
-            if (e.ctrlKey || e.metaKey) {
+        // 빈 공간 클릭: (모바일은 팬, 데스크톱은 선택 박스)
+        // 기존 선택이 있으면 즉시 해제
+        if (this.core.state.selectedElements && this.core.state.selectedElements.length > 0) {
+            this.clearSelection();
+        }
+        if (e.ctrlKey || e.metaKey) {
                 // Ctrl 누른 채로 빈 공간 클릭: 아무것도 안 함 (기존 선택 유지)
                 return;
             }
+        if (isMobile) {
+            this.startPan(x, y);
+        } else {
             this.startSelectionBox(x, y);
+        }
         }
     }
     
@@ -249,6 +304,17 @@ export default class InteractionManager {
         if (this.state.isResizing) {
             this.updateResize(x, y);
             return;
+        }
+        
+        // 모바일: 드래그 임계치 초과 시 자동 팬 시작 (요소 위 드래그도 포함)
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile && this.mobileDrag.pending && !this.state.isPanning && !this.state.isDragging) {
+            const dx = x - this.mobileDrag.downX;
+            const dy = y - this.mobileDrag.downY;
+            const dist2 = dx * dx + dy * dy;
+            if (dist2 > 36) { // 약 6px 이상 이동
+                this.startPan(this.mobileDrag.downX, this.mobileDrag.downY);
+            }
         }
         
         // 팬 중
@@ -278,6 +344,7 @@ export default class InteractionManager {
      */
     onMouseUp(e) {
         console.debug('🖱️ 마우스 업');
+        this.mobileDrag.pending = false;
         
         // 줌 종료
         if (this.state.isZooming) {
