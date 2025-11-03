@@ -458,8 +458,39 @@
                             <option value="view-equipment">장비 보기</option>
                             <option value="view-wireless">무선 AP 보기</option>
                         </select>
-                        
-                        
+                        </div>
+                        <!-- 우측 액션: 드롭다운 줄 우측 정렬 -->
+                        <div class="workspace-actions-right">
+                            <!-- 보기 버튼 (설계 모드에서만 표시) -->
+                            <button id="workspace-view-btn" class="workspace-btn view-btn" style="display: none;">
+                                <i class="fas fa-eye"></i>
+                                <span>장비 보기</span>
+                            </button>
+
+                            <!-- 저장 버튼 (설계 모드에서만 표시, 초기 숨김) -->
+                            <button id="workspace-save-btn" class="workspace-btn save-btn" style="display: none;">
+                                <i class="fas fa-save"></i>
+                                <span>저장</span>
+                            </button>
+
+                            <!-- 설계 버튼 (보기 모드에서만 표시) -->
+                            <button id="workspace-design-btn" class="workspace-btn design-btn" style="display: none;">
+                                <i class="fas fa-pencil-ruler"></i>
+                                <span>설계</span>
+                            </button>
+
+                            <!-- PPT 다운로드 (보기 모드에서만 표시, 초기 숨김) -->
+                            <button id="workspace-ppt-btn" class="workspace-btn ppt-btn" style="display: none;">
+                                <i class="fas fa-file-powerpoint"></i>
+                                <span>PPT 다운로드</span>
+                            </button>
+
+                            <!-- 닫기 버튼 (항상 표시) -->
+                            <button id="workspace-close-btn" class="workspace-btn close-btn">
+                                <i class="fas fa-times"></i>
+                                <span>닫기</span>
+                            </button>
+                        </div>
                         </div>
                     </div>
             
@@ -647,36 +678,6 @@
                             </div>
                         </div>
 
-                        <!-- 우측 액션: 도움말 버튼 오른쪽 정렬 -->
-                        <div class="workspace-actions-right">
-                            <!-- 보기 버튼 (설계 모드에서만 표시) -->
-                            <button id="workspace-view-btn" class="workspace-btn view-btn" style="display: none;">
-                                <i class="fas fa-eye"></i>
-                                <span>보기</span>
-                            </button>
-                            
-                            <!-- 저장 버튼 (설계 모드에서만 표시) -->
-                            <button id="workspace-save-btn" class="workspace-btn save-btn">
-                                <i class="fas fa-save"></i>
-                                <span>저장</span>
-                            </button>
-                            
-                            <!-- 설계 버튼 (보기 모드에서만 표시) -->
-                            <button id="workspace-design-btn" class="workspace-btn design-btn" style="display: none;">
-                                <i class="fas fa-pencil-ruler"></i>
-                                <span>설계</span>
-                            </button>
-                            
-                            <button id="workspace-ppt-btn" class="workspace-btn ppt-btn" style="display: none;">
-                                <i class="fas fa-file-powerpoint"></i>
-                                <span>PPT 다운로드</span>
-                            </button>
-                            
-                            <button id="workspace-close-btn" class="workspace-btn close-btn">
-                                <i class="fas fa-times"></i>
-                                <span>닫기</span>
-                            </button>
-                        </div>
                             </div>
                     </div>
                 </div>
