@@ -760,8 +760,12 @@ public class FloorPlanService {
                 map.put("uidCate", device.getUid().getCate());
             }
         }
-        if (device.getManage() != null && device.getManage().getManageNum() != null) {
-            map.put("manageNumber", device.getManage().getManageNum());
+        if (device.getManage() != null) {
+            // 관리번호를 표시 형식으로 변환 (예: "PC-2024-001")
+            String displayId = device.getManage().getDisplayId();
+            if (displayId != null && !displayId.isEmpty()) {
+                map.put("manageNumber", displayId);
+            }
         }
         if (device.getOperator() != null && device.getOperator().getName() != null) {
             map.put("operatorName", device.getOperator().getName());
@@ -781,5 +785,148 @@ public class FloorPlanService {
             floorPlanElementRepository.deleteByFloorPlanId(floorPlan.getId());
             logger.info("캔버스 초기화 완료 - schoolId: {}, floorPlanId: {}", schoolId, floorPlan.getId());
         }
+    }
+    
+    /**
+     * 교실 자리 배치 저장
+     * @param schoolId 학교 ID
+     * @param classroomId 교실 ID
+     * @param layoutData 자리 배치 데이터
+     * @return 성공 여부
+     */
+    @Transactional
+    public boolean saveSeatLayout(Long schoolId, Long classroomId, Map<String, Object> layoutData) {
+        try {
+            logger.info("자리 배치 저장 시작 - schoolId: {}, classroomId: {}", schoolId, classroomId);
+            
+            // 교실 존재 확인
+            Classroom classroom = classroomRepository.findById(classroomId)
+                .orElseThrow(() -> new RuntimeException("교실을 찾을 수 없습니다: " + classroomId));
+            
+            // 학교 ID 확인
+            if (!classroom.getSchool().getSchoolId().equals(schoolId)) {
+                throw new IllegalArgumentException("교실이 해당 학교에 속하지 않습니다");
+            }
+            
+            // 평면도 조회 또는 생성
+            FloorPlan floorPlan = getOrCreateFloorPlan(schoolId);
+            
+            // 기존 자리 배치 요소 삭제 (seat_layout 타입만 삭제 - 교실 요소는 보호)
+            List<FloorPlanElement> existingElements = floorPlanElementRepository
+                .findByFloorPlanId(floorPlan.getId())
+                .stream()
+                .filter(el -> {
+                    // seat_layout 타입이고, referenceId가 해당 classroomId인 요소만 삭제
+                    if ("seat_layout".equals(el.getElementType()) && classroomId.equals(el.getReferenceId())) {
+                        return true;
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+            
+            floorPlanElementRepository.deleteAll(existingElements);
+            
+            // 자리 배치 데이터를 JSON으로 변환하여 저장
+            try {
+                String layoutJson = objectMapper.writeValueAsString(layoutData);
+                
+                // 자리 배치 요소 생성
+                FloorPlanElement layoutElement = new FloorPlanElement();
+                layoutElement.setFloorPlanId(floorPlan.getId());
+                layoutElement.setElementType("seat_layout");
+                layoutElement.setReferenceId(classroomId);
+                layoutElement.setXCoordinate(0.0);
+                layoutElement.setYCoordinate(0.0);
+                layoutElement.setWidth(0.0);
+                layoutElement.setHeight(0.0);
+                layoutElement.setElementData(layoutJson);
+                layoutElement.setMetadata("seat_layout");
+                
+                floorPlanElementRepository.save(layoutElement);
+                
+                logger.info("자리 배치 저장 완료 - schoolId: {}, classroomId: {}", schoolId, classroomId);
+                return true;
+                
+            } catch (JsonProcessingException e) {
+                logger.error("자리 배치 JSON 변환 실패", e);
+                throw new RuntimeException("자리 배치 데이터 변환 실패", e);
+            }
+            
+        } catch (Exception e) {
+            logger.error("자리 배치 저장 실패 - schoolId: {}, classroomId: {}", schoolId, classroomId, e);
+            throw new RuntimeException("자리 배치 저장 중 오류가 발생했습니다: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 교실 자리 배치 조회
+     * @param schoolId 학교 ID
+     * @param classroomId 교실 ID
+     * @return 자리 배치 데이터
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getSeatLayout(Long schoolId, Long classroomId) {
+        try {
+            // 교실 존재 확인
+            Classroom classroom = classroomRepository.findById(classroomId)
+                .orElseThrow(() -> new RuntimeException("교실을 찾을 수 없습니다: " + classroomId));
+            
+            // 학교 ID 확인
+            if (!classroom.getSchool().getSchoolId().equals(schoolId)) {
+                throw new IllegalArgumentException("교실이 해당 학교에 속하지 않습니다");
+            }
+            
+            // 평면도 조회
+            Optional<FloorPlan> floorPlanOpt = floorPlanRepository.findBySchoolIdAndIsActive(schoolId, true);
+            if (!floorPlanOpt.isPresent()) {
+                return createEmptyLayout();
+            }
+            
+            FloorPlan floorPlan = floorPlanOpt.get();
+            
+            // 자리 배치 요소 조회
+            List<FloorPlanElement> layoutElements = floorPlanElementRepository
+                .findByFloorPlanId(floorPlan.getId())
+                .stream()
+                .filter(el -> "seat_layout".equals(el.getElementType()) 
+                    && classroomId.equals(el.getReferenceId()))
+                .collect(Collectors.toList());
+            
+            if (layoutElements.isEmpty()) {
+                return createEmptyLayout();
+            }
+            
+            // 첫 번째 요소의 elementData에서 레이아웃 데이터 추출
+            FloorPlanElement layoutElement = layoutElements.get(0);
+            if (layoutElement.getElementData() != null) {
+                try {
+                    Map<String, Object> layout = objectMapper.readValue(
+                        layoutElement.getElementData(), 
+                        Map.class
+                    );
+                    return layout;
+                } catch (JsonProcessingException e) {
+                    logger.error("자리 배치 JSON 파싱 실패", e);
+                    return createEmptyLayout();
+                }
+            }
+            
+            return createEmptyLayout();
+            
+        } catch (Exception e) {
+            logger.error("자리 배치 조회 실패 - schoolId: {}, classroomId: {}", schoolId, classroomId, e);
+            return createEmptyLayout();
+        }
+    }
+    
+    /**
+     * 빈 레이아웃 생성
+     */
+    private Map<String, Object> createEmptyLayout() {
+        Map<String, Object> layout = new HashMap<>();
+        layout.put("seats", new ArrayList<>());
+        layout.put("devices", new ArrayList<>());
+        layout.put("textBoxes", new ArrayList<>());
+        return layout;
     }
 }

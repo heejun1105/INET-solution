@@ -388,7 +388,9 @@ export default class DataSyncManager {
         console.log('🗺️ ID 매핑 테이블:', Array.from(idMap.entries()));
         
         // 2단계: 요소들 적용
-        // wireless_ap, mdf_idf 요소는 제외 (무선AP 설계 모드에서 동적으로 생성/저장되므로 여기서는 로드하지 않음)
+        // wireless_ap, mdf_idf, seat_layout 요소는 제외
+        // - wireless_ap, mdf_idf: 무선AP 설계 모드에서 동적으로 생성/저장되므로 여기서는 로드하지 않음
+        // - seat_layout: 자리 배치 모달에서 별도로 관리되므로 메인 캔버스에 로드하지 않음
         const filteredElements = elements.filter(el => {
             if (el.elementType === 'wireless_ap') {
                 console.log('⏭️ wireless_ap 요소 제외 (무선AP 모드에서 별도 로드):', el.referenceId);
@@ -396,6 +398,10 @@ export default class DataSyncManager {
             }
             if (el.elementType === 'mdf_idf') {
                 console.log('⏭️ mdf_idf 요소 제외 (무선AP 모드에서 별도 로드):', el.id);
+                return false;
+            }
+            if (el.elementType === 'seat_layout') {
+                console.log('⏭️ seat_layout 요소 제외 (자리 배치 모달에서 별도 로드):', el.referenceId);
                 return false;
             }
             return true;

@@ -190,6 +190,42 @@ export default class WirelessApDesignMode {
         
         const canvas = this.core.canvas;
         canvas.addEventListener('click', this.canvasClickHandler);
+        
+        // 모바일/태블릿: 터치 이벤트도 처리 (MDF 배치용)
+        this.canvasTouchStartHandler = (e) => {
+            if (e.touches && e.touches.length > 0) {
+                const touch = e.touches[0];
+                // 터치를 클릭 이벤트처럼 처리하기 위해 기록만 함 (touchend에서 처리)
+                this.touchStartPos = { x: touch.clientX, y: touch.clientY };
+            }
+        };
+        this.canvasTouchEndHandler = (e) => {
+            const touch = e.changedTouches && e.changedTouches.length > 0 
+                ? e.changedTouches[0] 
+                : (e.touches && e.touches.length > 0 ? e.touches[0] : null);
+            
+            if (touch && this.touchStartPos) {
+                // 실제 클릭인지 확인 (드래그가 아닌 경우)
+                const dx = touch.clientX - this.touchStartPos.x;
+                const dy = touch.clientY - this.touchStartPos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // 6px 이내 이동이면 클릭으로 간주
+                if (distance <= 6) {
+                    this.handleCanvasClick({
+                        preventDefault: () => e.preventDefault(),
+                        clientX: touch.clientX,
+                        clientY: touch.clientY,
+                        target: e.target
+                    });
+                }
+                
+                this.touchStartPos = null;
+            }
+        };
+        
+        canvas.addEventListener('touchstart', this.canvasTouchStartHandler, { passive: false });
+        canvas.addEventListener('touchend', this.canvasTouchEndHandler, { passive: false });
     }
     
     /**
@@ -199,6 +235,13 @@ export default class WirelessApDesignMode {
         const canvas = this.core.canvas;
         if (this.canvasClickHandler) {
             canvas.removeEventListener('click', this.canvasClickHandler);
+        }
+        // 터치 이벤트 해제
+        if (this.canvasTouchStartHandler) {
+            canvas.removeEventListener('touchstart', this.canvasTouchStartHandler);
+        }
+        if (this.canvasTouchEndHandler) {
+            canvas.removeEventListener('touchend', this.canvasTouchEndHandler);
         }
     }
     
@@ -464,6 +507,8 @@ export default class WirelessApDesignMode {
      */
     enableMdfIdfPlacementMode() {
         this.currentTool = 'mdf-idf';
+        // Core 상태 업데이트 (InteractionManager가 클릭 이벤트를 처리하도록)
+        this.core.setState({ activeTool: 'mdf-idf' });
         this.uiManager.showNotification('캔버스를 클릭하여 MDF(IDF)를 배치하세요', 'info');
     }
     

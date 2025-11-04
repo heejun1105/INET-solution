@@ -728,6 +728,80 @@ public class FloorPlanController {
     }
     
     /**
+     * 교실 자리 배치 저장
+     * POST /floorplan/api/schools/{schoolId}/classroom/{classroomId}/seat-layout
+     */
+    @PostMapping("/api/schools/{schoolId}/classroom/{classroomId}/seat-layout")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> saveSeatLayout(
+            @PathVariable Long schoolId,
+            @PathVariable Long classroomId,
+            @RequestBody Map<String, Object> layoutData) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                response.put("success", false);
+                response.put("message", "권한이 없습니다");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            boolean success = floorPlanService.saveSeatLayout(schoolId, classroomId, layoutData);
+            
+            if (success) {
+                response.put("success", true);
+                response.put("message", "자리 배치가 저장되었습니다");
+                return ResponseEntity.ok(response);
+            } else {
+                response.put("success", false);
+                response.put("message", "저장에 실패했습니다");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            }
+            
+        } catch (Exception e) {
+            logger.error("자리 배치 저장 실패 - schoolId: {}, classroomId: {}", schoolId, classroomId, e);
+            response.put("success", false);
+            response.put("message", "저장 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * 교실 자리 배치 조회
+     * GET /floorplan/api/schools/{schoolId}/classroom/{classroomId}/seat-layout
+     */
+    @GetMapping("/api/schools/{schoolId}/classroom/{classroomId}/seat-layout")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getSeatLayout(
+            @PathVariable Long schoolId,
+            @PathVariable Long classroomId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                response.put("success", false);
+                response.put("message", "권한이 없습니다");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            Map<String, Object> layout = floorPlanService.getSeatLayout(schoolId, classroomId);
+            
+            response.put("success", true);
+            response.put("layout", layout);
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("자리 배치 조회 실패 - schoolId: {}, classroomId: {}", schoolId, classroomId, e);
+            response.put("success", false);
+            response.put("message", "조회 중 오류가 발생했습니다: " + e.getMessage());
+            response.put("layout", null);
+            return ResponseEntity.ok(response);
+        }
+    }
+    
+    /**
      * 캔버스 초기화
      * POST /floorplan/api/schools/{schoolId}/initialize
      */

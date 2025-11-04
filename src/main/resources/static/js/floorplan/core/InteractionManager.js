@@ -332,7 +332,7 @@ export default class InteractionManager {
         
         // 요소 생성 도구가 활성화된 경우 팬/선택박스를 시작하지 않음 (클릭 이벤트로 처리)
         const activeTool = this.core.state.activeTool;
-        const isCreationTool = activeTool && ['building', 'room', 'toilet', 'elevator'].includes(activeTool);
+        const isCreationTool = activeTool && ['building', 'room', 'toilet', 'elevator', 'mdf-idf'].includes(activeTool);
         
         if (isCreationTool) {
             console.log('🛠️ 요소 생성 도구 활성화됨:', {
@@ -490,7 +490,7 @@ export default class InteractionManager {
             if (distanceSq <= 36 && !this.state.isPanning && !this.state.isDragging && !this.state.isSelecting) {
                 // 실제 클릭이었으므로 요소 생성 도구 클릭 이벤트 발생
                 const activeTool = this.core.state.activeTool;
-                if (activeTool && ['building', 'room', 'toilet', 'elevator'].includes(activeTool)) {
+                if (activeTool && ['building', 'room', 'toilet', 'elevator', 'mdf-idf'].includes(activeTool)) {
                     console.log('✅ 요소 생성 클릭 이벤트 발생:', { x, y, activeTool });
                     // ClassroomDesignMode의 handleCanvasClick을 호출하기 위해 클릭 이벤트 생성
                     const clickEvent = new MouseEvent('click', {
@@ -738,8 +738,8 @@ export default class InteractionManager {
             
             this.dragStart.originalPositions.set(element.id, posData);
                 
-                // 부모 요소가 building 또는 room이면, 자식(name_box)의 원래 위치와 상대 위치도 저장
-                if (element.elementType === 'building' || element.elementType === 'room') {
+                // 부모 요소가 building, room, 또는 seat이면, 자식(name_box)의 원래 위치와 상대 위치도 저장
+                if (element.elementType === 'building' || element.elementType === 'room' || element.elementType === 'seat') {
                     const children = this.core.state.elements.filter(e => e.parentElementId === element.id);
                     for (const child of children) {
                         // 절대 위치와 부모 기준 상대 위치(offset) 모두 저장
@@ -858,7 +858,7 @@ export default class InteractionManager {
             }
                 
                 // 부모 요소가 이동하면 자식 요소(name_box)도 함께 이동
-                if (element.elementType === 'building' || element.elementType === 'room') {
+                if (element.elementType === 'building' || element.elementType === 'room' || element.elementType === 'seat') {
                     const children = this.core.state.elements.filter(e => e.parentElementId === element.id);
                     for (const child of children) {
                         const childOriginalPos = this.dragStart.originalPositions.get(child.id);
@@ -868,7 +868,7 @@ export default class InteractionManager {
                             let childNewX = newX + childOriginalPos.offsetX;
                             let childNewY = newY + childOriginalPos.offsetY;
                             
-                            // 건물의 이름박스는 경계 제한 없음, 교실의 이름박스만 제한
+                            // 건물의 이름박스는 경계 제한 없음, 교실/자리의 이름박스만 제한
                             if (element.elementType === 'building' || child.elementType !== 'name_box') {
                                 // 건물이거나 이름박스가 아닌 자식: 경계 제한 없음 (캔버스 경계만 체크)
                                 const canvasWidth = this.core.state.canvasWidth;
@@ -879,7 +879,7 @@ export default class InteractionManager {
                                 childNewX = Math.max(0, Math.min(canvasWidth - childWidth, childNewX));
                                 childNewY = Math.max(0, Math.min(canvasHeight - childHeight, childNewY));
                             } else {
-                                // 교실의 이름박스: 부모 요소 내부로 제한
+                                // 교실/자리의 이름박스: 부모 요소 내부로 제한
                                 const minX = newX;
                                 const minY = newY;
                                 const maxX = newX + element.width - child.width;

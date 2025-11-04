@@ -460,6 +460,336 @@
 }
 
 /* 교실 모달 */
+/* ===== 자리 배치 모달 스타일 ===== */
+.seat-layout-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.seat-layout-modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 95%;
+    max-width: 1400px;
+    height: 90%;
+    max-height: 900px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.seat-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+}
+
+.seat-modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.seat-modal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.seat-modal-header .save-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.seat-modal-header .save-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.seat-modal-header .close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.seat-modal-header .close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.seat-modal-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.seat-modal-canvas-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #f9fafb;
+    border-left: 1px solid #e5e7eb;
+}
+
+.mini-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #ffffff;
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+.mini-canvas-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+}
+
+.mini-canvas-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    justify-content: center;
+}
+
+.mini-zoom-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #d1d5db;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 0.75rem;
+}
+
+.mini-zoom-btn:hover {
+    background: #f3f4f6;
+    border-color: #3b82f6;
+}
+
+.mini-zoom-display {
+    min-width: 50px;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.seat-modal-sidebar {
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    overflow: hidden;
+    border-right: 1px solid #e5e7eb;
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.sidebar-tool-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.tool-btn-compact {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #d1d5db;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    color: #374151;
+    font-size: 0.875rem;
+}
+
+.tool-btn-compact:hover {
+    background: #f3f4f6;
+    border-color: #3b82f6;
+}
+
+.tool-btn-compact.active {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+/* 자리 추가 버튼 스타일 (이전 형태, 크기 살짝 작게) */
+.tool-btn-small {
+    padding: 10px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    background: white;
+    color: #374151;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.tool-btn-small:hover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.tool-btn-small.active {
+    border-color: #3b82f6;
+    background: #3b82f6;
+    color: white;
+}
+
+.tool-btn-small i {
+    font-size: 16px;
+}
+
+.tool-btn-small span {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.device-cards-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.device-card {
+    width: 100%;
+    min-height: 150px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    cursor: move;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+}
+
+.device-card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    transform: translateY(-2px);
+}
+
+.device-card.selected {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.device-card-header {
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    border-radius: 6px 6px 0 0;
+}
+
+.device-type {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.device-card-body {
+    padding: 0.5rem 0.75rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.device-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8125rem;
+    line-height: 1.3;
+}
+
+.info-label {
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.info-value {
+    color: #1f2937;
+    font-weight: 600;
+}
+
+
+.device-cards-container .empty,
+.device-cards-container .loading {
+    text-align: center;
+    color: #6b7280;
+    padding: 2rem;
+    font-size: 0.875rem;
+}
+
+/* 기존 classroom-modal 스타일 (호환성 유지) */
 .classroom-modal-overlay {
     position: fixed;
     top: 0;

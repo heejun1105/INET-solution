@@ -36,6 +36,9 @@ class FloorPlanApp {
         
         this.schools = [];
         
+        // 첫 진입 여부 확인 (localStorage 사용)
+        this.isFirstEntry = !localStorage.getItem('floorplan_has_entered');
+        
         console.log('🚀 FloorPlanApp 초기화');
     }
     
@@ -567,8 +570,11 @@ class FloorPlanApp {
             if (result.success) {
                 console.log('✅ 평면도 로드 완료');
                 
-                // 모든 요소가 보이도록 자동 피팅
-                this.core.fitToElements();
+                // 첫 로드 시에만 모든 요소가 보이도록 자동 피팅
+                // (이미 로드된 상태에서 다시 로드할 때는 이전 시점 유지)
+                if (this.core.state.elements.length === 0 || this.isFirstEntry) {
+                    this.core.fitToElements();
+                }
                 this.updateZoomDisplay(); // 줌 디스플레이 업데이트
             } else {
                 console.log('ℹ️ 저장된 평면도 없음');
@@ -777,11 +783,24 @@ class FloorPlanApp {
                 }
                 
                 this.core.resize();
-                this.core.centerView(); // 중앙 뷰로 시작 (100% 배율)
+                
+                // 첫 진입 시에만 중앙 뷰로 설정, 이후에는 이전 상태 유지
+                if (this.isFirstEntry) {
+                    this.core.centerView();
+                    localStorage.setItem('floorplan_has_entered', 'true');
+                    console.log('✅ 캔버스 중앙 뷰 설정 (첫 진입)');
+                } else {
+                    // 이전 상태 유지 (줌/팬은 현재 상태 유지)
+                    console.log('✅ 캔버스 뷰 상태 유지:', {
+                        zoom: this.core.state.zoom,
+                        panX: this.core.state.panX,
+                        panY: this.core.state.panY
+                    });
+                }
+                
                 this.core.markDirty();
                 this.core.render(); // 강제 렌더링
                 this.updateZoomDisplay(); // 줌 디스플레이 업데이트
-                console.log('✅ 캔버스 중앙 뷰 설정 및 강제 렌더링 완료');
             } else {
                 console.warn('⚠️ 캔버스 컨테이너 크기가 0, 재시도 예정...');
                 // 크기가 0이면 다시 시도
@@ -806,7 +825,12 @@ class FloorPlanApp {
                     const rect = canvasContainer.getBoundingClientRect();
                     if (rect.width > 0 && rect.height > 0) {
                         this.core.resize();
-                        this.core.centerView();
+                        
+                        // 첫 진입 시에만 중앙 뷰로 설정, 이후에는 상태 유지
+                        if (this.isFirstEntry) {
+                            this.core.centerView();
+                        }
+                        
                         this.core.markDirty();
                         this.core.render();
                         this.updateZoomDisplay();

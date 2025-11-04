@@ -363,6 +363,15 @@ export default class FloorPlanCore {
             case 'stairs':
                 this.renderStairs(ctx, element);
                 break;
+            case 'seat':
+                this.renderSeat(ctx, element);
+                break;
+            case 'device':
+                this.renderDevice(ctx, element);
+                break;
+            case 'text_box':
+                this.renderTextBox(ctx, element);
+                break;
             default:
                 this.renderDefault(ctx, element);
         }
@@ -718,37 +727,36 @@ export default class FloorPlanCore {
     }
     
     /**
-     * 현관 렌더링 (열린 문 기호만 - 좌우반전)
+     * 현관 렌더링 (사각형, 중앙에 "입구" 텍스트)
      */
     renderEntrance(ctx, element) {
         const x = element.xCoordinate;
         const y = element.yCoordinate;
-        const w = element.width || 140;
-        const h = element.height || 180;
+        const w = element.width || 200;
+        const h = element.height || 150;
         
-        // 열린 문 기호만 그리기 (배경/외곽선 없음)
-        const doorSize = Math.min(w, h);  // 전체 크기 사용
-        const centerX = x + w / 2;
-        const centerY = y + h / 2;
-        const startX = centerX + doorSize / 2;  // 오른쪽으로 변경
-        const startY = centerY - doorSize / 2;
+        // 배경
+        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
+            ctx.fillStyle = element.backgroundColor;
+            ctx.fillRect(x, y, w, h);
+        }
         
-        const borderColor = element.borderColor || '#000000';
-        const borderWidth = element.borderWidth || 2;
+        // 테두리
+        ctx.strokeStyle = element.borderColor || '#3b82f6';
+        ctx.lineWidth = element.borderWidth || 2;
+        ctx.strokeRect(x, y, w, h);
         
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = borderWidth * 2;
+        // 중앙에 "입구" 텍스트 표시
+        const zoom = this.state.zoom || 1.0;
+        const fontSize = Math.max(16, Math.min(24, Math.min(w, h) * 0.15 / zoom));
         
-        // 수직선 (문틀 - 오른쪽)
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(startX, startY + doorSize);
-        ctx.stroke();
+        ctx.fillStyle = '#1f2937';
+        ctx.font = `bold ${fontSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         
-        // 1/4 원호 (문 열림 - 왼쪽으로)
-        ctx.beginPath();
-        ctx.arc(startX, startY, doorSize, Math.PI / 2, Math.PI);
-        ctx.stroke();
+        const label = element.label || '입구';
+        ctx.fillText(label, x + w / 2, y + h / 2);
     }
     
     /**
@@ -786,6 +794,165 @@ export default class FloorPlanCore {
         // 마지막 단 연결
         ctx.lineTo(x + w, y);
         ctx.stroke();
+    }
+    
+    /**
+     * 자리(사각형) 렌더링
+     */
+    renderSeat(ctx, element) {
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 500;
+        const h = element.height || 500;
+        
+        // 배경
+        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
+            ctx.fillStyle = element.backgroundColor;
+            ctx.fillRect(x, y, w, h);
+        }
+        
+        // 테두리
+        ctx.strokeStyle = element.borderColor || '#3b82f6';
+        ctx.lineWidth = element.borderWidth || 2;
+        ctx.strokeRect(x, y, w, h);
+    }
+    
+    /**
+     * 장비 카드 렌더링
+     */
+    renderDevice(ctx, element) {
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 150;
+        const h = element.height || 150;
+        
+        // 배경
+        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
+            ctx.fillStyle = element.backgroundColor;
+            ctx.fillRect(x, y, w, h);
+        }
+        
+        // 테두리
+        ctx.strokeStyle = element.borderColor || '#000000';
+        ctx.lineWidth = element.borderWidth || 2;
+        ctx.strokeRect(x, y, w, h);
+        
+        // 장비 정보 표시 (장비 카드 형태로)
+        if (element.deviceData) {
+            const deviceData = typeof element.deviceData === 'string' 
+                ? JSON.parse(element.deviceData) 
+                : element.deviceData;
+            
+            // 줌 레벨에 따라 폰트 크기 조정 (가시성 개선을 위해 최소값 증가)
+            const zoom = this.state.zoom || 1.0;
+            const baseFontSize = Math.max(10, Math.min(14, w * 0.1 / zoom));
+            const headerFontSize = Math.max(12, Math.min(16, w * 0.12 / zoom));
+            const smallFontSize = Math.max(9, Math.min(12, w * 0.09 / zoom));
+            
+            const padding = 5;
+            const headerHeight = headerFontSize + padding * 2;
+            const lineHeight = smallFontSize + 3; // 줄 간격 증가
+            
+            // 헤더 배경 (장비종류)
+            const headerGradient = ctx.createLinearGradient(x, y, x, y + headerHeight);
+            headerGradient.addColorStop(0, '#3b82f6');
+            headerGradient.addColorStop(1, '#2563eb');
+            ctx.fillStyle = headerGradient;
+            ctx.fillRect(x, y, w, headerHeight);
+            
+            // 헤더 텍스트 (장비종류) - 가시성 개선
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${headerFontSize}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // 텍스트 그림자 추가
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 2;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+            const deviceType = deviceData.type || '장비';
+            ctx.fillText(deviceType, x + w / 2, y + headerHeight / 2);
+            ctx.shadowBlur = 0; // 그림자 초기화
+            
+            // 본문 영역
+            let currentY = y + headerHeight + padding;
+            
+            // 텍스트 스타일 설정 (가시성 개선)
+            ctx.fillStyle = '#1f2937'; // 더 진한 색상
+            ctx.font = `bold ${smallFontSize}px Arial`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            
+            // 고유번호
+            const uidLabel = '고유번호:';
+            const uidValue = deviceData.uidNumber || '-';
+            ctx.fillText(uidLabel, x + padding, currentY);
+            ctx.font = `${smallFontSize}px Arial`; // 값은 일반 폰트
+            ctx.fillText(uidValue, x + padding + w * 0.38, currentY);
+            currentY += lineHeight;
+            
+            // 관리번호
+            ctx.font = `bold ${smallFontSize}px Arial`; // 라벨은 볼드
+            const manageLabel = '관리번호:';
+            const manageValue = deviceData.manageNumber || '-';
+            ctx.fillText(manageLabel, x + padding, currentY);
+            ctx.font = `${smallFontSize}px Arial`;
+            ctx.fillText(manageValue, x + padding + w * 0.38, currentY);
+            currentY += lineHeight;
+            
+            // 관리자
+            ctx.font = `bold ${smallFontSize}px Arial`;
+            const operatorLabel = '관리자:';
+            const operatorValue = deviceData.operatorName || '-';
+            ctx.fillText(operatorLabel, x + padding, currentY);
+            ctx.font = `${smallFontSize}px Arial`;
+            ctx.fillText(operatorValue, x + padding + w * 0.38, currentY);
+            currentY += lineHeight;
+            
+            // 세트번호
+            ctx.font = `bold ${smallFontSize}px Arial`;
+            const setLabel = '세트번호:';
+            const setValue = deviceData.setType || '-';
+            ctx.fillText(setLabel, x + padding, currentY);
+            ctx.font = `${smallFontSize}px Arial`;
+            ctx.fillText(setValue, x + padding + w * 0.38, currentY);
+        } else {
+            // deviceData가 없는 경우 기본 표시
+            ctx.font = `${Math.min(12, w * 0.08)}px Arial`;
+            ctx.fillStyle = '#000000';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('장비', x + w / 2, y + h / 2);
+        }
+    }
+    
+    /**
+     * 텍스트 상자 렌더링
+     */
+    renderTextBox(ctx, element) {
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const w = element.width || 200;
+        const h = element.height || 50;
+        
+        // 배경
+        ctx.fillStyle = element.backgroundColor || '#ffffff';
+        ctx.fillRect(x, y, w, h);
+        
+        // 테두리
+        ctx.strokeStyle = element.borderColor || '#000000';
+        ctx.lineWidth = element.borderWidth || 1;
+        ctx.strokeRect(x, y, w, h);
+        
+        // 텍스트
+        const fontSize = element.fontSize || 16;
+        ctx.font = `${fontSize}px ${element.fontFamily || 'Arial, sans-serif'}`;
+        ctx.fillStyle = element.textColor || '#000000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        const label = element.label || '';
+        ctx.fillText(label, x + w / 2, y + h / 2);
     }
     
     /**
