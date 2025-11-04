@@ -91,10 +91,13 @@ export default class SeatLayoutMode {
      * 이벤트 바인딩
      */
     bindEvents() {
-        this.canvasClickHandler = (e) => this.handleCanvasClick(e);
+        this.canvasMouseDownHandler = (e) => this.handleCanvasMouseDown(e);
+        this.canvasTouchStartHandler = (e) => this.handleCanvasTouchStart(e);
         
         const canvas = this.core.canvas;
-        canvas.addEventListener('click', this.canvasClickHandler);
+        // Capture phase에서 먼저 처리하여 InteractionManager보다 우선 실행
+        canvas.addEventListener('mousedown', this.canvasMouseDownHandler, true);
+        canvas.addEventListener('touchstart', this.canvasTouchStartHandler, true);
     }
     
     /**
@@ -102,35 +105,91 @@ export default class SeatLayoutMode {
      */
     unbindEvents() {
         const canvas = this.core.canvas;
-        if (this.canvasClickHandler) {
-            canvas.removeEventListener('click', this.canvasClickHandler);
+        if (this.canvasMouseDownHandler) {
+            canvas.removeEventListener('mousedown', this.canvasMouseDownHandler, true);
+        }
+        if (this.canvasTouchStartHandler) {
+            canvas.removeEventListener('touchstart', this.canvasTouchStartHandler, true);
         }
     }
     
     /**
-     * 캔버스 클릭 처리
+     * 캔버스 마우스 다운 처리 (데스크톱)
      */
-    handleCanvasClick(e) {
+    handleCanvasMouseDown(e) {
+        // 우클릭은 무시
+        if (e.button === 2) return;
+        
+        // 자리배치 설계 모드에서만 처리
+        if (this.core.state.currentMode !== 'design-seat') return;
+        
+        // InteractionManager와 동일한 방식으로 좌표 계산
         const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
         
         // 클릭된 요소 찾기
         const clickedElement = this.elementManager.getElementAtPosition(canvasPos.x, canvasPos.y);
         
         // 이름 박스인 경우 부모 요소 찾기
+        let targetRoom = null;
         if (clickedElement && clickedElement.elementType === 'name_box') {
             if (clickedElement.parentElementId) {
                 const parentElement = this.core.state.elements.find(
                     el => el.id === clickedElement.parentElementId
                 );
                 if (parentElement && parentElement.elementType === 'room') {
-                    this.openClassroomModal(parentElement);
-                    return;
+                    targetRoom = parentElement;
                 }
             }
+        } else if (clickedElement && clickedElement.elementType === 'room') {
+            targetRoom = clickedElement;
         }
         
-        if (clickedElement && clickedElement.elementType === 'room') {
-            this.openClassroomModal(clickedElement);
+        // 교실 클릭 시 모달 열기
+        if (targetRoom) {
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            this.openClassroomModal(targetRoom);
+        }
+    }
+    
+    /**
+     * 캔버스 터치 시작 처리 (모바일/태블릿)
+     */
+    handleCanvasTouchStart(e) {
+        // 자리배치 설계 모드에서만 처리
+        if (this.core.state.currentMode !== 'design-seat') return;
+        
+        if (e.touches && e.touches.length === 1) {
+            const touch = e.touches[0];
+            // InteractionManager와 동일한 방식으로 좌표 계산
+            const canvasPos = this.core.screenToCanvas(touch.clientX, touch.clientY);
+            
+            // 클릭된 요소 찾기
+            const clickedElement = this.elementManager.getElementAtPosition(canvasPos.x, canvasPos.y);
+            
+            // 이름 박스인 경우 부모 요소 찾기
+            let targetRoom = null;
+            if (clickedElement && clickedElement.elementType === 'name_box') {
+                if (clickedElement.parentElementId) {
+                    const parentElement = this.core.state.elements.find(
+                        el => el.id === clickedElement.parentElementId
+                    );
+                    if (parentElement && parentElement.elementType === 'room') {
+                        targetRoom = parentElement;
+                    }
+                }
+            } else if (clickedElement && clickedElement.elementType === 'room') {
+                targetRoom = clickedElement;
+            }
+            
+            // 교실 터치 시 모달 열기
+            if (targetRoom) {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                this.openClassroomModal(targetRoom);
+            }
         }
     }
     

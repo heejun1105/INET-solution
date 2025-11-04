@@ -674,6 +674,23 @@ class FloorPlanApp {
                     this.interactionManager.setCurrentMode(this.modeManager);
                 }
                 
+                // 자리배치설계모드와 무선AP설계모드에서 도구창, 저장 버튼, 토글 버튼 숨김
+                const toolbarContainer = document.getElementById('design-toolbar-container');
+                const saveBtn = document.getElementById('workspace-save-btn');
+                const headerCollapseBtn = document.getElementById('header-collapse-btn');
+                const isSeatLayoutMode = mode === 'design-seat';
+                const isWirelessApMode = mode === 'design-wireless';
+                
+                if (toolbarContainer) {
+                    toolbarContainer.style.display = isSeatLayoutMode ? 'none' : '';
+                }
+                if (saveBtn) {
+                    saveBtn.style.display = isSeatLayoutMode ? 'none' : 'flex';
+                }
+                if (headerCollapseBtn) {
+                    headerCollapseBtn.style.display = (isSeatLayoutMode || isWirelessApMode) ? 'none' : 'block';
+                }
+                
                 // 캔버스 강제 렌더링
                 if (this.core) {
                     this.core.markDirty();
@@ -1083,11 +1100,26 @@ class FloorPlanApp {
         const saveBtn = document.getElementById('workspace-save-btn');
         const designBtn = document.getElementById('workspace-design-btn');
         const viewBtn = document.getElementById('workspace-view-btn');
+        const toolbarContainer = document.getElementById('design-toolbar-container');
+        const headerCollapseBtn = document.getElementById('header-collapse-btn');
         const isViewMode = mode.startsWith('view-');
         const isDesignMode = mode.startsWith('design-');
+        const isSeatLayoutMode = mode === 'design-seat';
+        const isWirelessApMode = mode === 'design-wireless';
         
         if (saveBtn) {
-            saveBtn.style.display = isViewMode ? 'none' : 'flex';
+            // 자리배치설계모드에서는 저장 버튼 숨김
+            saveBtn.style.display = (isViewMode || isSeatLayoutMode) ? 'none' : 'flex';
+        }
+        
+        // 자리배치설계모드에서는 도구창 숨김
+        if (toolbarContainer) {
+            toolbarContainer.style.display = (mode.startsWith('design-') && !isSeatLayoutMode) ? 'block' : 'none';
+        }
+        
+        // 무선AP설계모드와 자리배치설계모드에서는 토글 버튼 숨김
+        if (headerCollapseBtn) {
+            headerCollapseBtn.style.display = (isSeatLayoutMode || isWirelessApMode) ? 'none' : 'block';
         }
         if (designBtn) {
             designBtn.style.display = isViewMode ? 'flex' : 'none';
@@ -1122,12 +1154,6 @@ class FloorPlanApp {
         const pptBtn = document.getElementById('workspace-ppt-btn');
         if (pptBtn) {
             pptBtn.style.display = isViewMode ? 'flex' : 'none';
-        }
-        
-        // 도구창 표시/숨김
-        const toolbarContainer = document.getElementById('design-toolbar-container');
-        if (toolbarContainer) {
-            toolbarContainer.style.display = mode.startsWith('design-') ? 'block' : 'none';
         }
         
         // 강제 렌더링
