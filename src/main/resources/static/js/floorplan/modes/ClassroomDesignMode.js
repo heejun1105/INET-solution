@@ -26,6 +26,9 @@ export default class ClassroomDesignMode {
         this.isDrawing = false;
         this.drawStartPos = null;
         
+        // 미배치 교실 선택 상태 (클릭 방식으로 변경)
+        this.selectedUnplacedClassroom = null; // { classroomId, classroomName }
+        
         console.log('📐 ClassroomDesignMode 초기화');
     }
     
@@ -44,6 +47,36 @@ export default class ClassroomDesignMode {
             console.log('🛠️ 헤더 도구 표시 설정 전:', headerTools.style.display);
             headerTools.style.display = 'flex';
             console.log('🛠️ 헤더 도구 표시 설정 후:', headerTools.style.display);
+            
+            // 모바일 및 랩탑에서 레이어가 보이도록 스크롤 위치를 맨 왼쪽으로 리셋 (여러 번 시도)
+            if (window.innerWidth <= 1200) {
+                const firstToolGroup = headerTools.querySelector('.header-tool-group:first-child');
+                
+                const resetScroll = () => {
+                    headerTools.scrollLeft = 0;
+                    // 첫 번째 요소로 스크롤
+                    if (firstToolGroup) {
+                        firstToolGroup.scrollIntoView({ 
+                            behavior: 'auto', 
+                            block: 'nearest', 
+                            inline: 'start' 
+                        });
+                    }
+                };
+                
+                // 즉시 리셋
+                resetScroll();
+                requestAnimationFrame(() => {
+                    resetScroll();
+                });
+                
+                // 레이아웃 안정화 후 여러 번 재시도
+                setTimeout(resetScroll, 50);
+                setTimeout(resetScroll, 100);
+                setTimeout(resetScroll, 200);
+                setTimeout(resetScroll, 300);
+                setTimeout(resetScroll, 500);
+            }
             
             // 내부 요소들도 확인
             const lineColor = document.getElementById('header-line-color');
@@ -697,6 +730,46 @@ export default class ClassroomDesignMode {
         canvas.addEventListener('mousemove', this.canvasMouseMoveHandler);
         canvas.addEventListener('mouseup', this.canvasMouseUpHandler);
         
+        // 모바일/태블릿: 터치 이벤트도 처리 (도형 그리기용)
+        this.canvasTouchStartHandler = (e) => {
+            if (e.touches && e.touches.length > 0) {
+                const touch = e.touches[0];
+                this.handleCanvasMouseDown({
+                    preventDefault: () => e.preventDefault(),
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    button: 0
+                });
+            }
+        };
+        this.canvasTouchMoveHandler = (e) => {
+            if (e.touches && e.touches.length > 0) {
+                const touch = e.touches[0];
+                this.handleCanvasMouseMove({
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                e.preventDefault();
+            }
+        };
+        this.canvasTouchEndHandler = (e) => {
+            const touch = e.changedTouches && e.changedTouches.length > 0 
+                ? e.changedTouches[0] 
+                : (e.touches && e.touches.length > 0 ? e.touches[0] : null);
+            if (touch) {
+                this.handleCanvasMouseUp({
+                    preventDefault: () => e.preventDefault(),
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    button: 0
+                });
+            }
+        };
+        
+        canvas.addEventListener('touchstart', this.canvasTouchStartHandler, { passive: false });
+        canvas.addEventListener('touchmove', this.canvasTouchMoveHandler, { passive: false });
+        canvas.addEventListener('touchend', this.canvasTouchEndHandler, { passive: false });
+        
         // 키보드 이벤트 (스페이스바로 도구 해제)
         window.addEventListener('keydown', this.keyDownHandler);
     }
@@ -718,6 +791,16 @@ export default class ClassroomDesignMode {
         if (this.canvasMouseUpHandler) {
             canvas.removeEventListener('mouseup', this.canvasMouseUpHandler);
         }
+        // 터치 이벤트 해제
+        if (this.canvasTouchStartHandler) {
+            canvas.removeEventListener('touchstart', this.canvasTouchStartHandler);
+        }
+        if (this.canvasTouchMoveHandler) {
+            canvas.removeEventListener('touchmove', this.canvasTouchMoveHandler);
+        }
+        if (this.canvasTouchEndHandler) {
+            canvas.removeEventListener('touchend', this.canvasTouchEndHandler);
+        }
         if (this.keyDownHandler) {
             window.removeEventListener('keydown', this.keyDownHandler);
         }
@@ -733,10 +816,24 @@ export default class ClassroomDesignMode {
             console.log('🔧 Shift: 도구 선택 해제');
         }
         
-        // Escape: 도구 선택 해제
-        if (e.code === 'Escape' && this.currentTool) {
-            this.selectTool(null);
-            console.log('🔧 Escape: 도구 선택 해제');
+        // Escape: 도구 선택 해제 또는 미배치 교실 선택 해제
+        if (e.code === 'Escape') {
+            if (this.selectedUnplacedClassroom) {
+                // 미배치 교실 선택 해제
+                this.selectedUnplacedClassroom = null;
+                document.querySelectorAll('.unplaced-classroom-item').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                // 커서를 기본값으로 복원
+                if (this.core && this.core.canvas) {
+                    this.core.canvas.style.cursor = 'default';
+                }
+                console.log('🔧 Escape: 미배치 교실 선택 해제');
+            } else if (this.currentTool) {
+                // 도구 선택 해제
+                this.selectTool(null);
+                console.log('🔧 Escape: 도구 선택 해제');
+            }
         }
     }
     
@@ -776,21 +873,85 @@ export default class ClassroomDesignMode {
      * 캔버스 클릭 처리 (건물, 교실만)
      */
     handleCanvasClick(e) {
-        if (!this.currentTool) return;
+        console.log('🎯 handleCanvasClick 호출:', {
+            currentTool: this.currentTool,
+            selectedUnplacedClassroom: this.selectedUnplacedClassroom,
+            clientX: e.clientX,
+            clientY: e.clientY,
+            target: e.target
+        });
+        
+        // 미배치 교실이 선택된 경우 우선 처리
+        if (this.selectedUnplacedClassroom) {
+            const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
+            console.log('📍 캔버스 좌표 변환:', {
+                screen: { x: e.clientX, y: e.clientY },
+                canvas: canvasPos
+            });
+            
+            // 캔버스 경계 체크
+            if (!this.isWithinCanvasBounds(canvasPos.x, canvasPos.y)) {
+                console.warn('⚠️ 캔버스 경계 밖:', canvasPos);
+                this.uiManager.showNotification('경고', '캔버스 영역 내에만 교실을 배치할 수 있습니다.', 'warning');
+                return;
+            }
+            
+            console.log('✅ 미배치 교실 배치 시작:', {
+                classroomId: this.selectedUnplacedClassroom.classroomId,
+                classroomName: this.selectedUnplacedClassroom.classroomName,
+                pos: canvasPos
+            });
+            
+            this.placeClassroom(
+                this.selectedUnplacedClassroom.classroomId,
+                this.selectedUnplacedClassroom.classroomName,
+                canvasPos.x,
+                canvasPos.y
+            );
+            
+            // 배치 후 선택 해제
+            this.selectedUnplacedClassroom = null;
+            
+            // 시각적 피드백 제거
+            document.querySelectorAll('.unplaced-classroom-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // 커서를 기본값으로 복원
+            if (this.core && this.core.canvas) {
+                this.core.canvas.style.cursor = 'default';
+            }
+            
+            console.log('✅ 미배치 교실 배치 완료');
+            return;
+        }
+        
+        if (!this.currentTool) {
+            console.warn('⚠️ currentTool이 없음');
+            return;
+        }
         
         // 도형은 mousedown/drag로 처리하므로 여기서는 제외
         if (['rectangle', 'circle', 'line', 'dashed-line', 'entrance', 'stairs'].includes(this.currentTool)) {
+            console.log('📐 도형 도구는 mousedown으로 처리');
             return;
         }
         
         // screenToCanvas는 내부에서 getBoundingClientRect를 처리하므로 clientX/Y를 직접 전달
         const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
+        console.log('📍 캔버스 좌표 변환:', {
+            screen: { x: e.clientX, y: e.clientY },
+            canvas: canvasPos
+        });
         
         // 캔버스 경계 체크
         if (!this.isWithinCanvasBounds(canvasPos.x, canvasPos.y)) {
+            console.warn('⚠️ 캔버스 경계 밖:', canvasPos);
             this.uiManager.showNotification('경고', '캔버스 영역 내에만 요소를 생성할 수 있습니다.', 'warning');
             return;
         }
+        
+        console.log('✅ 요소 생성 시작:', { tool: this.currentTool, pos: canvasPos });
         
         if (this.currentTool === 'building') {
             this.createBuilding(canvasPos.x, canvasPos.y);
@@ -801,6 +962,8 @@ export default class ClassroomDesignMode {
         } else if (this.currentTool === 'elevator') {
             this.createElevator(canvasPos.x, canvasPos.y);
         }
+        
+        console.log('✅ 요소 생성 완료');
     }
     
     /**
@@ -1431,10 +1594,9 @@ export default class ClassroomDesignMode {
             const name = classroom.roomName || classroom.classroomName || classroom.name || classroom.className || classroom.class_name || `교실 ${id}`;
             
             return `
-                <div class="unplaced-classroom-item" draggable="true" 
+                <div class="unplaced-classroom-item" 
                      data-classroom-id="${id}"
                      data-classroom-name="${name}">
-                    <i class="fas fa-grip-vertical"></i>
                     <span>${name}</span>
                 </div>
             `;
@@ -1442,9 +1604,9 @@ export default class ClassroomDesignMode {
         
         console.log(`✅ DOM 업데이트 완료: ${sortedClassrooms.length}개 교실 렌더링됨`);
         
-        // 드래그 이벤트 설정
-        this.setupClassroomDragEvents();
-        console.log('✅ 드래그 이벤트 재설정 완료');
+        // 클릭 이벤트 설정
+        this.setupClassroomClickEvents();
+        console.log('✅ 클릭 이벤트 재설정 완료');
     }
     
     /**
@@ -1462,47 +1624,44 @@ export default class ClassroomDesignMode {
     }
     
     /**
-     * 교실 드래그 이벤트 설정
+     * 교실 클릭 이벤트 설정 (드래그 앤 드롭 → 클릭 방식으로 변경)
      */
-    setupClassroomDragEvents() {
+    setupClassroomClickEvents() {
+        // 기존 이벤트 리스너 제거 (중복 방지)
         document.querySelectorAll('.unplaced-classroom-item').forEach(item => {
-            item.addEventListener('dragstart', (e) => {
-                const classroomId = item.dataset.classroomId;
-                const classroomName = item.dataset.classroomName;
-                e.dataTransfer.setData('classroomId', classroomId);
-                e.dataTransfer.setData('classroomName', classroomName);
-                e.dataTransfer.effectAllowed = 'move';
-                console.log('🎯 드래그 시작:', { classroomId, classroomName });
-            });
+            // 기존 클릭 리스너 제거
+            const newItem = item.cloneNode(true);
+            item.parentNode.replaceChild(newItem, item);
         });
         
-        // 캔버스에 드롭 이벤트 설정 (중복 방지)
-        if (!this.canvasDragDropSetup) {
-            const canvas = this.core.canvas;
-            
-            canvas.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-            });
-            
-            canvas.addEventListener('drop', (e) => {
-                e.preventDefault();
+        // 미배치 교실 항목 클릭 이벤트
+        document.querySelectorAll('.unplaced-classroom-item').forEach(item => {
+            item.addEventListener('click', (e) => {
                 e.stopPropagation();
-                e.stopImmediatePropagation();
+                const classroomId = item.dataset.classroomId;
+                const classroomName = item.dataset.classroomName;
                 
-                const classroomId = e.dataTransfer.getData('classroomId');
-                const classroomName = e.dataTransfer.getData('classroomName');
+                // 선택된 교실 저장 (건물/교실 도구처럼)
+                this.selectedUnplacedClassroom = {
+                    classroomId: classroomId,
+                    classroomName: classroomName
+                };
                 
-                console.log('🎯 드롭:', { classroomId, classroomName });
+                // 시각적 피드백 (선택된 항목 강조)
+                document.querySelectorAll('.unplaced-classroom-item').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                item.classList.add('selected');
                 
-                if (classroomId && classroomName) {
-                    const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
-                    this.placeClassroom(classroomId, classroomName, canvasPos.x, canvasPos.y);
+                // 커서를 crosshair로 변경 (건물/교실 도구처럼)
+                if (this.core && this.core.canvas) {
+                    this.core.canvas.style.cursor = 'crosshair';
                 }
+                
+                console.log('✅ 미배치 교실 선택:', { classroomId, classroomName });
+                console.log('💡 이제 캔버스를 클릭하여 교실을 배치하세요');
             });
-            
-            this.canvasDragDropSetup = true;
-        }
+        });
     }
     
     /**

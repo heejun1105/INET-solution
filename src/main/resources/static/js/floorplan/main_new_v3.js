@@ -208,35 +208,158 @@ class FloorPlanApp {
             pptBtn.addEventListener('click', () => this.downloadPPT());
         }
 
-        // 헤더 접기/펼치기
+        // 헤더 접기/펼치기 (토글 버튼 하나로 처리)
         const header = document.querySelector('.workspace-header');
         const headerCollapseBtn = document.getElementById('header-collapse-btn');
-        const headerShowBtn = document.getElementById('header-show-btn');
-        if (header && headerCollapseBtn && headerShowBtn) {
+        if (header && headerCollapseBtn) {
+            const toggleIcon = headerCollapseBtn.querySelector('i');
             headerCollapseBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                header.classList.add('collapsed');
-                headerShowBtn.style.display = 'flex';
+                e.stopPropagation();
+                
+                if (header.classList.contains('collapsed')) {
+                    // 접힌 상태 → 펼치기
+                    header.classList.remove('collapsed');
+                    if (toggleIcon) {
+                        toggleIcon.className = 'fas fa-chevron-up';
+                    }
+                    headerCollapseBtn.title = '상단 배너 접기';
+                } else {
+                    // 펼친 상태 → 접기
+                    header.classList.add('collapsed');
+                    if (toggleIcon) {
+                        toggleIcon.className = 'fas fa-chevron-down';
+                    }
+                    headerCollapseBtn.title = '상단 배너 펼치기';
+                }
+                
                 // 레이아웃 변화 후 배율/팬 자동 보정
                 this.fitCanvasToViewportDebounced();
             });
-            headerShowBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                header.classList.remove('collapsed');
-                headerShowBtn.style.display = 'none';
-                // 레이아웃 변화 후 배율/팬 자동 보정 (필요 시만 확대)
-                this.fitCanvasToViewportDebounced();
-            });
+        }
+
+        // 헤더 스크롤 시 캔버스로 이벤트 전파 방지
+        const workspaceHeader = document.querySelector('.workspace-header');
+        const workspaceControlsCenter = document.querySelector('.workspace-controls-center');
+        if (workspaceHeader && workspaceControlsCenter) {
+            // 터치 이벤트 전파 방지
+            const preventCanvasTouch = (e) => {
+                e.stopPropagation();
+            };
+            workspaceControlsCenter.addEventListener('touchstart', preventCanvasTouch, { passive: true });
+            workspaceControlsCenter.addEventListener('touchmove', preventCanvasTouch, { passive: true });
+            workspaceControlsCenter.addEventListener('touchend', preventCanvasTouch, { passive: true });
+            
+            // 스크롤 이벤트 전파 방지
+            workspaceControlsCenter.addEventListener('scroll', (e) => {
+                e.stopPropagation();
+            }, { passive: true });
+            
+            // 마우스 휠 이벤트 전파 방지
+            workspaceControlsCenter.addEventListener('wheel', (e) => {
+                e.stopPropagation();
+            }, { passive: true });
+            
+            // 모바일 및 랩탑에서 헤더 도구 표시 시 스크롤 위치를 맨 왼쪽(레이어부터)으로 리셋
+            const resetHeaderScroll = () => {
+                if (window.innerWidth <= 1200 && workspaceControlsCenter) {
+                    // 첫 번째 요소(레이어 그룹)를 찾아서 scrollIntoView 사용
+                    const firstToolGroup = workspaceControlsCenter.querySelector('.header-tool-group:first-child');
+                    
+                    // 방법 1: scrollLeft를 0으로 직접 설정
+                    const setScrollToZero = () => {
+                        workspaceControlsCenter.scrollLeft = 0;
+                    };
+                    
+                    // 방법 2: 첫 번째 요소로 스크롤
+                    const scrollToFirstElement = () => {
+                        if (firstToolGroup) {
+                            firstToolGroup.scrollIntoView({ 
+                                behavior: 'auto', 
+                                block: 'nearest', 
+                                inline: 'start' 
+                            });
+                        }
+                    };
+                    
+                    // 즉시 실행
+                    setScrollToZero();
+                    requestAnimationFrame(() => {
+                        setScrollToZero();
+                        scrollToFirstElement();
+                    });
+                    
+                    // 레이아웃 안정화 후 여러 번 재시도
+                    const attemptReset = (delay) => {
+                        setTimeout(() => {
+                            setScrollToZero();
+                            scrollToFirstElement();
+                        }, delay);
+                    };
+                    
+                    attemptReset(50);
+                    attemptReset(100);
+                    attemptReset(200);
+                    attemptReset(300);
+                    attemptReset(500);
+                }
+            };
+            
+            // 헤더 도구가 표시될 때 스크롤 리셋
+            const headerTools = document.getElementById('workspace-tools');
+            if (headerTools) {
+                // MutationObserver로 display 변경 감지
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                            const display = headerTools.style.display;
+                            if (display === 'flex' || display === '') {
+                                resetHeaderScroll();
+                            }
+                        }
+                    });
+                });
+                observer.observe(headerTools, { attributes: true, attributeFilter: ['style'] });
+                
+                // ResizeObserver로 크기 변화 감지 (레이어가 보이도록)
+                const resizeObserver = new ResizeObserver(() => {
+                    if (window.innerWidth <= 1200) {
+                        resetHeaderScroll();
+                    }
+                });
+                resizeObserver.observe(workspaceControlsCenter);
+                
+                // 초기 상태 확인
+                if (headerTools.style.display === 'flex' || getComputedStyle(headerTools).display === 'flex') {
+                    resetHeaderScroll();
+                }
+                
+                // 화면 크기 변경 시에도 리셋 (모바일 및 랩탑에서만)
+                window.addEventListener('resize', () => {
+                    if (window.innerWidth <= 1200) {
+                        resetHeaderScroll();
+                    }
+                });
+            }
         }
 
         // 캔버스 컨테이너 리사이즈 감지하여 배율/팬 자동 보정
         const canvasContainer = document.querySelector('.workspace-canvas-container');
         if (canvasContainer) {
             const resizeObserver = new ResizeObserver(() => {
-                this.fitCanvasToViewportDebounced();
+                // 캔버스가 표시된 상태에서만 리사이즈
+                if (this.core && canvasContainer.getBoundingClientRect().width > 0) {
+                    this.core.resize();
+                    this.fitCanvasToViewportDebounced();
+                }
             });
             resizeObserver.observe(canvasContainer);
             this._viewportResizeObserver = resizeObserver;
+        }
+        // 화면 회전/주소창 변화 등 추가 신호에 반응
+        window.addEventListener('orientationchange', () => this.fitCanvasToViewportDebounced());
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => this.fitCanvasToViewportDebounced());
         }
         
         // 키보드 단축키 설정
@@ -626,17 +749,72 @@ class FloorPlanApp {
         
         // 워크스페이스 표시
         workspaceModal.style.display = 'block';
+        console.log('🖼️ 워크스페이스 모달 표시:', workspaceModal.style.display);
         
         // 캔버스가 표시된 후 리사이즈 및 중앙 뷰 설정
-        setTimeout(() => {
-            if (this.core) {
+        // requestAnimationFrame을 사용하여 DOM이 완전히 렌더링된 후 실행
+        const ensureCanvasVisible = () => {
+            if (!this.core) {
+                console.error('❌ Core가 초기화되지 않음');
+                return;
+            }
+            
+            // 캔버스 컨테이너 크기 확인
+            const canvasContainer = document.querySelector('.workspace-canvas-container');
+            if (!canvasContainer) {
+                console.error('❌ 캔버스 컨테이너를 찾을 수 없음');
+                return;
+            }
+            
+            const rect = canvasContainer.getBoundingClientRect();
+            console.log('🖼️ 캔버스 컨테이너 크기:', rect.width, 'x', rect.height);
+            
+            if (rect.width > 0 && rect.height > 0) {
+                // 캔버스가 없으면 생성
+                if (!this.core.canvas) {
+                    console.log('🖼️ 캔버스가 없어서 생성 중...');
+                    this.core.createCanvas();
+                }
+                
                 this.core.resize();
                 this.core.centerView(); // 중앙 뷰로 시작 (100% 배율)
                 this.core.markDirty();
+                this.core.render(); // 강제 렌더링
                 this.updateZoomDisplay(); // 줌 디스플레이 업데이트
-                console.log('🖼️ 캔버스 중앙 뷰 설정 및 강제 렌더링');
+                console.log('✅ 캔버스 중앙 뷰 설정 및 강제 렌더링 완료');
+            } else {
+                console.warn('⚠️ 캔버스 컨테이너 크기가 0, 재시도 예정...');
+                // 크기가 0이면 다시 시도
+                setTimeout(() => {
+                    ensureCanvasVisible();
+                }, 100);
             }
-        }, 100);
+        };
+        
+        // DOM 렌더링 완료 대기
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                ensureCanvasVisible();
+            });
+        });
+        
+        // 추가 안전장치: 500ms 후에도 한 번 더 시도
+        setTimeout(() => {
+            if (this.core && this.core.canvas) {
+                const canvasContainer = document.querySelector('.workspace-canvas-container');
+                if (canvasContainer) {
+                    const rect = canvasContainer.getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) {
+                        this.core.resize();
+                        this.core.centerView();
+                        this.core.markDirty();
+                        this.core.render();
+                        this.updateZoomDisplay();
+                        console.log('🖼️ 캔버스 최종 확인 및 렌더링');
+                    }
+                }
+            }
+        }, 500);
         
         // 모드 선택 드롭다운 필터링
         const workspaceModeSelect = document.getElementById('workspace-mode-select');

@@ -101,6 +101,12 @@ export default class FloorPlanCore {
      * 캔버스 생성
      */
     createCanvas() {
+        // 이미 캔버스가 있으면 생성하지 않음
+        if (this.canvas && this.container.contains(this.canvas)) {
+            console.log('🖼️ 캔버스가 이미 존재함');
+            return;
+        }
+        
         this.canvas = document.createElement('canvas');
         this.canvas.className = 'floorplan-canvas';
         this.canvas.style.cssText = `
@@ -113,7 +119,13 @@ export default class FloorPlanCore {
         this.ctx = this.canvas.getContext('2d');
         this.container.appendChild(this.canvas);
         
-        this.resize();
+        // 컨테이너가 표시된 상태에서만 리사이즈
+        const rect = this.container.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+            this.resize();
+        } else {
+            console.warn('⚠️ 캔버스 생성 시 컨테이너 크기가 0, 리사이즈 건너뜀');
+        }
         
         console.log('🖼️ 캔버스 생성 완료');
     }
@@ -123,6 +135,13 @@ export default class FloorPlanCore {
      */
     resize() {
         const rect = this.container.getBoundingClientRect();
+        
+        // 컨테이너가 숨겨져 있거나 크기가 0이면 리사이즈하지 않음
+        if (rect.width <= 0 || rect.height <= 0) {
+            console.warn('⚠️ 캔버스 컨테이너 크기가 0입니다. 리사이즈를 건너뜁니다.');
+            return;
+        }
+        
         const dpr = window.devicePixelRatio || 1;
         
         this.canvas.width = rect.width * dpr;

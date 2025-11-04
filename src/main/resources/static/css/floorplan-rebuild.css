@@ -245,13 +245,21 @@
     border: 2px solid #e5e7eb;
     border-radius: 6px;
     background: white;
-    cursor: move;
+    cursor: pointer;
     transition: all 0.2s;
 }
 
 .unplaced-classroom-item:hover {
-    border-color: #3b82f6;
-    background: #eff6ff;
+    background-color: #f0f0f0;
+}
+
+.unplaced-classroom-item.selected {
+    background-color: #0ea5e9;
+    color: white;
+}
+
+.unplaced-classroom-item.selected:hover {
+    background-color: #0284c7;
 }
 
 /* 색상 팔레트 */
@@ -587,7 +595,23 @@
     }
 }
 
-@media (max-width: 768px) {
+    @media (max-width: 768px) {
+    /* 모바일: 워크스페이스 모달 내부에서만 스크롤 제어 (페이지 전체 스크롤은 유지) */
+    .workspace-modal {
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+    .workspace-content {
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+    }
     .design-toolbar-container {
         left: 10px;
         width: 200px;
@@ -652,6 +676,9 @@
     gap: 1.5rem;
     flex: 1;
     justify-content: center;
+    /* 헤더 스크롤 시 캔버스로 이벤트 전파 방지 */
+    touch-action: pan-x pan-y;
+    overscroll-behavior: contain;
 }
 
 .workspace-controls-right {
@@ -1045,45 +1072,65 @@
     margin: 0 !important;
 }
 
-/* 헤더 토글 버튼 스타일 - 상단 배너 중앙 하단에 튀어나오게 */
+/* 헤더 토글 버튼 스타일 */
 .workspace-header { position: relative; overflow: visible; }
 
-#header-collapse-btn {
-    position: absolute !important;
-    left: 50% !important;
-    right: auto !important;
-    top: auto !important;
-    bottom: -18px !important; /* 배너 아래로 살짝 튀어나오게 */
-    transform: translateX(-50%) !important;
-    width: 36px !important;
-    height: 36px !important;
-    border-radius: 50% !important;
-    background: #f3f4f6 !important;
-    color: #334155 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.15) !important;
-    z-index: 20012 !important;
+.header-toggle-btn {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background: #f3f4f6;
+    color: #334155;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 10;
+    padding: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-#header-collapse-btn i { pointer-events: none; }
+.header-toggle-btn:hover {
+    background: #e5e7eb;
+    transform: scale(1.05);
+}
+
+.header-toggle-btn i {
+    pointer-events: none;
+    font-size: 0.9rem;
+}
+
+/* 접힌 상태에서도 토글 버튼은 헤더 우측 상단에 고정 (일관된 위치) */
+.workspace-header.collapsed .header-toggle-btn {
+    position: absolute !important;
+    right: 10px !important;
+    top: 10px !important;
+    width: 32px !important;
+    height: 32px !important;
+    margin-right: 0 !important;
+    order: 0 !important; /* order 제거 */
+}
+
+/* 접힌 상태에서 workspace-controls-center만 표시 */
+.workspace-header.collapsed .workspace-controls-center {
+    display: flex !important;
+}
+
+/* 접힌 상태에서 workspace-controls는 가운데 도구줄만 포함 */
+.workspace-header.collapsed .workspace-controls {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+}
 
 #header-show-btn {
-    position: fixed !important;
-    left: 50% !important;
-    top: 8px !important;
-    transform: translateX(-50%) !important;
-    width: 36px !important;
-    height: 36px !important;
-    border-radius: 50% !important;
-    background: #f3f4f6 !important;
-    color: #334155 !important;
-    display: none; /* JS에서 표시 */
-    align-items: center !important;
-    justify-content: center !important;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.15) !important;
-    z-index: 20014 !important;
+    display: none !important; /* 더 이상 사용하지 않음 */
 }
 
 .canvas-wrapper {
@@ -1109,8 +1156,8 @@
 
 /* ===== 모바일/태블릿 최적화 ===== */
 
-/* 태블릿 (768px ~ 1024px) */
-@media (max-width: 1024px) and (min-width: 769px) {
+/* 태블릿 및 랩탑 (768px ~ 1200px) */
+@media (max-width: 1200px) and (min-width: 769px) {
     /* 워크스페이스 헤더 조정 */
     .workspace-header {
         padding: 1rem 1.5rem;
@@ -1123,6 +1170,30 @@
     
     .workspace-controls-center {
         gap: 1rem;
+        /* 랩탑에서도 좌우 스크롤 가능하도록 */
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        /* 헤더 스크롤 시 캔버스로 이벤트 전파 방지 */
+        touch-action: pan-x pan-y;
+        overscroll-behavior: contain;
+        /* 레이어부터 보이도록 justify-content를 flex-start로 강제 */
+        justify-content: flex-start !important; /* 데스크톱의 center를 오버라이드 */
+        scroll-behavior: auto;
+        direction: ltr;
+    }
+    
+    /* 랩탑에서 도구 그룹이 잘리지 않도록 */
+    .workspace-controls-center .header-tool-group {
+        flex-shrink: 0;
+        min-width: fit-content;
+        white-space: nowrap;
+    }
+    
+    /* 랩탑에서 첫 번째 도구 그룹(레이어)이 왼쪽에 정렬되도록 */
+    .workspace-controls-center .header-tool-group:first-child {
+        scroll-margin-left: 0;
+        scroll-margin-right: 0;
     }
     
     /* 버튼 크기 조정 (터치 친화적) */
@@ -1157,10 +1228,23 @@
         top: 15px;
     }
     
-    /* 캔버스 컨트롤 조정 */
+    /* 캔버스 컨트롤 조정 (태블릿 - 소형화) */
     .workspace-canvas-container .zoom-controls {
-        bottom: 15px;
-        right: 15px;
+        bottom: 20px;
+        right: 20px;
+        padding: 6px;
+        gap: 6px;
+    }
+    
+    .workspace-canvas-container .zoom-controls .zoom-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 0.95rem;
+    }
+    
+    .workspace-canvas-container .zoom-controls .zoom-display {
+        min-width: 55px;
+        font-size: 0.9rem;
     }
     
     .workspace-canvas-container .design-toolbar-container {
@@ -1191,6 +1275,57 @@
         max-height: 50vh; /* 최대 높이 제한 */
         overflow-y: auto;
     }
+
+    /* [모바일] 헤더 접힘 상태: 좌/우 그룹 숨기고 가운데(레이어/선/툴즈) 줄만 표시 */
+    .workspace-header.collapsed {
+        display: block !important;
+        height: auto !important;
+        padding: 0.35rem 0.5rem !important;
+        margin: 0 !important;
+        border: 0 !important;
+        box-shadow: 0 1px 3px rgba(14, 165, 233, 0.12) !important;
+    }
+    .workspace-header.collapsed .workspace-controls {
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+    }
+    .workspace-header.collapsed .workspace-controls-left,
+    .workspace-header.collapsed .workspace-controls-right {
+        display: none !important;
+    }
+    .workspace-header.collapsed .workspace-controls-center {
+        display: flex !important;
+        gap: 0.5rem;
+        justify-content: flex-start !important; /* 레이어가 왼쪽부터 보이도록 */
+        flex-wrap: nowrap;
+        align-items: center;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex: 1;
+        /* 헤더 스크롤 시 캔버스로 이벤트 전파 방지 */
+        touch-action: pan-x pan-y;
+        overscroll-behavior: contain;
+        /* 레이어부터 보이도록 초기 스크롤 위치를 왼쪽으로 설정 */
+        scroll-behavior: auto;
+        direction: ltr;
+    }
+    
+    /* 접힌 상태에서도 첫 번째 도구 그룹(레이어)이 왼쪽에 정렬되도록 */
+    .workspace-header.collapsed .workspace-controls-center .header-tool-group:first-child {
+        scroll-margin-left: 0;
+        scroll-margin-right: 0;
+    }
+    /* 접힌 상태에서도 토글 버튼은 헤더 우측 상단에 고정 (일관된 위치) */
+    .workspace-header.collapsed .header-toggle-btn {
+        position: absolute !important;
+        right: 10px !important;
+        top: 10px !important;
+        width: 32px !important;
+        height: 32px !important;
+        margin-right: 0 !important;
+        order: 0 !important; /* order 제거 */
+    }
     
     /* 헤더 컨트롤을 세로로 재배치 */
     .workspace-controls {
@@ -1217,6 +1352,20 @@
         align-items: center;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        /* 헤더 스크롤 시 캔버스로 이벤트 전파 방지 */
+        touch-action: pan-x pan-y;
+        overscroll-behavior: contain;
+        /* 레이어부터 보이도록 초기 스크롤 위치를 왼쪽으로 설정 */
+        scroll-behavior: auto; /* smooth 제거하여 즉시 스크롤 */
+        direction: ltr; /* 왼쪽에서 오른쪽으로 */
+        /* 모바일에서 레이어가 잘리지 않도록 justify-content를 flex-start로 강제 */
+        justify-content: flex-start !important; /* 데스크톱의 center를 오버라이드 */
+    }
+    
+    /* 모바일에서 첫 번째 도구 그룹(레이어)이 왼쪽에 정렬되도록 */
+    .workspace-controls-center .header-tool-group:first-child {
+        scroll-margin-left: 0;
+        scroll-margin-right: 0;
     }
     
     /* 중앙 도구 영역 숨김 옵션 (공간 절약) */
@@ -1585,17 +1734,27 @@
         bottom: 0;
     }
     
-    /* 줌 컨트롤 모바일 최적화 */
+    /* 줌 컨트롤 모바일 최적화 (소형화) */
     .workspace-canvas-container .zoom-controls {
-        bottom: 20px;
-        right: 15px;
+        bottom: 15px;
+        right: 10px;
         z-index: 100;
+        padding: 6px;
+        gap: 6px;
+        border-radius: 6px;
     }
     
-    .zoom-controls button {
-        width: 44px;
-        height: 44px;
-        font-size: 1.2rem;
+    .workspace-canvas-container .zoom-controls .zoom-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+        padding: 0;
+    }
+    
+    .workspace-canvas-container .zoom-controls .zoom-display {
+        min-width: 50px;
+        font-size: 0.85rem;
+        padding: 0 4px;
     }
     
     /* 워크스페이스 모달 모바일 최적화 */
@@ -1745,6 +1904,28 @@
     .workspace-btn {
         flex: 1;
         min-width: 0;
+    }
+    
+    /* 작은 모바일에서 줌 컨트롤 소형화 */
+    .workspace-canvas-container .zoom-controls {
+        bottom: 15px;
+        right: 10px;
+        padding: 4px;
+        gap: 4px;
+        border-radius: 6px;
+    }
+    
+    .workspace-canvas-container .zoom-controls .zoom-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.9rem;
+        padding: 0;
+    }
+    
+    .workspace-canvas-container .zoom-controls .zoom-display {
+        min-width: 45px;
+        font-size: 0.75rem;
+        padding: 0 4px;
     }
 }
 

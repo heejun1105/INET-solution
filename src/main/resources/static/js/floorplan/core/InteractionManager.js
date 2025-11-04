@@ -63,11 +63,28 @@ export default class InteractionManager {
             zoom: 1.0
         };
         
-        // 모바일 드래그 판별 상태 (요소 위 드래그도 팬으로 처리)
+        // 모바일 드래그 판별 상태 (요소 드래그 vs 팬 구분)
         this.mobileDrag = {
             pending: false,
             downX: 0,
-            downY: 0
+            downY: 0,
+            element: null // 드래그할 요소 (null이면 팬, 요소가 있으면 드래그)
+        };
+        
+        // 모바일 클릭 판별 상태 (요소 생성 도구용)
+        this.mobileClick = {
+            isActive: false,
+            startX: 0,
+            startY: 0
+        };
+        
+        // 핀치 줌 상태 (두 손가락 줌)
+        this.pinchZoom = {
+            isActive: false,
+            initialDistance: 0,
+            initialZoom: 1.0,
+            centerX: 0,
+            centerY: 0
         };
         
         // 선택 박스 정보
@@ -129,11 +146,18 @@ export default class InteractionManager {
         this.canvas.addEventListener('wheel', this.handlers.wheel, { passive: false });
         this.canvas.addEventListener('contextmenu', this.handlers.contextmenu);
         
-        // 터치 이벤트(모바일/태블릿): 마우스 이벤트에 위임
+        // 터치 이벤트(모바일/태블릿): 마우스 이벤트에 위임 및 핀치 줌 처리
         this.handlers.touchstart = (e) => {
             if (e.touches && e.touches.length > 0) {
+                // 두 손가락 터치: 핀치 줌 시작
+                if (e.touches.length === 2) {
+                    this.startPinchZoom(e.touches);
+                    e.preventDefault();
+                    return;
+                }
+                
+                // 단일 터치: 마우스 다운처럼 처리
                 const touch = e.touches[0];
-                // 터치를 마우스 다운처럼 처리
                 this.onMouseDown({
                     preventDefault: () => e.preventDefault(),
                     button: 0,
@@ -145,7 +169,15 @@ export default class InteractionManager {
             }
         };
         this.handlers.touchmove = (e) => {
+            if (e.touches && e.touches.length >= 2) {
+                // 두 손가락 터치: 핀치 줌 업데이트
+                this.updatePinchZoom(e.touches);
+                e.preventDefault();
+                return;
+            }
+            
             if (e.touches && e.touches.length > 0) {
+                // 단일 터치: 마우스 이동처럼 처리
                 const touch = e.touches[0];
                 this.onMouseMove({
                     clientX: touch.clientX,
@@ -155,7 +187,28 @@ export default class InteractionManager {
             }
         };
         this.handlers.touchend = (e) => {
-            this.onMouseUp(e);
+            // 두 손가락이 모두 떨어졌거나 하나만 남은 경우 핀치 줌 종료
+            if (this.pinchZoom.isActive && (e.touches.length < 2 || e.changedTouches.length >= 2)) {
+                this.endPinchZoom();
+                e.preventDefault();
+                return;
+            }
+            
+            // 터치 이벤트를 마우스 이벤트처럼 변환
+            const touch = e.changedTouches && e.changedTouches.length > 0 
+                ? e.changedTouches[0] 
+                : (e.touches && e.touches.length > 0 ? e.touches[0] : null);
+            
+            if (touch) {
+                this.onMouseUp({
+                    preventDefault: () => e.preventDefault(),
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    button: 0
+                });
+            } else {
+                this.onMouseUp(e);
+            }
         };
         this.canvas.addEventListener('touchstart', this.handlers.touchstart, { passive: false });
         this.canvas.addEventListener('touchmove', this.handlers.touchmove, { passive: false });
@@ -181,7 +234,7 @@ export default class InteractionManager {
         
         const { x, y } = this.getMousePos(e);
         const canvasPos = this.core.screenToCanvas(x, y);
-        const isMobile = window.innerWidth <= 768;
+        const isMobileOrTablet = window.innerWidth <= 1200;
         
         console.debug('🖱️ 마우스 다운:', canvasPos);
         
@@ -222,6 +275,7 @@ export default class InteractionManager {
                 const handle = this.findResizeHandle(canvasPos.x, canvasPos.y, selectedElement);
                 if (handle) {
                     console.debug('🎯 핸들 클릭:', handle, '| 요소:', selectedElement.id);
+                    // 모바일/태블릿에서도 리사이즈는 즉시 시작 (드래그와 구분)
                     this.startResize(x, y, selectedElement, handle);
                     return;
                 }
@@ -252,19 +306,21 @@ export default class InteractionManager {
                 }
             }
             
-            // 모바일에서는 요소 위 드래그도 팬 동작으로 전환하기 위해 즉시 드래그 시작을 지연
-            if (isMobile) {
+            // 모바일/태블릿: 요소 드래그를 위한 지연 처리 (리사이즈 핸들과 구분)
+            if (isMobileOrTablet) {
+                // 요소 드래그를 위한 마커 설정 (리사이즈 핸들이 아닐 때만)
                 this.mobileDrag.pending = true;
                 this.mobileDrag.downX = x;
                 this.mobileDrag.downY = y;
+                this.mobileDrag.element = clickedElement; // 드래그할 요소 저장
             } else {
                 // 데스크탑: Ctrl 클릭이 아닐 때만 드래그 시작
                 if (!e.ctrlKey && !e.metaKey) {
-                    this.startDrag(x, y);
+            this.startDrag(x, y);
                 }
             }
         } else {
-        // 빈 공간 클릭: (모바일은 팬, 데스크톱은 선택 박스)
+        // 빈 공간 클릭: (모바일/태블릿은 팬, 데스크톱은 선택 박스)
         // 기존 선택이 있으면 즉시 해제
         if (this.core.state.selectedElements && this.core.state.selectedElements.length > 0) {
             this.clearSelection();
@@ -273,7 +329,46 @@ export default class InteractionManager {
                 // Ctrl 누른 채로 빈 공간 클릭: 아무것도 안 함 (기존 선택 유지)
                 return;
             }
-        if (isMobile) {
+        
+        // 요소 생성 도구가 활성화된 경우 팬/선택박스를 시작하지 않음 (클릭 이벤트로 처리)
+        const activeTool = this.core.state.activeTool;
+        const isCreationTool = activeTool && ['building', 'room', 'toilet', 'elevator'].includes(activeTool);
+        
+        if (isCreationTool) {
+            console.log('🛠️ 요소 생성 도구 활성화됨:', {
+                activeTool,
+                isMobileOrTablet,
+                clickPos: { x, y }
+            });
+            
+            // 요소 생성 도구가 활성화된 경우 클릭 이벤트가 발생하도록 함
+            if (isMobileOrTablet) {
+                // 모바일/태블릿: 실제 클릭인지 확인하기 위해 마커 설정 (onMouseUp에서 확인)
+                this.mobileClick.startX = x;
+                this.mobileClick.startY = y;
+                this.mobileClick.isActive = true;
+                console.log('📱 모바일 클릭 마커 설정:', {
+                    startX: this.mobileClick.startX,
+                    startY: this.mobileClick.startY,
+                    isActive: this.mobileClick.isActive
+                });
+            } else {
+                // PC: 클릭 이벤트가 발생하도록 preventDefault를 호출하지 않음
+                // 하지만 이미 preventDefault가 호출되었으므로, 클릭 이벤트를 수동으로 발생시킴
+                // 대신 onMouseUp에서 클릭 이벤트를 발생시키도록 처리
+                this.mobileClick.startX = x;
+                this.mobileClick.startY = y;
+                this.mobileClick.isActive = true;
+                console.log('🖥️ PC 클릭 마커 설정:', {
+                    startX: this.mobileClick.startX,
+                    startY: this.mobileClick.startY,
+                    isActive: this.mobileClick.isActive
+                });
+            }
+            return; // 팬/선택박스 시작하지 않음
+        }
+        
+        if (isMobileOrTablet) {
             this.startPan(x, y);
         } else {
             this.startSelectionBox(x, y);
@@ -306,14 +401,40 @@ export default class InteractionManager {
             return;
         }
         
-        // 모바일: 드래그 임계치 초과 시 자동 팬 시작 (요소 위 드래그도 포함)
-        const isMobile = window.innerWidth <= 768;
-        if (isMobile && this.mobileDrag.pending && !this.state.isPanning && !this.state.isDragging) {
+        // 모바일/태블릿: 드래그 임계치 초과 시 요소 드래그 또는 팬 시작
+        const isMobileOrTablet = window.innerWidth <= 1200;
+        if (isMobileOrTablet && this.mobileDrag.pending && !this.state.isPanning && !this.state.isDragging) {
             const dx = x - this.mobileDrag.downX;
             const dy = y - this.mobileDrag.downY;
             const dist2 = dx * dx + dy * dy;
             if (dist2 > 36) { // 약 6px 이상 이동
-                this.startPan(this.mobileDrag.downX, this.mobileDrag.downY);
+                // 요소 위에서 시작한 드래그인지 확인
+                if (this.mobileDrag.element) {
+                    // 요소 드래그 시작
+                    console.log('📱 요소 드래그 시작:', this.mobileDrag.element.id);
+                    this.startDrag(this.mobileDrag.downX, this.mobileDrag.downY);
+                } else {
+                    // 빈 공간에서 시작한 드래그 → 팬 시작
+                    console.log('📱 팬 시작');
+                    this.startPan(this.mobileDrag.downX, this.mobileDrag.downY);
+                }
+                // 드래그/팬이 시작되면 클릭 처리를 취소
+                this.mobileClick.isActive = false;
+            }
+        }
+        
+        // 요소 생성 도구 클릭 중 팬/선택박스 시작 시 취소
+        if (this.mobileClick.isActive && !this.state.isPanning && !this.state.isSelecting) {
+            const dx = x - this.mobileClick.startX;
+            const dy = y - this.mobileClick.startY;
+            const dist2 = dx * dx + dy * dy;
+            if (dist2 > 36) { // 약 6px 이상 이동 시 팬/선택박스 시작
+                if (isMobileOrTablet) {
+                    this.startPan(this.mobileClick.startX, this.mobileClick.startY);
+                } else {
+                    this.startSelectionBox(this.mobileClick.startX, this.mobileClick.startY);
+                }
+                this.mobileClick.isActive = false;
             }
         }
         
@@ -345,6 +466,56 @@ export default class InteractionManager {
     onMouseUp(e) {
         console.debug('🖱️ 마우스 업');
         this.mobileDrag.pending = false;
+        this.mobileDrag.element = null; // 요소 드래그 마커 리셋
+        
+        // 모든 환경에서 요소 생성 도구 클릭 처리 (모바일/태블릿/PC)
+        if (this.mobileClick.isActive) {
+            const { x, y } = this.getMousePos(e);
+            const dx = x - this.mobileClick.startX;
+            const dy = y - this.mobileClick.startY;
+            const distanceSq = dx * dx + dy * dy;
+            
+            console.log('🖱️ 모바일 클릭 확인:', {
+                isActive: this.mobileClick.isActive,
+                startPos: { x: this.mobileClick.startX, y: this.mobileClick.startY },
+                endPos: { x, y },
+                distance: Math.sqrt(distanceSq),
+                isPanning: this.state.isPanning,
+                isDragging: this.state.isDragging,
+                isSelecting: this.state.isSelecting,
+                activeTool: this.core.state.activeTool
+            });
+            
+            // 실제 클릭인지 확인 (6px 이내 이동)
+            if (distanceSq <= 36 && !this.state.isPanning && !this.state.isDragging && !this.state.isSelecting) {
+                // 실제 클릭이었으므로 요소 생성 도구 클릭 이벤트 발생
+                const activeTool = this.core.state.activeTool;
+                if (activeTool && ['building', 'room', 'toilet', 'elevator'].includes(activeTool)) {
+                    console.log('✅ 요소 생성 클릭 이벤트 발생:', { x, y, activeTool });
+                    // ClassroomDesignMode의 handleCanvasClick을 호출하기 위해 클릭 이벤트 생성
+                    const clickEvent = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: x,
+                        clientY: y,
+                        button: 0
+                    });
+                    this.canvas.dispatchEvent(clickEvent);
+                    console.log('📤 클릭 이벤트 디스패치 완료');
+                } else {
+                    console.warn('⚠️ 활성 도구가 요소 생성 도구가 아님:', activeTool);
+                }
+            } else {
+                console.log('❌ 클릭이 아님 (드래그/팬/선택으로 판단):', {
+                    distanceSq,
+                    isPanning: this.state.isPanning,
+                    isDragging: this.state.isDragging,
+                    isSelecting: this.state.isSelecting
+                });
+            }
+            
+            this.mobileClick.isActive = false;
+        }
         
         // 줌 종료
         if (this.state.isZooming) {
@@ -851,6 +1022,129 @@ export default class InteractionManager {
         
         this.state.isZooming = false;
         this.canvas.style.cursor = 'default';
+    }
+    
+    // ===== 핀치 줌 (두 손가락 줌) =====
+    
+    /**
+     * 두 손가락 사이의 거리 계산
+     */
+    getTouchDistance(touch1, touch2) {
+        const dx = touch2.clientX - touch1.clientX;
+        const dy = touch2.clientY - touch1.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    /**
+     * 두 손가락의 중점 계산
+     */
+    getTouchCenter(touch1, touch2) {
+        return {
+            x: (touch1.clientX + touch2.clientX) / 2,
+            y: (touch1.clientY + touch2.clientY) / 2
+        };
+    }
+    
+    /**
+     * 핀치 줌 시작
+     */
+    startPinchZoom(touches) {
+        if (touches.length < 2) return;
+        
+        const touch1 = touches[0];
+        const touch2 = touches[1];
+        
+        this.pinchZoom.isActive = true;
+        this.pinchZoom.initialDistance = this.getTouchDistance(touch1, touch2);
+        this.pinchZoom.initialZoom = this.core.state.zoom;
+        
+        const center = this.getTouchCenter(touch1, touch2);
+        this.pinchZoom.centerX = center.x;
+        this.pinchZoom.centerY = center.y;
+        
+        // 다른 상호작용 중단
+        this.state.isPanning = false;
+        this.state.isDragging = false;
+        this.mobileDrag.pending = false;
+        this.mobileClick.isActive = false;
+        
+        console.debug('🤏 핀치 줌 시작:', {
+            initialDistance: this.pinchZoom.initialDistance,
+            initialZoom: this.pinchZoom.initialZoom,
+            center: { x: this.pinchZoom.centerX, y: this.pinchZoom.centerY }
+        });
+    }
+    
+    /**
+     * 핀치 줌 업데이트
+     */
+    updatePinchZoom(touches) {
+        if (!this.pinchZoom.isActive || touches.length < 2) return;
+        
+        const touch1 = touches[0];
+        const touch2 = touches[1];
+        
+        const currentDistance = this.getTouchDistance(touch1, touch2);
+        const center = this.getTouchCenter(touch1, touch2);
+        
+        // 거리 비율에 따라 줌 계산
+        const distanceRatio = currentDistance / this.pinchZoom.initialDistance;
+        const newZoom = this.pinchZoom.initialZoom * distanceRatio;
+        
+        // 줌 범위 제한
+        const minZoom = this.core.getMinZoomToFitCanvas();
+        const maxZoom = 5.0; // FloorPlanCore.MAX_ZOOM
+        const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+        
+        // 중점을 기준으로 줌 (중점이 화면에서 고정되도록 pan 조정)
+        if (typeof this.core.setZoom === 'function') {
+            this.core.setZoom(clampedZoom, center.x, center.y);
+        } else {
+            // setZoom이 없으면 수동으로 pan 계산
+            const currentZoom = this.core.state.zoom;
+            
+            // 중점의 캔버스 좌표 계산
+            const canvasCenterX = (center.x - this.core.state.panX) / currentZoom;
+            const canvasCenterY = (center.y - this.core.state.panY) / currentZoom;
+            
+            // 새로운 줌에서 같은 캔버스 지점이 중점에 오도록 pan 조정
+            const newPanX = center.x - canvasCenterX * clampedZoom;
+            const newPanY = center.y - canvasCenterY * clampedZoom;
+            
+            this.core.setState({
+                zoom: clampedZoom,
+                panX: newPanX,
+                panY: newPanY
+            });
+        }
+        
+        this.core.markDirty();
+        this.core.render && this.core.render();
+        
+        // 줌 디스플레이 업데이트
+        if (window.floorPlanApp && window.floorPlanApp.updateZoomDisplay) {
+            window.floorPlanApp.updateZoomDisplay();
+        }
+        
+        console.debug('🤏 핀치 줌 업데이트:', {
+            distanceRatio: distanceRatio.toFixed(2),
+            zoom: clampedZoom.toFixed(2)
+        });
+    }
+    
+    /**
+     * 핀치 줌 종료
+     */
+    endPinchZoom() {
+        if (!this.pinchZoom.isActive) return;
+        
+        this.pinchZoom.isActive = false;
+        this.pinchZoom.initialDistance = 0;
+        this.pinchZoom.initialZoom = 1.0;
+        this.pinchZoom.centerX = 0;
+        this.pinchZoom.centerY = 0;
+        
+        console.debug('✅ 핀치 줌 종료');
     }
     
     // ===== 선택 박스 =====
