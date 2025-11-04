@@ -8,6 +8,8 @@
  * - 교실 클릭 시 자리배치 모달 표시
  */
 
+import SeatLayoutMode from './SeatLayoutMode.js';
+
 export default class EquipmentViewMode {
     constructor(core, elementManager, uiManager) {
         this.core = core;
@@ -15,6 +17,9 @@ export default class EquipmentViewMode {
         this.uiManager = uiManager;
         
         this.devicesByClassroom = {};
+        
+        // 자리배치 모달을 위한 SeatLayoutMode 인스턴스
+        this.seatLayoutMode = new SeatLayoutMode(core, elementManager, uiManager);
         
         console.log('📦 EquipmentViewMode 초기화');
     }
@@ -209,10 +214,16 @@ export default class EquipmentViewMode {
      * 이벤트 바인딩
      */
     bindEvents() {
-        this.canvasClickHandler = (e) => this.handleCanvasClick(e);
+        // mousedown 이벤트를 capture 단계에서 먼저 처리하여 InteractionManager보다 우선 실행
+        this.canvasMouseDownHandler = (e) => this.handleCanvasMouseDown(e);
         
         const canvas = this.core.canvas;
-        canvas.addEventListener('click', this.canvasClickHandler);
+        // capture 단계에서 이벤트 처리 (InteractionManager보다 먼저 실행)
+        canvas.addEventListener('mousedown', this.canvasMouseDownHandler, true);
+        
+        // 터치 이벤트도 처리
+        this.canvasTouchStartHandler = (e) => this.handleCanvasTouchStart(e);
+        canvas.addEventListener('touchstart', this.canvasTouchStartHandler, true);
     }
     
     /**
@@ -220,28 +231,264 @@ export default class EquipmentViewMode {
      */
     unbindEvents() {
         const canvas = this.core.canvas;
-        if (this.canvasClickHandler) {
-            canvas.removeEventListener('click', this.canvasClickHandler);
+        if (this.canvasMouseDownHandler) {
+            canvas.removeEventListener('mousedown', this.canvasMouseDownHandler, true);
+        }
+        if (this.canvasTouchStartHandler) {
+            canvas.removeEventListener('touchstart', this.canvasTouchStartHandler, true);
         }
     }
     
     /**
-     * 캔버스 클릭 처리
+     * 캔버스 마우스 다운 처리 (보기 모드에서 잠긴 교실 클릭 허용)
      */
-    handleCanvasClick(e) {
-        const rect = this.core.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+    handleCanvasMouseDown(e) {
+        console.log('🔍 [장비보기] handleCanvasMouseDown 호출됨');
+        console.log('🔍 [장비보기] 현재 모드:', this.core.state.currentMode);
         
-        const canvasPos = this.core.screenToCanvas(x, y);
+        // 장비 보기 모드가 아니면 무시
+        if (this.core.state.currentMode !== 'view-equipment') {
+            console.log('⚠️ [장비보기] 장비 보기 모드가 아님, 무시');
+            return;
+        }
         
-        // 클릭된 요소 찾기
-        const clickedElement = this.elementManager.getElementAtPosition(canvasPos.x, canvasPos.y);
+        // 우클릭은 무시
+        if (e.button === 2) {
+            console.log('⚠️ [장비보기] 우클릭 무시');
+            return;
+        }
         
-        if (clickedElement && clickedElement.type === 'room') {
-            // 자리배치 모달 열기 (SeatLayoutMode와 유사)
-            console.log('교실 클릭:', clickedElement);
-            this.uiManager.showNotification('자리배치 모달 (구현 예정)', 'info');
+        // InteractionManager와 동일한 방식으로 좌표 계산
+        // screenToCanvas는 clientX, clientY를 직접 받아야 함
+        const canvasPos = this.core.screenToCanvas(e.clientX, e.clientY);
+        
+        console.log('🔍 [장비보기] 클릭 위치 (화면 clientX/Y):', { 
+            clientX: e.clientX, 
+            clientY: e.clientY 
+        });
+        console.log('🔍 [장비보기] 클릭 위치 (캔버스):', canvasPos);
+        
+        // 직접 요소를 찾기 (equipment_card는 제외)
+        const sortedElements = [...this.core.state.elements].sort((a, b) => {
+            const aOrder = a.layerOrder || a.zIndex || 0;
+            const bOrder = b.layerOrder || b.zIndex || 0;
+            return bOrder - aOrder;
+        });
+        
+        console.log('🔍 [장비보기] 전체 요소 수:', this.core.state.elements.length);
+        console.log('🔍 [장비보기] 정렬된 요소 수:', sortedElements.length);
+        
+        let clickedElement = null;
+        let checkedCount = 0;
+        
+        for (const element of sortedElements) {
+            // equipment_card는 무시
+            if (element.elementType === 'equipment_card') {
+                checkedCount++;
+                continue;
+            }
+            
+            // 요소 영역 확인
+            const elementX = element.x || element.xCoordinate || 0;
+            const elementY = element.y || element.yCoordinate || 0;
+            const elementWidth = element.width || 0;
+            const elementHeight = element.height || 0;
+            
+            const isInBounds = canvasPos.x >= elementX && 
+                              canvasPos.x <= elementX + elementWidth &&
+                              canvasPos.y >= elementY && 
+                              canvasPos.y <= elementY + elementHeight;
+            
+            if (isInBounds) {
+                clickedElement = element;
+                console.log('✅ [장비보기] 클릭된 요소 발견:', {
+                    id: element.id,
+                    elementType: element.elementType,
+                    label: element.label,
+                    x: elementX,
+                    y: elementY,
+                    width: elementWidth,
+                    height: elementHeight,
+                    isLocked: element.isLocked
+                });
+                break;
+            }
+            checkedCount++;
+        }
+        
+        console.log('🔍 [장비보기] 체크한 요소 수:', checkedCount);
+        
+        if (!clickedElement) {
+            console.log('⚠️ [장비보기] 클릭된 요소 없음');
+        }
+        
+        // 교실 또는 이름박스 클릭 확인
+        let targetRoom = null;
+        
+        if (clickedElement) {
+            if (clickedElement.elementType === 'name_box') {
+                console.log('🔍 [장비보기] 이름박스 클릭됨, 부모 요소 찾는 중...');
+                // 이름 박스인 경우 부모 요소 찾기
+                if (clickedElement.parentElementId) {
+                    const parentElement = this.core.state.elements.find(
+                        el => el.id === clickedElement.parentElementId
+                    );
+                    console.log('🔍 [장비보기] 부모 요소:', parentElement);
+                    if (parentElement && parentElement.elementType === 'room') {
+                        targetRoom = parentElement;
+                        console.log('✅ [장비보기] 부모 교실 찾음:', targetRoom);
+                    }
+                } else {
+                    console.log('⚠️ [장비보기] 이름박스에 parentElementId 없음');
+                }
+            } else if (clickedElement.elementType === 'room') {
+                targetRoom = clickedElement;
+                console.log('✅ [장비보기] 교실 직접 클릭됨:', targetRoom);
+            } else {
+                console.log('⚠️ [장비보기] 교실 또는 이름박스가 아님:', clickedElement.elementType);
+            }
+        }
+        
+        // 교실 클릭 시 모달 열기 (이벤트 전파 중지하여 InteractionManager로 전달 방지)
+        if (targetRoom) {
+            console.log('🎯 [장비보기] 교실 클릭 감지, 모달 열기 시도...');
+            e.stopPropagation(); // InteractionManager로 이벤트 전달 방지
+            e.stopImmediatePropagation(); // 같은 단계의 다른 리스너도 차단
+            e.preventDefault(); // 기본 동작 방지
+            console.log('✅ [장비보기] 이벤트 전파 차단 완료, 모달 열기 호출');
+            console.log('✅ [장비보기] 교실 정보:', {
+                id: targetRoom.id,
+                label: targetRoom.label,
+                referenceId: targetRoom.referenceId,
+                classroomId: targetRoom.classroomId
+            });
+            this.openClassroomModal(targetRoom);
+            return false; // 추가 안전장치
+        } else {
+            console.log('⚠️ [장비보기] targetRoom이 null, 모달 열기 안함');
+        }
+    }
+    
+    /**
+     * 캔버스 터치 시작 처리 (모바일/태블릿)
+     */
+    handleCanvasTouchStart(e) {
+        console.log('🔍 [장비보기] handleCanvasTouchStart 호출됨');
+        console.log('🔍 [장비보기] 현재 모드:', this.core.state.currentMode);
+        
+        // 장비 보기 모드가 아니면 무시
+        if (this.core.state.currentMode !== 'view-equipment') {
+            console.log('⚠️ [장비보기] 장비 보기 모드가 아님, 무시');
+            return;
+        }
+        
+        if (e.touches.length !== 1) {
+            console.log('⚠️ [장비보기] 단일 터치가 아님:', e.touches.length);
+            return; // 단일 터치만 처리
+        }
+        
+        const touch = e.touches[0];
+        
+        // InteractionManager와 동일한 방식으로 좌표 계산
+        // screenToCanvas는 clientX, clientY를 직접 받아야 함
+        const canvasPos = this.core.screenToCanvas(touch.clientX, touch.clientY);
+        
+        console.log('🔍 [장비보기] 터치 위치 (화면 clientX/Y):', { 
+            clientX: touch.clientX, 
+            clientY: touch.clientY 
+        });
+        console.log('🔍 [장비보기] 터치 위치 (캔버스):', canvasPos);
+        
+        // 직접 요소를 찾기 (equipment_card는 제외)
+        const sortedElements = [...this.core.state.elements].sort((a, b) => {
+            const aOrder = a.layerOrder || a.zIndex || 0;
+            const bOrder = b.layerOrder || b.zIndex || 0;
+            return bOrder - aOrder;
+        });
+        
+        console.log('🔍 [장비보기] 전체 요소 수:', this.core.state.elements.length);
+        
+        let clickedElement = null;
+        for (const element of sortedElements) {
+            // equipment_card는 무시
+            if (element.elementType === 'equipment_card') {
+                continue;
+            }
+            
+            // 요소 영역 확인
+            const elementX = element.x || element.xCoordinate || 0;
+            const elementY = element.y || element.yCoordinate || 0;
+            const elementWidth = element.width || 0;
+            const elementHeight = element.height || 0;
+            
+            if (canvasPos.x >= elementX && 
+                canvasPos.x <= elementX + elementWidth &&
+                canvasPos.y >= elementY && 
+                canvasPos.y <= elementY + elementHeight) {
+                clickedElement = element;
+                console.log('✅ [장비보기] 터치된 요소 발견:', {
+                    id: element.id,
+                    elementType: element.elementType,
+                    label: element.label
+                });
+                break;
+            }
+        }
+        
+        // 교실 또는 이름박스 클릭 확인
+        let targetRoom = null;
+        
+        if (clickedElement) {
+            if (clickedElement.elementType === 'name_box') {
+                console.log('🔍 [장비보기] 이름박스 터치됨, 부모 요소 찾는 중...');
+                // 이름 박스인 경우 부모 요소 찾기
+                if (clickedElement.parentElementId) {
+                    const parentElement = this.core.state.elements.find(
+                        el => el.id === clickedElement.parentElementId
+                    );
+                    if (parentElement && parentElement.elementType === 'room') {
+                        targetRoom = parentElement;
+                        console.log('✅ [장비보기] 부모 교실 찾음:', targetRoom);
+                    }
+                }
+            } else if (clickedElement.elementType === 'room') {
+                targetRoom = clickedElement;
+                console.log('✅ [장비보기] 교실 직접 터치됨:', targetRoom);
+            }
+        }
+        
+        // 교실 터치 시 모달 열기
+        if (targetRoom) {
+            console.log('🎯 [장비보기] 교실 터치 감지, 모달 열기 시도...');
+            e.stopPropagation(); // InteractionManager로 이벤트 전달 방지
+            e.stopImmediatePropagation(); // 같은 단계의 다른 리스너도 차단
+            e.preventDefault(); // 기본 동작 방지
+            console.log('✅ [장비보기] 이벤트 전파 차단 완료, 모달 열기 호출');
+            this.openClassroomModal(targetRoom);
+        } else {
+            console.log('⚠️ [장비보기] targetRoom이 null, 모달 열기 안함');
+        }
+    }
+    
+    /**
+     * 교실 모달 열기
+     */
+    async openClassroomModal(roomElement) {
+        console.log('🎯 [장비보기] openClassroomModal 호출됨');
+        console.log('🎯 [장비보기] 교실 요소:', {
+            id: roomElement.id,
+            label: roomElement.label,
+            referenceId: roomElement.referenceId,
+            classroomId: roomElement.classroomId
+        });
+        
+        try {
+            // SeatLayoutMode의 openClassroomModal 메서드 재사용
+            console.log('🎯 [장비보기] SeatLayoutMode.openClassroomModal 호출 중...');
+            await this.seatLayoutMode.openClassroomModal(roomElement);
+            console.log('✅ [장비보기] 모달 열기 완료');
+        } catch (error) {
+            console.error('❌ [장비보기] 모달 열기 실패:', error);
         }
     }
     

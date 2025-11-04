@@ -36,6 +36,10 @@ public class PPTExportService {
     
     private final ObjectMapper objectMapper = new ObjectMapper();
     
+    // 현재 바운딩 박스 최소값 (좌표 변환 시 사용)
+    private double currentBoundsMinX = 0.0;
+    private double currentBoundsMinY = 0.0;
+    
     // 좌표 변환 상수 (FloorPlanCore.js와 동일하게 설정)
     private static final double CANVAS_WIDTH = 16000.0;  // 캔버스 기본 너비
     private static final double CANVAS_HEIGHT = 12000.0; // 캔버스 기본 높이
@@ -179,16 +183,23 @@ public class PPTExportService {
         headerRun.setFontColor(new Color(31, 78, 121));
         
         // 모드별 필터링 (바운딩 박스 계산 전에 먼저 필터링)
-        List<FloorPlanElement> elementsToProcess = elements;
+        // 바운딩 박스 계산에서는 실제 평면도 요소만 포함 (seat_layout, equipment_card 등 제외)
+        List<FloorPlanElement> elementsToProcess = elements.stream()
+            .filter(el -> {
+                String elementType = el.getElementType();
+                // 바운딩 박스 계산에서 제외할 요소 타입들
+                if ("seat_layout".equals(elementType) || 
+                    "equipment_card".equals(elementType)) {
+                    return false;
+                }
+                return true;
+            })
+            .collect(java.util.stream.Collectors.toList());
+        
         if ("wireless-ap".equals(mode)) {
-            // 무선 AP 보기 모드: 장비 카드(equipment_card)만 제외, 나머지는 모두 포함
-            elementsToProcess = elements.stream()
-                .filter(el -> !"equipment_card".equals(el.getElementType()))
-                .collect(java.util.stream.Collectors.toList());
-            System.out.println("무선 AP 보기 모드: 장비 카드 제외, " + elementsToProcess.size() + "개 요소 포함 (전체: " + elements.size() + "개)");
+            System.out.println("무선 AP 보기 모드: " + elementsToProcess.size() + "개 요소 포함 (전체: " + elements.size() + "개)");
         } else if ("equipment".equals(mode)) {
-            // 장비 보기 모드: 모든 요소 처리 (교실에 장비 카드 추가)
-            System.out.println("장비 보기 모드: 모든 요소 처리 (교실에 장비 카드 추가)");
+            System.out.println("장비 보기 모드: " + elementsToProcess.size() + "개 요소 포함 (전체: " + elements.size() + "개)");
         }
         
         // 필터링된 요소들로 바운딩 박스 계산
@@ -199,20 +210,70 @@ public class PPTExportService {
         double availableWidth = PPT_WIDTH - 40;  // 좌우 여백 20px씩
         double availableHeight = PPT_HEIGHT - 60; // 상단 헤더 50px + 하단 여백 10px
         
+        // 바운딩 박스 크기 확인
+        if (bounds.width <= 0 || bounds.height <= 0) {
+            System.err.println("⚠️ 바운딩 박스 크기가 0 이하입니다: " + bounds);
+            bounds = new BoundingBox(0, 0, 1000, 1000);
+        }
+        
         double scaleX = availableWidth / bounds.width;
         double scaleY = availableHeight / bounds.height;
         double scale = Math.min(scaleX, scaleY); // 비율 유지를 위해 작은 값 사용
         
-        // 중앙 정렬을 위한 오프셋
-        double offsetX = 20 + (availableWidth - bounds.width * scale) / 2 - bounds.minX * scale;
-        double offsetY = 50 + (availableHeight - bounds.height * scale) / 2 - bounds.minY * scale;
+        // 스케일이 너무 작거나 큰 경우 제한
+        if (scale <= 0 || Double.isNaN(scale) || Double.isInfinite(scale)) {
+            System.err.println("⚠️ 스케일 계산 오류: " + scale + ", 기본값 0.15 사용");
+            scale = 0.15;
+        }
         
-        System.out.println(String.format("=== PPT 폰트 계산용 스케일 정보 ==="));
-        System.out.println(String.format("동적 스케일: %.6f (%.2f%%)", scale, scale * 100));
+        // 중앙 정렬을 위한 오프셋 계산
+        // 스케일된 평면도의 실제 크기
+        double scaledWidth = bounds.width * scale;
+        double scaledHeight = bounds.height * scale;
+        
+        // 중앙 정렬을 위한 여백 계산
+        double marginX = (availableWidth - scaledWidth) / 2;
+        double marginY = (availableHeight - scaledHeight) / 2;
+        
+        // 오프셋 계산: 요소 좌표를 PPT 좌표로 변환
+        // 좌표 변환 공식: PPT 좌표 = (원본 좌표 - bounds.minX) * scale + baseX
+        // 현재 코드는: PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        // 따라서: offsetX = baseX (bounds.minX는 좌표 변환 시 뺌)
+        // baseX = 좌측 여백(20) + 중앙 정렬 여백(marginX)
+        double baseX = 20 + marginX;  // 좌측 여백 20 + 중앙 정렬 여백
+        double baseY = 50 + marginY;  // 상단 여백 50 + 중앙 정렬 여백
+        
+        // offsetX와 offsetY를 baseX, baseY로 설정하고, 좌표 변환 시 bounds.minX를 빼도록 수정
+        // 이렇게 하면 항상 양수 오프셋을 사용할 수 있음
+        double offsetX = baseX;
+        double offsetY = baseY;
+        
+        // bounds.minX와 bounds.minY를 저장하여 좌표 변환 시 사용
+        this.currentBoundsMinX = bounds.minX;
+        this.currentBoundsMinY = bounds.minY;
+        
+        if (marginX < 0 || marginY < 0) {
+            System.err.println("⚠️ 마진이 음수입니다!");
+            System.err.println(String.format("  bounds: minX=%.2f, minY=%.2f, width=%.2f, height=%.2f", 
+                bounds.minX, bounds.minY, bounds.width, bounds.height));
+            System.err.println(String.format("  scale: %.6f, scaledWidth=%.2f, scaledHeight=%.2f", 
+                scale, scaledWidth, scaledHeight));
+            System.err.println(String.format("  availableWidth=%.2f, availableHeight=%.2f", availableWidth, availableHeight));
+            System.err.println(String.format("  marginX=%.2f, marginY=%.2f", marginX, marginY));
+        }
+        
+        System.out.println(String.format("=== PPT 스케일 및 오프셋 계산 정보 ==="));
+        System.out.println(String.format("바운딩 박스: minX=%.2f, minY=%.2f, maxX=%.2f, maxY=%.2f, width=%.2f, height=%.2f",
+            bounds.minX, bounds.minY, bounds.maxX, bounds.maxY, bounds.width, bounds.height));
+        System.out.println(String.format("사용 가능 영역: width=%.2f, height=%.2f", availableWidth, availableHeight));
+        System.out.println(String.format("스케일 계산: scaleX=%.6f, scaleY=%.6f, 최종 scale=%.6f (%.2f%%)", 
+            scaleX, scaleY, scale, scale * 100));
+        System.out.println(String.format("스케일된 크기: width=%.2f, height=%.2f", scaledWidth, scaledHeight));
+        System.out.println(String.format("중앙 정렬 여백: marginX=%.2f, marginY=%.2f", marginX, marginY));
+        System.out.println(String.format("최종 오프셋: offsetX=%.2f, offsetY=%.2f", offsetX, offsetY));
         System.out.println(String.format("기준 스케일: %.6f (%.2f%%)", REFERENCE_ZOOM, REFERENCE_ZOOM * 100));
         System.out.println(String.format("스케일 비율: %.6f (실제/기준)", scale / REFERENCE_ZOOM));
         System.out.println(String.format("기준 PPT 폰트: %.2fpt", REFERENCE_PPT_FONT));
-        System.out.println(String.format("오프셋: (%.2f, %.2f)", offsetX, offsetY));
         System.out.println("모드: " + mode + ", 장비 데이터: " + (devicesByClassroom != null ? devicesByClassroom.size() + "개 교실" : "null"));
         
         // 평면도 요소들을 z-index 순서대로 추가
@@ -239,7 +300,7 @@ public class PPTExportService {
                     roomCount++;
                     System.out.println("교실 요소 발견 (ID: " + element.getId() + ", Type: " + element.getElementType() + ")");
                     if (devicesByClassroom != null) {
-                        addEquipmentCardsToRoom(floorPlanSlide, element, devicesByClassroom, scale, offsetX, offsetY);
+                        addEquipmentCardsToRoom(floorPlanSlide, element, devicesByClassroom, scale, offsetX, offsetY, elements);
                     } else {
                         System.err.println("⚠️ 장비 데이터가 null입니다!");
                     }
@@ -296,8 +357,13 @@ public class PPTExportService {
         int padding = 100; // 여유 공간
         
         for (FloorPlanElement element : elements) {
-            double x = element.getXCoordinate() != null ? element.getXCoordinate() : 0;
-            double y = element.getYCoordinate() != null ? element.getYCoordinate() : 0;
+            // 좌표가 없는 요소는 건너뛰기
+            if (element.getXCoordinate() == null || element.getYCoordinate() == null) {
+                continue;
+            }
+            
+            double x = element.getXCoordinate();
+            double y = element.getYCoordinate();
             Double wObj = element.getWidth();
             Double hObj = element.getHeight();
             double w = wObj != null ? wObj : 0;
@@ -329,10 +395,19 @@ public class PPTExportService {
                 h = radius * 2;
             }
             
+            // 요소의 실제 경계 계산
             minX = Math.min(minX, x);
             minY = Math.min(minY, y);
             maxX = Math.max(maxX, x + w);
             maxY = Math.max(maxY, y + h);
+        }
+        
+        // 유효한 바운딩 박스인지 확인
+        if (minX == Double.MAX_VALUE || minY == Double.MAX_VALUE || 
+            maxX == Double.MIN_VALUE || maxY == Double.MIN_VALUE) {
+            // 유효하지 않은 경우 기본값 반환
+            System.err.println("⚠️ 바운딩 박스 계산 실패: 기본값 사용");
+            return new BoundingBox(0, 0, 1000, 1000);
         }
         
         // 패딩 추가
@@ -340,6 +415,9 @@ public class PPTExportService {
         minY = Math.max(0, minY - padding);
         maxX += padding;
         maxY += padding;
+        
+        System.out.println(String.format("바운딩 박스 계산: minX=%.2f, minY=%.2f, maxX=%.2f, maxY=%.2f, width=%.2f, height=%.2f",
+            minX, minY, maxX, maxY, maxX - minX, maxY - minY));
         
         return new BoundingBox(minX, minY, maxX, maxY);
     }
@@ -397,8 +475,9 @@ public class PPTExportService {
      */
     private void createRoomShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
         // 좌표 변환 (동적 스케일 및 오프셋 적용)
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
@@ -460,8 +539,9 @@ public class PPTExportService {
      */
     private void createBuildingShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
         // 좌표 변환 (동적 스케일 및 오프셋 적용)
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
@@ -522,8 +602,9 @@ public class PPTExportService {
      */
     private void createCustomShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
         // 좌표 변환 (동적 스케일 및 오프셋 적용)
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
@@ -636,8 +717,9 @@ public class PPTExportService {
      */
     private void createOtherSpaceShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
         // 좌표 변환 (동적 스케일 및 오프셋 적용)
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
@@ -741,8 +823,9 @@ public class PPTExportService {
      * 이름박스 생성 (동적 스케일 적용)
      */
     private void createNameBoxShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
@@ -793,8 +876,9 @@ public class PPTExportService {
      * 장비 카드 생성 (동적 스케일 적용)
      */
     private void createEquipmentCardShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
@@ -829,8 +913,9 @@ public class PPTExportService {
      * 화장실 생성 (동적 스케일 적용)
      */
     private void createToiletShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
@@ -870,8 +955,9 @@ public class PPTExportService {
      * 엘리베이터 생성 (동적 스케일 적용)
      */
     private void createElevatorShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
@@ -911,8 +997,9 @@ public class PPTExportService {
      * 현관 생성 (동적 스케일 적용) - JavaScript와 동일한 로직
      */
     private void createEntranceShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
@@ -1032,8 +1119,9 @@ public class PPTExportService {
      * 계단 생성 (동적 스케일 적용) - JavaScript와 동일한 로직 (단일 Path)
      */
     private void createStairsShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
@@ -1091,7 +1179,8 @@ public class PPTExportService {
      */
     private void addEquipmentCardsToRoom(XSLFSlide slide, FloorPlanElement roomElement, 
                                         Map<Long, List<Map<String, Object>>> devicesByClassroom,
-                                        double scale, double offsetX, double offsetY) throws Exception {
+                                        double scale, double offsetX, double offsetY, 
+                                        List<FloorPlanElement> elements) throws Exception {
         // 교실 식별자 가져오기 (element_data.classroomId 우선, 없으면 referenceId 사용)
         Long classroomId = null;
         Map<String, Object> elementData = parseElementData(roomElement.getElementData());
@@ -1126,17 +1215,65 @@ public class PPTExportService {
         }
         
         // 카드 레이아웃 설정 (프론트엔드와 동일)
+        // 프론트엔드: cardWidth=65, cardHeight=43, cardPadding=5, cardMargin=3 (위아래), cardsPerRow=4
         int cardWidth = (int)(65 * scale);
         int cardHeight = (int)(43 * scale);
         int cardPadding = (int)(5 * scale);
-        int cardMarginH = (int)(1 * scale);  // 가로 간격
-        int cardMarginV = (int)(3 * scale);  // 세로 간격
+        int cardMargin = (int)(3 * scale);  // 카드 간격 (프론트엔드와 동일)
         int cardsPerRow = 4;  // 4열
         
         // 교실 좌표 변환 (동적 스케일 및 오프셋 적용)
-        int roomX = (int)(roomElement.getXCoordinate() * scale + offsetX);
-        int roomY = (int)(roomElement.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int roomX = (int)((roomElement.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int roomY = (int)((roomElement.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int roomH = (int)(roomElement.getHeight() * scale);
+        
+        // 이름박스 위치 찾기 (겹침 방지 - 프론트엔드와 동일 로직)
+        // element_data에서 parentElementId를 확인하거나 getParentElementId() 사용
+        FloorPlanElement nameBox = null;
+        for (FloorPlanElement el : elements) {
+            if ("name_box".equals(el.getElementType())) {
+                // parentElementId 필드 확인
+                Long parentId = el.getParentElementId();
+                // 또는 element_data에서 parentElementId 확인
+                if (parentId == null) {
+                    Map<String, Object> nameBoxData = parseElementData(el.getElementData());
+                    Object parentElementIdObj = nameBoxData.get("parentElementId");
+                    if (parentElementIdObj != null) {
+                        try {
+                            if (parentElementIdObj instanceof Number) {
+                                parentId = ((Number) parentElementIdObj).longValue();
+                            } else if (parentElementIdObj instanceof String) {
+                                parentId = Long.parseLong((String) parentElementIdObj);
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }
+                // 교실 ID와 일치하는지 확인
+                if (parentId != null && parentId.equals(roomElement.getId())) {
+                    nameBox = el;
+                    break;
+                }
+            }
+        }
+        
+        int nameBoxBottom = 0;
+        if (nameBox != null) {
+            // 이름박스 하단 절대 위치 + 안전 여백 (프론트엔드와 동일: +5)
+            // PPT 좌표 = (원본 좌표 - bounds.minY) * scale + offsetY
+            Double nameBoxYCoord = nameBox.getYCoordinate();
+            Double nameBoxHeightValue = nameBox.getHeight();
+            if (nameBoxYCoord != null && nameBoxHeightValue != null) {
+                int nameBoxY = (int)((nameBoxYCoord - this.currentBoundsMinY) * scale + offsetY);
+                int nameBoxHeight = (int)(nameBoxHeightValue * scale);
+                nameBoxBottom = nameBoxY + nameBoxHeight + (int)(5 * scale);
+            } else if (nameBoxYCoord != null) {
+                // 높이가 없으면 기본값 40 사용
+                int nameBoxY = (int)((nameBoxYCoord - this.currentBoundsMinY) * scale + offsetY);
+                int nameBoxHeight = (int)(40 * scale);
+                nameBoxBottom = nameBoxY + nameBoxHeight + (int)(5 * scale);
+            }
+        }
         
         // 카드 리스트 생성 (최대 8개)
         List<Map.Entry<String, Integer>> cardList = new java.util.ArrayList<>(deviceCounts.entrySet());
@@ -1148,12 +1285,19 @@ public class PPTExportService {
             String cate = entry.getKey();
             int count = entry.getValue();
             
-            // 카드 위치 계산 (하단에서 위로, 왼쪽에서 오른쪽)
+            // 카드 위치 계산 (하단에서 위로, 왼쪽에서 오른쪽) - 프론트엔드와 동일
             int row = i / cardsPerRow;
             int col = i % cardsPerRow;
             
-            int cardX = roomX + cardPadding + col * (cardWidth + cardMarginH);
-            int cardY = roomY + roomH - cardPadding - cardHeight - row * (cardHeight + cardMarginV);
+            // 프론트엔드: cardX = roomX + cardPadding + col * (cardWidth + cardMargin)
+            int cardX = roomX + cardPadding + col * (cardWidth + cardMargin);
+            // 프론트엔드: cardY = roomY + roomH - cardPadding - cardHeight - row * (cardHeight + cardMargin)
+            int cardY = roomY + roomH - cardPadding - cardHeight - row * (cardHeight + cardMargin);
+            
+            // 이름박스와 겹치지 않도록 체크 (프론트엔드와 동일)
+            if (nameBoxBottom > 0 && cardY < nameBoxBottom) {
+                cardY = nameBoxBottom;
+            }
             
             // 카드 색상 가져오기
             Color cardColor = getDeviceColorForPPT(cate);
@@ -1174,7 +1318,7 @@ public class PPTExportService {
             paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
             XSLFTextRun textRun = paragraph.addNewTextRun();
             textRun.setText(cate + " " + count);
-            // 동적 스케일 기반 폰트 크기
+            // 동적 스케일 기반 폰트 크기 (프론트엔드와 동일한 비율 적용)
             // 기본 장비카드: 원본 높이 43px, 원본 폰트 17pt
             // 스케일 0.15일 때 PPT 폰트 크기 계산:
             // 이름박스: 18pt → 2.5pt (비율 2.5/18 = 0.139)
@@ -1185,7 +1329,8 @@ public class PPTExportService {
             double scaleRatio = scale / REFERENCE_ZOOM;
             double fontRatio = baseCardFontSize / nameBoxFontSize;
             double fontSize = REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2; // 20% 증가
-            // 최소값 제거 - 계산된 값 그대로 사용
+            // 최소 폰트 크기 보장 (너무 작아지지 않도록)
+            fontSize = Math.max(1.0, fontSize);
             if (i == 0) { // 첫 번째 카드만 로그 출력
                 System.out.println(String.format("[장비카드 폰트 계산] 스케일=%.6f, 스케일비율=%.6f, 폰트비율=%.6f, 계산결과=%.6fpt, 최종=%.2fpt", 
                     scale, scaleRatio, fontRatio, REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2, fontSize));
@@ -1260,8 +1405,9 @@ public class PPTExportService {
         }
         
         // 원형 도형 생성 (좌상단 좌표로 변환)
-        int x = (int)((centerX - radius) * scale + offsetX);
-        int y = (int)((centerY - radius) * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)(((centerX - radius) - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)(((centerY - radius) - this.currentBoundsMinY) * scale + offsetY);
         int diameter = (int)(radius * 2 * scale);
         
         XSLFAutoShape shape = slide.createAutoShape();
@@ -1293,8 +1439,9 @@ public class PPTExportService {
      * MDF(IDF) 생성 (동적 스케일 적용) - 사각형
      */
     private void createMdfIdfShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
-        int x = (int)(element.getXCoordinate() * scale + offsetX);
-        int y = (int)(element.getYCoordinate() * scale + offsetY);
+        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
+        int x = (int)((element.getXCoordinate() - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)((element.getYCoordinate() - this.currentBoundsMinY) * scale + offsetY);
         int width = (int)(element.getWidth() * scale);
         int height = (int)(element.getHeight() * scale);
         
