@@ -1530,7 +1530,7 @@ public class DeviceService {
     }
     
     /**
-     * 검색 키워드로 장비 검색
+     * 검색 키워드로 장비 검색 (테이블에 표시된 모든 컬럼 검색 가능)
      */
     public List<Device> searchDevices(Long schoolId, String type, Long classroomId, String searchKeyword) {
         List<Device> devices = findFiltered(schoolId, type, classroomId);
@@ -1543,9 +1543,41 @@ public class DeviceService {
         
         return devices.stream()
             .filter(device -> {
-                // 모델명 검색
-                if (device.getModelName() != null && 
-                    device.getModelName().toLowerCase().contains(keyword)) {
+                // 학교명 검색
+                if (device.getSchool() != null && device.getSchool().getSchoolName() != null && 
+                    device.getSchool().getSchoolName().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // 고유번호 검색
+                if (device.getUid() != null && device.getUid().getDisplayUid() != null) {
+                    if (device.getUid().getDisplayUid().toLowerCase().contains(keyword)) {
+                        return true;
+                    }
+                }
+                
+                // 관리번호 검색
+                if (device.getManage() != null && device.getManage().getDisplayId() != null) {
+                    if (device.getManage().getDisplayId().toLowerCase().contains(keyword)) {
+                        return true;
+                    }
+                }
+                
+                // 유형 검색
+                if (device.getType() != null && 
+                    device.getType().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // 직위 검색
+                if (device.getOperator() != null && device.getOperator().getPosition() != null && 
+                    device.getOperator().getPosition().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // 담당자 검색
+                if (device.getOperator() != null && device.getOperator().getName() != null && 
+                    device.getOperator().getName().toLowerCase().contains(keyword)) {
                     return true;
                 }
                 
@@ -1555,15 +1587,55 @@ public class DeviceService {
                     return true;
                 }
                 
+                // 모델명 검색
+                if (device.getModelName() != null && 
+                    device.getModelName().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // 구매일자 검색 (년월 형식으로 검색)
+                if (device.getPurchaseDate() != null) {
+                    String purchaseDateStr = device.getPurchaseDate().format(
+                        java.time.format.DateTimeFormatter.ofPattern("yyyy년 MM월"));
+                    if (purchaseDateStr.toLowerCase().contains(keyword)) {
+                        return true;
+                    }
+                }
+                
                 // IP주소 검색
                 if (device.getIpAddress() != null && 
                     device.getIpAddress().toLowerCase().contains(keyword)) {
                     return true;
                 }
                 
-                // 고유번호 검색
-                if (device.getUid() != null && device.getUid().getDisplayUid() != null) {
-                    if (device.getUid().getDisplayUid().toLowerCase().contains(keyword)) {
+                // 교실명 검색
+                if (device.getClassroom() != null && device.getClassroom().getRoomName() != null && 
+                    device.getClassroom().getRoomName().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // 용도 검색
+                if (device.getPurpose() != null && 
+                    device.getPurpose().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // 세트분류 검색
+                if (device.getSetType() != null && 
+                    device.getSetType().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // 비고 검색
+                if (device.getNote() != null && 
+                    device.getNote().toLowerCase().contains(keyword)) {
+                    return true;
+                }
+                
+                // 불용 검색 (Y/N)
+                if (device.getUnused() != null) {
+                    String unusedStr = device.getUnused() ? "y" : "n";
+                    if (unusedStr.contains(keyword)) {
                         return true;
                     }
                 }

@@ -614,6 +614,18 @@
                         </label>
                     </div>
                 </form>
+                <script>
+                    // QR코드 검색 체크박스 상태 즉시 복원 (페이지 로드 전)
+                    (function() {
+                        const savedQrCodeSearch = localStorage.getItem('qrCodeSearch');
+                        if (savedQrCodeSearch === 'true') {
+                            const qrCheckbox = document.getElementById('qrCodeSearch');
+                            if (qrCheckbox) {
+                                qrCheckbox.checked = true;
+                            }
+                        }
+                    })();
+                </script>
             </div>
             <div class="main">
                 <div class="filter-container">
@@ -1163,13 +1175,21 @@
                 }, 5000);
             }
             
-            // 로컬스토리지에서 체크박스 상태 복원
+            // 로컬스토리지에서 체크박스 상태 복원 (QR코드는 이미 복원됨)
             loadCheckboxStates();
             
-            // QR코드검색 체크박스 이벤트
-            document.getElementById('qrCodeSearch').addEventListener('change', function() {
-                localStorage.setItem('qrCodeSearch', this.checked.toString());
-            });
+            // QR코드검색 체크박스 이벤트 (이미 체크된 상태 유지)
+            const qrCodeSearchCheckbox = document.getElementById('qrCodeSearch');
+            if (qrCodeSearchCheckbox) {
+                qrCodeSearchCheckbox.addEventListener('change', function() {
+                    localStorage.setItem('qrCodeSearch', this.checked.toString());
+                });
+                // 이미 체크된 상태인지 확인하고 유지
+                const savedQrCodeSearch = localStorage.getItem('qrCodeSearch');
+                if (savedQrCodeSearch === 'true' && !qrCodeSearchCheckbox.checked) {
+                    qrCodeSearchCheckbox.checked = true;
+                }
+            }
             
             // 장비가 있는 교실 체크박스 이벤트
             document.getElementById('showClassroomsWithDevices').addEventListener('change', function() {
@@ -1186,9 +1206,14 @@
             const savedQrCodeSearch = localStorage.getItem('qrCodeSearch');
             const savedShowClassroomsWithDevices = localStorage.getItem('showClassroomsWithDevices');
             
-            // QR코드검색 체크박스 상태 설정
-            if (savedQrCodeSearch !== null) {
-                document.getElementById('qrCodeSearch').checked = savedQrCodeSearch === 'true';
+            // QR코드검색 체크박스 상태 설정 (이미 복원되었을 수 있으므로 확인 후 설정)
+            const qrCodeSearchCheckbox = document.getElementById('qrCodeSearch');
+            if (qrCodeSearchCheckbox && savedQrCodeSearch !== null) {
+                // 체크 상태가 다르면 업데이트
+                const shouldBeChecked = savedQrCodeSearch === 'true';
+                if (qrCodeSearchCheckbox.checked !== shouldBeChecked) {
+                    qrCodeSearchCheckbox.checked = shouldBeChecked;
+                }
             }
             
             // 장비가 있는 교실 체크박스 상태 설정
