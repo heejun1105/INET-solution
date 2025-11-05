@@ -236,6 +236,36 @@ body {
         grid-template-columns: 1fr;
         gap: 2rem;
         text-align: center;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+    }
+    
+    .hero-container {
+        justify-content: center !important;
+        align-items: center !important;
+    }
+    
+    .hero-text {
+        text-align: center !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+    
+    .hero-title {
+        text-align: center !important;
+    }
+    
+    .hero-stats {
+        justify-content: center !important;
+        align-items: center !important;
+        flex-direction: row !important;
+        gap: 1.5rem !important;
+    }
+    
+    /* 시스템 안정성 항목 숨김 */
+    .hero-stats .stat-item:last-child {
+        display: none !important;
     }
 
     .gradient-text {
@@ -321,9 +351,12 @@ body {
     }
 
     .hero-stats {
-        flex-direction: column;
-        gap: 1rem;
+        flex-direction: row !important;
+        gap: 1.5rem;
         margin-top: 2rem;
+        justify-content: center !important;
+        align-items: center !important;
+        flex-wrap: wrap !important;
     }
 
     .stat-item {
@@ -331,6 +364,11 @@ body {
         align-items: center;
         justify-content: center;
         gap: 1rem;
+    }
+    
+    /* 시스템 안정성 항목 숨김 */
+    .hero-stats .stat-item:last-child {
+        display: none !important;
     }
 
     .stat-number {
@@ -406,7 +444,7 @@ body {
     }
 
     .features-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr) !important;
         gap: 1.5rem;
         margin-bottom: 3rem;
     }
@@ -1835,4 +1873,212 @@ body {
 .name-box {
     z-index: 20;
     pointer-events: auto;
+}
+
+/* 모바일/테블릿 최적화 - Hero 섹션 그래픽 요소 숨김 */
+@media (max-width: 768px) {
+    /* Hero 섹션 배경 그래픽 요소 숨김 */
+    .hero-image-container,
+    .hero-image-container .modern-network,
+    .hero-image-container .bg-pattern,
+    .hero-image-container .central-hub,
+    .hero-image-container .floating-icon,
+    .hero-image-container .connection-mesh {
+        display: none !important;
+    }
+    
+    /* Hero 설명 텍스트 숨김 */
+    .hero-description {
+        display: none !important;
+    }
+    
+    /* Hero 섹션 배경 패턴 숨김 */
+    .hero-section::before {
+        display: none !important;
+    }
+    
+    /* 카드 설명 텍스트 숨김 */
+    .feature-card .card-description {
+        display: none !important;
+    }
+    
+    /* 카드 태그 숨김 */
+    .feature-card .card-features {
+        display: none !important;
+    }
+    
+    /* 카드 화살표 숨김 */
+    .feature-card .card-arrow {
+        display: none !important;
+    }
+    
+    /* 카드 레이아웃 간소화 - 아이콘과 제목만 표시 */
+    .feature-card {
+        padding: 1.5rem 1rem !important;
+        text-align: center !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 1rem !important;
+    }
+    
+    .feature-card .card-header {
+        margin-bottom: 0 !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+    
+    .feature-card .card-badge {
+        display: none !important;
+    }
+    
+    .feature-card .card-content {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 0 !important;
+        flex: 0 !important;
+    }
+    
+    .feature-card .card-title {
+        margin-bottom: 0 !important;
+        text-align: center !important;
+    }
+    
+    /* 모바일 (768px 이하) - 2개 열 */
+    .features-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    /* 모바일에서 통계 가로 배치 및 시스템 안정성 숨김 */
+    .hero-stats {
+        flex-direction: row !important;
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 1.5rem !important;
+        flex-wrap: wrap !important;
+    }
+    
+    .hero-stats .stat-item:last-child {
+        display: none !important;
+    }
+}
+
+/* 테블릿 (481px ~ 1024px) - 4개 열 */
+@media (min-width: 481px) and (max-width: 1024px) {
+    .features-grid {
+        grid-template-columns: repeat(4, 1fr) !important;
+    }
+    
+    /* Hero 섹션 중앙 정렬 */
+    .hero-container {
+        justify-content: center !important;
+        align-items: center !important;
+        display: flex !important;
+    }
+    
+    .hero-content {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+    
+    .hero-text {
+        text-align: center !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+    
+    .hero-title {
+        text-align: center !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+    
+    .hero-stats {
+        justify-content: center !important;
+        align-items: center !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 2rem !important;
+    }
+    
+    .stat-item {
+        text-align: center !important;
+    }
+    
+    /* 테블릿에서 시스템 안정성 숨김 */
+    .hero-stats .stat-item:last-child {
+        display: none !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* 작은 모바일에서도 동일한 최적화 적용 */
+    .hero-image-container,
+    .hero-image-container .modern-network,
+    .hero-image-container .bg-pattern,
+    .hero-image-container .central-hub,
+    .hero-image-container .floating-icon,
+    .hero-image-container .connection-mesh {
+        display: none !important;
+    }
+    
+    .hero-description {
+        display: none !important;
+    }
+    
+    .hero-section::before {
+        display: none !important;
+    }
+    
+    .feature-card .card-description {
+        display: none !important;
+    }
+    
+    .feature-card .card-features {
+        display: none !important;
+    }
+    
+    .feature-card .card-arrow {
+        display: none !important;
+    }
+    
+    .feature-card {
+        padding: 1.2rem 0.75rem !important;
+        gap: 0.75rem !important;
+    }
+    
+    .feature-card .card-icon {
+        width: 56px !important;
+        height: 56px !important;
+        font-size: 1.5rem !important;
+    }
+    
+    .feature-card .card-title {
+        font-size: 1.1rem !important;
+        margin-bottom: 0 !important;
+    }
+    
+    /* 작은 모바일에서도 통계 가로 배치 및 시스템 안정성 숨김 */
+    .hero-stats {
+        flex-direction: row !important;
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 1rem !important;
+        flex-wrap: wrap !important;
+    }
+    
+    .hero-stats .stat-item:last-child {
+        display: none !important;
+    }
 }

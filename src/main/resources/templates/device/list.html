@@ -195,18 +195,32 @@
             align-items: center;
             gap: 8px;
             padding: 6px 12px;
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
+            background: #f3f4f6 !important;
+            border: 2px solid #e5e7eb !important;
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: background-color 0.3s ease, border-color 0.3s ease !important;
             height: 38px; /* 버튼 높이와 맞춤 */
             box-sizing: border-box;
         }
         
+        .inspection-checkbox-mobile.state-unchecked {
+            background: #f3f4f6 !important;
+            border-color: #e5e7eb !important;
+        }
+        
+        .inspection-checkbox-mobile.state-confirmed {
+            background: #e8f5e9 !important;
+            border-color: #28a745 !important;
+        }
+        
+        .inspection-checkbox-mobile.state-modified {
+            background: #fff7e6 !important;
+            border-color: #ffc107 !important;
+        }
+        
         .inspection-checkbox-mobile:hover {
-            background: #e3f2fd;
-            border-color: #2196f3;
+            opacity: 0.9;
         }
         
         .inspection-checkbox-mobile .inspection-icon {
@@ -766,7 +780,15 @@
                                 </td>
                                 <td data-label="검사확인" id="inspectionCell" th:style="${inspectionMode ? '' : 'display: none;'}">
                                     <div class="inspection-checkbox" th:data-device-id="${device.deviceId}" onclick="toggleInspection(this)">
-                                        <i class="fas fa-check-circle inspection-icon" style="color: #ccc;"></i>
+                                        <i th:if="${inspectionStatuses != null and inspectionStatuses.containsKey(device.deviceId) and inspectionStatuses.get(device.deviceId) == 'confirmed'}" 
+                                           class="fas fa-check-circle inspection-icon confirmed" 
+                                           style="color: #28a745;"></i>
+                                        <i th:if="${inspectionStatuses != null and inspectionStatuses.containsKey(device.deviceId) and inspectionStatuses.get(device.deviceId) == 'modified'}" 
+                                           class="fas fa-check-circle inspection-icon modified" 
+                                           style="color: #ffc107;"></i>
+                                        <i th:if="${inspectionStatuses == null or !inspectionStatuses.containsKey(device.deviceId) or inspectionStatuses.get(device.deviceId) == 'unchecked'}" 
+                                           class="fas fa-check-circle inspection-icon unchecked" 
+                                           style="color: #ccc;"></i>
                                     </div>
                                 </td>
                             </tr>
@@ -822,69 +844,82 @@
                             </div>
                             
                             <div class="card-content">
-                                <div class="card-field" th:if="${device.uid != null && device.uid.displayUid != null && !#strings.isEmpty(device.uid.displayUid)}">
+                                <div class="card-field">
                                     <div class="field-label">고유번호</div>
-                                    <div class="field-value" th:utext="${@deviceService.highlightSearchKeyword(device.uid.displayUid, searchKeyword)}"></div>
+                                    <div class="field-value" th:if="${device.uid != null && device.uid.displayUid != null && !#strings.isEmpty(device.uid.displayUid)}" th:utext="${@deviceService.highlightSearchKeyword(device.uid.displayUid, searchKeyword)}"></div>
+                                    <div class="field-value" th:if="${device.uid == null || device.uid.displayUid == null || #strings.isEmpty(device.uid.displayUid)}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field" th:if="${device.manage != null && device.manage.displayId != null && !#strings.isEmpty(device.manage.displayId)}">
+                                <div class="card-field">
                                     <div class="field-label">관리번호</div>
-                                    <div class="field-value" th:text="${device.manage.displayId}"></div>
+                                    <div class="field-value" th:if="${device.manage != null && device.manage.displayId != null && !#strings.isEmpty(device.manage.displayId)}" th:text="${device.manage.displayId}"></div>
+                                    <div class="field-value" th:if="${device.manage == null || device.manage.displayId == null || #strings.isEmpty(device.manage.displayId)}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field" th:if="${device.operator != null && device.operator.position != null && !#strings.isEmpty(device.operator.position)}">
+                                <div class="card-field">
                                     <div class="field-label">직위</div>
-                                    <div class="field-value" th:text="${device.operator.position}"></div>
+                                    <div class="field-value" th:if="${device.operator != null && device.operator.position != null && !#strings.isEmpty(device.operator.position)}" th:text="${device.operator.position}"></div>
+                                    <div class="field-value" th:if="${device.operator == null || device.operator.position == null || #strings.isEmpty(device.operator.position)}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field" th:if="${device.operator != null && device.operator.name != null && !#strings.isEmpty(device.operator.name)}">
+                                <div class="card-field">
                                     <div class="field-label">담당자</div>
-                                    <div class="field-value" th:text="${device.operator.name}"></div>
+                                    <div class="field-value" th:if="${device.operator != null && device.operator.name != null && !#strings.isEmpty(device.operator.name)}" th:text="${device.operator.name}"></div>
+                                    <div class="field-value" th:if="${device.operator == null || device.operator.name == null || #strings.isEmpty(device.operator.name)}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field" th:if="${device.manufacturer != null && !#strings.isEmpty(device.manufacturer)}">
+                                <div class="card-field">
                                     <div class="field-label">제조사</div>
-                                    <div class="field-value" th:utext="${@deviceService.highlightSearchKeyword(device.manufacturer, searchKeyword)}"></div>
+                                    <div class="field-value" th:if="${device.manufacturer != null && !#strings.isEmpty(device.manufacturer)}" th:utext="${@deviceService.highlightSearchKeyword(device.manufacturer, searchKeyword)}"></div>
+                                    <div class="field-value" th:if="${device.manufacturer == null || #strings.isEmpty(device.manufacturer)}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field full-width" th:if="${device.modelName != null && !#strings.isEmpty(device.modelName)}">
+                                <div class="card-field">
                                     <div class="field-label">모델명</div>
-                                    <div class="field-value" th:utext="${@deviceService.highlightSearchKeyword(device.modelName, searchKeyword)}"></div>
+                                    <div class="field-value" th:if="${device.modelName != null && !#strings.isEmpty(device.modelName)}" th:utext="${@deviceService.highlightSearchKeyword(device.modelName, searchKeyword)}"></div>
+                                    <div class="field-value" th:if="${device.modelName == null || #strings.isEmpty(device.modelName)}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field" th:if="${device.purchaseDate != null}">
+                                <div class="card-field">
                                     <div class="field-label">구매일자</div>
-                                    <div class="field-value" th:text="${#temporals.format(device.purchaseDate, 'yyyy년 MM월')}"></div>
+                                    <div class="field-value" th:if="${device.purchaseDate != null}" th:text="${#temporals.format(device.purchaseDate, 'yyyy년 MM월')}"></div>
+                                    <div class="field-value" th:if="${device.purchaseDate == null}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field" th:if="${device.ipAddress != null && !#strings.isEmpty(device.ipAddress)}">
+                                <div class="card-field">
                                     <div class="field-label">IP주소</div>
-                                    <div class="field-value" th:utext="${@deviceService.highlightSearchKeyword(device.ipAddress, searchKeyword)}"></div>
+                                    <div class="field-value" th:if="${device.ipAddress != null && !#strings.isEmpty(device.ipAddress)}" th:utext="${@deviceService.highlightSearchKeyword(device.ipAddress, searchKeyword)}"></div>
+                                    <div class="field-value" th:if="${device.ipAddress == null || #strings.isEmpty(device.ipAddress)}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field" th:if="${device.classroom != null && device.classroom.roomName != null && !#strings.isEmpty(device.classroom.roomName)}">
+                                <div class="card-field">
                                     <div class="field-label">교실</div>
-                                    <div class="field-value" th:text="${device.classroom.roomName}"></div>
+                                    <div class="field-value" th:if="${device.classroom != null && device.classroom.roomName != null && !#strings.isEmpty(device.classroom.roomName)}" th:text="${device.classroom.roomName}"></div>
+                                    <div class="field-value" th:if="${device.classroom == null || device.classroom.roomName == null || #strings.isEmpty(device.classroom.roomName)}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field" th:if="${device.purpose != null && !#strings.isEmpty(device.purpose)}">
+                                <div class="card-field">
                                     <div class="field-label">용도</div>
-                                    <div class="field-value" th:text="${device.purpose}"></div>
+                                    <div class="field-value" th:if="${device.purpose != null && !#strings.isEmpty(device.purpose)}" th:text="${device.purpose}"></div>
+                                    <div class="field-value" th:if="${device.purpose == null || #strings.isEmpty(device.purpose)}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field" th:if="${device.setType != null && !#strings.isEmpty(device.setType)}">
+                                <div class="card-field">
                                     <div class="field-label">세트분류</div>
-                                    <div class="field-value" th:text="${device.setType}"></div>
+                                    <div class="field-value" th:if="${device.setType != null && !#strings.isEmpty(device.setType)}" th:text="${device.setType}"></div>
+                                    <div class="field-value" th:if="${device.setType == null || #strings.isEmpty(device.setType)}" style="color: #9ca3af;">-</div>
                                 </div>
                                 
-                                <div class="card-field" th:if="${device.unused != null && device.unused}">
+                                <div class="card-field">
                                     <div class="field-label">불용</div>
-                                    <div class="field-value" style="color: #dc2626; font-weight: 600;">Y</div>
+                                    <div class="field-value" th:if="${device.unused != null && device.unused}" style="color: #dc2626; font-weight: 600;">Y</div>
+                                    <div class="field-value" th:if="${device.unused == null || !device.unused}" style="color: #16a34a; font-weight: 600;">N</div>
                                 </div>
                                 
-                                <div class="card-field full-width" th:if="${device.note != null && !#strings.isEmpty(device.note)}">
+                                <div class="card-field full-width">
                                     <div class="field-label">비고</div>
-                                    <div class="field-value" th:text="${device.note}"></div>
+                                    <div class="field-value" th:if="${device.note != null && !#strings.isEmpty(device.note)}" th:text="${device.note}"></div>
+                                    <div class="field-value" th:if="${device.note == null || #strings.isEmpty(device.note)}" style="color: #9ca3af;">-</div>
                                 </div>
                             </div>
                             
@@ -899,8 +934,22 @@
                                     </button>
                                 </form>
                                 <!-- 검사확인 체크박스 (검사모드일 때만 표시) -->
-                                <div th:if="${inspectionMode}" class="inspection-checkbox-mobile" th:data-device-id="${device.deviceId}" onclick="toggleInspection(this)">
-                                    <i class="fas fa-check-circle inspection-icon" style="color: #ccc;"></i>
+                                <div th:if="${inspectionMode}" 
+                                     th:classappend="${inspectionStatuses != null and inspectionStatuses.containsKey(device.deviceId) ? 
+                                                      (inspectionStatuses.get(device.deviceId) == 'confirmed' ? 'state-confirmed' : 
+                                                       (inspectionStatuses.get(device.deviceId) == 'modified' ? 'state-modified' : 'state-unchecked')) : 'state-unchecked'}" 
+                                     class="inspection-checkbox-mobile" 
+                                     th:data-device-id="${device.deviceId}" 
+                                     onclick="toggleInspection(this)">
+                                    <i th:if="${inspectionStatuses != null and inspectionStatuses.containsKey(device.deviceId) and inspectionStatuses.get(device.deviceId) == 'confirmed'}" 
+                                       class="fas fa-check-circle inspection-icon confirmed" 
+                                       style="color: #28a745;"></i>
+                                    <i th:if="${inspectionStatuses != null and inspectionStatuses.containsKey(device.deviceId) and inspectionStatuses.get(device.deviceId) == 'modified'}" 
+                                       class="fas fa-check-circle inspection-icon modified" 
+                                       style="color: #ffc107;"></i>
+                                    <i th:if="${inspectionStatuses == null or !inspectionStatuses.containsKey(device.deviceId) or inspectionStatuses.get(device.deviceId) == 'unchecked'}" 
+                                       class="fas fa-check-circle inspection-icon unchecked" 
+                                       style="color: #ccc;"></i>
                                     <span class="inspection-label">검사확인</span>
                                 </div>
                             </div>
@@ -1310,10 +1359,24 @@
                     if (data.success && data.statuses) {
                         console.log('저장된 검사 상태들:', data.statuses);
                         
-                        // DOM이 완전히 로드될 때까지 기다린 후 상태 복원
-                        setTimeout(() => {
-                            applyInspectionStatuses(data.statuses);
-                        }, 100);
+                        // DOM이 완전히 로드될 때까지 기다린 후 상태 복원 (카드 렌더링 대기)
+                        let retryCount = 0;
+                        const maxRetries = 10;
+                        const retryInterval = 200;
+                        
+                        const tryApplyStatuses = () => {
+                            const cardElements = document.querySelectorAll('.inspection-checkbox-mobile, .inspection-checkbox');
+                            if (cardElements.length > 0 || retryCount >= maxRetries) {
+                                console.log(`검사 상태 적용 시도 (재시도: ${retryCount}, 요소 수: ${cardElements.length})`);
+                                applyInspectionStatuses(data.statuses);
+                            } else {
+                                retryCount++;
+                                console.log(`검사 상태 적용 대기 중... (${retryCount}/${maxRetries})`);
+                                setTimeout(tryApplyStatuses, retryInterval);
+                            }
+                        };
+                        
+                        setTimeout(tryApplyStatuses, 100);
                     } else {
                         console.log('저장된 검사 상태가 없습니다.');
                     }
@@ -1338,19 +1401,25 @@
                         
                         console.log(`장비 ${deviceId} 상태 복원: ${status}`);
                         
-                        // 아이콘 상태 설정
+                        // 아이콘 및 버튼 배경 상태 설정
                         switch(status) {
                             case 'confirmed':
                                 icon.className = 'fas fa-check-circle inspection-icon confirmed';
+                                icon.style.color = '#28a745';
                                 break;
                             case 'modified':
                                 icon.className = 'fas fa-check-circle inspection-icon modified';
+                                icon.style.color = '#ffc107';
                                 break;
                             case 'unchecked':
                             default:
                                 icon.className = 'fas fa-check-circle inspection-icon unchecked';
+                                icon.style.color = '#ccc';
                                 break;
                         }
+                        // 버튼 배경 상태 클래스 적용 (모바일/태블릿 카드 버튼)
+                        element.classList.remove('state-unchecked', 'state-confirmed', 'state-modified');
+                        element.classList.add('state-' + status);
                     } else {
                         console.warn(`장비 ${deviceId}의 아이콘 요소를 찾을 수 없습니다.`);
                         notFoundCount++;
@@ -1401,19 +1470,25 @@
                 case 'unchecked':
                     currentState = 'confirmed';
                     icon.className = 'fas fa-check-circle inspection-icon confirmed';
+                    icon.style.color = '#28a745';
                     break;
                 case 'confirmed':
                     currentState = 'modified';
                     icon.className = 'fas fa-check-circle inspection-icon modified';
+                    icon.style.color = '#ffc107';
                     break;
                 case 'modified':
                     currentState = 'unchecked';
                     icon.className = 'fas fa-check-circle inspection-icon unchecked';
+                    icon.style.color = '#ccc';
                     break;
             }
             
             // 상태 저장
             inspectionData[deviceId] = currentState;
+            // 버튼 배경 상태 클래스 적용 (모바일/태블릿 카드 버튼)
+            element.classList.remove('state-unchecked', 'state-confirmed', 'state-modified');
+            element.classList.add('state-' + currentState);
             
             // 실시간으로 서버에 저장
             saveInspectionStatusToServer(deviceId, currentState);
@@ -1478,6 +1553,11 @@
                 if (deviceId && icon) {
                     // UI 업데이트
                     icon.className = 'fas fa-check-circle inspection-icon unchecked';
+                    // 버튼 배경 상태 초기화
+                    if (checkbox.classList) {
+                        checkbox.classList.remove('state-confirmed','state-modified');
+                        checkbox.classList.add('state-unchecked');
+                    }
                     
                     // 검사 데이터 업데이트
                     inspectionData[deviceId] = 'unchecked';

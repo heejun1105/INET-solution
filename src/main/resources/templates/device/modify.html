@@ -540,6 +540,7 @@
             <!-- 메인 폼 -->
                 <form id="deviceForm" th:action="@{/device/modify}" th:object="${device}" method="post">
                     <input type="hidden" name="deviceId" th:value="${device.deviceId}">
+                    <input type="hidden" name="returnUrl" th:value="${returnUrl}">
                     
                     <!-- 기본 정보 섹션 -->
                 <div class="form-card">
@@ -586,28 +587,28 @@
                                 고유번호 <span style="color: #666; font-size: 0.9em;">(수정 불가)</span>
                             </label>
                             <div class="multi-input-container" style="opacity: 0.6; pointer-events: none;">
-                                    <select id="uidCate" name="uidCate" required disabled>
+                                    <select id="uidCate" name="uidCate" required>
                                         <option value="">구분 선택</option>
                                         <option value="custom">직접입력</option>
                                         <option th:if="${device.uid != null}" th:value="${device.uid.cate}" th:text="${device.uid.cate}" th:selected="true" style="display:none;"></option>
                                     </select>
-                                <input type="text" id="uidCateInput" name="uidCateCustom" placeholder="구분 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.cate : ''}" disabled>
+                                <input type="text" id="uidCateInput" name="uidCateCustom" placeholder="구분 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.cate : ''}">
 
-                                    <select id="uidYear" name="uidYear" required disabled>
+                                    <select id="uidYear" name="uidYear" required>
                                         <option value="">연도 선택</option>
                                         <option value="xx">xx</option>
                                         <option value="custom">직접입력</option>
                                         <option th:if="${device.uid != null and device.uid.mfgYear != null}" th:value="${device.uid.mfgYear}" th:text="${device.uid.mfgYear}" th:selected="true" style="display:none;"></option>
                                         <option th:if="${device.uid != null and device.uid.mfgYear == null}" value="xx" th:selected="true" style="display:none;">xx</option>
                                     </select>
-                                <input type="text" id="uidYearInput" name="uidYearCustom" placeholder="연도 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.mfgYear : ''}" disabled>
+                                <input type="text" id="uidYearInput" name="uidYearCustom" placeholder="연도 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.mfgYear : ''}">
 
-                                    <select id="uidNum" name="uidNum" required disabled>
+                                    <select id="uidNum" name="uidNum" required>
                                         <option value="">번호 선택</option>
                                         <option value="custom">직접입력</option>
                                         <option th:if="${device.uid != null}" th:value="${device.uid.idNumber}" th:text="${device.uid.idNumber}" th:selected="true" style="display:none;"></option>
                                     </select>
-                                <input type="number" id="uidNumInput" name="uidNumCustom" placeholder="번호 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.idNumber : ''}" disabled>
+                                <input type="number" id="uidNumInput" name="uidNumCustom" placeholder="번호 직접입력" style="display:none;" th:value="${device.uid != null ? device.uid.idNumber : ''}">
                                 </div>
                             </div>
 

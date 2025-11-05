@@ -720,7 +720,7 @@ input:focus, textarea:focus, select:focus {
 .field-label {
     font-size: 0.75rem;
     color: #6b7280;
-    font-weight: 500;
+    font-weight: 900;
     margin-bottom: 2px;
 }
 
@@ -728,6 +728,7 @@ input:focus, textarea:focus, select:focus {
     font-size: 0.875rem;
     color: #374151;
     word-break: break-word;
+    font-weight: 550;
 }
 
 .card-actions {
@@ -738,56 +739,57 @@ input:focus, textarea:focus, select:focus {
     border-top: 1px solid #e5e7eb;
 }
 
-/* 태블릿 스타일 */
-@media (max-width: 1023px) {
+/* 태블릿/작은 랩탑 스타일 (768px ~ 1100px) - 카드 형태로 표시 */
+@media (min-width: 768px) and (max-width: 1100px) {
+    /* 테이블 숨기고 카드 보이기 */
     .device-table {
-        font-size: 0.75rem;
-        overflow-x: auto;
-        display: block;
-        white-space: nowrap;
+        display: none;
     }
     
-    .device-table thead,
-    .device-table tbody,
-    .device-table th,
-    .device-table td,
-    .device-table tr {
+    .mobile-card-container {
         display: block;
     }
     
-    .device-table thead tr {
-        position: absolute;
-        top: -9999px;
-        left: -9999px;
+    /* 카드 필드 6열 배치 (태블릿) */
+    .card-content {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
     }
     
-    .device-table tr {
-        border: 1px solid #ccc;
-        margin-bottom: 10px;
-        padding: 10px;
+    /* 검사확인 버튼을 수정/삭제와 동일 너비로 */
+    .card-actions { 
+        justify-content: stretch; 
+    }
+    .card-actions .btn,
+    .card-actions form,
+    .card-actions .inspection-checkbox-mobile {
+        flex: 1;
+    }
+    .inspection-checkbox-mobile {
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #f3f4f6 !important;
+        border: 1px solid #e5e7eb !important;
         border-radius: 8px;
-        background: white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 8px 10px;
+        gap: 6px;
+        transition: background-color .2s ease, border-color .2s ease;
     }
-    
-    .device-table td {
-        border: none;
-        position: relative;
-        padding: 8px 8px 8px 120px;
-        text-align: left;
-        white-space: normal;
-        word-wrap: break-word;
+
+    /* 상태별 전체 색 변경 - 우선순위 높임 */
+    .inspection-checkbox-mobile.state-unchecked {
+        background: #f3f4f6 !important;
+        border-color: #e5e7eb !important;
     }
-    
-    .device-table td:before {
-        content: attr(data-label);
-        position: absolute;
-        left: 8px;
-        width: 100px;
-        font-weight: bold;
-        color: #1e3a8a;
-        font-size: 0.75rem;
-        top: 8px;
+    .inspection-checkbox-mobile.state-confirmed {
+        background: #e8f5e9 !important;
+        border-color: #28a745 !important;
+    }
+    .inspection-checkbox-mobile.state-modified {
+        background: #fff7e6 !important;
+        border-color: #ffc107 !important;
     }
 }
 
@@ -806,6 +808,54 @@ input:focus, textarea:focus, select:focus {
         padding: 10px 16px;
         font-size: 0.9rem;
         min-height: 40px;
+    }
+}
+
+/* 포트레이트(세로) 전용: 태블릿/랩탑 세로에서도 카드뷰 우선 노출 */
+@media (orientation: portrait) and (max-width: 1200px) {
+    .device-table {
+        display: none;
+    }
+    .mobile-card-container {
+        display: block;
+    }
+    /* 카드 필드 6열 배치 (세로 화면) */
+    .card-content {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+    }
+    /* 검사확인 버튼을 수정/삭제와 동일 너비로 */
+    .card-actions { justify-content: stretch; }
+    .card-actions .btn,
+    .card-actions form,
+    .card-actions .inspection-checkbox-mobile {
+        flex: 1;
+    }
+    .inspection-checkbox-mobile {
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #f3f4f6 !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 8px;
+        padding: 8px 10px;
+        gap: 6px;
+        transition: background-color .2s ease, border-color .2s ease;
+    }
+
+    /* 상태별 전체 색 변경 - 우선순위 높임 */
+    .inspection-checkbox-mobile.state-unchecked {
+        background: #f3f4f6 !important;
+        border-color: #e5e7eb !important;
+    }
+    .inspection-checkbox-mobile.state-confirmed {
+        background: #e8f5e9 !important;
+        border-color: #28a745 !important;
+    }
+    .inspection-checkbox-mobile.state-modified {
+        background: #fff7e6 !important;
+        border-color: #ffc107 !important;
     }
 }
 

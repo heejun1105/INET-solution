@@ -273,13 +273,86 @@
         .stat-card.total .icon { color: #667eea; }
         .stat-card.total .number { color: #667eea; }
         
+        /* 카드 리스트 (포트레이트 전용) */
+        .history-card-list {
+            display: none;
+            gap: 1rem;
+        }
+        .history-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            padding: 1rem 1.25rem;
+        }
+        .history-card .hc-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.35rem 0;
+            border-bottom: 1px solid #edf2f7;
+        }
+        .history-card .hc-row:last-child { border-bottom: none; }
+        .history-card .hc-label { color: #4a5568; font-weight: 600; font-size: .9rem; }
+        .history-card .hc-value { color: #2d3748; font-size: .95rem; }
+        @media (max-width: 480px) {
+            .history-card { padding: .85rem 1rem; }
+            .history-card .hc-label { font-size: .85rem; }
+            .history-card .hc-value { font-size: .9rem; }
+        }
+        
+        /* 포트레이트 전용 전환: 테이블 숨기고 카드 노출 */
+        @media (orientation: portrait) and (max-width: 1200px) {
+            .history-table { display: none; }
+            .history-card-list { display: grid; grid-template-columns: 1fr; }
+        }
+        
+        /* 태블릿 스타일 (768px ~ 1024px) */
+        @media (min-width: 768px) and (max-width: 1024px) {
+            .history-table {
+                font-size: 0.75rem;
+                display: table;
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .history-table th,
+            .history-table td {
+                padding: 0.75rem 0.5rem;
+                white-space: nowrap;
+                font-size: 0.7rem;
+            }
+            
+            .history-table th {
+                font-size: 0.7rem;
+                padding: 0.875rem 0.5rem;
+            }
+            
+            .status-badge {
+                font-size: 0.7rem;
+                padding: 0.2rem 0.5rem;
+                min-width: 50px;
+            }
+            
+            .content {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+        
+        /* 모바일 스타일 (768px 이하) */
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
             }
             
             .header h1 {
-                font-size: 2rem;
+                font-size: 1.5rem;
+            }
+            
+            .header p {
+                font-size: 0.9rem;
             }
             
             .filter-section {
@@ -289,19 +362,87 @@
             
             .filter-group select {
                 min-width: auto;
+                width: 100%;
             }
             
             .history-table {
-                font-size: 0.8rem;
+                font-size: 0.75rem;
+                display: table;
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
             
             .history-table th,
             .history-table td {
-                padding: 0.75rem 0.5rem;
+                padding: 0.6rem 0.4rem;
+                white-space: nowrap;
+                font-size: 0.7rem;
+            }
+            
+            .history-table th {
+                font-size: 0.7rem;
+                padding: 0.7rem 0.4rem;
+            }
+            
+            .status-badge {
+                font-size: 0.65rem;
+                padding: 0.15rem 0.4rem;
+                min-width: 45px;
             }
             
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+            
+            .stat-card {
+                padding: 1rem;
+            }
+            
+            .stat-card .icon {
+                font-size: 1.5rem;
+            }
+            
+            .stat-card .number {
+                font-size: 1.5rem;
+            }
+            
+            .stat-card .label {
+                font-size: 0.8rem;
+            }
+            
+            .content {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+        
+        /* 작은 모바일 (480px 이하) */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.25rem;
+            }
+            
+            .history-table th,
+            .history-table td {
+                padding: 0.5rem 0.3rem;
+                font-size: 0.65rem;
+            }
+            
+            .history-table th {
+                font-size: 0.65rem;
+                padding: 0.6rem 0.3rem;
+            }
+            
+            .status-badge {
+                font-size: 0.6rem;
+                padding: 0.1rem 0.3rem;
+                min-width: 40px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -425,6 +566,40 @@
                         </tr>
                     </tbody>
                 </table>
+                
+                <!-- 포트레이트 전용 카드 리스트 -->
+                <div class="history-card-list" th:if="${inspectionHistories != null and !inspectionHistories.empty}">
+                    <div class="history-card" th:each="history : ${inspectionHistories}">
+                        <div class="hc-row">
+                            <div class="hc-label">검사일시</div>
+                            <div class="hc-value" th:text="${#temporals.format(history.inspectionDate, 'yyyy-MM-dd HH:mm')}"></div>
+                        </div>
+                        <div class="hc-row">
+                            <div class="hc-label">학교</div>
+                            <div class="hc-value" th:text="${history.schoolName}"></div>
+                        </div>
+                        <div class="hc-row">
+                            <div class="hc-label">검사자</div>
+                            <div class="hc-value" th:text="${history.inspectorName}"></div>
+                        </div>
+                        <div class="hc-row">
+                            <div class="hc-label">확인</div>
+                            <div class="hc-value"><span class="status-badge status-confirmed" th:text="${history.confirmedCount}">0</span></div>
+                        </div>
+                        <div class="hc-row">
+                            <div class="hc-label">수정</div>
+                            <div class="hc-value"><span class="status-badge status-modified" th:text="${history.modifiedCount}">0</span></div>
+                        </div>
+                        <div class="hc-row">
+                            <div class="hc-label">미확인</div>
+                            <div class="hc-value"><span class="status-badge status-unconfirmed" th:text="${history.unconfirmedCount}">0</span></div>
+                        </div>
+                        <div class="hc-row">
+                            <div class="hc-label">전체</div>
+                            <div class="hc-value"><span class="status-badge" th:text="${history.totalCount}">0</span></div>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- 페이지네이션 -->
                 <div class="pagination" th:if="${totalPages > 1}">

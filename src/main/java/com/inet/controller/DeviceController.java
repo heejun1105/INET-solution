@@ -320,8 +320,23 @@ public class DeviceController {
         model.addAttribute("startPage", startPage);
         model.addAttribute("endPage", endPage);
         model.addAttribute("totalPages", totalPages);
-        model.addAttribute("inspectionMode", inspectionMode != null ? inspectionMode : false);
+        boolean isInspectionMode = inspectionMode != null ? inspectionMode : false;
+        model.addAttribute("inspectionMode", isInspectionMode);
         model.addAttribute("showClassroomsWithDevices", showClassroomsWithDevices != null ? showClassroomsWithDevices : false);
+        
+        // 검사 모드일 때 검사 상태 맵 추가
+        Map<Long, String> inspectionStatuses = null;
+        if (isInspectionMode && schoolId != null) {
+            try {
+                inspectionStatuses = deviceInspectionStatusService.getInspectionStatuses(schoolId, user.getId());
+                log.info("검사 상태 로드 완료: {}개 장비", inspectionStatuses.size());
+            } catch (Exception e) {
+                log.error("검사 상태 로드 중 오류 발생", e);
+                inspectionStatuses = new HashMap<>();
+            }
+        }
+        model.addAttribute("inspectionStatuses", inspectionStatuses != null ? inspectionStatuses : new HashMap<>());
+        
         return "device/list";
     }
 
@@ -415,7 +430,7 @@ public class DeviceController {
         }
         device.setClassroom(classroom);
 
-        // 관리번호(Manage) 처리
+        // 관리번호(Manage) 처리 - readonly로 값이 전송되므로 단순 파싱 복원
         String cate = ("custom".equals(manageCate)) ? manageCateCustom : manageCate;
         Integer year = null;
         if ("custom".equals(manageYear)) {
@@ -423,9 +438,9 @@ public class DeviceController {
                 year = Integer.valueOf(manageYearCustom.trim());
             }
         } else if (manageYear != null && !manageYear.trim().isEmpty() && !"없음".equals(manageYear)) {
-            year = Integer.valueOf(manageYear);
+            year = Integer.valueOf(manageYear.trim());
         }
-        Long num = ("custom".equals(manageNum)) ? Long.valueOf(manageNumCustom) : Long.valueOf(manageNum);
+        Long num = ("custom".equals(manageNum)) ? Long.valueOf(manageNumCustom.trim()) : Long.valueOf(manageNum.trim());
         Manage manage = manageService.findOrCreate(device.getSchool(), cate, year, num);
         device.setManage(manage);
 
@@ -437,7 +452,13 @@ public class DeviceController {
         } else if (uidYear != null && !uidYear.trim().isEmpty() && !"XX".equals(uidYear)) {
             finalUidYear = uidYear;
         }
-        Long finalUidNum = ("custom".equals(uidNum)) ? Long.valueOf(uidNumCustom) : Long.valueOf(uidNum);
+        // UID는 필수(수정불가이지만 항상 값 전송). 누락 시 사용자 오류로 처리
+        if (("custom".equals(uidNum) && (uidNumCustom == null || uidNumCustom.trim().isEmpty()))
+            || (!"custom".equals(uidNum) && (uidNum == null || uidNum.trim().isEmpty()))) {
+            redirectAttributes.addFlashAttribute("errorMessage", "고유번호가 누락되었습니다. 새로고침 후 다시 시도해 주세요.");
+            return "redirect:/device/modify/" + device.getDeviceId();
+        }
+        Long finalUidNum = ("custom".equals(uidNum)) ? Long.valueOf(uidNumCustom.trim()) : Long.valueOf(uidNum.trim());
         
         if (finalUidCate != null && !finalUidCate.trim().isEmpty()) {
             if (finalUidNum != null) {
@@ -461,7 +482,7 @@ public class DeviceController {
     }
 
     @GetMapping("/modify/{id}")
-    public String modifyForm(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
+    public String modifyForm(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes, jakarta.servlet.http.HttpServletRequest request) {
         // 장비 조회
         Device device = deviceService.getDeviceById(id)
                 .orElseThrow(() -> new RuntimeException("Device not found with id: " + id));
@@ -478,6 +499,11 @@ public class DeviceController {
         model.addAttribute("schools", schoolPermissionService.getAccessibleSchools(user));
         model.addAttribute("classrooms", classroomService.getAllClassrooms());
         model.addAttribute("types", deviceService.getAllTypes());
+        // 이전 페이지 URL 전달 (장비목록/장비검사 등에서 돌아가기)
+        String referer = request != null ? request.getHeader("Referer") : null;
+        if (referer != null && !referer.contains("/device/modify")) {
+            model.addAttribute("returnUrl", referer);
+        }
         return "device/modify";
     }
 
@@ -485,7 +511,7 @@ public class DeviceController {
     public String modify(Device device, String operatorName, String operatorPosition, String location, String locationCustom,
                         String manageCate, String manageCateCustom, String manageYear, String manageYearCustom, String manageNum, String manageNumCustom,
                         String uidCate, String uidCateCustom, String uidYear, String uidYearCustom, String uidNum, String uidNumCustom,
-                        String purchaseYear, String purchaseMonth, Long idNumber, RedirectAttributes redirectAttributes) {
+                        String purchaseYear, String purchaseMonth, Long idNumber, String returnUrl, RedirectAttributes redirectAttributes) {
         
         // 권한 체크 (학교별 권한 체크)
         User user = checkSchoolPermission(Feature.DEVICE_MANAGEMENT, device.getSchool().getSchoolId(), redirectAttributes);
@@ -584,6 +610,9 @@ public class DeviceController {
             // 장비 수정 및 히스토리 저장 (원본 장비는 서비스에서 조회)
             deviceService.updateDeviceWithHistory(device, user);
             redirectAttributes.addFlashAttribute("successMessage", "장비가 성공적으로 수정되었습니다.");
+            if (returnUrl != null && !returnUrl.isBlank()) {
+                return "redirect:" + returnUrl;
+            }
             return "redirect:/device/list";
         } catch (RuntimeException e) {
             log.error("장비 수정 중 오류 발생: {}", e.getMessage());
