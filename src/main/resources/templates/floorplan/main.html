@@ -464,6 +464,14 @@
                     
                     <!-- 중앙: 레이어 관리/스타일/추가 기능 -->
                     <div class="workspace-controls-center" id="workspace-tools" style="display: none;">
+                        <!-- 요소 크기 설정 -->
+                        <div class="header-tool-group" id="element-size-group">
+                            <span class="header-group-label">크기</span>
+                            <input type="number" id="element-width-input" class="header-size-input" value="280" min="20" max="2000" step="10" title="가로 크기 (px)">
+                            <span class="header-size-separator">×</span>
+                            <input type="number" id="element-height-input" class="header-size-input" value="180" min="20" max="2000" step="10" title="세로 크기 (px)">
+                        </div>
+                        
                         <!-- 레이어 관리 -->
                         <div class="header-tool-group">
                             <span class="header-group-label">레이어</span>
@@ -671,7 +679,7 @@
                             <span>PPT 다운로드</span>
                         </button>
                         
-                        <button id="workspace-close-btn" class="workspace-btn close-btn">
+                        <button id="workspace-close-btn" class="workspace-btn">
                             <i class="fas fa-times"></i>
                             <span>닫기</span>
                         </button>

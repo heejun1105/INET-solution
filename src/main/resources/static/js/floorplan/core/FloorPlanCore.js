@@ -122,7 +122,7 @@ export default class FloorPlanCore {
         // 컨테이너가 표시된 상태에서만 리사이즈
         const rect = this.container.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
-            this.resize();
+        this.resize();
         } else {
             console.warn('⚠️ 캔버스 생성 시 컨테이너 크기가 0, 리사이즈 건너뜀');
         }
@@ -734,29 +734,30 @@ export default class FloorPlanCore {
         const y = element.yCoordinate;
         const w = element.width || 200;
         const h = element.height || 150;
-        
-        // 배경
-        if (element.backgroundColor && element.backgroundColor !== 'transparent') {
-            ctx.fillStyle = element.backgroundColor;
-            ctx.fillRect(x, y, w, h);
-        }
-        
-        // 테두리
-        ctx.strokeStyle = element.borderColor || '#3b82f6';
-        ctx.lineWidth = element.borderWidth || 2;
-        ctx.strokeRect(x, y, w, h);
-        
-        // 중앙에 "입구" 텍스트 표시
-        const zoom = this.state.zoom || 1.0;
-        const fontSize = Math.max(16, Math.min(24, Math.min(w, h) * 0.15 / zoom));
-        
-        ctx.fillStyle = '#1f2937';
-        ctx.font = `bold ${fontSize}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        const label = element.label || '입구';
-        ctx.fillText(label, x + w / 2, y + h / 2);
+
+        const borderColor = element.borderColor || '#111827';
+        const borderWidth = element.borderWidth || 2;
+        const radius = Math.max(10, Math.min(w, h));
+
+        ctx.save();
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth;
+        ctx.lineCap = 'round';
+
+        const hingeLength = radius;
+
+        // 세로 프레임(힌지 측)
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + hingeLength);
+        ctx.stroke();
+
+        // 문짝 회전 궤적(사분원)
+        ctx.beginPath();
+        ctx.arc(x, y, hingeLength, 0, Math.PI / 2, false);
+        ctx.stroke();
+
+        ctx.restore();
     }
     
     /**
@@ -1204,35 +1205,34 @@ export default class FloorPlanCore {
             ctx.stroke();
             ctx.setLineDash([]); // 리셋
         } else if (shapeType === 'entrance') {
-            // 현관 (열린 문 기호만 - 180도 회전 적용)
-            const doorSize = Math.min(width, height);
-            const centerX = startX + width / 2;
-            const centerY = startY + height / 2;
-            
-            // 180도 회전 적용 (미리보기)
+            const absWidth = Math.abs(width);
+            const absHeight = Math.abs(height);
+            const minX = Math.min(startX, startX + width);
+            const minY = Math.min(startY, startY + height);
+            const centerX = minX + absWidth / 2;
+            const centerY = minY + absHeight / 2;
+            const doorSize = Math.min(absWidth, absHeight);
+
             ctx.save();
             ctx.translate(centerX, centerY);
-            ctx.rotate(Math.PI);  // 180도 = PI 라디안
+            ctx.rotate(Math.PI);
             ctx.translate(-centerX, -centerY);
-            
-            const doorStartX = centerX + doorSize / 2;  // 오른쪽
-            const doorStartY = centerY - doorSize / 2;
-            
+
             ctx.strokeStyle = borderColor || '#000000';
-            ctx.lineWidth = (borderWidth || 2) * 2;
-            
-            // 수직선 (오른쪽)
+            ctx.lineWidth = borderWidth || 2;
+            ctx.lineCap = 'round';
+
             ctx.beginPath();
-            ctx.moveTo(doorStartX, doorStartY);
-            ctx.lineTo(doorStartX, doorStartY + doorSize);
+            ctx.moveTo(minX, minY);
+            ctx.lineTo(minX, minY + doorSize);
             ctx.stroke();
-            
-            // 1/4 원호 (왼쪽으로)
+
             ctx.beginPath();
-            ctx.arc(doorStartX, doorStartY, doorSize, Math.PI / 2, Math.PI);
+            ctx.arc(minX, minY, doorSize, 0, Math.PI / 2, false);
             ctx.stroke();
-            
-        ctx.restore();
+
+            ctx.restore();
+
         } else if (shapeType === 'stairs') {
             // 계단 (zigzag 패턴만)
             const stepCount = 7;

@@ -1210,6 +1210,7 @@
     display: flex;
     align-items: center;
     gap: 1rem;
+    justify-content: flex-end;
 }
 
 /* 헤더 도구 그룹 */
@@ -1292,6 +1293,36 @@
 
 .header-select:hover {
     border-color: #94a3b8;
+}
+
+/* 크기 입력 필드 */
+.header-size-input {
+    width: 60px;
+    padding: 0.5rem 0.375rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: white;
+    color: #334155;
+    font-size: 0.85rem;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.header-size-input:hover {
+    border-color: #94a3b8;
+}
+
+.header-size-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.header-size-separator {
+    color: #64748b;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin: 0 0.25rem;
 }
 
 /* 선 굵기 드롭다운 스크롤 설정 */
@@ -1530,7 +1561,6 @@
 .workspace-btn.save-btn {
     background: #0ea5e9;
     color: white;
-    margin-left: auto;
 }
 
 .workspace-btn.save-btn:hover {
@@ -2452,5 +2482,36 @@
         font-size: 0.75rem;
         padding: 0 4px;
     }
+}
+
+@media (min-width: 769px) {
+    .workspace-controls-left .workspace-dropdown,
+    .workspace-controls-left .workspace-dropdown + .workspace-dropdown {
+        min-width: 112px;
+    }
+
+    .workspace-controls-right .workspace-btn {
+        flex: 0 0 90px;
+        min-width: 90px;
+    }
+
+    #header-collapse-btn {
+        display: none !important;
+    }
+}
+
+.workspace-dropdown {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+        min-width: 100px;
+    }
+
+#workspace-close-btn {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #ffffff;
+}
+
+#workspace-close-btn:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
 }
 

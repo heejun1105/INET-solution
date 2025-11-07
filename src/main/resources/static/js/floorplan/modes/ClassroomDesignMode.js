@@ -22,6 +22,10 @@ export default class ClassroomDesignMode {
         this.currentLineWidth = 2;
         this.currentFillColor = '#ffffff';  // 흰색
         
+        // 커스텀 요소 크기 (기본값: 교실 기본 크기)
+        this.customElementWidth = 280;  // 교실 기본 너비
+        this.customElementHeight = 180;  // 교실 기본 높이
+        
         this.selectedElements = [];
         this.isDrawing = false;
         this.drawStartPos = null;
@@ -610,10 +614,68 @@ export default class ClassroomDesignMode {
             console.error('❌ header-line-width 요소를 찾을 수 없습니다!');
         }
         
+        // 크기 입력 필드
+        const widthInput = document.getElementById('element-width-input');
+        const heightInput = document.getElementById('element-height-input');
+        
+        if (widthInput) {
+            // HTML 요소의 현재 값을 읽어와서 this.customElementWidth에 설정
+            this.customElementWidth = parseInt(widthInput.value) || this.customElementWidth;
+            console.log('📐 초기 가로 크기:', this.customElementWidth);
+            
+            widthInput.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.customElementWidth = value;
+                    console.log('📐 가로 크기 변경:', this.customElementWidth);
+                }
+            });
+            widthInput.addEventListener('change', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.customElementWidth = value;
+                    console.log('📐 가로 크기 확정:', this.customElementWidth);
+                } else {
+                    // 범위를 벗어나면 기본값으로 복원
+                    e.target.value = this.customElementWidth;
+                }
+            });
+        } else {
+            console.warn('⚠️ element-width-input 요소를 찾을 수 없습니다!');
+        }
+        
+        if (heightInput) {
+            // HTML 요소의 현재 값을 읽어와서 this.customElementHeight에 설정
+            this.customElementHeight = parseInt(heightInput.value) || this.customElementHeight;
+            console.log('📐 초기 세로 크기:', this.customElementHeight);
+            
+            heightInput.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.customElementHeight = value;
+                    console.log('📐 세로 크기 변경:', this.customElementHeight);
+                }
+            });
+            heightInput.addEventListener('change', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.customElementHeight = value;
+                    console.log('📐 세로 크기 확정:', this.customElementHeight);
+                } else {
+                    // 범위를 벗어나면 기본값으로 복원
+                    e.target.value = this.customElementHeight;
+                }
+            });
+        } else {
+            console.warn('⚠️ element-height-input 요소를 찾을 수 없습니다!');
+        }
+        
         console.log('🔧 헤더 도구 설정 완료 - 현재 상태:', {
             currentColor: this.currentColor,
             currentFillColor: this.currentFillColor,
-            currentLineWidth: this.currentLineWidth
+            currentLineWidth: this.currentLineWidth,
+            customElementWidth: this.customElementWidth,
+            customElementHeight: this.customElementHeight
         });
         
         // 레이어 관리
@@ -1039,9 +1101,9 @@ export default class ClassroomDesignMode {
             this.historyManager.saveState('작업 전');
         }
         
-        // 건물 요소 생성
-        const buildingWidth = 600;   // 50% 축소, 20의 배수
-        const buildingHeight = 380;  // 50% 축소, 20의 배수
+        // 건물 요소 생성 (커스텀 크기 사용)
+        const buildingWidth = this.customElementWidth;
+        const buildingHeight = this.customElementHeight;
         
         // 클릭한 위치가 중앙이 되도록 조정
         const buildingX = x - buildingWidth / 2;
@@ -1099,9 +1161,9 @@ export default class ClassroomDesignMode {
             this.historyManager.saveState('작업 전');
         }
         
-        // 교실 요소 생성 (3x3 장비 카드 수용, 가로형)
-        const roomWidth = 280;   // 240 → 280 (+40px)
-        const roomHeight = 180;  // 유지
+        // 교실 요소 생성 (커스텀 크기 사용)
+        const roomWidth = this.customElementWidth;
+        const roomHeight = this.customElementHeight;
         
         // 클릭한 위치가 중앙이 되도록 조정
         const roomX = x - roomWidth / 2;
@@ -1679,9 +1741,9 @@ export default class ClassroomDesignMode {
             return;
         }
         
-        // 교실 요소 생성 (중앙 정렬, 3x3 장비 카드 수용, 가로형)
-        const roomWidth = 280;   // 240 → 280 (+40px)
-        const roomHeight = 180;  // 유지
+        // 교실 요소 생성 (커스텀 크기 사용)
+        const roomWidth = this.customElementWidth;
+        const roomHeight = this.customElementHeight;
         const roomX = Math.round(x - roomWidth / 2);
         const roomY = Math.round(y - roomHeight / 2);
         
