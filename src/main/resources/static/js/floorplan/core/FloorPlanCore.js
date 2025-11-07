@@ -440,6 +440,18 @@ export default class FloorPlanCore {
         ctx.strokeStyle = element.borderColor || '#000000';
         ctx.lineWidth = element.borderWidth || 2;
         ctx.stroke();
+
+        const label = element.label || element.newLabelNumber || '';
+        if (label) {
+            const fontSize = Math.max(12, radius * 1.7);
+            ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+            ctx.fillStyle = element.backgroundColor || '#ef4444';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+
+            const textY = centerY + radius + 4;
+            ctx.fillText(String(label), centerX, textY);
+        }
     }
     
     /**
@@ -1231,7 +1243,7 @@ export default class FloorPlanCore {
             ctx.arc(minX, minY, doorSize, 0, Math.PI / 2, false);
             ctx.stroke();
 
-            ctx.restore();
+        ctx.restore();
 
         } else if (shapeType === 'stairs') {
             // 계단 (zigzag 패턴만)

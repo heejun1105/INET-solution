@@ -16,8 +16,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 @Service
 public class PPTExportService {
@@ -187,14 +192,118 @@ public class PPTExportService {
         List<FloorPlanElement> elementsToProcess = elements.stream()
             .filter(el -> {
                 String elementType = el.getElementType();
-                // 바운딩 박스 계산에서 제외할 요소 타입들
-                if ("seat_layout".equals(elementType) || 
+                if ("seat_layout".equals(elementType) ||
                     "equipment_card".equals(elementType)) {
                     return false;
                 }
                 return true;
             })
-            .collect(java.util.stream.Collectors.toList());
+            .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+
+        if ("wireless-ap".equals(mode)) {
+            Map<Long, FloorPlanElement> savedApMap = new HashMap<>();
+            for (FloorPlanElement el : elementsToProcess) {
+                if ("wireless_ap".equals(el.getElementType()) && el.getReferenceId() != null) {
+                    savedApMap.putIfAbsent(el.getReferenceId(), el);
+                }
+            }
+
+            Map<Long, FloorPlanElement> roomMap = new HashMap<>();
+            for (FloorPlanElement el : elementsToProcess) {
+                if ("room".equals(el.getElementType()) && el.getReferenceId() != null) {
+                    roomMap.putIfAbsent(el.getReferenceId(), el);
+                }
+            }
+
+            List<Map<String, Object>> wirelessAps = floorPlanService.getWirelessApsBySchool(school.getSchoolId());
+            Map<Long, Map<String, Object>> wirelessApMap = new HashMap<>();
+            for (Map<String, Object> apData : wirelessAps) {
+                Long apId = toLong(apData.get("apId"));
+                if (apId != null) {
+                    wirelessApMap.put(apId, apData);
+                }
+            }
+
+            for (Map.Entry<Long, FloorPlanElement> entry : savedApMap.entrySet()) {
+                Long apId = entry.getKey();
+                FloorPlanElement apElement = entry.getValue();
+                Map<String, Object> apInfo = wirelessApMap.get(apId);
+
+                if (apInfo != null) {
+                    String newLabel = Objects.toString(apInfo.get("newLabelNumber"), "");
+                    if (!newLabel.isBlank()) {
+                        apElement.setLabel(newLabel);
+                    }
+                }
+
+                if (apElement.getLabel() == null || apElement.getLabel().isBlank()) {
+                    apElement.setLabel(apElement.getLabel() != null ? apElement.getLabel() : "");
+                }
+                apElement.setShowLabel(true);
+
+                if (apElement.getBackgroundColor() == null || apElement.getBackgroundColor().isBlank()) {
+                    apElement.setBackgroundColor("#ef4444");
+                }
+                if (apElement.getBorderColor() == null || apElement.getBorderColor().isBlank()) {
+                    apElement.setBorderColor("#000000");
+                }
+                if (apElement.getWidth() == null || apElement.getHeight() == null) {
+                    apElement.setWidth(40.0);
+                    apElement.setHeight(40.0);
+                }
+            }
+
+            Set<Long> savedApIds = new HashSet<>(savedApMap.keySet());
+            for (Map.Entry<Long, Map<String, Object>> entry : wirelessApMap.entrySet()) {
+                Long apId = entry.getKey();
+                if (savedApIds.contains(apId)) {
+                    continue;
+                }
+
+                Map<String, Object> apInfo = entry.getValue();
+                String newLabel = Objects.toString(apInfo.get("newLabelNumber"), "");
+                Long classroomId = toLong(apInfo.get("classroomId"));
+
+                double centerX = 0.0;
+                double centerY = 0.0;
+                if (classroomId != null) {
+                    FloorPlanElement roomElement = roomMap.get(classroomId);
+                    if (roomElement != null && roomElement.getWidth() != null && roomElement.getHeight() != null) {
+                        double roomX = roomElement.getXCoordinate() != null ? roomElement.getXCoordinate() : 0.0;
+                        double roomY = roomElement.getYCoordinate() != null ? roomElement.getYCoordinate() : 0.0;
+                        centerX = roomX + roomElement.getWidth() / 2.0;
+                        centerY = roomY + roomElement.getHeight() / 2.0 + 30.0;
+                    }
+                }
+
+                FloorPlanElement virtualAp = new FloorPlanElement();
+                virtualAp.setFloorPlanId(floorPlan.getId());
+                virtualAp.setElementType("wireless_ap");
+                virtualAp.setReferenceId(apId);
+                virtualAp.setXCoordinate(centerX);
+                virtualAp.setYCoordinate(centerY);
+                virtualAp.setWidth(40.0);
+                virtualAp.setHeight(40.0);
+                virtualAp.setBackgroundColor("#ef4444");
+                virtualAp.setBorderColor("#000000");
+                virtualAp.setBorderWidth(2.0);
+                virtualAp.setLabel(newLabel);
+                virtualAp.setShowLabel(true);
+
+                Map<String, Object> elementData = new HashMap<>();
+                elementData.put("backgroundColor", "#ef4444");
+                elementData.put("borderColor", "#000000");
+                elementData.put("borderWidth", 2.0);
+                elementData.put("label", newLabel);
+                try {
+                    virtualAp.setElementData(objectMapper.writeValueAsString(elementData));
+                } catch (Exception ignored) {
+                    virtualAp.setElementData(null);
+                }
+
+                elementsToProcess.add(virtualAp);
+            }
+        }
         
         if ("wireless-ap".equals(mode)) {
             System.out.println("무선 AP 보기 모드: " + elementsToProcess.size() + "개 요소 포함 (전체: " + elements.size() + "개)");
@@ -1433,6 +1542,45 @@ public class PPTExportService {
             }
         }
         shape.setLineWidth(Math.max(0.2, borderWidth * scale));
+
+        String label = element.getLabel();
+        if (label == null || label.isBlank()) {
+            Object labelObj = elementData.get("label");
+            if (labelObj != null) {
+                label = labelObj.toString();
+            }
+        }
+
+        if (label != null && !label.isBlank()) {
+            double fontSize = Math.max(5.0, radius * scale * 0.5);
+            int textWidth = (int) Math.max(diameter * 5.0, 80.0);
+            int textHeight = (int) Math.max(fontSize * 1.4, 14.0);
+            int textBoxX = x + (diameter / 2) - (textWidth / 2);
+            if (textBoxX < 0) {
+                textBoxX = 0;
+            }
+            int textY = y + diameter + (int) Math.max(1.0, 3.0 * scale);
+            textY -= (int) (textHeight * 0.9);
+            if (textY < 0) {
+                textY = 0;
+            }
+
+            XSLFTextBox labelBox = slide.createTextBox();
+            labelBox.setAnchor(new Rectangle(textBoxX, textY, textWidth, textHeight));
+            labelBox.setLineColor(null);
+            labelBox.setFillColor(null);
+            labelBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
+
+            XSLFTextParagraph paragraph = labelBox.addNewTextParagraph();
+            paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
+            paragraph.setLineSpacing(100.0);
+
+            XSLFTextRun run = paragraph.addNewTextRun();
+            run.setText(label);
+            run.setBold(true);
+            run.setFontSize(fontSize);
+            run.setFontColor(bgColor);
+        }
     }
     
     /**
@@ -1481,6 +1629,24 @@ public class PPTExportService {
             return new Color(rgb);
         } catch (Exception e) {
             return Color.BLACK;
+        }
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        try {
+            String text = value.toString();
+            if (text == null || text.isBlank()) {
+                return null;
+            }
+            return Long.parseLong(text);
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 }

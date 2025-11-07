@@ -177,16 +177,13 @@ export default class WirelessApViewMode {
             let x, y, backgroundColor = '#ef4444', borderColor = '#000000';
             
             if (savedPosition) {
-                // 저장된 위치 사용 (저장된 위치는 중앙 좌표로 저장됨)
-                // 중앙 좌표에서 반지름을 빼서 좌상단 좌표로 변환
                 x = savedPosition.x - apRadius;
                 y = savedPosition.y - apRadius;
                 backgroundColor = savedPosition.backgroundColor || backgroundColor;
                 borderColor = savedPosition.borderColor || borderColor;
             } else {
-                // 기본 위치 (중앙 기준)
                 const centerX = (roomElement.xCoordinate || roomElement.x) + (roomElement.width || 100) / 2;
-                const centerY = (roomElement.yCoordinate || roomElement.y) + (roomElement.height || 100) - 10;
+                const centerY = (roomElement.yCoordinate || roomElement.y) + (roomElement.height || 100) / 2 + 30;
                 x = centerX - apRadius;
                 y = centerY - apRadius;
             }
