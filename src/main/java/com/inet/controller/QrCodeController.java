@@ -66,13 +66,14 @@ public class QrCodeController {
     @PostMapping("/download")
     public ResponseEntity<ByteArrayResource> downloadQrCodeExcel(
             @RequestParam Long schoolId,
+            @RequestParam(value = "infoLines", required = false) List<String> infoLines,
             RedirectAttributes redirectAttributes) throws IOException, WriterException {
         
         try {
             School school = schoolService.findById(schoolId)
                     .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다."));
             
-            byte[] excelBytes = qrCodeService.generateQrCodeExcel(schoolId);
+            byte[] excelBytes = qrCodeService.generateQrCodeExcel(schoolId, infoLines);
             
             ByteArrayResource resource = new ByteArrayResource(excelBytes);
             

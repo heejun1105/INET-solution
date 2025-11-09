@@ -6,9 +6,12 @@ import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+import com.inet.entity.Device;
 import com.inet.entity.School;
 import com.inet.entity.Uid;
+import com.inet.repository.DeviceRepository;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +20,8 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +34,12 @@ public class QrCodeService {
     
     @Autowired
     private SchoolService schoolService;
+
+    @Autowired
+    private DeviceRepository deviceRepository;
+
+    private static final List<String> DEFAULT_INFO_LINES = List.of("MANAGE", "MANUFACTURER", "MODEL", "UID");
+    private static final DateTimeFormatter PURCHASE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy.MM");
     
     /**
      * QR 코드 이미지를 생성합니다.
@@ -62,102 +73,117 @@ public class QrCodeService {
      * @param schoolId 학교 ID
      * @return 엑셀 파일의 바이트 배열
      */
-    public byte[] generateQrCodeExcel(Long schoolId) throws IOException, WriterException {
+    public byte[] generateQrCodeExcel(Long schoolId, List<String> infoFields) throws IOException, WriterException {
         School school = schoolService.findById(schoolId)
                 .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다."));
-        
+
         List<Uid> uids = uidService.getUidsBySchoolId(schoolId);
-        
+        List<String> fieldConfig = normalizeInfoFields(infoFields);
+
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("QR코드");
-            
-            // 스타일 설정
-            CellStyle headerStyle = createHeaderStyle(workbook);
+
             CellStyle titleStyle = createTitleStyle(workbook);
-            CellStyle uidStyle = createUidStyle(workbook);
-            
-            // 학교 이름 (상단)
+            CellStyle qrBoxStyle = createUidStyle(workbook);
+            CellStyle infoStyle = createInfoStyle(workbook);
+
+            final int blocksPerRow = 2;
+            final int qrColSpan = 4;
+            final int textColSpan = 6;
+            final int blockWidth = qrColSpan + textColSpan;
+            final int textRows = fieldConfig.size();
+            final int dataStartRow = 2;
+            final int rowSpacing = 2;
+            final int totalColumns = blocksPerRow * blockWidth;
+
+            // 열 너비 설정
+        final int qrColumnWidth = 1600;
+        final int infoColumnWidth = 2800;
+
+        for (int col = 0; col < totalColumns; col++) {
+            boolean isQrColumn = (col % blockWidth) < qrColSpan;
+            sheet.setColumnWidth(col, isQrColumn ? qrColumnWidth : infoColumnWidth);
+        }
+
+            // 제목 행
             Row titleRow = sheet.createRow(0);
+            titleRow.setHeightInPoints(20f);
             Cell titleCell = titleRow.createCell(0);
             titleCell.setCellValue(school.getSchoolName());
             titleCell.setCellStyle(titleStyle);
-            
-            // 제목 행
-            Row headerRow = sheet.createRow(2);
-            String[] headers = {"고유번호", "QR코드"};
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-            }
-            
-            // 데이터 행 - 가로 5개씩 배치
-            int rowNum = 3;
-            int colOffset = 0;
-            
-            for (int i = 0; i < uids.size(); i++) {
-                Uid uid = uids.get(i);
-                
-                // 5개마다 새로운 행 시작
-                if (i % 5 == 0) {
-                    rowNum = 3 + (i / 5) * 3; // 3행 간격으로 배치
-                    colOffset = 0;
-                }
-                
-                Row row = sheet.getRow(rowNum);
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, Math.max(totalColumns - 1, 0)));
+
+            CreationHelper helper = workbook.getCreationHelper();
+            Drawing<?> drawing = sheet.createDrawingPatriarch();
+
+            for (int index = 0; index < uids.size(); index++) {
+                Uid uid = uids.get(index);
+                Device device = deviceRepository.findByUid(uid).orElse(null);
+
+                int blockRowIndex = index / blocksPerRow;
+                int blockColIndex = index % blocksPerRow;
+                int startRow = dataStartRow + blockRowIndex * (textRows + rowSpacing);
+                int startCol = blockColIndex * blockWidth;
+
+                for (int r = 0; r < textRows; r++) {
+                int rowIndex = startRow + r;
+                Row row = sheet.getRow(rowIndex);
                 if (row == null) {
-                    row = sheet.createRow(rowNum);
+                    row = sheet.createRow(rowIndex);
                 }
-                
-                // 고유번호
-                Cell uidCell = row.createCell(colOffset * 2);
-                uidCell.setCellValue(uid.getDisplayUid() != null ? uid.getDisplayUid() : uid.getDisplayId());
-                uidCell.setCellStyle(uidStyle);
-                
-                // QR 코드 셀 (테두리용)
-                Cell qrCell = row.createCell(colOffset * 2 + 1);
-                qrCell.setCellStyle(uidStyle); // 고유번호와 동일한 테두리 스타일 적용
-                
-                // QR 코드 이미지
-                if (uid.getDisplayUid() != null && !uid.getDisplayUid().isEmpty()) {
-                    // 1cm = 약 38픽셀 (96 DPI 기준)
-                    byte[] qrCodeBytes = generateQrCode(uid.getDisplayUid(), 38);
+                row.setHeightInPoints(25.5f);
+
+                    for (int c = 0; c < qrColSpan; c++) {
+                        Cell cell = row.getCell(startCol + c);
+                        if (cell == null) {
+                            cell = row.createCell(startCol + c);
+                        }
+                        cell.setCellStyle(qrBoxStyle);
+                    }
+
+                    for (int c = qrColSpan; c < blockWidth; c++) {
+                        Cell cell = row.getCell(startCol + c);
+                        if (cell == null) {
+                            cell = row.createCell(startCol + c);
+                        }
+                        cell.setCellStyle(infoStyle);
+                    }
+                }
+
+                sheet.addMergedRegion(new CellRangeAddress(startRow, startRow + textRows - 1, startCol, startCol + qrColSpan - 1));
+
+                List<String> infoLines = buildInfoLines(fieldConfig, uid, device);
+                for (int r = 0; r < textRows; r++) {
+                    int rowIndex = startRow + r;
+                    int firstCol = startCol + qrColSpan;
+                    int lastCol = startCol + blockWidth - 1;
+                    sheet.addMergedRegion(new CellRangeAddress(rowIndex, rowIndex, firstCol, lastCol));
+                    Cell infoCell = sheet.getRow(rowIndex).getCell(firstCol);
+                    infoCell.setCellValue(infoLines.get(r));
+                }
+
+                String qrContent = uid.getDisplayUid();
+                if (qrContent == null || qrContent.isBlank()) {
+                    qrContent = uid.getDisplayId();
+                }
+
+                if (qrContent != null && !qrContent.isBlank()) {
+                    int qrPixels = (int) Math.round((3.6 / 2.54) * 96);
+                    byte[] qrCodeBytes = generateQrCode(qrContent, qrPixels);
                     int pictureIndex = workbook.addPicture(qrCodeBytes, Workbook.PICTURE_TYPE_PNG);
-                    
-                    CreationHelper helper = workbook.getCreationHelper();
+
                     ClientAnchor anchor = helper.createClientAnchor();
-                    anchor.setCol1(colOffset * 2 + 1);
-                    anchor.setRow1(rowNum);
-                    anchor.setCol2(colOffset * 2 + 2);
-                    anchor.setRow2(rowNum + 1);
-                    
-                    Drawing<?> drawing = sheet.createDrawingPatriarch();
-                    drawing.createPicture(anchor, pictureIndex);
-                }
-                
-                colOffset++;
-            }
-            
-            // 열 너비 설정 (A4 용지에 맞춤, 5개 배치)
-            sheet.setColumnWidth(0, 2000); // 첫 번째 고유번호 열
-            sheet.setColumnWidth(1, 1500); // 첫 번째 QR코드 열
-            sheet.setColumnWidth(2, 2000); // 두 번째 고유번호 열
-            sheet.setColumnWidth(3, 1500); // 두 번째 QR코드 열
-            sheet.setColumnWidth(4, 2000); // 세 번째 고유번호 열
-            sheet.setColumnWidth(5, 1500); // 세 번째 QR코드 열
-            sheet.setColumnWidth(6, 2000); // 네 번째 고유번호 열
-            sheet.setColumnWidth(7, 1500); // 네 번째 QR코드 열
-            sheet.setColumnWidth(8, 2000); // 다섯 번째 고유번호 열
-            sheet.setColumnWidth(9, 1500); // 다섯 번째 QR코드 열
-            
-            // 행 높이 설정 (QR 코드 크기에 맞춤)
-            for (int i = 3; i < rowNum + 3; i++) {
-                Row row = sheet.getRow(i);
-                if (row != null) {
-                    row.setHeight((short) 1200); // 약 1cm
+                    anchor.setCol1(startCol);
+                    anchor.setRow1(startRow);
+                    anchor.setCol2(startCol + qrColSpan);
+                    anchor.setRow2(startRow + textRows);
+                    Picture pict = drawing.createPicture(anchor, pictureIndex);
+                    if (pict != null) {
+                        pict.resize(1.0);
+                    }
                 }
             }
-            
+
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             workbook.write(baos);
             return baos.toByteArray();
@@ -167,23 +193,6 @@ public class QrCodeService {
     /**
      * 헤더 스타일을 생성합니다.
      */
-    private CellStyle createHeaderStyle(Workbook workbook) {
-        CellStyle style = workbook.createCellStyle();
-        Font font = workbook.createFont();
-        font.setBold(true);
-        font.setFontHeightInPoints((short) 8); // 고유번호와 동일한 크기로 조정
-        style.setFont(font);
-        style.setAlignment(HorizontalAlignment.CENTER);
-        style.setVerticalAlignment(VerticalAlignment.CENTER);
-        style.setBorderTop(BorderStyle.THIN);
-        style.setBorderBottom(BorderStyle.THIN);
-        style.setBorderLeft(BorderStyle.THIN);
-        style.setBorderRight(BorderStyle.THIN);
-        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        return style;
-    }
-    
     /**
      * 제목 스타일을 생성합니다.
      */
@@ -191,7 +200,7 @@ public class QrCodeService {
         CellStyle style = workbook.createCellStyle();
         Font font = workbook.createFont();
         font.setBold(true);
-        font.setFontHeightInPoints((short) 8); // 고유번호와 동일한 크기로 조정
+        font.setFontHeightInPoints((short) 14);
         style.setFont(font);
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
@@ -213,5 +222,98 @@ public class QrCodeService {
         style.setBorderLeft(BorderStyle.THIN);
         style.setBorderRight(BorderStyle.THIN);
         return style;
+    }
+    
+    private CellStyle createInfoStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setFontHeightInPoints((short) 9);
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.LEFT);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setIndention((short) 1);
+        style.setWrapText(false);
+        return style;
+    }
+
+    private List<String> normalizeInfoFields(List<String> infoFields) {
+        List<String> normalized = new ArrayList<>(DEFAULT_INFO_LINES);
+        if (infoFields != null) {
+            for (int i = 0; i < Math.min(infoFields.size(), normalized.size()); i++) {
+                normalized.set(i, normalizeField(infoFields.get(i)));
+            }
+        }
+        return normalized;
+    }
+
+    private String normalizeField(String field) {
+        if (field == null) {
+            return "NONE";
+        }
+        String normalized = field.trim().toUpperCase();
+        switch (normalized) {
+            case "MANAGE":
+            case "MANUFACTURER":
+            case "MODEL":
+            case "PURCHASE_DATE":
+            case "IP":
+            case "UID":
+            case "NONE":
+                return normalized;
+            default:
+                return "NONE";
+        }
+    }
+
+    private List<String> buildInfoLines(List<String> fields, Uid uid, Device device) {
+        List<String> lines = new ArrayList<>(fields.size());
+        for (String field : fields) {
+            lines.add(resolveFieldValue(field, uid, device));
+        }
+        return lines;
+    }
+
+    private String resolveFieldValue(String field, Uid uid, Device device) {
+        if (field == null || "NONE".equals(field)) {
+            return "";
+        }
+
+        switch (field) {
+            case "MANAGE":
+                if (device != null && device.getManage() != null) {
+                    String manageValue = device.getManage().getDisplayId();
+                    return normalizeValue(manageValue);
+                }
+                return "-";
+            case "MANUFACTURER":
+                return normalizeValue(device != null ? device.getManufacturer() : null);
+            case "MODEL":
+                return normalizeValue(device != null ? device.getModelName() : null);
+            case "PURCHASE_DATE":
+                if (device != null && device.getPurchaseDate() != null) {
+                    return device.getPurchaseDate().format(PURCHASE_DATE_FORMATTER);
+                }
+                return "-";
+            case "IP":
+                return normalizeValue(device != null ? device.getIpAddress() : null);
+            case "UID":
+                if (uid.getDisplayUid() != null && !uid.getDisplayUid().isBlank()) {
+                    return uid.getDisplayUid();
+                }
+                return normalizeValue(uid.getDisplayId());
+            default:
+                return "";
+        }
+    }
+
+    private String normalizeValue(String value) {
+        if (value == null || value.isBlank()) {
+            return "-";
+        }
+        return value;
     }
 }
