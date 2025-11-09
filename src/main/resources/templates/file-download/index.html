@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파일 다운로드 - I-NET</title>
+    <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="/navbar.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .download-page-container {
+            background-color: #f8f9fa;
+            min-height: calc(100vh - 140px);
+            padding: 2rem 0 3rem;
+        }
+
+        .download-wrapper {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .download-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 18px;
+            padding: 2.5rem 2rem;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        .download-header h1 {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #343a40;
+            margin-bottom: 0.75rem;
+        }
+
+        .download-header .subtitle {
+            font-size: 1rem;
+            color: #6c757d;
+        }
+
+        .download-header .title-icon {
+            color: #0d6efd;
+        }
+
+        .download-card {
+            background: white;
+            border-radius: 18px;
+            padding: 2.5rem;
+            box-shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.75rem;
+        }
+
+        .form-group select {
+            width: 100%;
+            background: #ffffff;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 0.9rem 1.1rem;
+            color: #495057;
+            font-size: 1rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .form-group select:focus {
+            outline: none;
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .options-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+        }
+
+        .select-all-btn {
+            background: transparent;
+            border: 1px solid rgba(13, 110, 253, 0.4);
+            color: #0d6efd;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .select-all-btn:hover:not(:disabled) {
+            background: rgba(13, 110, 253, 0.08);
+            box-shadow: 0 10px 18px rgba(13, 110, 253, 0.15);
+        }
+
+        .select-all-btn:disabled {
+            border-color: #ced4da;
+            color: #adb5bd;
+            cursor: not-allowed;
+        }
+
+        .option-card {
+            border: 1px solid rgba(13, 110, 253, 0.15);
+            border-radius: 14px;
+            padding: 1.25rem 1.5rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .option-card.disabled {
+            opacity: 0.55;
+            background: linear-gradient(180deg, #f8f9fa 0%, #f1f3f5 100%);
+        }
+
+        .option-card.disabled .option-checkbox input {
+            cursor: not-allowed;
+        }
+
+        .option-checkbox {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.9rem;
+        }
+
+        .option-checkbox input {
+            width: 20px;
+            height: 20px;
+            margin-top: 0.2rem;
+            cursor: pointer;
+        }
+
+        .option-checkbox .icon-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background-color: rgba(13, 110, 253, 0.1);
+            color: #0d6efd;
+        }
+
+        .icon-badge.excel {
+            background-color: rgba(25, 135, 84, 0.12);
+            color: #198754;
+        }
+
+        .icon-badge.ppt {
+            background-color: rgba(220, 53, 69, 0.12);
+            color: #dc3545;
+        }
+
+        .option-info {
+            flex: 1;
+        }
+
+        .option-title {
+            font-weight: 600;
+            color: #343a40;
+            display: block;
+            margin-bottom: 0.4rem;
+        }
+
+        .option-desc {
+            font-size: 0.92rem;
+            color: #6c757d;
+        }
+
+        .option-status {
+            margin-top: 0.6rem;
+            font-size: 0.85rem;
+            color: #dc3545;
+            font-weight: 500;
+            display: none;
+        }
+
+        .option-card.disabled .option-status {
+            display: block;
+        }
+
+        .actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .disabled-grid {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .disabled-actions {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .status-label {
+            font-size: 0.95rem;
+            color: #0d6efd;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-label.active {
+            display: inline-flex;
+        }
+
+        .status-label.complete {
+            color: #198754;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 0.9rem 1.8rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            min-width: 220px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .download-btn:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .download-btn:not(:disabled):hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 25px rgba(13, 110, 253, 0.25);
+        }
+
+        @media (max-width: 768px) {
+            .download-wrapper {
+                padding: 0 1.25rem;
+            }
+            .download-card {
+                padding: 2rem 1.5rem;
+            }
+            .actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .download-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+
+    <div class="download-page-container">
+        <div class="download-wrapper">
+            <div class="download-header">
+                <h1>
+                    <i class="fas fa-cloud-download-alt title-icon"></i>
+                    파일 다운로드
+                </h1>
+                <p class="subtitle">학교를 선택하고 필요한 제출용 파일을 한 번에 내려받으세요</p>
+            </div>
+
+            <div class="download-card">
+                <div class="form-group">
+                    <label for="schoolSelect">학교 선택</label>
+                    <select id="schoolSelect" th:disabled="${!hasAccessibleSchools}">
+                        <option value="">학교를 선택하세요</option>
+                        <option th:each="school : ${schools}"
+                                th:value="${school.schoolId}"
+                                th:text="${school.schoolName}">
+                        </option>
+                    </select>
+                    <p class="no-school-hint" th:if="${!hasAccessibleSchools}"
+                       style="margin-top:0.75rem;color:#dc3545;font-weight:600;">
+                        접근 가능한 학교가 없습니다. 관리자에게 학교 권한을 요청해주세요.
+                    </p>
+                </div>
+
+                <div class="options-toolbar" th:classappend="${!hasAccessibleSchools} ? ' disabled-actions'">
+                    <button type="button" class="select-all-btn" id="selectAllBtn">전체 선택</button>
+                </div>
+
+                <div class="options-grid" id="optionsGrid" th:classappend="${!hasAccessibleSchools} ? ' disabled-grid'">
+                    <div class="option-card" data-option="device-ledger">
+                        <label class="option-checkbox">
+                            <input type="checkbox" class="download-option" value="device-ledger" disabled>
+                            <span class="icon-badge excel"><i class="fas fa-file-excel"></i></span>
+                            <span class="option-info">
+                                <span class="option-title">정보화장비 관리대장 (엑셀)</span>
+                                <span class="option-desc">장비 목록을 교실별로 정리한 관리대장 엑셀 파일</span>
+                            </span>
+                        </label>
+                        <div class="option-status">데이터가 없어 다운로드할 수 없습니다.</div>
+                    </div>
+
+                    <div class="option-card" data-option="wireless-ap-summary">
+                        <label class="option-checkbox">
+                            <input type="checkbox" class="download-option" value="wireless-ap-summary" disabled>
+                            <span class="icon-badge excel"><i class="fas fa-file-excel"></i></span>
+                            <span class="option-info">
+                                <span class="option-title">무선 AP 연도별 총괄표 (엑셀)</span>
+                                <span class="option-desc">무선 AP 도입 연도·유형별 설치 현황 총괄표</span>
+                            </span>
+                        </label>
+                        <div class="option-status">무선 AP 데이터가 없습니다.</div>
+                    </div>
+
+                    <div class="option-card" data-option="ip-ledger">
+                        <label class="option-checkbox">
+                            <input type="checkbox" class="download-option" value="ip-ledger" disabled>
+                            <span class="icon-badge excel"><i class="fas fa-file-excel"></i></span>
+                            <span class="option-info">
+                                <span class="option-title">IP 대장 (엑셀)</span>
+                                <span class="option-desc">학교 전체 IP 대역에 대한 장비 배정 현황</span>
+                            </span>
+                        </label>
+                        <div class="option-status">유효한 IP 정보가 없습니다.</div>
+                    </div>
+
+                    <div class="option-card" data-option="device-floorplan">
+                        <label class="option-checkbox">
+                            <input type="checkbox" class="download-option" value="device-floorplan" disabled>
+                            <span class="icon-badge ppt"><i class="fas fa-file-powerpoint"></i></span>
+                            <span class="option-info">
+                                <span class="option-title">학교 평면도 (PPT)</span>
+                                <span class="option-desc">장비 보기 모드 기준 학교 평면도 프레젠테이션</span>
+                            </span>
+                        </label>
+                        <div class="option-status">저장된 평면도가 없습니다.</div>
+                    </div>
+
+                    <div class="option-card" data-option="wireless-ap-floorplan">
+                        <label class="option-checkbox">
+                            <input type="checkbox" class="download-option" value="wireless-ap-floorplan" disabled>
+                            <span class="icon-badge ppt"><i class="fas fa-file-powerpoint"></i></span>
+                            <span class="option-info">
+                                <span class="option-title">무선 AP 평면도 (PPT)</span>
+                                <span class="option-desc">무선 AP 배치 현황이 포함된 평면도 프레젠테이션</span>
+                            </span>
+                        </label>
+                        <div class="option-status">평면도 또는 AP 데이터가 없습니다.</div>
+                    </div>
+                </div>
+
+                <div class="actions" th:classappend="${!hasAccessibleSchools} ? ' disabled-actions'">
+                    <div class="status-label" id="loadingIndicator">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        다운로드 준비 중입니다...
+                    </div>
+                    <div class="status-label complete" id="completeIndicator">
+                        <i class="fas fa-check-circle"></i>
+                        다운로드가 완료되었습니다.
+                    </div>
+                    <button type="button" class="download-btn" id="downloadBtn" th:disabled="${!hasAccessibleSchools}" disabled>
+                        <i class="fas fa-cloud-download-alt"></i>
+                        선택한 파일 다운로드
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/footer :: footer}"></div>
+
+    <script th:inline="javascript">
+        const hasAccessibleSchools = /*[[${hasAccessibleSchools}]]*/ false;
+        const schoolSelect = document.getElementById('schoolSelect');
+        const optionCards = document.querySelectorAll('.option-card');
+        const optionCheckboxes = document.querySelectorAll('.download-option');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const completeIndicator = document.getElementById('completeIndicator');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+
+        const availabilityKeyMap = {
+            'device-ledger': 'deviceExcelAvailable',
+            'wireless-ap-summary': 'wirelessApSummaryExcelAvailable',
+            'ip-ledger': 'ipLedgerExcelAvailable',
+            'device-floorplan': 'deviceFloorPlanPptAvailable',
+            'wireless-ap-floorplan': 'wirelessApFloorPlanPptAvailable'
+        };
+
+        const resetOptions = () => {
+            optionCards.forEach(card => {
+                card.classList.add('disabled');
+                const checkbox = card.querySelector('.download-option');
+                checkbox.checked = false;
+                checkbox.disabled = true;
+            });
+            updateDownloadButtonState();
+            updateSelectAllButtonState();
+        };
+
+        const updateDownloadButtonState = () => {
+            const anyChecked = Array.from(optionCheckboxes).some(cb => cb.checked && !cb.disabled);
+            downloadBtn.disabled = !schoolSelect.value || !anyChecked;
+        };
+
+        const updateSelectAllButtonState = () => {
+            const enabled = Array.from(optionCheckboxes).filter(cb => !cb.disabled);
+            const allChecked = enabled.length > 0 && enabled.every(cb => cb.checked);
+            selectAllBtn.textContent = allChecked ? '전체 해제' : '전체 선택';
+            selectAllBtn.disabled = enabled.length === 0 || !hasAccessibleSchools;
+        };
+
+        const toggleIndicators = (loading, completed = false) => {
+            loadingIndicator.classList.toggle('active', loading);
+            completeIndicator.classList.toggle('active', completed);
+        };
+
+        if (!hasAccessibleSchools) {
+            downloadBtn.disabled = true;
+            selectAllBtn.disabled = true;
+        }
+
+        schoolSelect.addEventListener('change', async () => {
+            toggleIndicators(false);
+            resetOptions();
+
+            const schoolId = schoolSelect.value;
+            if (!schoolId) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/file-download/options?schoolId=${schoolId}`);
+                if (response.status === 403) {
+                    alert('해당 학교 자료를 다운로드할 권한이 없습니다. 관리자에게 문의해주세요.');
+                    schoolSelect.value = '';
+                    resetOptions();
+                    updateDownloadButtonState();
+                    return;
+                }
+                if (!response.ok) {
+                    throw new Error();
+                }
+                const availability = await response.json();
+
+                optionCards.forEach(card => {
+                    const optionCode = card.dataset.option;
+                    const key = availabilityKeyMap[optionCode];
+                    const isAvailable = availability[key];
+                    const checkbox = card.querySelector('.download-option');
+
+                    if (isAvailable) {
+                        card.classList.remove('disabled');
+                        checkbox.disabled = false;
+                    } else {
+                        card.classList.add('disabled');
+                        checkbox.disabled = true;
+                        checkbox.checked = false;
+                    }
+                });
+            } catch (error) {
+                if (schoolSelect.value) {
+                    alert('가용 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+                }
+                schoolSelect.value = '';
+                resetOptions();
+            } finally {
+                updateDownloadButtonState();
+                updateSelectAllButtonState();
+            }
+            updateSelectAllButtonState();
+        });
+
+        optionCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                if (checkbox.disabled) {
+                    checkbox.checked = false;
+                    return;
+                }
+                updateDownloadButtonState();
+                updateSelectAllButtonState();
+            });
+        });
+
+        selectAllBtn.addEventListener('click', () => {
+            const enabled = Array.from(optionCheckboxes).filter(cb => !cb.disabled);
+            if (enabled.length === 0) {
+                return;
+            }
+            const allChecked = enabled.every(cb => cb.checked);
+            enabled.forEach(cb => cb.checked = !allChecked);
+            updateDownloadButtonState();
+            updateSelectAllButtonState();
+        });
+
+        downloadBtn.addEventListener('click', async () => {
+            const schoolId = schoolSelect.value;
+            const selectedTypes = Array.from(optionCheckboxes)
+                .filter(cb => cb.checked && !cb.disabled)
+                .map(cb => cb.value);
+
+            if (!schoolId) {
+                alert('학교를 먼저 선택해주세요.');
+                return;
+            }
+
+            if (selectedTypes.length === 0) {
+                alert('다운로드할 파일을 선택해주세요.');
+                return;
+            }
+
+            toggleIndicators(true);
+            downloadBtn.disabled = true;
+            const originalText = downloadBtn.innerHTML;
+            downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 다운로드 준비 중...';
+
+            try {
+                const response = await fetch('/file-download/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        schoolId,
+                        types: selectedTypes
+                    })
+                });
+
+                if (response.status === 403) {
+                    alert('해당 학교 자료를 다운로드할 권한이 없습니다. 관리자에게 문의해주세요.');
+                    toggleIndicators(false);
+                    schoolSelect.value = '';
+                    resetOptions();
+                    updateDownloadButtonState();
+                    return;
+                }
+                if (!response.ok) {
+                    throw new Error();
+                }
+
+                const blob = await response.blob();
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = '파일_다운로드.zip';
+
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename="?([^\";]+)"?/);
+                    if (match && match[1]) {
+                        filename = decodeURIComponent(match[1]);
+                    }
+                }
+
+                const url = window.URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = filename;
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                window.URL.revokeObjectURL(url);
+
+                toggleIndicators(false, true);
+            } catch (error) {
+                alert('파일 다운로드 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+                toggleIndicators(false);
+            } finally {
+                downloadBtn.disabled = false;
+                downloadBtn.innerHTML = originalText;
+                updateDownloadButtonState();
+                updateSelectAllButtonState();
+                setTimeout(() => completeIndicator.classList.remove('active'), 3000);
+            }
+        });
+
+        updateSelectAllButtonState();
+    </script>
+</body>
+</html>
+

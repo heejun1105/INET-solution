@@ -1,6 +1,5 @@
 package com.inet.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -12,7 +11,6 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
 import com.inet.service.CustomUserDetailsService;
-import com.inet.config.CustomAuthenticationSuccessHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -38,7 +36,7 @@ public class SecurityConfig {
                 
                 // 인증된 사용자만 접근 가능한 페이지들 (메인 페이지 제외)
                 .requestMatchers("/device/**", "/school/**", "/classroom/**", "/operator/**", 
-                               "/wireless-ap/**", "/ip/**", "/data/**", "/floorplan/**", 
+                               "/wireless-ap/**", "/ip/**", "/data/**", "/floorplan/**", "/file-download/**",
                                "/mypage/**").authenticated()
                 
                 // 나머지 모든 요청은 인증 필요

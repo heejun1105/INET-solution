@@ -51,6 +51,11 @@ export default class SeatLayoutMode {
         this.setupUI();
         this.bindEvents();
         
+        const header = document.querySelector('.workspace-header');
+        if (header) {
+            header.classList.add('classroom-mode');
+        }
+        
         // 강제 렌더링
         this.core.markDirty();
     }
@@ -69,6 +74,11 @@ export default class SeatLayoutMode {
             this.miniCore = null;
             this.miniElementManager = null;
             this.miniInteractionManager = null;
+        }
+        
+        const header = document.querySelector('.workspace-header');
+        if (header) {
+            header.classList.remove('classroom-mode');
         }
     }
     
@@ -626,7 +636,7 @@ export default class SeatLayoutMode {
         if (!container) return;
         
         if (devices.length === 0) {
-            container.innerHTML = '<p class="empty">등록된 장비가 없습니다</p>';
+            container.innerHTML = '<p class="empty">미배치된 장비가 없습니다</p>';
             return;
         }
         
@@ -891,10 +901,11 @@ export default class SeatLayoutMode {
      */
     removeDeviceFromList(deviceId) {
         // 장비 목록에서 해당 장비 제거
-        this.devices = this.devices.filter(device => device.deviceId !== deviceId);
+        const targetId = String(deviceId);
+        this.devices = this.devices.filter(device => String(device.deviceId) !== targetId);
         
         // 장비 카드 DOM에서도 제거
-        const card = document.querySelector(`[data-device-id="${deviceId}"]`);
+        const card = document.querySelector(`[data-device-id="${targetId}"]`);
         if (card) {
             card.remove();
         }
@@ -902,7 +913,7 @@ export default class SeatLayoutMode {
         // 목록이 비어있으면 메시지 표시
         const container = document.getElementById('device-cards-container');
         if (container && this.devices.length === 0) {
-            container.innerHTML = '<p class="empty">모든 장비가 배치되었습니다</p>';
+            container.innerHTML = '<p class="empty">미배치된 장비가 없습니다</p>';
         }
     }
     
@@ -1080,7 +1091,7 @@ export default class SeatLayoutMode {
         if (layout.devices) {
             const placedDeviceIds = new Set();
             layout.devices.forEach(deviceData => {
-                placedDeviceIds.add(deviceData.deviceId);
+                placedDeviceIds.add(String(deviceData.deviceId));
                 this.miniElementManager.createElement('device', {
                     type: 'device',
                     elementType: 'device',
@@ -1099,7 +1110,7 @@ export default class SeatLayoutMode {
             
             // 배치된 장비를 목록에서 제거
             if (this.devices && this.devices.length > 0) {
-                this.devices = this.devices.filter(device => !placedDeviceIds.has(device.deviceId));
+                this.devices = this.devices.filter(device => !placedDeviceIds.has(String(device.deviceId)));
                 // 목록 다시 렌더링
                 this.renderDeviceCards(this.devices);
             }
@@ -1296,6 +1307,14 @@ export default class SeatLayoutMode {
         
         this.currentClassroom = null;
         this.modalOpen = false;
+    }
+
+    getViewModeForButton() {
+        return 'view-equipment';
+    }
+
+    getViewModeForButton() {
+        return 'view-equipment';
     }
     
     /**

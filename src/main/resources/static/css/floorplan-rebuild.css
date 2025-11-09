@@ -1201,6 +1201,7 @@
     gap: 1.5rem;
     flex: 1;
     justify-content: center;
+    min-width: 0;
     /* 헤더 스크롤 시 캔버스로 이벤트 전파 방지 */
     touch-action: pan-x pan-y;
     overscroll-behavior: contain;
@@ -1805,6 +1806,40 @@
     .workspace-canvas-container .design-toolbar-container {
         left: 15px;
         top: 15px;
+    }
+}
+
+/* 데스크톱(≥1201px)에서 교실 설계 모드 전용 스크롤 처리 */
+@media (min-width: 1201px) {
+    .workspace-header.classroom-mode .workspace-controls-center {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        justify-content: flex-start !important;
+        gap: 1.25rem;
+        scroll-behavior: auto;
+        touch-action: pan-x pan-y;
+        overscroll-behavior-x: contain;
+    }
+
+    .workspace-header.classroom-mode .workspace-controls-center .header-tool-group {
+        flex-shrink: 0;
+        min-width: fit-content;
+        white-space: nowrap;
+    }
+
+    .workspace-header.classroom-mode .workspace-controls-center::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .workspace-header.classroom-mode .workspace-controls-center::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.6);
+        border-radius: 999px;
+    }
+
+    .workspace-header.classroom-mode .workspace-controls-center::-webkit-scrollbar-track {
+        background: transparent;
     }
 }
 

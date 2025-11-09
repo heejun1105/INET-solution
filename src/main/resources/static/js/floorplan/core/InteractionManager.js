@@ -123,6 +123,12 @@ export default class InteractionManager {
         this.setupEventListeners();
         console.log('✅ InteractionManager 초기화 완료');
     }
+
+    preventDefaultSafely(event) {
+        if (event && event.cancelable) {
+            event.preventDefault();
+        }
+    }
     
     /**
      * 이벤트 리스너 설정
@@ -152,14 +158,14 @@ export default class InteractionManager {
                 // 두 손가락 터치: 핀치 줌 시작
                 if (e.touches.length === 2) {
                     this.startPinchZoom(e.touches);
-                    e.preventDefault();
+                    this.preventDefaultSafely(e);
                     return;
                 }
                 
                 // 단일 터치: 마우스 다운처럼 처리
                 const touch = e.touches[0];
                 this.onMouseDown({
-                    preventDefault: () => e.preventDefault(),
+                    preventDefault: () => this.preventDefaultSafely(e),
                     button: 0,
                     clientX: touch.clientX,
                     clientY: touch.clientY,
@@ -172,7 +178,7 @@ export default class InteractionManager {
             if (e.touches && e.touches.length >= 2) {
                 // 두 손가락 터치: 핀치 줌 업데이트
                 this.updatePinchZoom(e.touches);
-                e.preventDefault();
+                this.preventDefaultSafely(e);
                 return;
             }
             
@@ -183,14 +189,14 @@ export default class InteractionManager {
                     clientX: touch.clientX,
                     clientY: touch.clientY
                 });
-                e.preventDefault();
+                this.preventDefaultSafely(e);
             }
         };
         this.handlers.touchend = (e) => {
             // 두 손가락이 모두 떨어졌거나 하나만 남은 경우 핀치 줌 종료
             if (this.pinchZoom.isActive && (e.touches.length < 2 || e.changedTouches.length >= 2)) {
                 this.endPinchZoom();
-                e.preventDefault();
+                this.preventDefaultSafely(e);
                 return;
             }
             
@@ -201,7 +207,7 @@ export default class InteractionManager {
             
             if (touch) {
                 this.onMouseUp({
-                    preventDefault: () => e.preventDefault(),
+                    preventDefault: () => this.preventDefaultSafely(e),
                     clientX: touch.clientX,
                     clientY: touch.clientY,
                     button: 0
@@ -230,7 +236,7 @@ export default class InteractionManager {
      * 마우스 다운
      */
     onMouseDown(e) {
-        e.preventDefault();
+        this.preventDefaultSafely(e);
         
         const { x, y } = this.getMousePos(e);
         const canvasPos = this.core.screenToCanvas(x, y);

@@ -586,12 +586,12 @@
                 alert('학교를 선택해주세요.');
                 return;
             }
-
+            
             loadingEl.style.display = 'block';
             completionEl.style.display = 'none';
             generateBtn.disabled = true;
             generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...';
-
+            
             try {
                 const formData = new FormData();
                 formData.append('schoolId', schoolId);
@@ -638,7 +638,7 @@
                 }, 3000);
             }
         });
-
+        
         // 학교 선택 시 버튼 활성화
         document.getElementById('schoolId').addEventListener('change', function() {
             generateBtn.disabled = !this.value;

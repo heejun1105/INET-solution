@@ -76,13 +76,13 @@ public class QrCodeService {
     public byte[] generateQrCodeExcel(Long schoolId, List<String> infoFields) throws IOException, WriterException {
         School school = schoolService.findById(schoolId)
                 .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다."));
-
+        
         List<Uid> uids = uidService.getUidsBySchoolId(schoolId);
         List<String> fieldConfig = normalizeInfoFields(infoFields);
-
+        
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("QR코드");
-
+            
             CellStyle titleStyle = createTitleStyle(workbook);
             CellStyle qrBoxStyle = createUidStyle(workbook);
             CellStyle infoStyle = createInfoStyle(workbook);
@@ -124,7 +124,7 @@ public class QrCodeService {
                 int blockColIndex = index % blocksPerRow;
                 int startRow = dataStartRow + blockRowIndex * (textRows + rowSpacing);
                 int startCol = blockColIndex * blockWidth;
-
+            
                 for (int r = 0; r < textRows; r++) {
                 int rowIndex = startRow + r;
                 Row row = sheet.getRow(rowIndex);
@@ -171,7 +171,7 @@ public class QrCodeService {
                     int qrPixels = (int) Math.round((3.6 / 2.54) * 96);
                     byte[] qrCodeBytes = generateQrCode(qrContent, qrPixels);
                     int pictureIndex = workbook.addPicture(qrCodeBytes, Workbook.PICTURE_TYPE_PNG);
-
+                    
                     ClientAnchor anchor = helper.createClientAnchor();
                     anchor.setCol1(startCol);
                     anchor.setRow1(startRow);
@@ -183,7 +183,7 @@ public class QrCodeService {
                     }
                 }
             }
-
+            
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             workbook.write(baos);
             return baos.toByteArray();

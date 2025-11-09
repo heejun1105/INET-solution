@@ -41,6 +41,10 @@ export default class ClassroomDesignMode {
      */
     activate() {
         console.log('✅ 교실설계 모드 활성화');
+        const header = document.querySelector('.workspace-header');
+        if (header) {
+            header.classList.add('classroom-mode');
+        }
         this.setupUI();
         this.bindEvents();
         this.setupHeaderTools(); // 헤더 도구 설정
@@ -148,6 +152,10 @@ export default class ClassroomDesignMode {
      */
     deactivate() {
         console.log('❌ 교실설계 모드 비활성화');
+        const header = document.querySelector('.workspace-header');
+        if (header) {
+            header.classList.remove('classroom-mode');
+        }
         
         // 헤더 도구 숨기기
         const headerTools = document.getElementById('workspace-tools');
@@ -163,6 +171,10 @@ export default class ClassroomDesignMode {
         
         this.unbindEvents();
         this.clearSelection();
+    }
+
+    getViewModeForButton() {
+        return 'view-equipment';
     }
     
     /**

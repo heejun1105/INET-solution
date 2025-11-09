@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -492,6 +493,19 @@ public class DeviceService {
 
     public List<Device> findBySchool(Long schoolId) {
         return deviceRepository.findBySchoolSchoolId(schoolId);
+    }
+
+    public Optional<byte[]> generateDeviceLedgerExcel(Long schoolId) {
+        List<Device> devices = findBySchool(schoolId);
+        if (devices.isEmpty()) {
+            return Optional.empty();
+        }
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            exportToExcel(devices, outputStream);
+            return Optional.of(outputStream.toByteArray());
+        } catch (IOException e) {
+            throw new IllegalStateException("장비 관리대장 엑셀 생성 중 오류가 발생했습니다.", e);
+        }
     }
 
     public List<Device> findByType(String type) {

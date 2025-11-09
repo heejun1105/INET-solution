@@ -2,6 +2,7 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>무선 AP 목록</title>
     <link rel="stylesheet" href="/device.css" />
     <link rel="stylesheet" href="/main.css" />
@@ -294,9 +295,10 @@
         }
         
         .card-header {
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
             align-items: center;
+            gap: 12px;
             margin-bottom: 15px;
             padding-bottom: 15px;
             border-bottom: 2px solid #f1f5f9;
@@ -306,6 +308,7 @@
             font-size: 1.1rem;
             font-weight: 600;
             color: #1e3a8a;
+            grid-column: 1 / 2;
         }
         
         .card-school {
@@ -314,18 +317,21 @@
             background: #f3f4f6;
             padding: 4px 8px;
             border-radius: 6px;
+            justify-self: end;
+            grid-column: 3 / 4;
         }
         
         .card-content {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(6, minmax(120px, 1fr));
+            gap: 10px 16px;
             margin-bottom: 20px;
         }
         
         .card-field {
             display: flex;
             flex-direction: column;
+            gap: 2px;
         }
         
         .card-field.full-width {
@@ -349,6 +355,19 @@
             display: flex;
             gap: 10px;
             justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .card-actions-tablet {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-wide {
+            min-width: 120px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         
         /* 교실 헤더 모바일 */
@@ -410,7 +429,51 @@
         }
         
         /* 반응형 디자인 */
-        @media (max-width: 768px) {
+        @media (max-width: 1200px) {
+            .wireless-ap-table {
+                display: none;
+            }
+
+            .mobile-card-container {
+                display: block;
+            }
+
+            .filter-form {
+                gap: 12px;
+            }
+
+            .filter-group {
+                min-width: 160px;
+            }
+
+            .action-buttons {
+                justify-content: center;
+            }
+
+            .card-content {
+                grid-template-columns: repeat(6, minmax(90px, 1fr));
+                gap: 6px 10px;
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .card-actions-tablet {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+
+            .card-actions-tablet .btn-wide {
+                width: 100%;
+                min-width: 0;
+            }
+        }
+
+        @media (max-width: 850px) {
             .wireless-ap-table {
                 display: none;
             }
@@ -428,7 +491,19 @@
             }
             
             .card-content {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(5, minmax(110px, 1fr));
+                gap: 8px 12px;
+            }
+
+            .card-actions-tablet {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+
+            .card-actions-tablet .btn-wide {
+                width: 100%;
+                min-width: 0;
             }
             
             .school-selection-message {
@@ -446,6 +521,28 @@
             
             .message-container h3 {
                 font-size: 1.3rem;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .mobile-card-container {
+                display: block;
+            }
+
+            .card-content {
+                grid-template-columns: repeat(2, minmax(140px, 1fr));
+                gap: 12px 14px;
+            }
+
+            .card-actions-tablet {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .card-actions-tablet .btn-wide {
+                width: 100%;
+                min-width: 0;
             }
         }
         
@@ -641,69 +738,69 @@
                         </div>
                         
                         <div class="card-content">
-                            <div class="card-field" th:if="${ap.location != null and ap.location.roomName != null}">
+                        <div class="card-field" th:if="${ap.location != null and ap.location.roomName != null}">
                                 <div class="field-label">현위치</div>
                                 <div class="field-value" th:text="${ap.location.roomName}"></div>
                             </div>
                             
-                            <div class="card-field" th:if="${ap.classroomType != null and !#strings.isEmpty(ap.classroomType)}">
+                        <div class="card-field" th:if="${ap.classroomType != null and !#strings.isEmpty(ap.classroomType)}">
                                 <div class="field-label">교실구분</div>
                                 <div class="field-value" th:text="${ap.classroomType}"></div>
                             </div>
                             
-                            <div class="card-field" th:if="${ap.newLabelNumber != null and !#strings.isEmpty(ap.newLabelNumber)}">
+                <div class="card-field" th:if="${ap.newLabelNumber != null and !#strings.isEmpty(ap.newLabelNumber)}">
                                 <div class="field-label">신규라벨번호</div>
                                 <div class="field-value" th:text="${ap.newLabelNumber}"></div>
                             </div>
                             
-                            <div class="card-field" th:if="${ap.deviceNumber != null and !#strings.isEmpty(ap.deviceNumber)}">
+                        <div class="card-field" th:if="${ap.deviceNumber != null and !#strings.isEmpty(ap.deviceNumber)}">
                                 <div class="field-label">장비번호</div>
                                 <div class="field-value" th:text="${ap.deviceNumber}"></div>
                             </div>
                             
-                            <div class="card-field" th:if="${ap.APYear != null}">
+                        <div class="card-field" th:if="${ap.APYear != null}">
                                 <div class="field-label">도입년도</div>
                                 <div class="field-value" th:text="${ap.APYear.year + '년'}"></div>
                             </div>
                             
-                            <div class="card-field" th:if="${ap.manufacturer != null and !#strings.isEmpty(ap.manufacturer)}">
+                        <div class="card-field" th:if="${ap.manufacturer != null and !#strings.isEmpty(ap.manufacturer)}">
                                 <div class="field-label">제조사</div>
                                 <div class="field-value" th:text="${ap.manufacturer}"></div>
                             </div>
                             
-                            <div class="card-field" th:if="${ap.model != null and !#strings.isEmpty(ap.model)}">
+                        <div class="card-field" th:if="${ap.model != null and !#strings.isEmpty(ap.model)}">
                                 <div class="field-label">모델</div>
                                 <div class="field-value" th:text="${ap.model}"></div>
                             </div>
                             
-                            <div class="card-field" th:if="${ap.macAddress != null and !#strings.isEmpty(ap.macAddress)}">
+                        <div class="card-field" th:if="${ap.macAddress != null and !#strings.isEmpty(ap.macAddress)}">
                                 <div class="field-label">MAC주소</div>
                                 <div class="field-value" th:text="${ap.macAddress}"></div>
                             </div>
                             
-                            <div class="card-field" th:if="${ap.prevLocation != null and !#strings.isEmpty(ap.prevLocation)}">
+                        <div class="card-field" th:if="${ap.prevLocation != null and !#strings.isEmpty(ap.prevLocation)}">
                                 <div class="field-label">기존위치</div>
                                 <div class="field-value" th:text="${ap.prevLocation}"></div>
                             </div>
                             
-                            <div class="card-field" th:if="${ap.prevLabelNumber != null and !#strings.isEmpty(ap.prevLabelNumber)}">
+                <div class="card-field" th:if="${ap.prevLabelNumber != null and !#strings.isEmpty(ap.prevLabelNumber)}">
                                 <div class="field-label">기존라벨번호</div>
                                 <div class="field-value" th:text="${ap.prevLabelNumber}"></div>
                             </div>
                             
-                            <div class="card-field" th:if="${ap.speed != null and !#strings.isEmpty(ap.speed)}">
+                        <div class="card-field" th:if="${ap.speed != null and !#strings.isEmpty(ap.speed)}">
                                 <div class="field-label">속도</div>
                                 <div class="field-value" th:text="${ap.speed}"></div>
                             </div>
                         </div>
                         
-                        <div class="card-actions">
-                            <a th:href="@{/wireless-ap/modify/{id}(id=${ap.APId})}" class="btn btn-warning">
+                        <div class="card-actions card-actions-tablet">
+                            <a th:href="@{/wireless-ap/modify/{id}(id=${ap.APId})}" class="btn btn-warning btn-wide action-edit">
                                 <i class="fas fa-edit"></i> 수정
                             </a>
                             <form th:action="@{/wireless-ap/remove}" method="post" style="display: inline;">
                                 <input type="hidden" name="ap_id" th:value="${ap.APId}">
-                                <button type="submit" class="btn btn-danger" onclick="return confirm('정말 삭제하시겠습니까?')">
+                                <button type="submit" class="btn btn-danger btn-wide action-delete" onclick="return confirm('정말 삭제하시겠습니까?')">
                                     <i class="fas fa-trash-alt"></i> 삭제
                                 </button>
                             </form>

@@ -260,8 +260,20 @@ class FloorPlanApp {
             
             // 마우스 휠 이벤트 전파 방지
             workspaceControlsCenter.addEventListener('wheel', (e) => {
+                const headerHasClassroomMode = workspaceHeader.classList.contains('classroom-mode');
+                const isDesktop = window.innerWidth >= 1201;
+                
+                if (headerHasClassroomMode && isDesktop) {
+                    const dominantDelta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+                    if (dominantDelta !== 0) {
+                        workspaceControlsCenter.scrollLeft += dominantDelta;
+                        if (e.cancelable) {
+                            e.preventDefault();
+                        }
+                    }
+                }
                 e.stopPropagation();
-            }, { passive: true });
+            }, { passive: false });
             
             // 모바일 및 랩탑에서 헤더 도구 표시 시 스크롤 위치를 맨 왼쪽(레이어부터)으로 리셋
             const resetHeaderScroll = () => {
@@ -1232,8 +1244,8 @@ class FloorPlanApp {
         let targetMode = null;
         
         // 현재 설계 모드에 따라 해당 보기 모드로 전환
-        if (currentMode === 'design-classroom') {
-            targetMode = 'view-equipment';
+        if (this.modeManager && typeof this.modeManager.getViewModeForButton === 'function') {
+            targetMode = this.modeManager.getViewModeForButton();
         } else if (currentMode === 'design-wireless') {
             targetMode = 'view-wireless';
         }

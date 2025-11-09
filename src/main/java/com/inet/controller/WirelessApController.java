@@ -284,6 +284,14 @@ public class WirelessApController {
         return classroomService.findBySchoolId(schoolId);
     }
     
+    @GetMapping("/api/classrooms")
+    @ResponseBody
+    @JsonView(Views.Summary.class)
+    public List<Classroom> getAllClassrooms() {
+        log.info("Getting all classrooms for wireless-ap module");
+        return classroomService.getAllClassrooms();
+    }
+    
     // 학교별 무선AP 목록 조회 API (평면도 뷰어용)
     @GetMapping("/api/wireless-aps/school/{schoolId}")
     @ResponseBody
