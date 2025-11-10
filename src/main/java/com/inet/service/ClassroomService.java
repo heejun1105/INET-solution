@@ -1,7 +1,5 @@
 package com.inet.service;
 
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.inet.entity.Classroom;
 import com.inet.entity.School;
 import com.inet.entity.Device;
@@ -10,26 +8,39 @@ import com.inet.repository.ClassroomRepository;
 import com.inet.repository.SchoolRepository;
 import com.inet.repository.DeviceRepository;
 import com.inet.repository.WirelessApRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.ArrayList;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 @Transactional
 public class ClassroomService {
+    
+    private static final Logger log = LoggerFactory.getLogger(ClassroomService.class);
     
     private final ClassroomRepository classroomRepository;
     private final SchoolRepository schoolRepository;
     private final DeviceRepository deviceRepository;
     private final WirelessApRepository wirelessApRepository;
+    private final FloorPlanClassroomSyncService floorPlanClassroomSyncService;
+
+    public ClassroomService(ClassroomRepository classroomRepository,
+                            SchoolRepository schoolRepository,
+                            DeviceRepository deviceRepository,
+                            WirelessApRepository wirelessApRepository,
+                            FloorPlanClassroomSyncService floorPlanClassroomSyncService) {
+        this.classroomRepository = classroomRepository;
+        this.schoolRepository = schoolRepository;
+        this.deviceRepository = deviceRepository;
+        this.wirelessApRepository = wirelessApRepository;
+        this.floorPlanClassroomSyncService = floorPlanClassroomSyncService;
+    }
     
     public Classroom saveClassroom(Classroom classroom) {
         try {
@@ -70,7 +81,9 @@ public class ClassroomService {
     
     public Classroom updateClassroom(Classroom classroom) {
         log.info("Updating classroom: {}", classroom);
-        return classroomRepository.save(classroom);
+        Classroom saved = classroomRepository.save(classroom);
+        floorPlanClassroomSyncService.updateClassroomElements(saved.getClassroomId(), saved.getRoomName());
+        return saved;
     }
     
     public void deleteClassroom(Long id) {
@@ -83,9 +96,10 @@ public class ClassroomService {
         List<WirelessAp> wirelessAps = wirelessApRepository.findByLocation(classroom);
         
         if (!devices.isEmpty() || !wirelessAps.isEmpty()) {
-            throw new IllegalStateException("이 교실을 사용하는 장비나 무선AP가 있어서 삭제할 수 없습니다.");
+            throw new IllegalStateException("이 교실을 사용하는 장비나 무선AP가 있어서 삭제할 수 없습니다. 장비가 무선AP를 먼저 삭제해주세요.");
         }
         
+        floorPlanClassroomSyncService.removeClassroomElements(id);
         classroomRepository.deleteById(id);
     }
     
@@ -150,7 +164,10 @@ public class ClassroomService {
         // 교실명 업데이트
         if (newRoomName != null && !newRoomName.trim().isEmpty()) {
             targetClassroom.setRoomName(newRoomName.trim());
-            classroomRepository.save(targetClassroom);
+            targetClassroom = classroomRepository.save(targetClassroom);
+            floorPlanClassroomSyncService.updateClassroomElements(targetClassroom.getClassroomId(), targetClassroom.getRoomName());
+        } else {
+            floorPlanClassroomSyncService.updateClassroomElements(targetClassroom.getClassroomId(), targetClassroom.getRoomName());
         }
         
         // 각 소스 교실의 장비들을 대상 교실로 이동
@@ -175,6 +192,7 @@ public class ClassroomService {
             }
             
             // 소스 교실 삭제
+            floorPlanClassroomSyncService.removeClassroomElements(sourceId);
             classroomRepository.deleteById(sourceId);
             log.info("Merged and deleted classroom: {}", sourceId);
         }

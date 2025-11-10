@@ -1282,7 +1282,7 @@
                 <h3><i class="fas fa-edit"></i> 교실명 수정</h3>
                 <span class="close" onclick="closeEditModal()">&times;</span>
             </div>
-            <form action="/classroom/update" method="post">
+            <form id="editForm" action="/classroom/update" method="post">
                 <input type="hidden" id="editClassroomId" name="classroomId">
                 <input type="hidden" name="schoolId" th:value="${selectedSchoolId}">
                 
@@ -1821,14 +1821,14 @@
             });
             
             // 폼 제출 이벤트 처리
-            document.addEventListener('submit', function(e) {
-                // 교실 수정 폼 제출
-                if (e.target && e.target.id === 'editForm') {
-                    console.log('=== EDIT FORM SUBMIT ===');
-                    // 스크롤 위치 저장
-                    saveScrollPosition();
-                }
-                
+        document.addEventListener('submit', function(e) {
+            // 교실 수정 폼 제출
+            if (e.target && e.target.id === 'editForm') {
+                e.preventDefault();
+                submitEditForm(e.target);
+                return;
+            }
+
                 // 병합 폼 제출 
                 if (e.target && e.target.id === 'mergeForm') {
                     console.log('=== MERGE FORM SUBMIT ===');
@@ -2083,6 +2083,120 @@
         // 교실 수정 모달 닫기
         function closeEditModal() {
             document.getElementById('editModal').style.display = 'none';
+        }
+
+        function updateClassroomNameInUI(classroomId, newRoomName) {
+            const idString = String(classroomId);
+            const sanitizedName = newRoomName;
+
+            const editButton = document.querySelector(`.classroom-card .edit-classroom-btn[data-classroom-id="${idString}"]`);
+            if (editButton) {
+                const card = editButton.closest('.classroom-card');
+                if (card) {
+                    const nameElement = card.querySelector('.classroom-name');
+                    if (nameElement) {
+                        nameElement.textContent = sanitizedName;
+                    }
+                    const checkbox = card.querySelector('.classroom-checkbox');
+                    if (checkbox) {
+                        checkbox.setAttribute('data-room-name', sanitizedName);
+                    }
+                    const deleteButton = card.querySelector('.delete-classroom-btn');
+                    if (deleteButton) {
+                        deleteButton.setAttribute('data-room-name', sanitizedName);
+                    }
+                    editButton.setAttribute('data-room-name', sanitizedName);
+                }
+            }
+
+            document.querySelectorAll('.duplicate-item').forEach(item => {
+                const idElement = item.querySelector('.classroom-id');
+                if (idElement && idElement.textContent.trim() === idString) {
+                    const nameElement = item.querySelector('.classroom-name');
+                    if (nameElement) {
+                        nameElement.textContent = sanitizedName;
+                    }
+                }
+            });
+        }
+
+        async function submitEditForm(formElement) {
+            const classroomIdInput = document.getElementById('editClassroomId');
+            const roomNameInput = document.getElementById('editRoomName');
+            const classroomId = classroomIdInput.value;
+            const schoolIdInput = formElement.querySelector('input[name="schoolId"]');
+            const schoolId = schoolIdInput ? schoolIdInput.value : '';
+            const roomName = roomNameInput.value.trim();
+
+            if (!classroomId) {
+                alert('교실 정보를 확인할 수 없습니다. 페이지를 새로고침한 후 다시 시도해주세요.');
+                return;
+            }
+
+            if (!roomName) {
+                alert('교실명을 입력해주세요.');
+                roomNameInput.focus();
+                return;
+            }
+
+            if (!schoolId) {
+                alert('학교 정보를 확인할 수 없습니다. 페이지를 새로고침한 후 다시 시도해주세요.');
+                return;
+            }
+
+            const numericClassroomId = Number(classroomId);
+            if (!Number.isFinite(numericClassroomId)) {
+                alert('교실 정보가 올바르지 않습니다.');
+                return;
+            }
+
+            const numericSchoolId = Number(schoolId);
+            if (!Number.isFinite(numericSchoolId)) {
+                alert('학교 정보가 올바르지 않습니다.');
+                return;
+            }
+
+            const payload = {
+                classroomId: numericClassroomId,
+                schoolId: numericSchoolId,
+                roomName: roomName
+            };
+
+            const submitButton = formElement.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.disabled = true;
+            }
+
+            try {
+                const response = await fetch('/classroom/update/ajax', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json().catch(() => ({}));
+
+                if (!response.ok || !data.success) {
+                    const message = data && data.message ? data.message : '교실명 수정 중 오류가 발생했습니다.';
+                    alert(message);
+                    return;
+                }
+
+                updateClassroomNameInUI(numericClassroomId, roomName);
+                closeEditModal();
+                alert(data.message || '교실명이 성공적으로 수정되었습니다.');
+            } catch (error) {
+                console.error('교실명 수정 중 오류:', error);
+                alert('교실명 수정 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+            } finally {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                }
+            }
         }
 
         // 교실 병합 모달 열기

@@ -48,4 +48,16 @@ public interface FloorPlanElementRepository extends JpaRepository<FloorPlanEleme
      */
     @Query("SELECT fpe FROM FloorPlanElement fpe WHERE fpe.referenceId = :referenceId AND fpe.elementType = :elementType")
     List<FloorPlanElement> findByReferenceIdAndElementType(@Param("referenceId") Long referenceId, @Param("elementType") String elementType);
+    
+    /**
+     * 참조 ID가 일치하는 모든 요소 조회
+     */
+    @Query("SELECT fpe FROM FloorPlanElement fpe WHERE fpe.referenceId = :referenceId")
+    List<FloorPlanElement> findByReferenceId(@Param("referenceId") Long referenceId);
+    
+    /**
+     * 부모 요소 ID로 자식 요소 조회
+     */
+    @Query("SELECT fpe FROM FloorPlanElement fpe WHERE fpe.parentElementId = :parentElementId")
+    List<FloorPlanElement> findByParentElementId(@Param("parentElementId") Long parentElementId);
 } 

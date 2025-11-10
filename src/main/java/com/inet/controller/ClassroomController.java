@@ -1,5 +1,9 @@
 package com.inet.controller;
 
+import com.fasterxml.jackson.annotation.JsonView;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -9,15 +13,13 @@ import com.inet.entity.School;
 import com.inet.service.ClassroomService;
 import com.inet.service.SchoolService;
 import com.inet.config.Views;
-import com.fasterxml.jackson.annotation.JsonView;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.stream.Collectors;
 import jakarta.servlet.http.HttpSession;
@@ -44,6 +46,12 @@ public class ClassroomController {
     private final PermissionHelper permissionHelper;
 
     private static final Logger log = LoggerFactory.getLogger(ClassroomController.class);
+
+    public record ClassroomUpdateRequest(
+        Long classroomId,
+        Long schoolId,
+        String roomName
+    ) { }
 
     public ClassroomController(ClassroomService classroomService, SchoolService schoolService, 
                              PermissionService permissionService, SchoolPermissionService schoolPermissionService, 
@@ -232,6 +240,107 @@ public class ClassroomController {
         }
         
         return "redirect:/classroom/manage?schoolId=" + schoolId;
+    }
+
+    @PostMapping(
+        value = "/update/ajax",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateClassroomAjax(
+        @RequestBody ClassroomUpdateRequest request
+    ) {
+        Map<String, Object> response = new HashMap<>();
+
+        if (request == null) {
+            response.put("success", false);
+            response.put("message", "요청 본문이 비어 있습니다.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+
+        if (request.classroomId() == null) {
+            response.put("success", false);
+            response.put("message", "교실 ID가 필요합니다.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+
+        if (request.schoolId() == null) {
+            response.put("success", false);
+            response.put("message", "학교 ID가 필요합니다.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            response.put("success", false);
+            response.put("message", "로그인이 필요합니다.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
+
+        User user = userService.findByUsername(auth.getName()).orElse(null);
+        if (user == null) {
+            response.put("success", false);
+            response.put("message", "사용자를 찾을 수 없습니다.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
+
+        if (!permissionService.hasPermission(user, Feature.CLASSROOM_MANAGEMENT)) {
+            response.put("success", false);
+            response.put("message", permissionHelper.getPermissionDeniedMessage(Feature.CLASSROOM_MANAGEMENT));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        Optional<School> optionalSchool = schoolService.getSchoolById(request.schoolId());
+        if (optionalSchool.isEmpty()) {
+            response.put("success", false);
+            response.put("message", "존재하지 않는 학교입니다.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        }
+
+        School school = optionalSchool.get();
+        if (!schoolPermissionService.hasSchoolPermission(user, school)) {
+            response.put("success", false);
+            response.put("message", "해당 학교에 대한 권한이 없습니다. 관리자에게 문의하세요.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        Optional<Classroom> optionalClassroom = classroomService.getClassroomById(request.classroomId());
+        if (optionalClassroom.isEmpty()) {
+            response.put("success", false);
+            response.put("message", "존재하지 않는 교실입니다.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        }
+
+        Classroom classroom = optionalClassroom.get();
+        if (classroom.getSchool() == null || !classroom.getSchool().getSchoolId().equals(school.getSchoolId())) {
+            response.put("success", false);
+            response.put("message", "선택한 학교에 속한 교실이 아닙니다.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        String trimmedRoomName = request.roomName() != null ? request.roomName().trim() : "";
+        if (trimmedRoomName.isEmpty()) {
+            response.put("success", false);
+            response.put("message", "교실명을 입력해주세요.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+
+        try {
+            classroom.setRoomName(trimmedRoomName);
+            classroomService.updateClassroom(classroom);
+
+            response.put("success", true);
+            response.put("message", "교실명이 성공적으로 수정되었습니다.");
+            response.put("classroomId", classroom.getClassroomId());
+            response.put("roomName", classroom.getRoomName());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("교실 수정 중 오류 (AJAX): ", e);
+            response.put("success", false);
+            response.put("message", "교실 수정 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     /**

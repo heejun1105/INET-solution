@@ -929,4 +929,5 @@ public class FloorPlanService {
         layout.put("textBoxes", new ArrayList<>());
         return layout;
     }
+
 }
