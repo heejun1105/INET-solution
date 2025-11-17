@@ -1182,8 +1182,8 @@
             const qrCodeSearchCheckbox = document.getElementById('qrCodeSearch');
             if (qrCodeSearchCheckbox) {
                 qrCodeSearchCheckbox.addEventListener('change', function() {
-                    localStorage.setItem('qrCodeSearch', this.checked.toString());
-                });
+                localStorage.setItem('qrCodeSearch', this.checked.toString());
+            });
                 // 이미 체크된 상태인지 확인하고 유지
                 const savedQrCodeSearch = localStorage.getItem('qrCodeSearch');
                 if (savedQrCodeSearch === 'true' && !qrCodeSearchCheckbox.checked) {
@@ -1393,7 +1393,7 @@
                             const cardElements = document.querySelectorAll('.inspection-checkbox-mobile, .inspection-checkbox');
                             if (cardElements.length > 0 || retryCount >= maxRetries) {
                                 console.log(`검사 상태 적용 시도 (재시도: ${retryCount}, 요소 수: ${cardElements.length})`);
-                                applyInspectionStatuses(data.statuses);
+                            applyInspectionStatuses(data.statuses);
                             } else {
                                 retryCount++;
                                 console.log(`검사 상태 적용 대기 중... (${retryCount}/${maxRetries})`);

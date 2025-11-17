@@ -315,12 +315,29 @@ export default class DataSyncManager {
                 elementData.parentId = elementData.parentElementId;
             }
             
-            // wireless_ap 요소의 경우: 좌상단 좌표를 중앙 좌표로 변환하여 저장
+            // wireless_ap 요소의 경우: 좌상단 좌표를 중앙 좌표로 변환하여 저장 (모양별 처리)
             if (elementData.elementType === 'wireless_ap') {
-                const radius = elementData.radius || 20; // 기본값 20 (지름 40의 반지름)
-                if (elementData.xCoordinate != null && elementData.yCoordinate != null) {
-                    elementData.xCoordinate = (elementData.xCoordinate || 0) + radius; // 중앙 X 좌표
-                    elementData.yCoordinate = (elementData.yCoordinate || 0) + radius; // 중앙 Y 좌표
+                const shapeType = elementData.shapeType || 'circle';
+                
+                if (shapeType === 'circle') {
+                    const radius = elementData.radius ?? (elementData.width ? elementData.width / 2 : 20);
+                    const left = elementData.xCoordinate ?? 0;
+                    const top = elementData.yCoordinate ?? 0;
+                    elementData.radius = radius;
+                    elementData.width = radius * 2;
+                    elementData.height = radius * 2;
+                    elementData.xCoordinate = left + radius;
+                    elementData.yCoordinate = top + radius;
+                } else {
+                    const width = elementData.width || 40;
+                    const height = elementData.height || 40;
+                    const left = elementData.xCoordinate ?? 0;
+                    const top = elementData.yCoordinate ?? 0;
+                    elementData.radius = null;
+                    elementData.width = width;
+                    elementData.height = height;
+                    elementData.xCoordinate = left + width / 2;
+                    elementData.yCoordinate = top + height / 2;
                 }
             }
             

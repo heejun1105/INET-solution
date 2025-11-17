@@ -7,11 +7,16 @@
  * - 네트워크 장비 표시
  */
 
+import LegendComponent from '../components/LegendComponent.js';
+
 export default class WirelessApViewMode {
     constructor(core, elementManager, uiManager) {
         this.core = core;
         this.elementManager = elementManager;
         this.uiManager = uiManager;
+        
+        // 범례 컴포넌트
+        this.legendComponent = new LegendComponent(core, 'wireless-ap');
         
         console.log('📡 WirelessApViewMode 초기화');
     }
@@ -33,6 +38,9 @@ export default class WirelessApViewMode {
         
         // 무선AP 데이터 로드 및 렌더링
         await this.loadAndRenderWirelessAps();
+        
+        // 범례 생성
+        this.legendComponent.create();
         
         // 강제 렌더링
         this.core.markDirty();
@@ -56,6 +64,7 @@ export default class WirelessApViewMode {
     deactivate() {
         console.log('❌ 무선AP보기 모드 비활성화');
         this.clearApElements();
+        this.legendComponent.remove();
     }
     
     /**
@@ -137,9 +146,29 @@ export default class WirelessApViewMode {
             this.savedApPositions = {};
             savedAps.forEach(apData => {
                 if (apData.referenceId) {
+                    const shapeType = apData.shapeType || 'circle';
+                    let centerX = apData.xCoordinate || 0;
+                    let centerY = apData.yCoordinate || 0;
+                    let radius = apData.radius;
+                    let width = apData.width;
+                    let height = apData.height;
+                    
+                    if (shapeType === 'circle') {
+                        radius = radius ?? (width ? width / 2 : 20);
+                        width = radius * 2;
+                        height = radius * 2;
+                    } else {
+                        width = width || 40;
+                        height = height || 40;
+                    }
+                    
                     this.savedApPositions[apData.referenceId] = {
-                        x: apData.xCoordinate,
-                        y: apData.yCoordinate,
+                        x: centerX,
+                        y: centerY,
+                        width,
+                        height,
+                        radius: shapeType === 'circle' ? radius : null,
+                        shapeType,
                         backgroundColor: apData.backgroundColor,
                         borderColor: apData.borderColor
                     };
@@ -172,21 +201,44 @@ export default class WirelessApViewMode {
             // 저장된 위치 확인
             const savedPosition = this.getSavedApPosition(ap.apId);
             
-            // 설계 모드와 동일한 크기: 지름 40 = 반지름 20
-            const apRadius = 20;
-            let x, y, backgroundColor = '#ef4444', borderColor = '#000000';
+            const DEFAULT_RADIUS = 20;
+            const DEFAULT_SIZE = DEFAULT_RADIUS * 2;
+            let shapeType = 'circle';
+            let width = DEFAULT_SIZE;
+            let height = DEFAULT_SIZE;
+            let radius = DEFAULT_RADIUS;
+            let centerX;
+            let centerY;
+            let backgroundColor = '#ef4444';
+            let borderColor = '#000000';
             
             if (savedPosition) {
-                x = savedPosition.x - apRadius;
-                y = savedPosition.y - apRadius;
+                shapeType = savedPosition.shapeType || 'circle';
+                width = savedPosition.width || (shapeType === 'circle' ? DEFAULT_SIZE : DEFAULT_SIZE);
+                height = savedPosition.height || (shapeType === 'circle' ? DEFAULT_SIZE : DEFAULT_SIZE);
+                radius = shapeType === 'circle'
+                    ? (savedPosition.radius ?? width / 2)
+                    : null;
+                centerX = savedPosition.x;
+                centerY = savedPosition.y;
                 backgroundColor = savedPosition.backgroundColor || backgroundColor;
                 borderColor = savedPosition.borderColor || borderColor;
             } else {
-                const centerX = (roomElement.xCoordinate || roomElement.x) + (roomElement.width || 100) / 2;
-                const centerY = (roomElement.yCoordinate || roomElement.y) + (roomElement.height || 100) / 2 + 30;
-                x = centerX - apRadius;
-                y = centerY - apRadius;
+                centerX = (roomElement.xCoordinate || roomElement.x) + (roomElement.width || 100) / 2;
+                centerY = (roomElement.yCoordinate || roomElement.y) + (roomElement.height || 100) / 2 + 30;
             }
+            
+            if (shapeType === 'circle') {
+                radius = radius ?? DEFAULT_RADIUS;
+                width = radius * 2;
+                height = radius * 2;
+            } else {
+                width = width || DEFAULT_SIZE;
+                height = height || DEFAULT_SIZE;
+            }
+            
+            const x = centerX - width / 2;
+            const y = centerY - height / 2;
             
             const apElement = {
                 type: 'wireless_ap',
@@ -195,9 +247,10 @@ export default class WirelessApViewMode {
                 parentElementId: roomElement.id,
                 xCoordinate: x,
                 yCoordinate: y,
-                width: apRadius * 2, // 지름
-                height: apRadius * 2, // 지름 (원형이므로)
-                radius: apRadius,
+                width,
+                height,
+                radius: shapeType === 'circle' ? radius : null,
+                shapeType,
                 backgroundColor: backgroundColor,
                 borderColor: borderColor,
                 borderWidth: 2,

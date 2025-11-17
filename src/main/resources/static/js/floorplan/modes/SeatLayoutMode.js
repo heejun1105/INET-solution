@@ -32,6 +32,7 @@ export default class SeatLayoutMode {
         this.seatPlacementMode = false;
         this.entrancePlacementMode = false;
         this.selectedDevice = null; // 선택된 장비
+        this.isEditMode = false; // 수정 모드 상태
         
         // 마우스 다운 위치 저장 (클릭 감지용)
         this.miniCanvasMouseDownPos = null;
@@ -250,6 +251,9 @@ export default class SeatLayoutMode {
                 <div class="seat-modal-header">
                     <h2 id="seat-modal-title">교실 자리 배치</h2>
                     <div class="seat-modal-header-actions">
+                        <button id="edit-mode-btn" class="edit-mode-btn" title="수정 모드">
+                            <i class="fas fa-edit"></i> 수정 모드
+                        </button>
                         <button id="save-seat-layout-btn" class="save-btn" title="저장">
                             <i class="fas fa-save"></i> 저장
                         </button>
@@ -300,6 +304,7 @@ export default class SeatLayoutMode {
         // 이벤트 바인딩
         document.getElementById('close-seat-modal').addEventListener('click', () => this.closeModal());
         document.getElementById('save-seat-layout-btn').addEventListener('click', () => this.saveSeatLayout());
+        document.getElementById('edit-mode-btn').addEventListener('click', () => this.toggleEditMode());
         document.getElementById('add-seat-btn').addEventListener('click', () => this.enableSeatPlacementMode());
         document.getElementById('add-entrance-btn').addEventListener('click', () => this.enableEntrancePlacementMode());
         
@@ -376,6 +381,40 @@ export default class SeatLayoutMode {
         // 자리 배치/장비 배치 모드일 때만 추가 처리를 위해 
         // 마우스 업 이벤트에서 클릭을 감지 (드래그/팬이 발생하지 않은 경우만)
         this.miniCanvasMouseUpHandler = (e) => {
+            // 수정 모드일 때 장비 요소 클릭 처리
+            if (this.isEditMode) {
+                // 팬/드래그/리사이즈 중이 아닐 때만 처리
+                if (this.miniInteractionManager && (
+                    this.miniInteractionManager.state.isPanning ||
+                    this.miniInteractionManager.state.isDragging ||
+                    this.miniInteractionManager.state.isResizing ||
+                    this.miniInteractionManager.state.isSelecting
+                )) {
+                    return;
+                }
+                
+                // 실제 클릭인지 확인
+                if (this.miniCanvasMouseDownPos) {
+                    const dx = e.clientX - this.miniCanvasMouseDownPos.x;
+                    const dy = e.clientY - this.miniCanvasMouseDownPos.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // 5px 이내 이동이면 클릭으로 간주
+                    if (distance <= 5) {
+                        const canvasPos = this.miniCore.screenToCanvas(e.clientX, e.clientY);
+                        const clickedElement = this.miniElementManager.getElementAtPosition(canvasPos.x, canvasPos.y);
+                        
+                        // 장비 요소인 경우 수정 페이지로 이동
+                        if (clickedElement && clickedElement.elementType === 'device' && clickedElement.deviceId) {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            window.location.href = `/device/modify/${clickedElement.deviceId}`;
+                            return;
+                        }
+                    }
+                }
+            }
+            
             // 자리 배치 모드, 입구 배치 모드, 또는 장비 선택 모드일 때만 처리
             if (!this.seatPlacementMode && !this.entrancePlacementMode && !this.selectedDevice) {
                 return;
@@ -460,6 +499,29 @@ export default class SeatLayoutMode {
         };
         
         this.miniCanvasMouseDownHandler = (e) => {
+            // 수정 모드일 때 장비 요소 클릭 처리 (가장 먼저 처리)
+            if (this.isEditMode && e.button === 0) { // 좌클릭만
+                const canvasPos = this.miniCore.screenToCanvas(e.clientX, e.clientY);
+                const clickedElement = this.miniElementManager.getElementAtPosition(canvasPos.x, canvasPos.y);
+                
+                // 장비 요소인 경우 수정 페이지로 이동하고 이벤트 전파 중단
+                if (clickedElement && clickedElement.elementType === 'device' && clickedElement.deviceId) {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    window.location.href = `/device/modify/${clickedElement.deviceId}`;
+                    return;
+                }
+            }
+            
+            // 수정 모드일 때도 마우스 다운 위치 저장
+            if (this.isEditMode) {
+                this.miniCanvasMouseDownPos = {
+                    x: e.clientX,
+                    y: e.clientY
+                };
+            }
+            
             // 자리 배치 모드, 입구 배치 모드, 또는 장비 선택 모드일 때만 처리
             if (this.seatPlacementMode || this.entrancePlacementMode || this.selectedDevice) {
                 // 마우스 다운 위치 저장
@@ -497,12 +559,65 @@ export default class SeatLayoutMode {
             }
         };
         
+        // 수정 모드일 때 장비 요소 클릭을 먼저 처리하기 위한 핸들러
+        this.miniCanvasClickHandler = (e) => {
+            if (!this.isEditMode) return;
+            
+            // 팬/드래그/리사이즈 중이 아닐 때만 처리
+            if (this.miniInteractionManager && (
+                this.miniInteractionManager.state.isPanning ||
+                this.miniInteractionManager.state.isDragging ||
+                this.miniInteractionManager.state.isResizing ||
+                this.miniInteractionManager.state.isSelecting
+            )) {
+                return;
+            }
+            
+            const canvasPos = this.miniCore.screenToCanvas(e.clientX, e.clientY);
+            const clickedElement = this.miniElementManager.getElementAtPosition(canvasPos.x, canvasPos.y);
+            
+            // 장비 요소인 경우 수정 페이지로 이동하고 이벤트 전파 중단
+            if (clickedElement && clickedElement.elementType === 'device' && clickedElement.deviceId) {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                window.location.href = `/device/modify/${clickedElement.deviceId}`;
+                return;
+            }
+        };
+        
         // 마우스 이벤트 등록 (capture phase에서 먼저 처리)
         canvas.addEventListener('mousedown', this.miniCanvasMouseDownHandler, true);
         canvas.addEventListener('mouseup', this.miniCanvasMouseUpHandler, true);
+        // 수정 모드일 때 클릭 이벤트를 먼저 처리 (capture phase)
+        canvas.addEventListener('click', this.miniCanvasClickHandler, true);
         
         // 터치 이벤트도 처리 (모바일/태블릿)
         this.miniCanvasTouchStartHandler = (e) => {
+            // 수정 모드일 때 장비 요소 클릭 처리 (가장 먼저 처리)
+            if (this.isEditMode && e.touches && e.touches.length === 1) {
+                const touch = e.touches[0];
+                const canvasPos = this.miniCore.screenToCanvas(touch.clientX, touch.clientY);
+                const clickedElement = this.miniElementManager.getElementAtPosition(canvasPos.x, canvasPos.y);
+                
+                // 장비 요소인 경우 수정 페이지로 이동하고 이벤트 전파 중단
+                if (clickedElement && clickedElement.elementType === 'device' && clickedElement.deviceId) {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    window.location.href = `/device/modify/${clickedElement.deviceId}`;
+                    return;
+                }
+                
+                // 마우스 다운 위치 저장
+                this.miniCanvasMouseDownPos = {
+                    x: touch.clientX,
+                    y: touch.clientY
+                };
+                e.stopPropagation();
+                e.preventDefault();
+            }
+            
             // 자리 배치 모드, 입구 배치 모드, 또는 장비 선택 모드일 때만 처리
             if (this.seatPlacementMode || this.entrancePlacementMode || this.selectedDevice) {
                 if (e.touches && e.touches.length === 1) {
@@ -520,6 +635,43 @@ export default class SeatLayoutMode {
         };
         
         this.miniCanvasTouchEndHandler = (e) => {
+            // 수정 모드일 때 장비 요소 클릭 처리
+            if (this.isEditMode) {
+                // 팬/드래그/리사이즈 중이 아닐 때만 처리
+                if (this.miniInteractionManager && (
+                    this.miniInteractionManager.state.isPanning ||
+                    this.miniInteractionManager.state.isDragging ||
+                    this.miniInteractionManager.state.isResizing ||
+                    this.miniInteractionManager.state.isSelecting
+                )) {
+                    return;
+                }
+                
+                const touch = e.changedTouches && e.changedTouches.length > 0 
+                    ? e.changedTouches[0] 
+                    : null;
+                
+                if (touch && this.miniCanvasMouseDownPos) {
+                    const dx = touch.clientX - this.miniCanvasMouseDownPos.x;
+                    const dy = touch.clientY - this.miniCanvasMouseDownPos.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // 5px 이내 이동이면 클릭으로 간주
+                    if (distance <= 5) {
+                        const canvasPos = this.miniCore.screenToCanvas(touch.clientX, touch.clientY);
+                        const clickedElement = this.miniElementManager.getElementAtPosition(canvasPos.x, canvasPos.y);
+                        
+                        // 장비 요소인 경우 수정 페이지로 이동
+                        if (clickedElement && clickedElement.elementType === 'device' && clickedElement.deviceId) {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            window.location.href = `/device/modify/${clickedElement.deviceId}`;
+                            return;
+                        }
+                    }
+                }
+            }
+            
             // 자리 배치 모드, 입구 배치 모드, 또는 장비 선택 모드일 때만 처리
             if (!this.seatPlacementMode && !this.entrancePlacementMode && !this.selectedDevice) {
                 return;
@@ -682,7 +834,17 @@ export default class SeatLayoutMode {
             card.removeAttribute('draggable');
             
             // 클릭 이벤트로 변경
-            card.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                // 수정 모드일 때는 장비 수정 페이지로 이동
+                if (this.isEditMode) {
+                    e.stopPropagation();
+                    const deviceId = card.dataset.deviceId;
+                    if (deviceId) {
+                        window.location.href = `/device/modify/${deviceId}`;
+                    }
+                    return;
+                }
+                
                 // 기존 선택 해제
                 document.querySelectorAll('.device-card').forEach(c => {
                     c.classList.remove('selected');
@@ -766,6 +928,50 @@ export default class SeatLayoutMode {
         }
         
         this.uiManager.showNotification('미니 캔버스를 클릭하여 입구를 배치하세요', 'info');
+    }
+    
+    /**
+     * 수정 모드 토글
+     */
+    toggleEditMode() {
+        this.isEditMode = !this.isEditMode;
+        const editBtn = document.getElementById('edit-mode-btn');
+        
+        if (this.isEditMode) {
+            editBtn.classList.add('active');
+            editBtn.innerHTML = '<i class="fas fa-check"></i> 수정 모드 ON';
+            this.uiManager.showNotification('수정 모드가 활성화되었습니다. 장비 카드를 클릭하면 수정 페이지로 이동합니다.', 'info');
+            
+            // 다른 모드 해제
+            this.seatPlacementMode = false;
+            this.entrancePlacementMode = false;
+            this.selectedDevice = null;
+            
+            // 버튼 상태 업데이트
+            const seatBtn = document.getElementById('add-seat-btn');
+            if (seatBtn) seatBtn.classList.remove('active');
+            const entranceBtn = document.getElementById('add-entrance-btn');
+            if (entranceBtn) entranceBtn.classList.remove('active');
+            
+            // 장비 카드 선택 해제
+            document.querySelectorAll('.device-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // 캔버스 커서 변경
+            if (this.miniCore && this.miniCore.canvas) {
+                this.miniCore.canvas.style.cursor = 'pointer';
+            }
+        } else {
+            editBtn.classList.remove('active');
+            editBtn.innerHTML = '<i class="fas fa-edit"></i> 수정 모드';
+            this.uiManager.showNotification('수정 모드가 비활성화되었습니다.', 'info');
+            
+            // 캔버스 커서 복원
+            if (this.miniCore && this.miniCore.canvas) {
+                this.miniCore.canvas.style.cursor = 'default';
+            }
+        }
     }
     
     /**
@@ -1245,6 +1451,13 @@ export default class SeatLayoutMode {
      * 모달 닫기
      */
     closeModal() {
+        // 수정 모드 상태 초기화
+        this.isEditMode = false;
+        const editBtn = document.getElementById('edit-mode-btn');
+        if (editBtn) {
+            editBtn.classList.remove('active');
+            editBtn.innerHTML = '<i class="fas fa-edit"></i> 수정 모드';
+        }
         const modal = document.getElementById('seat-layout-modal');
         if (modal) {
             modal.style.display = 'none';

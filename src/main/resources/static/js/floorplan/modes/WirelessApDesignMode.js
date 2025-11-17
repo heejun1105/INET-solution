@@ -19,16 +19,28 @@ export default class WirelessApDesignMode {
         this.networkEquipments = [];
         this.selectedElement = null; // AP 또는 MDF 선택용
         this.currentTool = null; // 'mdf-idf'
+        this.shapeButtons = [];
+        this.savedApPositions = {};
         
         this.apColors = [
             { name: '빨강', value: '#ef4444' },
             { name: '주황', value: '#f97316' },
             { name: '노랑', value: '#eab308' },
+            { name: '연두', value: '#a3e635' },
             { name: '초록', value: '#22c55e' },
+            { name: '청록', value: '#14b8a6' },
+            { name: '하늘', value: '#38bdf8' },
             { name: '파랑', value: '#3b82f6' },
             { name: '남색', value: '#4f46e5' },
             { name: '보라', value: '#a855f7' },
+            { name: '분홍', value: '#ec4899' },
             { name: '검정', value: '#000000' }
+        ];
+        this.apShapeOptions = [
+            { name: '원형', value: 'circle' },
+            { name: '삼각형', value: 'triangle' },
+            { name: '사각형', value: 'square' },
+            { name: '마름모', value: 'diamond' }
         ];
         
         console.log('📡 WirelessApDesignMode 초기화');
@@ -102,6 +114,8 @@ export default class WirelessApDesignMode {
         const toolbar = document.getElementById('design-toolbar');
         if (!toolbar) return;
         
+        this.shapeButtons = [];
+        
         // 도구창 간소화 토글 버튼 추가
         const toolbarContainer = document.getElementById('design-toolbar-container');
         if (toolbarContainer && !document.getElementById('toolbar-toggle-btn')) {
@@ -135,6 +149,22 @@ export default class WirelessApDesignMode {
             </div>
             
             <div class="toolbar-section">
+                <h3>무선AP 종류 변경</h3>
+                <div class="shape-selector">
+                    ${this.apShapeOptions.map(shape => `
+                        <button class="shape-btn" 
+                                data-shape="${shape.value}" 
+                                title="${shape.name}"
+                                disabled>
+                            <span class="shape-icon ${shape.value}"></span>
+                            <span class="shape-label">${shape.name}</span>
+                        </button>
+                    `).join('')}
+                </div>
+                <p class="hint">무선AP를 선택한 후 모양을 변경하세요</p>
+            </div>
+            
+            <div class="toolbar-section">
                 <h3>색상 변경</h3>
                 <div class="color-palette">
                     ${this.apColors.map(color => `
@@ -164,6 +194,16 @@ export default class WirelessApDesignMode {
             });
         }
         
+        // 모양 변경 버튼
+        this.shapeButtons = Array.from(document.querySelectorAll('.shape-btn'));
+        this.shapeButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const shape = e.currentTarget.dataset.shape;
+                this.changeSelectedElementShape(shape);
+            });
+        });
+        
         // 색상 버튼
         document.querySelectorAll('.color-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -180,6 +220,8 @@ export default class WirelessApDesignMode {
                 this.changeSelectedElementColor(color);
             });
         });
+        
+        this.updateShapeButtons();
     }
     
     /**
@@ -356,44 +398,64 @@ export default class WirelessApDesignMode {
             // 저장된 위치 확인
             const savedPosition = this.getSavedApPosition(ap.apId);
             
-            // 지름 40 = 반지름 20
-            const apRadius = 20;
-            let xCoordinate, yCoordinate;
+            const DEFAULT_RADIUS = 20;
+            const DEFAULT_SIZE = DEFAULT_RADIUS * 2;
+            
             let backgroundColor = '#ef4444';
             let borderColor = '#000000';
+            let shapeType = 'circle';
+            let centerX;
+            let centerY;
+            let radius = DEFAULT_RADIUS;
+            let width = DEFAULT_SIZE;
+            let height = DEFAULT_SIZE;
             
             if (savedPosition) {
-                // 저장된 위치 사용 (저장된 위치는 중앙 좌표로 저장됨)
-                // 중앙 좌표에서 반지름을 빼서 좌상단 좌표로 변환
-                xCoordinate = savedPosition.x - apRadius;
-                yCoordinate = savedPosition.y - apRadius;
                 backgroundColor = savedPosition.backgroundColor || backgroundColor;
                 borderColor = savedPosition.borderColor || borderColor;
-                console.log('✅ 저장된 AP 위치 사용:', ap.apId, { 
-                    centerX: savedPosition.x, 
-                    centerY: savedPosition.y,
-                    leftTopX: xCoordinate,
-                    leftTopY: yCoordinate
+                shapeType = savedPosition.shapeType || 'circle';
+                centerX = savedPosition.x;
+                centerY = savedPosition.y;
+                if (shapeType === 'circle') {
+                    radius = savedPosition.radius || DEFAULT_RADIUS;
+                    width = radius * 2;
+                    height = radius * 2;
+                } else {
+                    width = savedPosition.width || DEFAULT_SIZE;
+                    height = savedPosition.height || DEFAULT_SIZE;
+                }
+                console.log('✅ 저장된 AP 위치 사용:', ap.apId, {
+                    shapeType,
+                    centerX,
+                    centerY,
+                    width,
+                    height
                 });
             } else {
                 // 기본 위치 (교실 중앙 살짝 아래) - 20px 아래로 이동
-                const centerX = roomElement.xCoordinate + roomElement.width / 2;
-                const centerY = roomElement.yCoordinate + roomElement.height / 2 + 30;
-                xCoordinate = centerX - apRadius;
-                yCoordinate = centerY - apRadius;
+                shapeType = 'circle';
+                const baseCenterX = roomElement.xCoordinate + roomElement.width / 2;
+                const baseCenterY = roomElement.yCoordinate + roomElement.height / 2 + 30;
+                centerX = baseCenterX;
+                centerY = baseCenterY;
             }
+            
+            // 좌상단 좌표 계산
+            const xCoordinate = centerX - width / 2;
+            const yCoordinate = centerY - height / 2;
             
             const apElement = {
                 // 타입은 히트테스트에 사용됨 (선택 가능하도록 필수)
                 type: 'wireless_ap',
                 elementType: 'wireless_ap',
-                xCoordinate: xCoordinate,
-                yCoordinate: yCoordinate,
-                width: apRadius * 2, // 지름
-                height: apRadius * 2, // 지름 (원형이므로)
-                radius: apRadius,
-                borderColor: borderColor,
-                backgroundColor: backgroundColor,
+                xCoordinate,
+                yCoordinate,
+                width,
+                height,
+                radius: shapeType === 'circle' ? radius : null,
+                shapeType,
+                borderColor,
+                backgroundColor,
                 borderWidth: 2,
                 referenceId: ap.apId,
                 parentElementId: roomElement.id,
@@ -402,6 +464,21 @@ export default class WirelessApDesignMode {
             };
             
             this.elementManager.createElement('wireless_ap', apElement);
+            
+            // 저장 위치 초기화 (새로 생성된 경우)
+            if (!this.savedApPositions[ap.apId]) {
+                this.savedApPositions[ap.apId] = {
+                    x: centerX,
+                    y: centerY,
+                    backgroundColor,
+                    borderColor,
+                    shapeType,
+                    width,
+                    height,
+                    radius: shapeType === 'circle' ? radius : null
+                };
+            }
+            
             createdCount++;
             console.log('✅ AP 생성:', ap.apId, ap.newLabelNumber, '교실:', roomElement.label || roomElement.id);
         });
@@ -463,7 +540,7 @@ export default class WirelessApDesignMode {
         if (clickedElement && (clickedElement.elementType === 'wireless_ap' || clickedElement.elementType === 'mdf_idf')) {
             this.selectElement(clickedElement);
         } else {
-            this.selectedElement = null;
+            this.clearSelection();
         }
     }
     
@@ -480,6 +557,111 @@ export default class WirelessApDesignMode {
         
         // Core의 선택 상태도 업데이트
         this.core.setState({ selectedElements: [element] });
+        this.updateShapeButtons();
+    }
+
+    /**
+     * 무선AP 모양 변경 버튼 상태 업데이트
+     */
+    updateShapeButtons() {
+        if (!this.shapeButtons || this.shapeButtons.length === 0) {
+            this.shapeButtons = Array.from(document.querySelectorAll('.shape-btn'));
+        }
+        
+        const isApSelected = !!this.selectedElement && this.selectedElement.elementType === 'wireless_ap';
+        const currentShape = isApSelected ? (this.selectedElement.shapeType || 'circle') : null;
+        
+        this.shapeButtons.forEach(btn => {
+            btn.disabled = !isApSelected;
+            btn.classList.toggle('active', isApSelected && btn.dataset.shape === currentShape);
+        });
+    }
+    
+    /**
+     * 선택된 무선AP 모양 변경
+     */
+    changeSelectedElementShape(shape) {
+        if (!this.selectedElement || this.selectedElement.elementType !== 'wireless_ap') {
+            this.uiManager.showNotification('무선AP를 먼저 선택하세요', 'warning');
+            return;
+        }
+        
+        const currentShape = this.selectedElement.shapeType || 'circle';
+        if (shape === currentShape) {
+            return;
+        }
+        
+        const DEFAULT_SIZE = 40;
+        const currentWidth = this.selectedElement.width || (this.selectedElement.radius ? this.selectedElement.radius * 2 : DEFAULT_SIZE);
+        const currentHeight = this.selectedElement.height || (this.selectedElement.radius ? this.selectedElement.radius * 2 : DEFAULT_SIZE);
+        const centerX = this.selectedElement.xCoordinate + currentWidth / 2;
+        const centerY = this.selectedElement.yCoordinate + currentHeight / 2;
+        
+        let updates = { shapeType: shape };
+        
+        if (shape === 'circle') {
+            const radius = this.selectedElement.radius || Math.max(currentWidth, currentHeight) / 2 || (DEFAULT_SIZE / 2);
+            const width = radius * 2;
+            const height = radius * 2;
+            updates = {
+                ...updates,
+                radius,
+                width,
+                height,
+                xCoordinate: centerX - width / 2,
+                yCoordinate: centerY - height / 2
+            };
+        } else {
+            const size = Math.max(currentWidth, currentHeight, DEFAULT_SIZE);
+            const width = size;
+            const height = shape === 'triangle' ? size : size;
+            updates = {
+                ...updates,
+                radius: null,
+                width,
+                height,
+                xCoordinate: centerX - width / 2,
+                yCoordinate: centerY - height / 2
+            };
+        }
+        
+        this.elementManager.updateElement(this.selectedElement.id, updates);
+        const updatedElement = this.elementManager.findElement(this.selectedElement.id);
+        if (updatedElement) {
+            this.selectedElement = updatedElement;
+        }
+        
+        if (this.selectedElement && this.selectedElement.referenceId && this.savedApPositions) {
+            const refId = this.selectedElement.referenceId;
+            const existing = this.savedApPositions[refId] || {};
+            this.savedApPositions[refId] = {
+                ...existing,
+                shapeType: shape,
+                x: centerX,
+                y: centerY,
+                width: updates.width,
+                height: updates.height,
+                radius: shape === 'circle' ? updates.radius : null,
+                backgroundColor: existing.backgroundColor ?? this.selectedElement.backgroundColor,
+                borderColor: existing.borderColor ?? this.selectedElement.borderColor
+            };
+        }
+        
+        this.core.markDirty();
+        this.updateShapeButtons();
+        this.uiManager.showNotification('무선AP 모양이 변경되었습니다.', 'success');
+    }
+    
+    /**
+     * 선택 해제
+     */
+    clearSelection() {
+        if (this.selectedElement) {
+            console.log('🧹 선택 해제:', this.selectedElement);
+        }
+        this.selectedElement = null;
+        this.core.setState({ selectedElements: [] });
+        this.updateShapeButtons();
     }
     
     /**
@@ -496,7 +678,20 @@ export default class WirelessApDesignMode {
         
         // Core 업데이트
         this.elementManager.updateElement(this.selectedElement.id, { backgroundColor: color });
+        const updatedElement = this.elementManager.findElement(this.selectedElement.id);
+        if (updatedElement) {
+            this.selectedElement = updatedElement;
+        }
+        if (this.selectedElement && this.selectedElement.referenceId && this.savedApPositions) {
+            const refId = this.selectedElement.referenceId;
+            const existing = this.savedApPositions[refId] || {};
+            this.savedApPositions[refId] = {
+                ...existing,
+                backgroundColor: color
+            };
+        }
         this.core.markDirty();
+        this.updateShapeButtons();
         
         const elementType = this.selectedElement.elementType === 'wireless_ap' ? '무선AP' : 'MDF(IDF)';
         console.log(`🎨 ${elementType} 색상 변경:`, color);
@@ -599,6 +794,8 @@ export default class WirelessApDesignMode {
             const schoolId = this.core.currentSchoolId;
             if (!schoolId) return;
             
+            this.savedApPositions = {};
+            
             // 평면도 데이터 로드
             const response = await fetch(`/floorplan/api/schools/${schoolId}`);
             const result = await response.json();
@@ -637,14 +834,17 @@ export default class WirelessApDesignMode {
             });
             
             // 저장된 AP 위치 맵 생성 (referenceId 기준)
-            this.savedApPositions = {};
             savedAps.forEach(apData => {
                 if (apData.referenceId) {
                     this.savedApPositions[apData.referenceId] = {
                         x: apData.xCoordinate,
                         y: apData.yCoordinate,
                         backgroundColor: apData.backgroundColor,
-                        borderColor: apData.borderColor
+                        borderColor: apData.borderColor,
+                        shapeType: apData.shapeType || 'circle',
+                        width: apData.width,
+                        height: apData.height,
+                        radius: apData.radius
                     };
                 }
             });

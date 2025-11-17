@@ -1954,12 +1954,28 @@ export default class InteractionManager {
         }
         
         // 요소 업데이트
-        this.core.updateElement(element.id, {
+        const resizeUpdates = {
             xCoordinate: newX,
             yCoordinate: newY,
             width: newWidth,
             height: newHeight
-        });
+        };
+        
+        if (element.elementType === 'wireless_ap') {
+            const shapeType = element.shapeType || 'circle';
+            if (shapeType === 'circle') {
+                const size = Math.max(newWidth, newHeight);
+                const centerX = newX + newWidth / 2;
+                const centerY = newY + newHeight / 2;
+                resizeUpdates.width = size;
+                resizeUpdates.height = size;
+                resizeUpdates.xCoordinate = centerX - size / 2;
+                resizeUpdates.yCoordinate = centerY - size / 2;
+                resizeUpdates.radius = size / 2;
+            }
+        }
+        
+        this.core.updateElement(element.id, resizeUpdates);
         
         this.core.markDirty();
     }

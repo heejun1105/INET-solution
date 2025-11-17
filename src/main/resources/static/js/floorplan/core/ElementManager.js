@@ -650,11 +650,62 @@ export default class ElementManager {
      * @returns {Boolean}
      */
     isPointInElement(x, y, element) {
-        // 원형 요소 (무선AP 등)
-        if (element.type === 'wireless_ap' && element.radius) {
-            const dx = x - element.x;
-            const dy = y - element.y;
-            return Math.sqrt(dx * dx + dy * dy) <= element.radius;
+        // 무선AP 요소는 모양에 따라 판정
+        if (element.elementType === 'wireless_ap') {
+            const shapeType = element.shapeType || 'circle';
+            const elementX = element.xCoordinate ?? element.x ?? 0;
+            const elementY = element.yCoordinate ?? element.y ?? 0;
+            const width = element.width || (element.radius ? element.radius * 2 : 0);
+            const height = element.height || (element.radius ? element.radius * 2 : 0);
+            
+            if (shapeType === 'triangle') {
+                const ax = elementX + width / 2;
+                const ay = elementY;
+                const bx = elementX;
+                const by = elementY + height;
+                const cx = elementX + width;
+                const cy = elementY + height;
+                
+                const denominator = ((by - cy) * (ax - cx) + (cx - bx) * (ay - cy));
+                if (denominator === 0) {
+                    return false;
+                }
+                
+                const alpha = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / denominator;
+                const beta = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / denominator;
+                const gamma = 1 - alpha - beta;
+                
+                return alpha >= 0 && beta >= 0 && gamma >= 0;
+            }
+            
+            if (shapeType === 'square') {
+                return x >= elementX &&
+                       x <= elementX + width &&
+                       y >= elementY &&
+                       y <= elementY + height;
+            }
+            
+            if (shapeType === 'diamond') {
+                const centerX = elementX + width / 2;
+                const centerY = elementY + height / 2;
+                const halfWidth = width / 2;
+                const halfHeight = height / 2;
+                
+                if (halfWidth === 0 || halfHeight === 0) {
+                    return false;
+                }
+                
+                const dx = Math.abs(x - centerX);
+                const dy = Math.abs(y - centerY);
+                return (dx / halfWidth + dy / halfHeight) <= 1;
+            }
+            
+            const radius = element.radius || width / 2;
+            const centerX = elementX + radius;
+            const centerY = elementY + radius;
+            const dx = x - centerX;
+            const dy = y - centerY;
+            return Math.sqrt(dx * dx + dy * dy) <= radius;
         }
         
         // 사각형 요소

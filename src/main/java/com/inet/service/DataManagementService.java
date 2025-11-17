@@ -188,8 +188,8 @@ public class DataManagementService {
 
         // 2) AP 삭제
         try {
-            int deletedCount = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
-            logger.info("Deleted {} wireless APs for school: {}", deletedCount, schoolId);
+        int deletedCount = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
+        logger.info("Deleted {} wireless APs for school: {}", deletedCount, schoolId);
         } catch (Exception e) {
             logger.error("Error deleting wireless APs for school {}: {}", schoolId, e.getMessage());
             throw new RuntimeException("무선AP 삭제 중 오류가 발생했습니다. 관리자에게 문의해주세요.");
@@ -344,9 +344,9 @@ public class DataManagementService {
                 logger.debug("Deleted wireless AP histories for school {}", schoolId);
 
                 // 2) AP 삭제
-                int deletedWirelessAps = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
-                totalDeleted += deletedWirelessAps;
-                logger.debug("Deleted {} wireless APs", deletedWirelessAps);
+            int deletedWirelessAps = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
+            totalDeleted += deletedWirelessAps;
+            logger.debug("Deleted {} wireless APs", deletedWirelessAps);
             } catch (Exception e) {
                 logger.error("Error deleting wireless APs for school {}: {}", schoolId, e.getMessage());
                 throw new RuntimeException("무선AP 삭제 중 오류가 발생했습니다. 관리자에게 문의해주세요.");

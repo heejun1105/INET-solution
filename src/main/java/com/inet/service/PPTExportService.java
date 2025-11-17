@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.awt.geom.Rectangle2D;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class PPTExportService {
@@ -40,6 +42,7 @@ public class PPTExportService {
     private FloorPlanService floorPlanService;
     
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final AtomicInteger apLabelDebugCounter = new AtomicInteger();
     
     // 현재 바운딩 박스 최소값 (좌표 변환 시 사용)
     private double currentBoundsMinX = 0.0;
@@ -196,15 +199,26 @@ public class PPTExportService {
                     "equipment_card".equals(elementType)) {
                     return false;
                 }
+                // 장비 보기 모드에서는 AP 관련 요소 제외
+                if ("equipment".equals(mode)) {
+                    if ("wireless_ap".equals(elementType) ||
+                        "mdf_idf".equals(elementType)) {
+                        return false;
+                    }
+                }
                 return true;
             })
             .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
 
         if ("wireless-ap".equals(mode)) {
+            List<FloorPlanElement> savedApElements = new ArrayList<>();
             Map<Long, FloorPlanElement> savedApMap = new HashMap<>();
             for (FloorPlanElement el : elementsToProcess) {
-                if ("wireless_ap".equals(el.getElementType()) && el.getReferenceId() != null) {
-                    savedApMap.putIfAbsent(el.getReferenceId(), el);
+                if ("wireless_ap".equals(el.getElementType())) {
+                    savedApElements.add(el);
+                    if (el.getReferenceId() != null) {
+                        savedApMap.putIfAbsent(el.getReferenceId(), el);
+                    }
                 }
             }
 
@@ -217,92 +231,56 @@ public class PPTExportService {
 
             List<Map<String, Object>> wirelessAps = floorPlanService.getWirelessApsBySchool(school.getSchoolId());
             Map<Long, Map<String, Object>> wirelessApMap = new HashMap<>();
+            Map<String, Long> labelToApId = new HashMap<>();
             for (Map<String, Object> apData : wirelessAps) {
                 Long apId = toLong(apData.get("apId"));
                 if (apId != null) {
                     wirelessApMap.put(apId, apData);
+                    String label = Objects.toString(apData.get("newLabelNumber"), "");
+                    if (!label.isBlank()) {
+                        labelToApId.put(normalizeLabel(label), apId);
+                    }
                 }
             }
 
-            for (Map.Entry<Long, FloorPlanElement> entry : savedApMap.entrySet()) {
-                Long apId = entry.getKey();
-                FloorPlanElement apElement = entry.getValue();
-                Map<String, Object> apInfo = wirelessApMap.get(apId);
+            List<FloorPlanElement> resolvedApElements = new ArrayList<>();
+            Set<Long> handledApIds = new HashSet<>();
 
-                if (apInfo != null) {
-                    String newLabel = Objects.toString(apInfo.get("newLabelNumber"), "");
-                    if (!newLabel.isBlank()) {
-                        apElement.setLabel(newLabel);
+            for (FloorPlanElement savedAp : savedApElements) {
+                FloorPlanElement resolved = cloneWirelessApElement(savedAp);
+                Map<String, Object> elementData = parseElementData(resolved.getElementData());
+                Long apId = extractWirelessApId(resolved, elementData, labelToApId);
+                if (apId != null) {
+                    handledApIds.add(apId);
+                    resolved.setReferenceId(apId);
+                    Map<String, Object> apInfo = wirelessApMap.get(apId);
+                    if (apInfo != null) {
+                        String newLabel = Objects.toString(apInfo.get("newLabelNumber"), "");
+                        if (!newLabel.isBlank()) {
+                            resolved.setLabel(newLabel);
+                        }
                     }
                 }
 
-                if (apElement.getLabel() == null || apElement.getLabel().isBlank()) {
-                    apElement.setLabel(apElement.getLabel() != null ? apElement.getLabel() : "");
-                }
-                apElement.setShowLabel(true);
-
-                if (apElement.getBackgroundColor() == null || apElement.getBackgroundColor().isBlank()) {
-                    apElement.setBackgroundColor("#ef4444");
-                }
-                if (apElement.getBorderColor() == null || apElement.getBorderColor().isBlank()) {
-                    apElement.setBorderColor("#000000");
-                }
-                if (apElement.getWidth() == null || apElement.getHeight() == null) {
-                    apElement.setWidth(40.0);
-                    apElement.setHeight(40.0);
-                }
+                ensureWirelessApElementData(resolved);
+                normalizeWirelessApDefaults(resolved);
+                resolvedApElements.add(resolved);
             }
 
-            Set<Long> savedApIds = new HashSet<>(savedApMap.keySet());
             for (Map.Entry<Long, Map<String, Object>> entry : wirelessApMap.entrySet()) {
                 Long apId = entry.getKey();
-                if (savedApIds.contains(apId)) {
+                if (handledApIds.contains(apId)) {
                     continue;
                 }
-
-                Map<String, Object> apInfo = entry.getValue();
-                String newLabel = Objects.toString(apInfo.get("newLabelNumber"), "");
-                Long classroomId = toLong(apInfo.get("classroomId"));
-
-                double centerX = 0.0;
-                double centerY = 0.0;
-                if (classroomId != null) {
-                    FloorPlanElement roomElement = roomMap.get(classroomId);
-                    if (roomElement != null && roomElement.getWidth() != null && roomElement.getHeight() != null) {
-                        double roomX = roomElement.getXCoordinate() != null ? roomElement.getXCoordinate() : 0.0;
-                        double roomY = roomElement.getYCoordinate() != null ? roomElement.getYCoordinate() : 0.0;
-                        centerX = roomX + roomElement.getWidth() / 2.0;
-                        centerY = roomY + roomElement.getHeight() / 2.0 + 30.0;
-                    }
-                }
-
-                FloorPlanElement virtualAp = new FloorPlanElement();
-                virtualAp.setFloorPlanId(floorPlan.getId());
-                virtualAp.setElementType("wireless_ap");
+                FloorPlanElement virtualAp = createVirtualWirelessApElement(floorPlan, roomMap, entry.getValue());
                 virtualAp.setReferenceId(apId);
-                virtualAp.setXCoordinate(centerX);
-                virtualAp.setYCoordinate(centerY);
-                virtualAp.setWidth(40.0);
-                virtualAp.setHeight(40.0);
-                virtualAp.setBackgroundColor("#ef4444");
-                virtualAp.setBorderColor("#000000");
-                virtualAp.setBorderWidth(2.0);
-                virtualAp.setLabel(newLabel);
-                virtualAp.setShowLabel(true);
-
-                Map<String, Object> elementData = new HashMap<>();
-                elementData.put("backgroundColor", "#ef4444");
-                elementData.put("borderColor", "#000000");
-                elementData.put("borderWidth", 2.0);
-                elementData.put("label", newLabel);
-                try {
-                    virtualAp.setElementData(objectMapper.writeValueAsString(elementData));
-                } catch (Exception ignored) {
-                    virtualAp.setElementData(null);
-                }
-
-                elementsToProcess.add(virtualAp);
+                ensureWirelessApElementData(virtualAp);
+                normalizeWirelessApDefaults(virtualAp);
+                resolvedApElements.add(virtualAp);
             }
+
+            elementsToProcess.removeIf(el -> "wireless_ap".equals(el.getElementType()));
+            elementsToProcess.addAll(resolvedApElements);
         }
         
         if ("wireless-ap".equals(mode)) {
@@ -315,9 +293,9 @@ public class PPTExportService {
         BoundingBox bounds = calculateBoundingBox(elementsToProcess);
         System.out.println("실제 평면도 범위: " + bounds);
         
-        // 동적 스케일 및 오프셋 계산 (헤더 영역 제외)
+        // 동적 스케일 및 오프셋 계산 (헤더 영역 및 범례 영역 제외)
         double availableWidth = PPT_WIDTH - 40;  // 좌우 여백 20px씩
-        double availableHeight = PPT_HEIGHT - 60; // 상단 헤더 50px + 하단 여백 10px
+        double availableHeight = PPT_HEIGHT - 60 - 50; // 상단 헤더 50px + 하단 범례 영역 50px
         
         // 바운딩 박스 크기 확인
         if (bounds.width <= 0 || bounds.height <= 0) {
@@ -390,16 +368,21 @@ public class PPTExportService {
         int apCount = 0;
         int mdfCount = 0;
         
+        List<FloorPlanElement> deferredWirelessAps = new ArrayList<>();
+        
         for (FloorPlanElement element : elementsToProcess) {
+            if ("wireless_ap".equals(element.getElementType())) {
+                deferredWirelessAps.add(element);
+                continue;
+            }
+            
             try {
                 // 모든 모드에서 요소 추가 (필터링된 요소들은 이미 처리됨)
                 addElementToSlide(floorPlanSlide, element, scale, offsetX, offsetY);
                 
                 // 무선 AP 보기 모드: AP와 MDF 개수 카운트
                 if ("wireless-ap".equals(mode)) {
-                    if ("wireless_ap".equals(element.getElementType())) {
-                        apCount++;
-                    } else if ("mdf_idf".equals(element.getElementType())) {
+                    if ("mdf_idf".equals(element.getElementType())) {
                         mdfCount++;
                     }
                 }
@@ -420,11 +403,26 @@ public class PPTExportService {
             }
         }
         
+        for (FloorPlanElement apElement : deferredWirelessAps) {
+            try {
+                addElementToSlide(floorPlanSlide, apElement, scale, offsetX, offsetY);
+                if ("wireless-ap".equals(mode)) {
+                    apCount++;
+                }
+            } catch (Exception e) {
+                System.err.println("무선AP 요소 추가 중 오류 발생 (ID: " + apElement.getId() + "): " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        
         if ("equipment".equals(mode)) {
             System.out.println("총 " + roomCount + "개의 교실 처리됨");
         } else if ("wireless-ap".equals(mode)) {
             System.out.println("총 " + apCount + "개의 AP, " + mdfCount + "개의 MDF 처리됨");
         }
+        
+        // 범례 추가 (평면도 하단에 50px 간격)
+        addLegendToSlide(floorPlanSlide, school, mode, devicesByClassroom, offsetY + scaledHeight + 50);
     }
     
     /**
@@ -592,6 +590,7 @@ public class PPTExportService {
         
         // element_data에서 추가 정보 파싱
         Map<String, Object> elementData = parseElementData(element.getElementData());
+        Color shapeFillColor;
         String roomName = (String) elementData.getOrDefault("roomName", "교실");
         String borderColor = (String) elementData.getOrDefault("borderColor", "#000000");
         
@@ -1493,56 +1492,136 @@ public class PPTExportService {
     }
     
     /**
-     * 무선AP 생성 (동적 스케일 적용) - 원형
+     * 무선AP 생성 (동적 스케일 적용)
      */
     private void createWirelessApShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
         Map<String, Object> elementData = parseElementData(element.getElementData());
         
-        // 저장된 좌표는 중앙 좌표로 저장되어 있음
         double centerX = element.getXCoordinate();
         double centerY = element.getYCoordinate();
         
-        // 반지름 계산 (width/height가 있으면 그걸 사용, 아니면 20)
-        double radius = 20.0;
-        if (element.getWidth() != null && element.getHeight() != null) {
-            radius = Math.min(element.getWidth(), element.getHeight()) / 2.0;
-        } else if (elementData.containsKey("radius")) {
-            Object radiusObj = elementData.get("radius");
-            if (radiusObj instanceof Number) {
-                radius = ((Number) radiusObj).doubleValue();
+        String shapeType = element.getShapeType();
+        if (shapeType == null || shapeType.isBlank()) {
+            Object shapeTypeObj = elementData.get("shapeType");
+            if (shapeTypeObj != null) {
+                shapeType = shapeTypeObj.toString();
             }
         }
+        if (shapeType == null || shapeType.isBlank()) {
+            shapeType = "circle";
+        }
         
-        // 원형 도형 생성 (좌상단 좌표로 변환)
-        // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
-        int x = (int)(((centerX - radius) - this.currentBoundsMinX) * scale + offsetX);
-        int y = (int)(((centerY - radius) - this.currentBoundsMinY) * scale + offsetY);
-        int diameter = (int)(radius * 2 * scale);
+        double width = element.getWidth() != null ? element.getWidth() : extractDouble(elementData.get("width"), 40.0);
+        double height = element.getHeight() != null ? element.getHeight() : extractDouble(elementData.get("height"), 40.0);
+        double radius = element.getWidth() != null && element.getHeight() != null
+            ? Math.min(element.getWidth(), element.getHeight()) / 2.0
+            : extractDouble(elementData.get("radius"), Math.min(width, height) / 2.0);
+        
+        if ("circle".equalsIgnoreCase(shapeType)) {
+            if (radius <= 0) {
+                radius = Math.min(width, height) / 2.0;
+                if (radius <= 0) {
+                    radius = 20.0;
+                }
+            }
+            
+            double left = centerX - radius;
+            double top = centerY - radius;
+            
+            int x = (int)(((left) - this.currentBoundsMinX) * scale + offsetX);
+            int y = (int)(((top) - this.currentBoundsMinY) * scale + offsetY);
+            int diameter = (int)(radius * 2 * scale);
+            
+            Color fillColor = addWirelessApLabel(slide, element, elementData, x, y, diameter, diameter, radius * 2, scale);
+            XSLFAutoShape shape = slide.createAutoShape();
+            shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
+            shape.setAnchor(new Rectangle(x, y, diameter, diameter));
+            applyWirelessApStyle(shape, elementData, scale, fillColor);
+            return;
+        }
+
+        if (width <= 0) {
+            width = radius > 0 ? radius * 2 : 40.0;
+        }
+        if (height <= 0) {
+            height = radius > 0 ? radius * 2 : 40.0;
+        }
+        
+        double left = centerX - width / 2.0;
+        double top = centerY - height / 2.0;
+        
+        int x = (int)(((left) - this.currentBoundsMinX) * scale + offsetX);
+        int y = (int)(((top) - this.currentBoundsMinY) * scale + offsetY);
+        int pptWidth = (int)(width * scale);
+        int pptHeight = (int)(height * scale);
+        
+        double baseSize = Math.min(width, height);
+        Color fillColor = addWirelessApLabel(slide, element, elementData, x, y, pptWidth, pptHeight, baseSize, scale);
         
         XSLFAutoShape shape = slide.createAutoShape();
-        shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
-        shape.setAnchor(new Rectangle(x, y, diameter, diameter));
-        
-        // 배경색 (빨간색 기본값)
-        String bgColorStr = (String) elementData.getOrDefault("backgroundColor", "#ef4444");
-        Color bgColor = parseColor(bgColorStr);
+        if ("triangle".equalsIgnoreCase(shapeType)) {
+            shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.TRIANGLE);
+        } else if ("diamond".equalsIgnoreCase(shapeType)) {
+            shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.DIAMOND);
+        } else {
+            shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
+        }
+        shape.setAnchor(new Rectangle(x, y, pptWidth, pptHeight));
+        applyWirelessApStyle(shape, elementData, scale, fillColor);
+    }
+
+    private double extractDouble(Object value, double defaultValue) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (value instanceof String str) {
+            try {
+                return Double.parseDouble(str);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return defaultValue;
+    }
+
+    private Color applyWirelessApStyle(XSLFAutoShape shape, Map<String, Object> elementData, double scale, Color resolvedFill) {
+        Color bgColor = resolvedFill != null ? resolvedFill : parseColor((String) elementData.getOrDefault("backgroundColor", "#ef4444"));
         shape.setFillColor(bgColor);
         
-        // 테두리 색 (검은색 기본값)
         String borderColorStr = (String) elementData.getOrDefault("borderColor", "#000000");
         Color borderColor = parseColor(borderColorStr);
         shape.setLineColor(borderColor);
         
-        // 테두리 두께
-        double borderWidth = 2.0;
-        if (elementData.containsKey("borderWidth")) {
-            Object borderWidthObj = elementData.get("borderWidth");
-            if (borderWidthObj instanceof Number) {
-                borderWidth = ((Number) borderWidthObj).doubleValue();
+        double borderWidth = extractDouble(elementData.get("borderWidth"), 2.0);
+        shape.setLineWidth(Math.max(0.2, borderWidth * scale));
+        
+        return bgColor;
+    }
+
+    private Color resolveWirelessApFillColor(FloorPlanElement element, Map<String, Object> elementData) {
+        String bgColor = element.getBackgroundColor();
+        if (bgColor == null || bgColor.isBlank()) {
+            Object dataColor = elementData.get("backgroundColor");
+            if (dataColor != null && !dataColor.toString().isBlank()) {
+                bgColor = dataColor.toString();
             }
         }
-        shape.setLineWidth(Math.max(0.2, borderWidth * scale));
+        if (bgColor == null || bgColor.isBlank()) {
+            bgColor = "#ef4444";
+        }
+        return parseColor(bgColor);
+    }
 
+    private Color addWirelessApLabel(
+        XSLFSlide slide,
+        FloorPlanElement element,
+        Map<String, Object> elementData,
+        int shapeX,
+        int shapeY,
+        int shapeWidth,
+        int shapeHeight,
+        double baseSize,
+        double scale
+    ) {
         String label = element.getLabel();
         if (label == null || label.isBlank()) {
             Object labelObj = elementData.get("label");
@@ -1550,37 +1629,303 @@ public class PPTExportService {
                 label = labelObj.toString();
             }
         }
-
-        if (label != null && !label.isBlank()) {
-            double fontSize = Math.max(5.0, radius * scale * 0.5);
-            int textWidth = (int) Math.max(diameter * 5.0, 80.0);
-            int textHeight = (int) Math.max(fontSize * 1.4, 14.0);
-            int textBoxX = x + (diameter / 2) - (textWidth / 2);
-            if (textBoxX < 0) {
-                textBoxX = 0;
-            }
-            int textY = y + diameter + (int) Math.max(1.0, 3.0 * scale);
-            textY -= (int) (textHeight * 0.9);
-            if (textY < 0) {
-                textY = 0;
-            }
-
-            XSLFTextBox labelBox = slide.createTextBox();
-            labelBox.setAnchor(new Rectangle(textBoxX, textY, textWidth, textHeight));
-            labelBox.setLineColor(null);
-            labelBox.setFillColor(null);
-            labelBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
-
-            XSLFTextParagraph paragraph = labelBox.addNewTextParagraph();
-            paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
-            paragraph.setLineSpacing(100.0);
-
-            XSLFTextRun run = paragraph.addNewTextRun();
-            run.setText(label);
-            run.setBold(true);
-            run.setFontSize(fontSize);
-            run.setFontColor(bgColor);
+        
+        if (label == null || label.isBlank()) {
+            return null;
         }
+        
+        Color backgroundColor = resolveWirelessApFillColor(element, elementData);
+        
+        double fontSize = Math.min(Math.max(3.6, baseSize * scale * 0.38), shapeWidth * 0.65);
+        double textWidth = Math.max(shapeWidth + fontSize * 0.35, fontSize * (label.length() + 1) * 0.5);
+        double textHeight = Math.max(fontSize * 0.9, 4.2);
+        double paddingByFont = fontSize * 0.32;
+        double paddingByShape = Math.min(Math.max(shapeHeight * 0.08, 0.6), shapeHeight * 0.3);
+        double textPadding = Math.min(Math.max(0.35, (paddingByFont * 0.6) + (paddingByShape * 0.35)), 8.0);
+        double textBoxX = shapeX + (shapeWidth / 2.0) - (textWidth / 2.0);
+        if (textBoxX < 0) {
+            textBoxX = 0;
+        }
+        double verticalAdjust = Math.max(0.3, fontSize * 0.08); // 상자를 살짝 위로 이동
+        double textY = shapeY + shapeHeight + textPadding - verticalAdjust;
+        if (textY < 0) {
+            textY = 0;
+        }
+        
+        XSLFTextBox labelBox = slide.createTextBox();
+        Rectangle2D.Double initialAnchor = new Rectangle2D.Double(
+            textBoxX,
+            textY,
+            textWidth,
+            textHeight
+        );
+        labelBox.setAnchor(initialAnchor);
+        labelBox.setLineColor(null);
+        labelBox.setFillColor(null);
+        labelBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.BOTTOM);
+        labelBox.setLeftInset(0.0);
+        labelBox.setRightInset(0.0);
+        labelBox.setTopInset(0.0);
+        labelBox.setBottomInset(0.0);
+        labelBox.setWordWrap(false);
+        
+        XSLFTextParagraph paragraph = labelBox.addNewTextParagraph();
+        paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
+        paragraph.setLineSpacing(0.0);
+        paragraph.setSpaceBefore(0.0);
+        paragraph.setSpaceAfter(0.0);
+        paragraph.setIndent(0.0);
+        paragraph.setLeftMargin(0.0);
+        paragraph.setRightMargin(0.0);
+        paragraph.setFontAlign(org.apache.poi.sl.usermodel.TextParagraph.FontAlign.CENTER);
+        
+        XSLFTextRun run = paragraph.addNewTextRun();
+        run.setText(label);
+        run.setBold(true);
+        run.setFontSize(fontSize);
+        run.setFontColor(backgroundColor != null ? backgroundColor : Color.BLACK);
+        run.setBaselineOffset(0.0);
+        run.setFontFamily("Malgun Gothic");
+        
+        double adjustedWidth = Math.max(textWidth, fontSize * (label.length() + 2) * 0.5);
+        double adjustedHeight = Math.max(textHeight, fontSize * 0.95);
+        double finalX = shapeX + (shapeWidth / 2.0) - (adjustedWidth / 2.0);
+        if (finalX < 0) {
+            finalX = 0;
+        }
+        double finalY = shapeY + shapeHeight + textPadding - verticalAdjust;
+        if (finalY < 0) {
+            finalY = 0;
+        }
+        Rectangle2D finalAnchor = new Rectangle2D.Double(finalX, finalY, adjustedWidth, adjustedHeight);
+        labelBox.setAnchor(finalAnchor);
+        labelBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.BOTTOM);
+        if (!labelBox.getTextParagraphs().isEmpty()) {
+            labelBox.getTextParagraphs().get(0).setBullet(false);
+        }
+        
+        int debugIndex = apLabelDebugCounter.getAndIncrement();
+        if (debugIndex < 8) {
+            System.out.printf("[AP 라벨 디버그] label=%s, fontSize=%.3f, textWidth=%.3f, textHeight=%.3f, adjustedWidth=%.3f, adjustedHeight=%.3f, finalX=%.3f, finalY=%.3f%n",
+                label, fontSize, textWidth, textHeight, adjustedWidth, adjustedHeight, finalX, finalY);
+            System.out.printf("[AP 라벨 디버그] paragraph lineSpacing=%.3f, align=%s, vertical=%s%n",
+                paragraph.getLineSpacing(), paragraph.getTextAlign(), labelBox.getVerticalAlignment());
+        }
+        
+        return backgroundColor;
+    }
+
+    private FloorPlanElement cloneWirelessApElement(FloorPlanElement source) {
+        FloorPlanElement clone = new FloorPlanElement();
+        clone.setFloorPlanId(source.getFloorPlanId());
+        clone.setElementType("wireless_ap");
+        clone.setReferenceId(source.getReferenceId());
+        clone.setXCoordinate(source.getXCoordinate());
+        clone.setYCoordinate(source.getYCoordinate());
+        clone.setWidth(source.getWidth());
+        clone.setHeight(source.getHeight());
+        clone.setRotation(source.getRotation());
+        clone.setBackgroundColor(source.getBackgroundColor());
+        clone.setBorderColor(source.getBorderColor());
+        clone.setBorderWidth(source.getBorderWidth());
+        clone.setLabel(source.getLabel());
+        clone.setShapeType(source.getShapeType());
+        clone.setElementData(source.getElementData());
+        clone.setShowLabel(source.getShowLabel());
+        return clone;
+    }
+
+    private FloorPlanElement createVirtualWirelessApElement(
+        FloorPlan floorPlan,
+        Map<Long, FloorPlanElement> roomMap,
+        Map<String, Object> apInfo
+    ) {
+        FloorPlanElement virtualAp = new FloorPlanElement();
+        virtualAp.setFloorPlanId(floorPlan.getId());
+        virtualAp.setElementType("wireless_ap");
+        virtualAp.setShapeType("circle");
+
+        Long classroomId = toLong(apInfo.get("classroomId"));
+        double centerX = 0.0;
+        double centerY = 0.0;
+        if (classroomId != null) {
+            FloorPlanElement roomElement = roomMap.get(classroomId);
+            if (roomElement != null) {
+                double roomX = roomElement.getXCoordinate() != null ? roomElement.getXCoordinate() : 0.0;
+                double roomY = roomElement.getYCoordinate() != null ? roomElement.getYCoordinate() : 0.0;
+                double roomWidth = roomElement.getWidth() != null ? roomElement.getWidth() : 0.0;
+                double roomHeight = roomElement.getHeight() != null ? roomElement.getHeight() : 0.0;
+                centerX = roomX + roomWidth / 2.0;
+                centerY = roomY + roomHeight / 2.0 + 30.0;
+            }
+        }
+
+        virtualAp.setXCoordinate(centerX);
+        virtualAp.setYCoordinate(centerY);
+        virtualAp.setWidth(40.0);
+        virtualAp.setHeight(40.0);
+        virtualAp.setBackgroundColor("#ef4444");
+        virtualAp.setBorderColor("#000000");
+        virtualAp.setBorderWidth(2.0);
+        String newLabel = Objects.toString(apInfo.get("newLabelNumber"), "");
+        virtualAp.setLabel(newLabel);
+        virtualAp.setShowLabel(true);
+
+        ensureWirelessApElementData(virtualAp);
+        return virtualAp;
+    }
+
+    private void ensureWirelessApElementData(FloorPlanElement element) {
+        Map<String, Object> data = new HashMap<>(parseElementData(element.getElementData()));
+
+        double defaultWidth = element.getWidth() != null ? element.getWidth() : extractDouble(data.get("width"), 40.0);
+        double defaultHeight = element.getHeight() != null ? element.getHeight() : extractDouble(data.get("height"), 40.0);
+        element.setWidth(defaultWidth);
+        element.setHeight(defaultHeight);
+
+        String shape = element.getShapeType();
+        if (shape == null || shape.isBlank()) {
+            Object shapeFromData = data.get("shapeType");
+            shape = shapeFromData != null ? shapeFromData.toString() : "circle";
+            element.setShapeType(shape);
+        }
+
+        data.put("backgroundColor", element.getBackgroundColor() != null ? element.getBackgroundColor() : "#ef4444");
+        data.put("borderColor", element.getBorderColor() != null ? element.getBorderColor() : "#000000");
+        data.put("borderWidth", element.getBorderWidth() != null ? element.getBorderWidth() : 2.0);
+        if (element.getLabel() != null) {
+            data.put("label", element.getLabel());
+        }
+        data.put("shapeType", shape);
+        data.put("width", element.getWidth());
+        data.put("height", element.getHeight());
+        if ("circle".equalsIgnoreCase(shape)) {
+            double radius = Math.min(element.getWidth(), element.getHeight()) / 2.0;
+            if (radius <= 0) {
+                radius = 20.0;
+            }
+            data.put("radius", radius);
+        }
+
+        try {
+            element.setElementData(objectMapper.writeValueAsString(data));
+        } catch (Exception e) {
+            System.err.println("무선AP elementData 직렬화 실패: " + e.getMessage());
+            element.setElementData(null);
+        }
+    }
+
+    private void normalizeWirelessApDefaults(FloorPlanElement element) {
+        Map<String, Object> elementData = parseElementData(element.getElementData());
+
+        if (element.getElementType() == null || element.getElementType().isBlank()) {
+            element.setElementType("wireless_ap");
+        }
+
+        if (element.getShapeType() == null || element.getShapeType().isBlank()) {
+            Object shapeData = elementData.get("shapeType");
+            if (shapeData != null && !shapeData.toString().isBlank()) {
+                element.setShapeType(shapeData.toString());
+            } else {
+                element.setShapeType("circle");
+            }
+        }
+
+        if (element.getBackgroundColor() == null || element.getBackgroundColor().isBlank()) {
+            element.setBackgroundColor("#ef4444");
+        }
+
+        if (element.getBorderColor() == null || element.getBorderColor().isBlank()) {
+            element.setBorderColor("#000000");
+        }
+
+        if (element.getBorderWidth() == null) {
+            element.setBorderWidth(2.0);
+        }
+
+        if (element.getShowLabel() == null) {
+            element.setShowLabel(true);
+        }
+
+        if (element.getLabel() == null) {
+            element.setLabel("");
+        }
+
+        Double width = element.getWidth();
+        if (width == null && elementData.containsKey("width")) {
+            width = extractDouble(elementData.get("width"), 0.0);
+        }
+        Double height = element.getHeight();
+        if (height == null && elementData.containsKey("height")) {
+            height = extractDouble(elementData.get("height"), 0.0);
+        }
+        if (width == null || width <= 0) {
+            width = 40.0;
+        }
+        if (height == null || height <= 0) {
+            height = 40.0;
+        }
+
+        if ("circle".equalsIgnoreCase(element.getShapeType())) {
+            double size = Math.max(1.0, Math.min(width, height));
+            element.setWidth(size);
+            element.setHeight(size);
+        } else {
+            element.setWidth(width);
+            element.setHeight(height);
+        }
+
+        if (element.getXCoordinate() == null) {
+            element.setXCoordinate(0.0);
+        }
+        if (element.getYCoordinate() == null) {
+            element.setYCoordinate(0.0);
+        }
+    }
+
+    private Long extractWirelessApId(
+        FloorPlanElement element,
+        Map<String, Object> elementData,
+        Map<String, Long> labelToApId
+    ) {
+        if (element.getReferenceId() != null) {
+            return element.getReferenceId();
+        }
+
+        String[] candidateKeys = {"wirelessApId", "apId", "referenceId", "id"};
+        for (String key : candidateKeys) {
+            if (elementData.containsKey(key)) {
+                Long id = toLong(elementData.get(key));
+                if (id != null) {
+                    return id;
+                }
+            }
+        }
+
+        if (elementData.containsKey("wirelessAp")) {
+            Object nested = elementData.get("wirelessAp");
+            if (nested instanceof Map<?, ?> nestedMap) {
+                Object nestedId = ((Map<?, ?>) nestedMap).get("apId");
+                Long id = toLong(nestedId);
+                if (id != null) {
+                    return id;
+                }
+            }
+        }
+
+        String label = element.getLabel();
+        if (label == null && elementData.containsKey("label")) {
+            label = Objects.toString(elementData.get("label"), null);
+        }
+        if (label != null && !label.isBlank()) {
+            return labelToApId.get(normalizeLabel(label));
+        }
+
+        return null;
+    }
+
+    private String normalizeLabel(String label) {
+        return label == null ? "" : label.trim().toUpperCase();
     }
     
     /**
@@ -1647,6 +1992,456 @@ public class PPTExportService {
             return Long.parseLong(text);
         } catch (NumberFormatException ex) {
             return null;
+        }
+    }
+    
+    /**
+     * PPT 슬라이드에 범례 추가
+     */
+    private void addLegendToSlide(XSLFSlide slide, School school, String mode, 
+                                   Map<Long, List<Map<String, Object>>> devicesByClassroom, 
+                                   double startY) {
+        try {
+            double legendX = 20.0; // 좌측 여백
+            double legendY = startY;
+            double fontSize = 10.0;
+            double boxPadding = 10.0; // 박스 내부 여백
+            double boxHeight = 35.0; // 박스 높이
+            
+            // 직사각형 테두리 박스 생성
+            XSLFAutoShape legendBox = slide.createAutoShape();
+            legendBox.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
+            legendBox.setAnchor(new Rectangle((int)legendX, (int)legendY, 680, (int)boxHeight));
+            legendBox.setFillColor(Color.WHITE);
+            legendBox.setLineColor(Color.BLACK);
+            legendBox.setLineWidth(1.0);
+            
+            if ("equipment".equals(mode)) {
+                // 장비 범례: 텍스트만 표시
+                List<String> legendItems = buildEquipmentLegendItems(devicesByClassroom);
+                if (legendItems.isEmpty()) {
+                    return;
+                }
+                
+                // 범례 텍스트 추가
+                XSLFTextBox textBox = slide.createTextBox();
+                textBox.setAnchor(new Rectangle((int)(legendX + boxPadding), (int)(legendY + boxPadding), 
+                                                (int)(680 - boxPadding * 2), (int)(boxHeight - boxPadding * 2)));
+                textBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
+                textBox.setLeftInset(0.0);
+                textBox.setRightInset(0.0);
+                textBox.setTopInset(0.0);
+                textBox.setBottomInset(0.0);
+                
+                XSLFTextParagraph para = textBox.addNewTextParagraph();
+                para.setLeftMargin(0.0);
+                para.setRightMargin(0.0);
+                para.setSpaceAfter(0.0);
+                para.setSpaceBefore(0.0);
+                para.setLineSpacing(0.0);
+                para.setIndent(0.0);
+                
+                // "범례 : " 부분
+                XSLFTextRun titleRun = para.addNewTextRun();
+                titleRun.setText("범례 : ");
+                titleRun.setFontSize(fontSize);
+                titleRun.setBold(true);
+                titleRun.setFontColor(Color.BLACK);
+                
+                // 범례 항목들 추가
+                for (int i = 0; i < legendItems.size(); i++) {
+                    String item = legendItems.get(i);
+                    String[] parts = item.split(" - ", 2);
+                    if (parts.length == 2) {
+                        // 약어 부분 (빨간색)
+                        XSLFTextRun abbrevRun = para.addNewTextRun();
+                        abbrevRun.setText(parts[0] + " - ");
+                        abbrevRun.setFontSize(fontSize);
+                        abbrevRun.setFontColor(new Color(255, 0, 0));
+                        
+                        // 이름 부분 (검은색)
+                        XSLFTextRun nameRun = para.addNewTextRun();
+                        nameRun.setText(parts[1]);
+                        nameRun.setFontSize(fontSize);
+                        nameRun.setFontColor(Color.BLACK);
+                    }
+                    
+                    if (i < legendItems.size() - 1) {
+                        XSLFTextRun spaceRun = para.addNewTextRun();
+                        spaceRun.setText(" ");
+                    }
+                }
+            } else if ("wireless-ap".equals(mode)) {
+                // AP 범례: 도형과 텍스트 함께 표시
+                addApLegendWithShapes(slide, legendX, legendY, boxPadding, boxHeight, fontSize);
+            }
+        } catch (Exception e) {
+            System.err.println("범례 추가 중 오류: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 장비 범례 항목 리스트 생성
+     */
+    private List<String> buildEquipmentLegendItems(Map<Long, List<Map<String, Object>>> devicesByClassroom) {
+        List<String> legendItems = new ArrayList<>();
+        
+        if (devicesByClassroom == null || devicesByClassroom.isEmpty()) {
+            return legendItems;
+        }
+        
+        // 모든 장비의 cate 수집
+        Set<String> cateSet = new HashSet<>();
+        for (List<Map<String, Object>> devices : devicesByClassroom.values()) {
+            for (Map<String, Object> device : devices) {
+                Object uidCateObj = device.get("uidCate");
+                if (uidCateObj != null) {
+                    cateSet.add(uidCateObj.toString());
+                }
+            }
+        }
+        
+        if (cateSet.isEmpty()) {
+            return legendItems;
+        }
+        
+        // cate를 장비 종류로 그룹화
+        Map<String, List<String>> typeGroups = new HashMap<>();
+        for (String cate : cateSet) {
+            String type = getDeviceTypeByCate(cate);
+            typeGroups.computeIfAbsent(type, k -> new ArrayList<>()).add(cate);
+        }
+        
+        // 정렬된 항목 리스트 생성
+        List<String> sortedTypes = new ArrayList<>(typeGroups.keySet());
+        sortedTypes.sort(String::compareTo);
+        
+        for (String type : sortedTypes) {
+            List<String> cates = typeGroups.get(type);
+            cates.sort(String::compareTo);
+            String cateStr = cates.size() > 1 ? String.join(", ", cates) : cates.get(0);
+            legendItems.add(cateStr + " - " + type);
+        }
+        
+        return legendItems;
+    }
+    
+    /**
+     * AP 범례 항목 리스트 생성 (고정)
+     */
+    private List<String> buildApLegendItems() {
+        List<String> items = new ArrayList<>();
+        items.add("MDF - MDF");
+        items.add("IDF# - IDF#");
+        items.add("도교육청AP# - 도교육청AP#");
+        items.add("4차,3차 - 4차,3차");
+        items.add("학교구입 - 학교구입");
+        return items;
+    }
+    
+    /**
+     * AP 범례를 도형과 텍스트로 함께 추가 (가로 나열)
+     */
+    private void addApLegendWithShapes(XSLFSlide slide, double boxX, double boxY, 
+                                       double boxPadding, double boxHeight, double fontSize) {
+        List<LegendItem> items = new ArrayList<>();
+        items.add(new LegendItem("rectangle", new Color(239, 68, 68), "MDF"));
+        items.add(new LegendItem("rectangle", Color.BLACK, "IDF#"));
+        items.add(new LegendItem("circle", Color.BLACK, "도교육청AP#"));
+        items.add(new LegendItem("triangle", Color.BLACK, "4차,3차"));
+        items.add(new LegendItem("diamond", Color.BLACK, "학교구입"));
+        
+        double startX = boxX + boxPadding + 50; // "범례 : " 공간 확보
+        double currentX = startX;
+        double centerY = boxY + boxHeight / 2.0; // 박스 중앙 Y 좌표
+        double shapeSize = 12.0;
+        double rectangleWidth = 8.0;  // 세로가 긴 직사각형: 가로
+        double rectangleHeight = 18.0; // 세로가 긴 직사각형: 세로
+        double itemSpacing = 8.0; // 항목 간 간격
+        
+        // "범례 : " 텍스트 추가
+        XSLFTextBox titleBox = slide.createTextBox();
+        titleBox.setAnchor(new Rectangle((int)(boxX + boxPadding), (int)(boxY + boxPadding), 
+                                        50, (int)(boxHeight - boxPadding * 2)));
+        titleBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
+        titleBox.setLeftInset(0.0);
+        titleBox.setRightInset(0.0);
+        titleBox.setTopInset(0.0);
+        titleBox.setBottomInset(0.0);
+        XSLFTextParagraph titlePara = titleBox.addNewTextParagraph();
+        XSLFTextRun titleRun = titlePara.addNewTextRun();
+        titleRun.setText("범례 : ");
+        titleRun.setFontSize(fontSize);
+        titleRun.setBold(true);
+        titleRun.setFontColor(Color.BLACK);
+        
+        for (LegendItem item : items) {
+            double shapeY = centerY - rectangleHeight / 2.0; // 도형을 중앙에 맞춤
+            double shapeWidth;
+            double shapeHeight;
+            
+            // 도형 그리기
+            XSLFAutoShape shape = slide.createAutoShape();
+            
+            if ("rectangle".equals(item.shape)) {
+                // MDF, IDF: 세로가 긴 직사각형
+                shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
+                shapeWidth = rectangleWidth;
+                shapeHeight = rectangleHeight;
+                shapeY = centerY - rectangleHeight / 2.0;
+            } else if ("circle".equals(item.shape)) {
+                shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
+                shapeWidth = shapeSize;
+                shapeHeight = shapeSize;
+                shapeY = centerY - shapeSize / 2.0;
+            } else if ("triangle".equals(item.shape)) {
+                shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.TRIANGLE);
+                shapeWidth = shapeSize;
+                shapeHeight = shapeSize;
+                shapeY = centerY - shapeSize / 2.0;
+            } else if ("diamond".equals(item.shape)) {
+                shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.DIAMOND);
+                shapeWidth = shapeSize;
+                shapeHeight = shapeSize;
+                shapeY = centerY - shapeSize / 2.0;
+            } else {
+                shapeWidth = shapeSize;
+                shapeHeight = shapeSize;
+                shapeY = centerY - shapeSize / 2.0;
+            }
+            
+            shape.setAnchor(new Rectangle((int)currentX, (int)shapeY, (int)shapeWidth, (int)shapeHeight));
+            shape.setFillColor(item.color);
+            shape.setLineColor(Color.BLACK);
+            shape.setLineWidth(0.5);
+            
+            // 라벨 추가 (도형 옆에)
+            double labelX = currentX + shapeWidth + 3;
+            double labelY = centerY - fontSize / 2.0;
+            
+            XSLFTextBox labelBox = slide.createTextBox();
+            labelBox.setAnchor(new Rectangle((int)labelX, (int)labelY, 150, (int)fontSize + 2));
+            labelBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
+            labelBox.setLeftInset(0.0);
+            labelBox.setRightInset(0.0);
+            labelBox.setTopInset(0.0);
+            labelBox.setBottomInset(0.0);
+            
+            XSLFTextParagraph labelPara = labelBox.addNewTextParagraph();
+            labelPara.setLeftMargin(0.0);
+            labelPara.setRightMargin(0.0);
+            labelPara.setSpaceAfter(0.0);
+            labelPara.setSpaceBefore(0.0);
+            labelPara.setLineSpacing(0.0);
+            
+            XSLFTextRun labelRun = labelPara.addNewTextRun();
+            labelRun.setText("- " + item.label);
+            labelRun.setFontSize(fontSize);
+            labelRun.setFontColor(Color.BLACK);
+            
+            // 다음 항목 위치 계산 (도형 너비 + 라벨 너비 + 간격)
+            double labelWidth = estimateTextWidth(item.label, fontSize) + 10; // "- " 포함
+            currentX += shapeWidth + labelWidth + itemSpacing;
+        }
+    }
+    
+    /**
+     * 텍스트 너비 추정 (대략적인 값)
+     */
+    private double estimateTextWidth(String text, double fontSize) {
+        // 대략적인 계산: 한글은 폰트 크기의 1.0배, 영문은 0.6배
+        double width = 0;
+        for (char c : text.toCharArray()) {
+            if (c >= 0xAC00 && c <= 0xD7A3) { // 한글
+                width += fontSize * 1.0;
+            } else {
+                width += fontSize * 0.6;
+            }
+        }
+        return width;
+    }
+    
+    /**
+     * 장비 보기 범례 추가
+     */
+    private void addEquipmentLegend(XSLFSlide slide, School school, 
+                                    Map<Long, List<Map<String, Object>>> devicesByClassroom,
+                                    double startX, double startY, double itemSpacing, double fontSize) {
+        if (devicesByClassroom == null || devicesByClassroom.isEmpty()) {
+            return;
+        }
+        
+        // 모든 장비의 cate 수집
+        Set<String> cateSet = new HashSet<>();
+        for (List<Map<String, Object>> devices : devicesByClassroom.values()) {
+            for (Map<String, Object> device : devices) {
+                Object uidCateObj = device.get("uidCate");
+                if (uidCateObj != null) {
+                    cateSet.add(uidCateObj.toString());
+                }
+            }
+        }
+        
+        if (cateSet.isEmpty()) {
+            return;
+        }
+        
+        // cate를 장비 종류로 그룹화
+        Map<String, List<String>> typeGroups = new HashMap<>();
+        for (String cate : cateSet) {
+            String type = getDeviceTypeByCate(cate);
+            typeGroups.computeIfAbsent(type, k -> new ArrayList<>()).add(cate);
+        }
+        
+        double currentY = startY;
+        double currentX = startX;
+        double maxWidth = 680.0;
+        double itemWidth = maxWidth / 2; // 2열로 배치
+        
+        List<String> sortedTypes = new ArrayList<>(typeGroups.keySet());
+        sortedTypes.sort(String::compareTo);
+        
+        int col = 0;
+        for (String type : sortedTypes) {
+            List<String> cates = typeGroups.get(type);
+            cates.sort(String::compareTo);
+            String cateStr = cates.size() > 1 ? String.join(", ", cates) : cates.get(0);
+            String label = cateStr + " - " + type;
+            
+            double x = currentX + (col * itemWidth);
+            
+            XSLFTextBox itemBox = slide.createTextBox();
+            itemBox.setAnchor(new Rectangle((int)x, (int)currentY, (int)(itemWidth - 10), 20));
+            XSLFTextParagraph itemPara = itemBox.addNewTextParagraph();
+            XSLFTextRun itemRun = itemPara.addNewTextRun();
+            itemRun.setText(label);
+            itemRun.setFontSize(fontSize);
+            itemRun.setFontColor(Color.BLACK);
+            
+            col++;
+            if (col >= 2) {
+                col = 0;
+                currentY += itemSpacing;
+            }
+        }
+    }
+    
+    /**
+     * AP 보기 범례 추가 (고정)
+     */
+    private void addApLegend(XSLFSlide slide, double startX, double startY, 
+                            double itemSpacing, double fontSize) {
+        List<LegendItem> items = new ArrayList<>();
+        items.add(new LegendItem("rectangle", new Color(239, 68, 68), "MDF"));
+        items.add(new LegendItem("rectangle", Color.BLACK, "IDF#"));
+        items.add(new LegendItem("circle", Color.BLACK, "도교육청AP#"));
+        items.add(new LegendItem("triangle", Color.BLACK, "4차,3차"));
+        items.add(new LegendItem("diamond", Color.BLACK, "학교구입"));
+        
+        double currentY = startY;
+        double shapeSize = 12.0;
+        double rectangleWidth = 8.0;  // 세로가 긴 직사각형: 가로
+        double rectangleHeight = 18.0; // 세로가 긴 직사각형: 세로
+        
+        for (LegendItem item : items) {
+            // 도형 그리기
+            XSLFAutoShape shape = slide.createAutoShape();
+            double shapeX = startX;
+            double shapeY = currentY + 4;
+            double shapeWidth;
+            double shapeHeight;
+            double labelX;
+            
+            if ("rectangle".equals(item.shape)) {
+                // MDF, IDF: 세로가 긴 직사각형
+                shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
+                shapeWidth = rectangleWidth;
+                shapeHeight = rectangleHeight;
+                labelX = startX + rectangleWidth + 5;
+            } else if ("square".equals(item.shape)) {
+                shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
+                shapeWidth = shapeSize;
+                shapeHeight = shapeSize;
+                labelX = startX + shapeSize + 5;
+            } else if ("circle".equals(item.shape)) {
+                shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
+                shapeWidth = shapeSize;
+                shapeHeight = shapeSize;
+                labelX = startX + shapeSize + 5;
+            } else if ("triangle".equals(item.shape)) {
+                shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.TRIANGLE);
+                shapeWidth = shapeSize;
+                shapeHeight = shapeSize;
+                labelX = startX + shapeSize + 5;
+            } else if ("diamond".equals(item.shape)) {
+                shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.DIAMOND);
+                shapeWidth = shapeSize;
+                shapeHeight = shapeSize;
+                labelX = startX + shapeSize + 5;
+            } else {
+                // 기본값
+                shapeWidth = shapeSize;
+                shapeHeight = shapeSize;
+                labelX = startX + shapeSize + 5;
+            }
+            
+            shape.setAnchor(new Rectangle((int)shapeX, (int)shapeY, (int)shapeWidth, (int)shapeHeight));
+            shape.setFillColor(item.color);
+            shape.setLineColor(Color.BLACK);
+            shape.setLineWidth(0.5);
+            
+            // 라벨 추가
+            XSLFTextBox labelBox = slide.createTextBox();
+            labelBox.setAnchor(new Rectangle((int)labelX, (int)currentY, 200, 20));
+            XSLFTextParagraph labelPara = labelBox.addNewTextParagraph();
+            XSLFTextRun labelRun = labelPara.addNewTextRun();
+            labelRun.setText("- " + item.label);
+            labelRun.setFontSize(fontSize);
+            labelRun.setFontColor(Color.BLACK);
+            
+            currentY += itemSpacing;
+        }
+    }
+    
+    /**
+     * cate를 장비 종류로 매핑
+     */
+    private String getDeviceTypeByCate(String cate) {
+        if (cate == null) return "기타";
+        
+        // 데스크톱 관련
+        if (cate.equals("DW") || cate.equals("DE") || cate.equals("DK") || 
+            cate.equals("DC") || cate.equals("DS") || cate.equals("DD") || 
+            cate.equals("DT")) {
+            return "데스크톱";
+        }
+        
+        switch (cate) {
+            case "MO": return "모니터";
+            case "PR": return "프린터";
+            case "TV": return "TV";
+            case "ID": return "전자칠판";
+            case "ED": return "전자교탁";
+            case "DI": return "DID";
+            case "TB": return "태블릿";
+            case "PJ": return "프로젝터";
+            default: return "기타";
+        }
+    }
+    
+    /**
+     * 범례 항목 클래스
+     */
+    private static class LegendItem {
+        String shape;
+        Color color;
+        String label;
+        
+        LegendItem(String shape, Color color, String label) {
+            this.shape = shape;
+            this.color = color;
+            this.label = label;
         }
     }
 }

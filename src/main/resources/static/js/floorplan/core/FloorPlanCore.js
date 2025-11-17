@@ -425,32 +425,72 @@ export default class FloorPlanCore {
      * 무선AP 렌더링
      */
     renderWirelessAp(ctx, element) {
-        // 지름 40 = 반지름 20
-        const radius = element.radius || (element.width ? element.width / 2 : 20);
-        const centerX = element.xCoordinate + radius;
-        const centerY = element.yCoordinate + radius;
+        const shapeType = element.shapeType || 'circle';
+        const x = element.xCoordinate;
+        const y = element.yCoordinate;
+        const width = element.width || (element.radius ? element.radius * 2 : 40);
+        const height = element.height || (element.radius ? element.radius * 2 : 40);
+        const backgroundColor = element.backgroundColor || '#ef4444';
+        const borderColor = element.borderColor || '#000000';
+        const borderWidth = element.borderWidth || 2;
         
-        // 채우기 (빨간색)
+        ctx.fillStyle = backgroundColor;
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth;
+        
+        if (shapeType === 'triangle') {
+            const apexX = x + width / 2;
+            const apexY = y;
+            const leftX = x;
+            const leftY = y + height;
+            const rightX = x + width;
+            const rightY = y + height;
+        
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.fillStyle = element.backgroundColor || '#ef4444';
+            ctx.moveTo(apexX, apexY);
+            ctx.lineTo(leftX, leftY);
+            ctx.lineTo(rightX, rightY);
+            ctx.closePath();
         ctx.fill();
-        
-        // 테두리 (검은색)
-        ctx.strokeStyle = element.borderColor || '#000000';
-        ctx.lineWidth = element.borderWidth || 2;
+            ctx.stroke();
+        } else if (shapeType === 'square') {
+            ctx.beginPath();
+            ctx.rect(x, y, width, height);
+            ctx.fill();
+            ctx.stroke();
+        } else if (shapeType === 'diamond') {
+            const centerX = x + width / 2;
+            const centerY = y + height / 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, y);
+            ctx.lineTo(x + width, centerY);
+            ctx.lineTo(centerX, y + height);
+            ctx.lineTo(x, centerY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        } else {
+            const radius = element.radius || width / 2;
+            const centerX = x + radius;
+            const centerY = y + radius;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
         ctx.stroke();
+        }
 
         const label = element.label || element.newLabelNumber || '';
         if (label) {
-            const fontSize = Math.max(12, radius * 1.7);
+            const baseSize = Math.min(width, height);
+            const fontSize = Math.max(12, baseSize * 0.4);
             ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-            ctx.fillStyle = element.backgroundColor || '#ef4444';
+            ctx.fillStyle = backgroundColor;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
 
-            const textY = centerY + radius + 4;
-            ctx.fillText(String(label), centerX, textY);
+            const textX = x + width / 2;
+            const textY = y + height + 4;
+            ctx.fillText(String(label), textX, textY);
         }
     }
     

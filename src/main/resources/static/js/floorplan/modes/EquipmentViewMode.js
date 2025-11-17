@@ -9,6 +9,7 @@
  */
 
 import SeatLayoutMode from './SeatLayoutMode.js';
+import LegendComponent from '../components/LegendComponent.js';
 
 export default class EquipmentViewMode {
     constructor(core, elementManager, uiManager) {
@@ -20,6 +21,9 @@ export default class EquipmentViewMode {
         
         // 자리배치 모달을 위한 SeatLayoutMode 인스턴스
         this.seatLayoutMode = new SeatLayoutMode(core, elementManager, uiManager);
+        
+        // 범례 컴포넌트
+        this.legendComponent = new LegendComponent(core, 'equipment');
         
         console.log('📦 EquipmentViewMode 초기화');
     }
@@ -36,6 +40,9 @@ export default class EquipmentViewMode {
         await this.loadDevices();
         this.renderEquipmentCards();
         this.bindEvents();
+        
+        // 범례 생성
+        this.legendComponent.create();
         
         // 강제 렌더링
         this.core.markDirty();
@@ -60,6 +67,7 @@ export default class EquipmentViewMode {
         console.log('❌ 장비보기 모드 비활성화');
         this.clearEquipmentCards();
         this.unbindEvents();
+        this.legendComponent.remove();
     }
     
     /**
