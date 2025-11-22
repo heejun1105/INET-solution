@@ -377,17 +377,36 @@ public class DeviceController {
         log.info("고유번호: cate={}, year={}, num={}", uidCate, uidYear, uidNum);
 
         // 담당자 정보 처리
-        if (operatorName != null && !operatorName.trim().isEmpty() && 
-            operatorPosition != null && !operatorPosition.trim().isEmpty()) {
-            Operator operator = operatorService.findByNameAndPositionAndSchool(operatorName, operatorPosition, device.getSchool())
-                .orElseGet(() -> {
-                    Operator op = new Operator();
-                    op.setName(operatorName);
-                    op.setPosition(operatorPosition);
-                    op.setSchool(device.getSchool());
-                    return operatorService.saveOperator(op);
-                });
+        if (operatorName != null && !operatorName.trim().isEmpty()) {
+            String trimmedName = operatorName.trim();
+            String trimmedPosition = (operatorPosition != null) ? operatorPosition.trim() : null;
+            
+            Operator operator;
+            if (trimmedPosition != null && !trimmedPosition.isEmpty()) {
+                // 담당자와 직위 둘 다 입력된 경우
+                operator = operatorService.findByNameAndPositionAndSchool(trimmedName, trimmedPosition, device.getSchool())
+                    .orElseGet(() -> {
+                        Operator op = new Operator();
+                        op.setName(trimmedName);
+                        op.setPosition(trimmedPosition);
+                        op.setSchool(device.getSchool());
+                        return operatorService.saveOperator(op);
+                    });
+            } else {
+                // 담당자만 입력된 경우 (직위는 null)
+                operator = operatorService.findByNameAndSchoolAndPositionIsNull(trimmedName, device.getSchool())
+                    .orElseGet(() -> {
+                        Operator op = new Operator();
+                        op.setName(trimmedName);
+                        op.setPosition(null);
+                        op.setSchool(device.getSchool());
+                        return operatorService.saveOperator(op);
+                    });
+            }
             device.setOperator(operator);
+        } else {
+            // 담당자 이름이 없으면 담당자 정보 제거
+            device.setOperator(null);
         }
 
         // 도입일자 처리 (년/월을 LocalDate로 변환)
@@ -521,17 +540,36 @@ public class DeviceController {
         log.info("Modifying device: {}", device);
 
         // 담당자 정보 처리
-        if (operatorName != null && !operatorName.trim().isEmpty() && 
-            operatorPosition != null && !operatorPosition.trim().isEmpty()) {
-            Operator operator = operatorService.findByNameAndPositionAndSchool(operatorName, operatorPosition, device.getSchool())
-                .orElseGet(() -> {
-                    Operator op = new Operator();
-                    op.setName(operatorName);
-                    op.setPosition(operatorPosition);
-                    op.setSchool(device.getSchool());
-                    return operatorService.saveOperator(op);
-                });
+        if (operatorName != null && !operatorName.trim().isEmpty()) {
+            String trimmedName = operatorName.trim();
+            String trimmedPosition = (operatorPosition != null) ? operatorPosition.trim() : null;
+            
+            Operator operator;
+            if (trimmedPosition != null && !trimmedPosition.isEmpty()) {
+                // 담당자와 직위 둘 다 입력된 경우
+                operator = operatorService.findByNameAndPositionAndSchool(trimmedName, trimmedPosition, device.getSchool())
+                    .orElseGet(() -> {
+                        Operator op = new Operator();
+                        op.setName(trimmedName);
+                        op.setPosition(trimmedPosition);
+                        op.setSchool(device.getSchool());
+                        return operatorService.saveOperator(op);
+                    });
+            } else {
+                // 담당자만 입력된 경우 (직위는 null)
+                operator = operatorService.findByNameAndSchoolAndPositionIsNull(trimmedName, device.getSchool())
+                    .orElseGet(() -> {
+                        Operator op = new Operator();
+                        op.setName(trimmedName);
+                        op.setPosition(null);
+                        op.setSchool(device.getSchool());
+                        return operatorService.saveOperator(op);
+                    });
+            }
             device.setOperator(operator);
+        } else {
+            // 담당자 이름이 없으면 담당자 정보 제거
+            device.setOperator(null);
         }
 
         // 도입일자 처리 (년/월을 LocalDate로 변환)
@@ -1408,5 +1446,89 @@ public class DeviceController {
             log.error("테스트 데이터 생성 중 오류: ", e);
             return "오류: " + e.getMessage();
         }
+    }
+    
+    /**
+     * 담당자별 장비 조회 API
+     */
+    @GetMapping("/api/devices-by-operator")
+    @ResponseBody
+    public Map<String, Object> getDevicesByOperator(
+            @RequestParam Long schoolId, 
+            @RequestParam(required = false) Long operatorId,
+            @RequestParam(required = false) String operatorName) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Device> devices;
+            
+            if (operatorId != null) {
+                // operatorId로 조회
+                devices = deviceService.findDevicesByOperator(schoolId, operatorId);
+            } else if (operatorName != null && !operatorName.trim().isEmpty()) {
+                // operatorName으로 조회
+                devices = deviceService.findDevicesByOperatorName(schoolId, operatorName);
+            } else {
+                result.put("success", false);
+                result.put("error", "담당자 ID 또는 이름이 필요합니다.");
+                return result;
+            }
+            
+            // 교실, 세트 단위로 그룹화
+            Map<String, List<Device>> groupedDevices = new LinkedHashMap<>();
+            for (Device device : devices) {
+                String classroomName = device.getClassroom() != null && device.getClassroom().getRoomName() != null 
+                    ? device.getClassroom().getRoomName() : "미지정 교실";
+                String setType = device.getSetType() != null && !device.getSetType().isEmpty() 
+                    ? device.getSetType() : "미지정 세트";
+                String groupKey = classroomName + "|" + setType;
+                
+                groupedDevices.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(device);
+            }
+            
+            result.put("success", true);
+            result.put("devices", devices);
+            result.put("groupedDevices", groupedDevices);
+        } catch (Exception e) {
+            log.error("담당자별 장비 조회 중 오류: ", e);
+            result.put("success", false);
+            result.put("error", e.getMessage());
+        }
+        return result;
+    }
+    
+    /**
+     * 담당자 일괄 수정 API
+     */
+    @PostMapping("/api/batch-update-operator")
+    @ResponseBody
+    public Map<String, Object> batchUpdateOperator(@RequestBody Map<String, Object> request) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            @SuppressWarnings("unchecked")
+            List<Integer> deviceIds = (List<Integer>) request.get("deviceIds");
+            String newOperatorName = (String) request.get("newOperatorName");
+            String newOperatorPosition = (String) request.get("newOperatorPosition");
+            
+            // 현재 사용자 가져오기
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String username = authentication.getName();
+            User user = userService.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            // Integer 리스트를 Long 리스트로 변환
+            List<Long> deviceIdList = deviceIds.stream()
+                .map(Integer::longValue)
+                .collect(Collectors.toList());
+            
+            deviceService.updateDevicesOperator(deviceIdList, newOperatorName, newOperatorPosition, user);
+            
+            result.put("success", true);
+            result.put("message", "담당자가 성공적으로 수정되었습니다.");
+        } catch (Exception e) {
+            log.error("담당자 일괄 수정 중 오류: ", e);
+            result.put("success", false);
+            result.put("error", e.getMessage());
+        }
+        return result;
     }
 } 

@@ -37,15 +37,18 @@ public class WirelessApExcelExportService {
     private final WirelessApService wirelessApService;
     private final SchoolService schoolService;
     private final WirelessApRepository wirelessApRepository;
+    private final WirelessApHistoryService wirelessApHistoryService;
 
     public WirelessApExcelExportService(
             WirelessApService wirelessApService,
             SchoolService schoolService,
-            WirelessApRepository wirelessApRepository
+            WirelessApRepository wirelessApRepository,
+            WirelessApHistoryService wirelessApHistoryService
     ) {
         this.wirelessApService = wirelessApService;
         this.schoolService = schoolService;
         this.wirelessApRepository = wirelessApRepository;
+        this.wirelessApHistoryService = wirelessApHistoryService;
     }
 
     public boolean hasWirelessAps(Long schoolId) {
@@ -67,6 +70,9 @@ public class WirelessApExcelExportService {
         if (wirelessAps.isEmpty()) {
             return Optional.empty();
         }
+        
+        // 페이지 다운로드와 동일한 순서로 정렬 (컨트롤러의 정렬 로직 확인 필요)
+        // 컨트롤러에서는 정렬이 없으므로 그대로 유지
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             createSummarySheet(workbook, wirelessAps);
@@ -97,14 +103,47 @@ public class WirelessApExcelExportService {
         String schoolName = getSchoolName(wirelessAps);
         Row titleRow = summarySheet.createRow(0);
         Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue(schoolName + " 무선 AP");
+        titleCell.setCellValue(schoolName + " 무선 AP 현황");
         titleCell.setCellStyle(headerStyle);
         summarySheet.addMergedRegion(org.apache.poi.ss.util.CellRangeAddress.valueOf("A1:G1"));
 
+        // AP 정보의 마지막 수정일자 조회 (모든 AP 중 가장 최근 수정일자)
+        java.time.LocalDateTime lastModifiedDateTime = null;
+        for (WirelessAp ap : wirelessAps) {
+            Optional<java.time.LocalDateTime> lastModified = wirelessApHistoryService.getLastModifiedDate(ap);
+            if (lastModified.isPresent()) {
+                if (lastModifiedDateTime == null || lastModified.get().isAfter(lastModifiedDateTime)) {
+                    lastModifiedDateTime = lastModified.get();
+                }
+            }
+        }
+        
+        // 작성일자: 마지막 수정일자가 있으면 그것을 사용, 없으면 현재 날짜
+        String dateStr;
+        if (lastModifiedDateTime != null) {
+            dateStr = lastModifiedDateTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        } else {
+            dateStr = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+        
+        // 작성일자 스타일 생성 (배경색 없음)
+        CellStyle dateStyle = workbook.createCellStyle();
+        dateStyle.setAlignment(HorizontalAlignment.RIGHT);
+        Font dateFont = workbook.createFont();
+        dateFont.setBold(true);
+        dateStyle.setFont(dateFont);
+        // 배경색 제거 (기본 스타일 유지)
+        
+        // 두번째 행: 작성일자 (오른쪽 끝에 배치)
+        int lastCol = 6; // G열 (총괄표의 마지막 컬럼)
         Row dateRow = summarySheet.createRow(1);
-        Cell dateCell = dateRow.createCell(0);
-        dateCell.setCellValue(LocalDate.now().toString());
-        dateCell.setCellStyle(headerStyle);
+        Cell dateLabelCell = dateRow.createCell(lastCol - 1); // 마지막 컬럼에서 두 번째
+        dateLabelCell.setCellValue("작성일자");
+        dateLabelCell.setCellStyle(dateStyle);
+        
+        Cell dateValueCell = dateRow.createCell(lastCol); // 마지막 컬럼
+        dateValueCell.setCellValue(dateStr);
+        dateValueCell.setCellStyle(dateStyle);
 
         Map<String, Map<String, Map<String, Map<String, Integer>>>> groupedData = new LinkedHashMap<>();
         Set<String> allClassroomTypes = new HashSet<>();
@@ -213,21 +252,54 @@ public class WirelessApExcelExportService {
         String schoolName = getSchoolName(wirelessAps);
         Row titleRow = sheet.createRow(0);
         Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue(schoolName + " 무선 AP");
+        titleCell.setCellValue(schoolName + " 무선 AP 현황");
         titleCell.setCellStyle(headerStyle);
         sheet.addMergedRegion(org.apache.poi.ss.util.CellRangeAddress.valueOf("A1:K1"));
 
+        // AP 정보의 마지막 수정일자 조회 (모든 AP 중 가장 최근 수정일자)
+        java.time.LocalDateTime lastModifiedDateTime = null;
+        for (WirelessAp ap : wirelessAps) {
+            Optional<java.time.LocalDateTime> lastModified = wirelessApHistoryService.getLastModifiedDate(ap);
+            if (lastModified.isPresent()) {
+                if (lastModifiedDateTime == null || lastModified.get().isAfter(lastModifiedDateTime)) {
+                    lastModifiedDateTime = lastModified.get();
+                }
+            }
+        }
+        
+        // 작성일자: 마지막 수정일자가 있으면 그것을 사용, 없으면 현재 날짜
+        String dateStr;
+        if (lastModifiedDateTime != null) {
+            dateStr = lastModifiedDateTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        } else {
+            dateStr = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+
+        // 작성일자 스타일 생성 (배경색 없음)
+        CellStyle dateStyle = workbook.createCellStyle();
+        dateStyle.setAlignment(HorizontalAlignment.RIGHT);
+        Font dateFont = workbook.createFont();
+        dateFont.setBold(true);
+        dateStyle.setFont(dateFont);
+        // 배경색 제거 (기본 스타일 유지)
+        
+        // 두번째 행: 작성일자 (오른쪽 끝에 배치)
+        int lastCol = 10; // K열 (무선AP 목록의 마지막 컬럼)
         Row dateRow = sheet.createRow(1);
-        Cell dateCell = dateRow.createCell(0);
-        dateCell.setCellValue(LocalDate.now().toString());
-        dateCell.setCellStyle(headerStyle);
+        Cell dateLabelCell = dateRow.createCell(lastCol - 1); // 마지막 컬럼에서 두 번째
+        dateLabelCell.setCellValue("작성일자");
+        dateLabelCell.setCellStyle(dateStyle);
+        
+        Cell dateValueCell = dateRow.createCell(lastCol); // 마지막 컬럼
+        dateValueCell.setCellValue(dateStr);
+        dateValueCell.setCellStyle(dateStyle);
 
         String[] headers = {
                 "신규라벨번호", "기기번호", "설치장소", "교실유형", "제조사", "모델명",
                 "도입연도", "속도", "MAC 주소", "이전 설치장소", "이전 라벨번호"
         };
 
-        Row headerRow = sheet.createRow(3);
+        Row headerRow = sheet.createRow(2);
         for (int i = 0; i < headers.length; i++) {
             Cell cell = headerRow.createCell(i);
             cell.setCellValue(headers[i]);

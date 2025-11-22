@@ -210,7 +210,7 @@
                 <!-- 엑셀 다운로드 버튼 추가 -->
                 <div th:if="${selectedSchool != null}" style="margin-top: 10px;">
                     <a th:href="@{/ip/download(schoolId=${selectedSchool.schoolId}, secondOctet=${selectedSecondOctet})}" 
-                       class="btn btn-primary">
+                       class="btn btn-primary" id="excelDownloadBtn" onclick="downloadExcel(event)">
                         <i class="fas fa-file-excel"></i> 엑셀 다운로드
                     </a>
                 </div>
@@ -302,5 +302,28 @@
     
     <!-- 푸터 포함 -->
     <div th:replace="~{fragments/footer :: footer}"></div>
+    
+    <script>
+        // 엑셀 다운로드 진행 표시
+        function downloadExcel(event) {
+            if (event) {
+                event.preventDefault();
+            }
+            
+            const excelBtn = document.getElementById('excelDownloadBtn');
+            const originalHtml = excelBtn.innerHTML;
+            excelBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 엑셀 다운로드 중...';
+            excelBtn.style.pointerEvents = 'none';
+            
+            if (excelBtn && excelBtn.href) {
+                window.location.href = excelBtn.href;
+                // 다운로드 시작 후 버튼 복원 (약간의 지연)
+                setTimeout(() => {
+                    excelBtn.innerHTML = originalHtml;
+                    excelBtn.style.pointerEvents = '';
+                }, 2000);
+            }
+        }
+    </script>
 </body>
 </html> 

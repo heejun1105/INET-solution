@@ -4,6 +4,7 @@ import com.inet.entity.Device;
 import com.inet.entity.School;
 import com.inet.entity.Classroom;
 import com.inet.entity.Uid;
+import com.inet.entity.Operator;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -90,4 +91,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     
     // 특정 교실 이름들에 있는 장비 조회 (교실 이름만)
     List<Device> findByClassroomRoomNameIn(List<String> classroomNames);
+    
+    // 담당자별 장비 조회
+    List<Device> findBySchoolAndOperator(School school, Operator operator);
 } 

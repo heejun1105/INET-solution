@@ -33,13 +33,16 @@ public class IpExcelExportService {
 
     private final DeviceService deviceService;
     private final SchoolService schoolService;
+    private final DeviceHistoryService deviceHistoryService;
 
     public IpExcelExportService(
             DeviceService deviceService,
-            SchoolService schoolService
+            SchoolService schoolService,
+            DeviceHistoryService deviceHistoryService
     ) {
         this.deviceService = deviceService;
         this.schoolService = schoolService;
+        this.deviceHistoryService = deviceHistoryService;
     }
 
     public boolean hasDevicesWithIp(Long schoolId) {
@@ -62,6 +65,25 @@ public class IpExcelExportService {
         Map<String, List<Device>> devicesByOctet = devices.stream()
                 .collect(Collectors.groupingBy(device -> device.getIpAddress().split("\\.")[1]));
 
+        // 학교 전체의 IP 수정일자 조회 (모든 시트에 동일한 시간 표시)
+        java.time.LocalDateTime lastIpModifiedDateTime = null;
+        for (Device device : devices) {
+            Optional<java.time.LocalDateTime> lastIpModified = deviceHistoryService.getLastIpAddressModifiedDate(device);
+            if (lastIpModified.isPresent()) {
+                if (lastIpModifiedDateTime == null || lastIpModified.get().isAfter(lastIpModifiedDateTime)) {
+                    lastIpModifiedDateTime = lastIpModified.get();
+                }
+            }
+        }
+        
+        // 작성일자: IP 수정일자가 있으면 그것을 사용, 없으면 현재 날짜
+        String dateStr;
+        if (lastIpModifiedDateTime != null) {
+            dateStr = lastIpModifiedDateTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        } else {
+            dateStr = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             CellStyle headerStyle = createHeaderStyle(workbook);
             CellStyle titleStyle = createTitleStyle(workbook, headerStyle);
@@ -70,17 +92,17 @@ public class IpExcelExportService {
             CellStyle sectionHeaderStyle = createSectionHeaderStyle(workbook);
 
             if ("all".equalsIgnoreCase(secondOctet)) {
-                createCombinedSheet(workbook, devicesByOctet, titleStyle, headerStyle, dataStyle, warningStyle, sectionHeaderStyle);
+                createCombinedSheet(workbook, devicesByOctet, dateStr, titleStyle, headerStyle, dataStyle, warningStyle, sectionHeaderStyle);
             } else if (secondOctet != null && !secondOctet.isEmpty()) {
                 List<Device> specificDevices = devicesByOctet.getOrDefault(secondOctet, new ArrayList<>());
                 if (specificDevices.isEmpty()) {
                     return Optional.empty();
                 }
-                createSheet(workbook, secondOctet, specificDevices, titleStyle, headerStyle, dataStyle, warningStyle);
+                createSheet(workbook, secondOctet, specificDevices, dateStr, titleStyle, headerStyle, dataStyle, warningStyle);
             } else {
                 devicesByOctet.keySet().stream()
                         .sorted(Comparator.comparingInt(Integer::parseInt))
-                        .forEach(octet -> createSheet(workbook, octet, devicesByOctet.get(octet), titleStyle, headerStyle, dataStyle, warningStyle));
+                        .forEach(octet -> createSheet(workbook, octet, devicesByOctet.get(octet), dateStr, titleStyle, headerStyle, dataStyle, warningStyle));
             }
 
             workbook.write(outputStream);
@@ -91,6 +113,7 @@ public class IpExcelExportService {
     }
 
     private void createCombinedSheet(Workbook workbook, Map<String, List<Device>> devicesByOctet,
+                                     String dateStr,
                                      CellStyle titleStyle, CellStyle headerStyle,
                                      CellStyle dataStyle, CellStyle warningStyle,
                                      CellStyle sectionHeaderStyle) {
@@ -103,15 +126,25 @@ public class IpExcelExportService {
         titleCell.setCellStyle(titleStyle);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 15));
 
+        // 작성일자 스타일 생성 (배경색 없음)
+        CellStyle dateStyle = workbook.createCellStyle();
+        dateStyle.setAlignment(HorizontalAlignment.RIGHT);
+        Font dateFont = workbook.createFont();
+        dateFont.setBold(true);
+        dateStyle.setFont(dateFont);
+        // 배경색 제거 (기본 스타일 유지)
+        
+        // 두번째 행: 작성일자 (오른쪽 끝에 배치)
+        int lastCol = 15; // 마지막 컬럼
         Row dateRow = sheet.createRow(1);
         dateRow.setHeightInPoints(25);
-        Cell dateCell = dateRow.createCell(0);
-        dateCell.setCellValue(LocalDate.now().toString());
-        CellStyle dateStyle = workbook.createCellStyle();
-        dateStyle.cloneStyleFrom(headerStyle);
-        dateStyle.setAlignment(HorizontalAlignment.RIGHT);
-        dateCell.setCellStyle(dateStyle);
-        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 15));
+        Cell dateLabelCell = dateRow.createCell(lastCol - 1); // 마지막 컬럼에서 두 번째
+        dateLabelCell.setCellValue("작성일자");
+        dateLabelCell.setCellStyle(dateStyle);
+        
+        Cell dateValueCell = dateRow.createCell(lastCol); // 마지막 컬럼
+        dateValueCell.setCellValue(dateStr);
+        dateValueCell.setCellStyle(dateStyle);
 
         String[] headers = {"IP", "관리번호", "모델명", "설치장소"};
         Row headerRow = sheet.createRow(2);
@@ -173,6 +206,7 @@ public class IpExcelExportService {
     }
 
     private void createSheet(Workbook workbook, String secondOctet, List<Device> devices,
+                             String dateStr,
                              CellStyle titleStyle, CellStyle headerStyle,
                              CellStyle dataStyle, CellStyle warningStyle) {
         Sheet sheet = workbook.createSheet(secondOctet);
@@ -191,15 +225,25 @@ public class IpExcelExportService {
         titleCell.setCellStyle(titleStyle);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 15));
 
+        // 작성일자 스타일 생성 (배경색 없음)
+        CellStyle dateStyle = workbook.createCellStyle();
+        dateStyle.setAlignment(HorizontalAlignment.RIGHT);
+        Font dateFont = workbook.createFont();
+        dateFont.setBold(true);
+        dateStyle.setFont(dateFont);
+        // 배경색 제거 (기본 스타일 유지)
+        
+        // 두번째 행: 작성일자 (오른쪽 끝에 배치)
+        int lastCol = 15; // 마지막 컬럼
         Row dateRow = sheet.createRow(1);
         dateRow.setHeightInPoints(25);
-        Cell dateCell = dateRow.createCell(0);
-        dateCell.setCellValue(LocalDate.now().toString());
-        CellStyle dateStyle = workbook.createCellStyle();
-        dateStyle.cloneStyleFrom(headerStyle);
-        dateStyle.setAlignment(HorizontalAlignment.RIGHT);
-        dateCell.setCellStyle(dateStyle);
-        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 15));
+        Cell dateLabelCell = dateRow.createCell(lastCol - 1); // 마지막 컬럼에서 두 번째
+        dateLabelCell.setCellValue("작성일자");
+        dateLabelCell.setCellStyle(dateStyle);
+        
+        Cell dateValueCell = dateRow.createCell(lastCol); // 마지막 컬럼
+        dateValueCell.setCellValue(dateStr);
+        dateValueCell.setCellStyle(dateStyle);
 
         String[] headers = {"IP", "관리번호", "모델명", "설치장소"};
         Row headerRow = sheet.createRow(2);

@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -209,6 +212,11 @@ public class UserService {
         return userRepository.findByStatusOrderByCreatedAtDesc(UserStatus.PENDING);
     }
     
+    // 승인 대기 중인 사용자 목록 (페이징)
+    public Page<User> getPendingUsers(Pageable pageable) {
+        return userRepository.findByStatusOrderByCreatedAtDesc(UserStatus.PENDING, pageable);
+    }
+    
     // 승인된 사용자 목록
     public List<User> getApprovedUsers() {
         return userRepository.findApprovedUsers();
@@ -219,9 +227,19 @@ public class UserService {
         return userRepository.findAll();
     }
     
+    // 모든 사용자 목록 (페이징)
+    public Page<User> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable);
+    }
+    
     // 키워드로 사용자 검색
     public List<User> searchUsers(String keyword) {
         return userRepository.findByKeyword(keyword);
+    }
+    
+    // 키워드로 사용자 검색 (페이징)
+    public Page<User> searchUsers(String keyword, Pageable pageable) {
+        return userRepository.findByKeyword(keyword, pageable);
     }
     
     // 최근 가입한 사용자들 (최근 30일)

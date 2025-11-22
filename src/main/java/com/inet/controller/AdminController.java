@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import com.inet.entity.User;
 import com.inet.entity.UserRole;
@@ -44,11 +47,14 @@ public class AdminController {
     
     // 관리자 대시보드
     @GetMapping("/dashboard")
-    public String dashboard(Model model) {
-        List<User> pendingUsers = userService.getPendingUsers();
+    public String dashboard(@RequestParam(value = "page", defaultValue = "0") int page, Model model) {
+        Pageable pageable = PageRequest.of(page, 10);
+        Page<User> pendingUsersPage = userService.getPendingUsers(pageable);
         
-        model.addAttribute("pendingUsers", pendingUsers);
-        model.addAttribute("pendingCount", pendingUsers.size());
+        model.addAttribute("pendingUsers", pendingUsersPage.getContent());
+        model.addAttribute("pendingCount", pendingUsersPage.getTotalElements());
+        model.addAttribute("pendingUsersPage", pendingUsersPage);
+        model.addAttribute("currentPage", page);
         
         // 권한 정보 추가 (네비게이션 바용)
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -63,16 +69,22 @@ public class AdminController {
     
     // 사용자 관리 페이지
     @GetMapping("/users")
-    public String userManagement(@RequestParam(value = "keyword", required = false) String keyword, Model model) {
-        List<User> users;
+    public String userManagement(@RequestParam(value = "keyword", required = false) String keyword,
+                                 @RequestParam(value = "page", defaultValue = "0") int page,
+                                 Model model) {
+        Pageable pageable = PageRequest.of(page, 10);
+        Page<User> usersPage;
+        
         if (keyword != null && !keyword.trim().isEmpty()) {
-            users = userService.searchUsers(keyword);
+            usersPage = userService.searchUsers(keyword, pageable);
         } else {
-            users = userService.getAllUsers();
+            usersPage = userService.getAllUsers(pageable);
         }
         
-        model.addAttribute("users", users);
+        model.addAttribute("users", usersPage.getContent());
+        model.addAttribute("usersPage", usersPage);
         model.addAttribute("keyword", keyword);
+        model.addAttribute("currentPage", page);
         model.addAttribute("roles", UserRole.values());
         
         // 권한 정보 추가 (네비게이션 바용)

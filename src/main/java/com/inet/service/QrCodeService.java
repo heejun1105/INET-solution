@@ -152,7 +152,7 @@ public class QrCodeService {
 
                 sheet.addMergedRegion(new CellRangeAddress(startRow, startRow + textRows - 1, startCol, startCol + qrColSpan - 1));
 
-                List<String> infoLines = buildInfoLines(fieldConfig, uid, device);
+                List<String> infoLines = buildInfoLines(fieldConfig, uid, device, true); // QR 코드 다운로드: 라벨 포함
                 for (int r = 0; r < textRows; r++) {
                     int rowIndex = startRow + r;
                     int firstCol = startCol + qrColSpan;
@@ -269,12 +269,30 @@ public class QrCodeService {
         }
     }
 
-    private List<String> buildInfoLines(List<String> fields, Uid uid, Device device) {
+    private List<String> buildInfoLines(List<String> fields, Uid uid, Device device, boolean includeLabel) {
         List<String> lines = new ArrayList<>(fields.size());
+        Map<String, String> fieldLabelMap = new HashMap<>();
+        fieldLabelMap.put("MANAGE", "관리번호");
+        fieldLabelMap.put("MANUFACTURER", "제조사");
+        fieldLabelMap.put("MODEL", "모델명");
+        fieldLabelMap.put("PURCHASE_DATE", "도입년월");
+        fieldLabelMap.put("IP", "비고");
+        fieldLabelMap.put("UID", "고유번호");
+        
         for (String field : fields) {
-            lines.add(resolveFieldValue(field, uid, device));
+            String value = resolveFieldValue(field, uid, device);
+            if (includeLabel && field != null && !"NONE".equals(field) && !value.isEmpty() && !"-".equals(value)) {
+                String label = fieldLabelMap.getOrDefault(field, field);
+                lines.add(label + " : " + value);
+            } else {
+                lines.add(value);
+            }
         }
         return lines;
+    }
+    
+    private List<String> buildInfoLines(List<String> fields, Uid uid, Device device) {
+        return buildInfoLines(fields, uid, device, false); // 기본값: 라벨 없음
     }
 
     private String resolveFieldValue(String field, Uid uid, Device device) {
@@ -299,7 +317,33 @@ public class QrCodeService {
                 }
                 return "-";
             case "IP":
-                return normalizeValue(device != null ? device.getIpAddress() : null);
+                // IP 주소를 변환: (제조월 - IP2번째 값의 끝 수 - IP4번째의 값)
+                // 예: 10.101.36.227 → 12-1-227 (12월제품 101번대 227번 IP)
+                if (device != null && device.getIpAddress() != null && !device.getIpAddress().isBlank()) {
+                    String ipAddress = device.getIpAddress().trim();
+                    String[] ipParts = ipAddress.split("\\.");
+                    
+                    if (ipParts.length >= 4) {
+                        // 제조월: purchaseDate에서 월 추출
+                        int month = 0;
+                        if (device.getPurchaseDate() != null) {
+                            month = device.getPurchaseDate().getMonthValue();
+                        }
+                        
+                        // IP2번째 값의 끝 수
+                        String ip2Str = ipParts[1];
+                        int ip2LastDigit = 0;
+                        if (!ip2Str.isEmpty()) {
+                            ip2LastDigit = Character.getNumericValue(ip2Str.charAt(ip2Str.length() - 1));
+                        }
+                        
+                        // IP4번째의 값
+                        String ip4Str = ipParts[3];
+                        
+                        return String.format("%d-%d-%s", month, ip2LastDigit, ip4Str);
+                    }
+                }
+                return "-";
             case "UID":
                 if (uid.getDisplayUid() != null && !uid.getDisplayUid().isBlank()) {
                     return uid.getDisplayUid();
@@ -315,5 +359,98 @@ public class QrCodeService {
             return "-";
         }
         return value;
+    }
+    
+    /**
+     * 데이터만 포함한 엑셀 파일을 생성합니다 (A~D열에 설정 순서대로).
+     * @param schoolId 학교 ID
+     * @param infoFields 설정된 정보 필드 목록
+     * @return 엑셀 파일의 바이트 배열
+     */
+    public byte[] generateDataExcel(Long schoolId, List<String> infoFields) throws IOException {
+        School school = schoolService.findById(schoolId)
+                .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다."));
+        
+        List<Uid> uids = uidService.getUidsBySchoolId(schoolId);
+        List<String> fieldConfig = normalizeInfoFields(infoFields);
+        
+        // NONE이 아닌 필드만 추출 (최대 4개: A~D열)
+        List<String> activeFields = new ArrayList<>();
+        for (String field : fieldConfig) {
+            if (field != null && !"NONE".equals(field) && activeFields.size() < 4) {
+                activeFields.add(field);
+            }
+        }
+        
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("데이터");
+            
+            CellStyle dataStyle = createDataStyle(workbook);
+            
+            // 열 너비 설정
+            for (int i = 0; i < activeFields.size() && i < 4; i++) {
+                sheet.setColumnWidth(i, 4000);
+            }
+            
+            // 데이터 행 생성 (헤더 없이 바로 데이터부터 시작)
+            for (int index = 0; index < uids.size(); index++) {
+                Uid uid = uids.get(index);
+                Device device = deviceRepository.findByUid(uid).orElse(null);
+                
+                Row dataRow = sheet.createRow(index);
+                dataRow.setHeightInPoints(18f);
+                
+                for (int col = 0; col < activeFields.size() && col < 4; col++) {
+                    String field = activeFields.get(col);
+                    String value = resolveFieldValue(field, uid, device);
+                    
+                    Cell cell = dataRow.createCell(col);
+                    cell.setCellValue(value);
+                    cell.setCellStyle(dataStyle);
+                }
+            }
+            
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            workbook.write(baos);
+            return baos.toByteArray();
+        }
+    }
+    
+    /**
+     * 헤더 스타일을 생성합니다.
+     */
+    private CellStyle createHeaderStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 12);
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        return style;
+    }
+    
+    /**
+     * 데이터 스타일을 생성합니다.
+     */
+    private CellStyle createDataStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setFontHeightInPoints((short) 11);
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.LEFT);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setWrapText(false);
+        return style;
     }
 }

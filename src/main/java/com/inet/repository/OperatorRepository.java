@@ -12,7 +12,10 @@ import java.util.List;
 @Repository
 public interface OperatorRepository extends JpaRepository<Operator, Long> {
     Optional<Operator> findByNameAndPositionAndSchool(String name, String position, School school);
+    Optional<Operator> findByNameAndSchoolAndPositionIsNull(String name, School school);
+    Optional<Operator> findByNameAndSchoolAndPosition(String name, School school, String position);
     List<Operator> findBySchool(School school);
+    List<Operator> findBySchoolAndName(School school, String name);
     
     @Modifying
     @Query("DELETE FROM Operator o WHERE o.school.schoolId = :schoolId")

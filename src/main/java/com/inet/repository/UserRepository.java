@@ -3,6 +3,8 @@ package com.inet.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,6 +31,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 승인 대기 중인 사용자 목록
     List<User> findByStatusOrderByCreatedAtDesc(UserStatus status);
     
+    // 승인 대기 중인 사용자 목록 (페이징)
+    Page<User> findByStatusOrderByCreatedAtDesc(UserStatus status, Pageable pageable);
+    
     // 역할별 사용자 목록 조회
     List<User> findByRoleOrderByCreatedAtDesc(String role);
     
@@ -38,6 +43,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 검색 기능 (아이디, 이름, 소속, 직위로 검색)
     @Query("SELECT u FROM User u WHERE u.username LIKE %:keyword% OR u.name LIKE %:keyword% OR u.organization LIKE %:keyword% OR u.position LIKE %:keyword%")
     List<User> findByKeyword(@Param("keyword") String keyword);
+    
+    // 검색 기능 (아이디, 이름, 소속, 직위로 검색) - 페이징
+    @Query("SELECT u FROM User u WHERE u.username LIKE %:keyword% OR u.name LIKE %:keyword% OR u.organization LIKE %:keyword% OR u.position LIKE %:keyword%")
+    Page<User> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
+    
+    // 모든 사용자 목록 (페이징)
+    Page<User> findAll(Pageable pageable);
     
     // 승인된 사용자만 조회
     @Query("SELECT u FROM User u WHERE u.status = 'APPROVED' ORDER BY u.createdAt DESC")

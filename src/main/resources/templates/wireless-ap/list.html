@@ -651,7 +651,7 @@
                 <a th:href="@{/wireless-ap/register}" class="btn btn-primary">
                     <i class="fas fa-plus" style="color: white;"></i> <span style="color: white;">무선 AP 등록</span>
                 </a>
-                <a th:href="@{/wireless-ap/excel(schoolId=${selectedSchoolId}, classroomId=${selectedClassroomId})}" class="btn btn-success">
+                <a th:href="@{/wireless-ap/excel(schoolId=${selectedSchoolId}, classroomId=${selectedClassroomId})}" class="btn btn-success" id="excelDownloadBtn" onclick="downloadExcel(event)">
                     <i class="fas fa-file-excel" style="color: white;"></i> <span style="color: white;">엑셀 다운로드</span>
                 </a>
                 <a th:href="@{/wireless-ap/history/list(schoolId=${selectedSchoolId})}" class="btn btn-info">
@@ -872,6 +872,27 @@
 
 
 
+        // 엑셀 다운로드 진행 표시
+        function downloadExcel(event) {
+            if (event) {
+                event.preventDefault();
+            }
+            
+            const excelBtn = document.getElementById('excelDownloadBtn');
+            const originalHtml = excelBtn.innerHTML;
+            excelBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color: white;"></i> <span style="color: white;">엑셀 다운로드 중...</span>';
+            excelBtn.style.pointerEvents = 'none';
+            
+            if (excelBtn && excelBtn.href) {
+                window.location.href = excelBtn.href;
+                // 다운로드 시작 후 버튼 복원 (약간의 지연)
+                setTimeout(() => {
+                    excelBtn.innerHTML = originalHtml;
+                    excelBtn.style.pointerEvents = '';
+                }, 2000);
+            }
+        }
+        
         // 페이지 로드 시 초기 교실 목록 설정
         document.addEventListener('DOMContentLoaded', function() {
             const schoolSelect = document.getElementById('schoolSelect');

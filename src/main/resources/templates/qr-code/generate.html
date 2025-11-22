@@ -175,6 +175,13 @@
             }
         }
 
+        /* 버튼 컨테이너 */
+        .button-container {
+            display: flex;
+            gap: 1rem;
+            width: 100%;
+        }
+
         /* 생성 버튼 */
         .generate-btn {
             background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);
@@ -186,8 +193,12 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            width: 100%;
+            flex: 1;
             box-shadow: 0 4px 15px rgba(111, 66, 193, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
 
         .generate-btn:hover {
@@ -201,6 +212,41 @@
         }
 
         .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 데이터 다운로드 버튼 */
+        .data-download-btn {
+            background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);
+            border: none;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            box-shadow: 0 4px 15px rgba(111, 66, 193, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .data-download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(111, 66, 193, 0.4);
+            background: linear-gradient(135deg, #5a32a3 0%, #4c2d8a 100%);
+        }
+
+        .data-download-btn:active {
+            transform: translateY(0);
+        }
+
+        .data-download-btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
@@ -442,7 +488,7 @@
                                         <option value="MANUFACTURER">제조사</option>
                                         <option value="MODEL">모델명</option>
                                         <option value="PURCHASE_DATE">도입년월</option>
-                                        <option value="IP">IP 주소</option>
+                                        <option value="IP">비고</option>
                                         <option value="UID" selected>고유번호</option>
                                         <option value="NONE">표시하지 않음</option>
                                     </select>
@@ -454,7 +500,7 @@
                                         <option value="MANUFACTURER">제조사</option>
                                         <option value="MODEL">모델명</option>
                                         <option value="PURCHASE_DATE">도입년월</option>
-                                        <option value="IP">IP 주소</option>
+                                        <option value="IP">비고</option>
                                         <option value="UID">고유번호</option>
                                         <option value="NONE">표시하지 않음</option>
                                     </select>
@@ -466,7 +512,7 @@
                                         <option value="MANUFACTURER">제조사</option>
                                         <option value="MODEL">모델명</option>
                                         <option value="PURCHASE_DATE" selected>도입년월</option>
-                                        <option value="IP">IP 주소</option>
+                                        <option value="IP">비고</option>
                                         <option value="UID">고유번호</option>
                                         <option value="NONE">표시하지 않음</option>
                                     </select>
@@ -478,7 +524,7 @@
                                         <option value="MANUFACTURER">제조사</option>
                                         <option value="MODEL">모델명</option>
                                         <option value="PURCHASE_DATE">도입년월</option>
-                                        <option value="IP" selected>IP 주소</option>
+                                        <option value="IP" selected>비고</option>
                                         <option value="UID">고유번호</option>
                                         <option value="NONE">표시하지 않음</option>
                                     </select>
@@ -486,10 +532,16 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="generate-btn" id="generateBtn">
-                            <i class="fas fa-download"></i>
-                            QR 코드 엑셀 다운로드
-                        </button>
+                        <div class="button-container">
+                            <button type="submit" class="generate-btn" id="generateBtn">
+                                <i class="fas fa-download"></i>
+                                QR코드 다운
+                            </button>
+                            <button type="button" class="data-download-btn" id="dataDownloadBtn">
+                                <i class="fas fa-download"></i>
+                                데이터 다운
+                            </button>
+                        </div>
                     </div>
                 </form>
 
@@ -529,7 +581,7 @@
                             <div class="preview-line" id="preview-line-1">고유번호</div>
                             <div class="preview-line" id="preview-line-2">관리번호</div>
                             <div class="preview-line" id="preview-line-3">도입년월</div>
-                            <div class="preview-line" id="preview-line-4">IP 주소</div>
+                            <div class="preview-line" id="preview-line-4">비고</div>
                         </div>
                     </div>
                 </div>
@@ -554,7 +606,7 @@
             MANUFACTURER: '제조사',
             MODEL: '모델명',
             PURCHASE_DATE: '도입년월',
-            IP: 'IP 주소',
+            IP: '비고',
             UID: '고유번호'
         };
 
@@ -578,7 +630,9 @@
         const loadingEl = document.getElementById('loading');
         const completionEl = document.getElementById('completion');
         const generateBtn = document.getElementById('generateBtn');
+        const dataDownloadBtn = document.getElementById('dataDownloadBtn');
 
+        // QR 코드 다운로드
         formEl.addEventListener('submit', async function (e) {
             e.preventDefault();
             const schoolId = document.getElementById('schoolId').value;
@@ -590,6 +644,7 @@
             loadingEl.style.display = 'block';
             completionEl.style.display = 'none';
             generateBtn.disabled = true;
+            dataDownloadBtn.disabled = true;
             generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...';
             
             try {
@@ -632,7 +687,70 @@
             } finally {
                 loadingEl.style.display = 'none';
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = '<i class="fas fa-download"></i> QR 코드 엑셀 다운로드';
+                dataDownloadBtn.disabled = false;
+                generateBtn.innerHTML = '<i class="fas fa-download"></i> QR코드 다운';
+                setTimeout(() => {
+                    completionEl.style.display = 'none';
+                }, 3000);
+            }
+        });
+
+        // 데이터 다운로드
+        dataDownloadBtn.addEventListener('click', async function () {
+            const schoolId = document.getElementById('schoolId').value;
+            if (!schoolId) {
+                alert('학교를 선택해주세요.');
+                return;
+            }
+            
+            loadingEl.style.display = 'block';
+            completionEl.style.display = 'none';
+            generateBtn.disabled = true;
+            dataDownloadBtn.disabled = true;
+            dataDownloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...';
+            
+            try {
+                const formData = new FormData();
+                formData.append('schoolId', schoolId);
+                infoSelects.forEach(select => formData.append('infoLines', select.value));
+
+                const response = await fetch('/qr-code/download-data', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error('서버에서 파일을 생성하지 못했습니다.');
+                }
+
+                const blob = await response.blob();
+                let filename = 'data.xlsx';
+                const disposition = response.headers.get('Content-Disposition');
+                if (disposition) {
+                    const match = disposition.match(/filename\\*=UTF-8''([^;]+)/) || disposition.match(/filename="?([^\";]+)"?/);
+                    if (match && match[1]) {
+                        filename = decodeURIComponent(match[1]);
+                    }
+                }
+
+                const url = window.URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = filename;
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                window.URL.revokeObjectURL(url);
+
+                completionEl.style.display = 'block';
+            } catch (error) {
+                console.error(error);
+                alert('데이터 엑셀 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+            } finally {
+                loadingEl.style.display = 'none';
+                generateBtn.disabled = false;
+                dataDownloadBtn.disabled = false;
+                dataDownloadBtn.innerHTML = '<i class="fas fa-download"></i> 데이터 다운';
                 setTimeout(() => {
                     completionEl.style.display = 'none';
                 }, 3000);
@@ -641,7 +759,9 @@
         
         // 학교 선택 시 버튼 활성화
         document.getElementById('schoolId').addEventListener('change', function() {
-            generateBtn.disabled = !this.value;
+            const isDisabled = !this.value;
+            generateBtn.disabled = isDisabled;
+            dataDownloadBtn.disabled = isDisabled;
         });
         
         // 페이지 로드 시 상태 초기화
@@ -649,7 +769,9 @@
             loadingEl.style.display = 'none';
             completionEl.style.display = 'none';
             generateBtn.disabled = false;
-            generateBtn.innerHTML = '<i class="fas fa-download"></i> QR 코드 엑셀 다운로드';
+            dataDownloadBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="fas fa-download"></i> QR코드 다운';
+            dataDownloadBtn.innerHTML = '<i class="fas fa-download"></i> 데이터 다운';
         });
 
         updatePreviewLines();

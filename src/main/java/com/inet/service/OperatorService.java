@@ -50,4 +50,12 @@ public class OperatorService {
     public Optional<Operator> findByNameAndPositionAndSchool(String name, String position, School school) {
         return operatorRepository.findByNameAndPositionAndSchool(name, position, school);
     }
+    
+    public Optional<Operator> findByNameAndSchoolAndPositionIsNull(String name, School school) {
+        return operatorRepository.findByNameAndSchoolAndPositionIsNull(name, school);
+    }
+    
+    public List<Operator> findBySchoolAndName(School school, String name) {
+        return operatorRepository.findBySchoolAndName(school, name);
+    }
 } 

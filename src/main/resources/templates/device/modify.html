@@ -749,12 +749,19 @@
                             </div>
 
                         <div class="form-group-modern">
-                            <label>
-                                <i class="fas fa-user-tie"></i>
-                                담당자
-                            </label>
-                            <input type="text" name="operatorName" placeholder="담당자명" th:value="${device.operator != null ? device.operator.name : ''}">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <label style="margin-bottom: 0;">
+                                    <i class="fas fa-user-tie"></i>
+                                    담당자
+                                </label>
+                                <button type="button" id="batchUpdateOperatorBtn" class="btn-batch-update" 
+                                        th:disabled="${device.operator == null}"
+                                        style="padding: 0.375rem 0.75rem; background-color: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.75rem; white-space: nowrap; height: fit-content;">
+                                    <i class="fas fa-edit"></i> 일괄수정
+                                </button>
                             </div>
+                            <input type="text" name="operatorName" placeholder="담당자명" th:value="${device.operator != null ? device.operator.name : ''}">
+                        </div>
 
                         <div class="form-group-modern">
                             <label>
@@ -1197,6 +1204,27 @@
 
         // 이벤트 리스너 등록
         document.addEventListener('DOMContentLoaded', function() {
+            // 직접 입력 필드의 원래 name 속성 저장 (페이지 로드 시)
+            const customInputs = [
+                { select: 'uidCate', input: 'uidCateInput' },
+                { select: 'uidYear', input: 'uidYearInput' },
+                { select: 'uidNum', input: 'uidNumInput' },
+                { select: 'manageCate', input: 'manageCateInput' },
+                { select: 'manageYear', input: 'manageYearInput' },
+                { select: 'manageNum', input: 'manageNumInput' }
+            ];
+            
+            customInputs.forEach(({ select: selectId, input: inputId }) => {
+                const select = document.getElementById(selectId);
+                const input = document.getElementById(inputId);
+                if (select && input) {
+                    // select의 원래 name을 data-original-name에 저장
+                    if (select.hasAttribute('name') && !select.hasAttribute('data-original-name')) {
+                        select.setAttribute('data-original-name', select.getAttribute('name'));
+                    }
+                }
+            });
+            
             const schoolSelect = document.querySelector('select[name="school"]');
             const manageCate = document.getElementById('manageCate');
             const manageYear = document.getElementById('manageYear');
@@ -1258,6 +1286,20 @@
                     }
                 }
                 setupCustomInput('manageYear', 'manageYearInput');
+            });
+            
+            // 관리번호 연도 직접 입력 이벤트 (debounce 적용)
+            const manageYearInput = document.getElementById('manageYearInput');
+            let manageYearInputTimeout = null;
+            manageYearInput.addEventListener('input', function() {
+                clearTimeout(manageYearInputTimeout);
+                manageYearInputTimeout = setTimeout(() => {
+                    const yearValue = this.value.trim();
+                    if (yearValue && schoolSelect.value && manageCate.value && manageCate.value !== 'custom') {
+                        console.log('관리번호 - 연도 직접 입력:', yearValue);
+                        loadManageNums(schoolSelect.value, manageCate.value, yearValue);
+                    }
+                }, 500); // 500ms 후 실행
             });
 
             // 번호 선택 이벤트
@@ -1344,6 +1386,20 @@
                 }
                 setupCustomInput('uidYear', 'uidYearInput');
             });
+            
+            // 고유번호 연도 직접 입력 이벤트 (debounce 적용)
+            const uidYearInput = document.getElementById('uidYearInput');
+            let uidYearInputTimeout = null;
+            uidYearInput.addEventListener('input', function() {
+                clearTimeout(uidYearInputTimeout);
+                uidYearInputTimeout = setTimeout(() => {
+                    const yearValue = this.value.trim();
+                    if (yearValue && schoolSelect.value && uidCate.value && uidCate.value !== 'custom') {
+                        console.log('고유번호 - 연도 직접 입력:', yearValue);
+                        loadUidNums(schoolSelect.value, uidCate.value, yearValue);
+                    }
+                }, 500); // 500ms 후 실행
+            });
 
             // 고유번호 번호 선택 이벤트
             uidNum.addEventListener('change', function() {
@@ -1368,10 +1424,25 @@
             if (isCustom) {
                 input.required = true;
                 select.required = false;
+                // 직접 입력 필드 활성화 시: select의 name을 제거하고 input의 name을 select의 원래 name으로 변경
+                if (!select.hasAttribute('data-original-name')) {
+                    select.setAttribute('data-original-name', select.getAttribute('name') || '');
+                }
+                const originalName = select.getAttribute('data-original-name');
+                select.removeAttribute('name');
+                if (originalName) {
+                    input.setAttribute('name', originalName);
+                }
                 input.focus();
             } else {
                 input.required = false;
                 select.required = true;
+                // 직접 입력 필드 비활성화 시: 입력 필드 초기화 및 name 제거, select의 name 복원
+                input.value = '';
+                input.removeAttribute('name');
+                if (select.hasAttribute('data-original-name')) {
+                    select.setAttribute('name', select.getAttribute('data-original-name'));
+                }
             }
         }
 
@@ -1379,17 +1450,38 @@
         document.getElementById('deviceForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            // 필수 필드 검사
-            const requiredFields = document.querySelectorAll('[required]');
+            // 필수 필드 검사 (모달 내부 필드는 제외)
+            const deviceForm = document.getElementById('deviceForm');
+            const requiredFields = deviceForm ? deviceForm.querySelectorAll('[required]') : [];
             let isValid = true;
+            let firstEmptyField = null;
+            const emptyFieldLabels = [];
             
             requiredFields.forEach(field => {
-                if (!field.value) {
+                // 모달 내부 필드는 검사에서 제외
+                const batchUpdateModal = document.getElementById('batchUpdateModal');
+                if (batchUpdateModal && batchUpdateModal.contains(field)) {
+                    return;
+                }
+                
+                if (!field.value || field.value.trim() === '') {
                     isValid = false;
                     // form-group-modern 클래스 사용
                     const formGroup = field.closest('.form-group-modern');
                     if (formGroup) {
                         formGroup.classList.add('has-error');
+                    }
+                    
+                    // 첫 번째 비어있는 필드 저장
+                    if (!firstEmptyField) {
+                        firstEmptyField = field;
+                    }
+                    
+                    // 필드 라벨 찾기
+                    const label = formGroup ? formGroup.querySelector('label') : null;
+                    if (label) {
+                        const labelText = label.textContent.trim().replace(/\s+/g, ' ');
+                        emptyFieldLabels.push(labelText);
                     }
                 } else {
                     const formGroup = field.closest('.form-group-modern');
@@ -1402,7 +1494,18 @@
             if (isValid) {
                 this.submit();
             } else {
-                alert('필수 항목을 모두 입력해주세요.');
+                // 첫 번째 비어있는 필드로 포커스 이동
+                if (firstEmptyField) {
+                    firstEmptyField.focus();
+                    firstEmptyField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                // 알림 메시지 생성
+                let message = '필수 항목을 모두 입력해주세요.';
+                if (emptyFieldLabels.length > 0 && emptyFieldLabels.length <= 3) {
+                    message += '\n\n누락된 항목: ' + emptyFieldLabels.join(', ');
+                }
+                alert(message);
             }
         });
 
@@ -1813,6 +1916,795 @@
                 })
                 .catch(error => console.error('교실 로드 오류:', error));
         }
+        
+        // 담당자 일괄수정 모달 관련 코드
+        document.addEventListener('DOMContentLoaded', function() {
+            const batchUpdateOperatorBtn = document.getElementById('batchUpdateOperatorBtn');
+            const batchUpdateModal = document.getElementById('batchUpdateModal');
+            const closeBatchUpdateModal = document.getElementById('closeBatchUpdateModal');
+            const selectAllDevicesBtn = document.getElementById('selectAllDevicesBtn');
+            const batchUpdateForm = document.getElementById('batchUpdateForm');
+            const deviceListContainer = document.getElementById('deviceListContainer');
+            
+            if (batchUpdateOperatorBtn) {
+                batchUpdateOperatorBtn.addEventListener('click', function() {
+                    const operatorNameInput = document.querySelector('input[name="operatorName"]');
+                    const operatorName = operatorNameInput ? operatorNameInput.value.trim() : '';
+                    const operatorId = /*[[${device.operator != null ? device.operator.operatorId : null}]]*/ null;
+                    
+                    // 학교 정보는 폼의 select에서 가져오기
+                    const schoolSelect = document.querySelector('select[name="school"]');
+                    const schoolId = schoolSelect ? schoolSelect.value : null;
+                    
+                    if (!schoolId || schoolId === '') {
+                        alert('학교를 선택해주세요.');
+                        return;
+                    }
+                    
+                    if (!operatorName && !operatorId) {
+                        alert('담당자 이름을 입력해주세요.');
+                        return;
+                    }
+                    
+                    // 모달 열기
+                    if (batchUpdateModal) {
+                        batchUpdateModal.style.display = 'block';
+                        
+                        // 모달 내부 필드 초기화 (외부 폼과 완전히 분리)
+                        const newOperatorNameInput = document.getElementById('newOperatorName');
+                        const newOperatorPositionInput = document.getElementById('newOperatorPosition');
+                        if (newOperatorNameInput) {
+                            newOperatorNameInput.value = '';
+                        }
+                        if (newOperatorPositionInput) {
+                            newOperatorPositionInput.value = '';
+                        }
+                        
+                        // 장비 목록 로드
+                        loadDevicesByOperator(schoolId, operatorId, operatorName);
+                    } else {
+                        console.error('모달을 찾을 수 없습니다.');
+                        alert('모달을 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+                    }
+                });
+            }
+            
+            if (closeBatchUpdateModal && batchUpdateModal) {
+                closeBatchUpdateModal.addEventListener('click', function() {
+                    if (batchUpdateModal) {
+                        batchUpdateModal.style.display = 'none';
+                        // 모달 닫을 때 필드 초기화
+                        const newOperatorNameInput = document.getElementById('newOperatorName');
+                        const newOperatorPositionInput = document.getElementById('newOperatorPosition');
+                        if (newOperatorNameInput) {
+                            newOperatorNameInput.value = '';
+                        }
+                        if (newOperatorPositionInput) {
+                            newOperatorPositionInput.value = '';
+                        }
+                    }
+                });
+            }
+            
+            // 모달 외부 클릭 시 닫기
+            if (batchUpdateModal) {
+                batchUpdateModal.addEventListener('click', function(e) {
+                    if (e.target === batchUpdateModal && batchUpdateModal) {
+                        batchUpdateModal.style.display = 'none';
+                        // 모달 닫을 때 필드 초기화
+                        const newOperatorNameInput = document.getElementById('newOperatorName');
+                        const newOperatorPositionInput = document.getElementById('newOperatorPosition');
+                        if (newOperatorNameInput) {
+                            newOperatorNameInput.value = '';
+                        }
+                        if (newOperatorPositionInput) {
+                            newOperatorPositionInput.value = '';
+                        }
+                    }
+                });
+            }
+            
+            // 일괄선택 버튼
+            if (selectAllDevicesBtn) {
+                selectAllDevicesBtn.addEventListener('click', function() {
+                    const checkboxes = document.querySelectorAll('.device-checkbox');
+                    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                    
+                    checkboxes.forEach(cb => {
+                        cb.checked = !allChecked;
+                    });
+                    
+                    selectAllDevicesBtn.textContent = allChecked ? '전체 선택' : '전체 해제';
+                });
+            }
+            
+            // 장비 목록 로드 함수 (모달 내부에서 사용)
+            window.loadDevicesByOperator = function(schoolId, operatorId, operatorName) {
+                const container = document.getElementById('deviceListContainer');
+                if (!container) {
+                    console.error('deviceListContainer를 찾을 수 없습니다.');
+                    return;
+                }
+                
+                container.innerHTML = '<div style="text-align: center; padding: 2rem;">로딩 중...</div>';
+                
+                let url = `/device/api/devices-by-operator?schoolId=${schoolId}`;
+                if (operatorId) {
+                    url += `&operatorId=${operatorId}`;
+                } else if (operatorName) {
+                    url += `&operatorName=${encodeURIComponent(operatorName)}`;
+                }
+                
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            window.renderDeviceList(data.devices, data.groupedDevices);
+                        } else {
+                            container.innerHTML = `<div style="text-align: center; padding: 2rem; color: red;">오류: ${data.error}</div>`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('장비 목록 로드 오류:', error);
+                        container.innerHTML = `<div style="text-align: center; padding: 2rem; color: red;">오류가 발생했습니다.</div>`;
+                    });
+            };
+            
+            // 장비 목록 렌더링 (교실, 세트 단위로 그룹화)
+            window.renderDeviceList = function(devices, groupedDevices) {
+                const container = document.getElementById('deviceListContainer');
+                if (!container) {
+                    console.error('deviceListContainer를 찾을 수 없습니다.');
+                    return;
+                }
+            if (!devices || devices.length === 0) {
+                deviceListContainer.innerHTML = '<div style="text-align: center; padding: 2rem;">해당 담당자가 지정된 장비가 없습니다.</div>';
+                return;
+            }
+            
+            let html = '<div class="device-list-wrapper">';
+            
+            // 교실별로 그룹화
+            const classroomGroups = {};
+            Object.keys(groupedDevices).forEach(groupKey => {
+                const [classroomName, setType] = groupKey.split('|');
+                if (!classroomGroups[classroomName]) {
+                    classroomGroups[classroomName] = [];
+                }
+                classroomGroups[classroomName].push({ setType, devices: groupedDevices[groupKey] });
+            });
+            
+            // 교실명으로 정렬
+            const sortedClassrooms = Object.keys(classroomGroups).sort();
+            let lastClassroomName = '';
+            
+            sortedClassrooms.forEach(classroomName => {
+                const sets = classroomGroups[classroomName];
+                const hasMultipleSets = sets.length > 1 || (sets.length === 1 && sets[0].setType !== '미지정 세트');
+                
+                // 교실 헤더 (여러 세트가 있거나 이전 교실과 다를 때만 표시)
+                if (hasMultipleSets && classroomName !== lastClassroomName) {
+                    html += `<div class="device-group-header">
+                        <i class="fas fa-door-open"></i> ${classroomName}
+                    </div>`;
+                    lastClassroomName = classroomName;
+                }
+                
+                // 세트별로 정렬
+                sets.sort((a, b) => {
+                    if (a.setType === '미지정 세트') return 1;
+                    if (b.setType === '미지정 세트') return -1;
+                    return a.setType.localeCompare(b.setType);
+                });
+                
+                sets.forEach(({ setType, devices: groupDevices }) => {
+                    // 세트 헤더
+                    if (setType !== '미지정 세트') {
+                        html += `<div class="device-set-header">
+                            <i class="fas fa-layer-group"></i> 세트: ${setType}
+                        </div>`;
+                    }
+                    
+                    // 장비 카드 형태로 표시
+                    groupDevices.forEach(device => {
+                    // 고유번호 표시
+                    let displayUid = '';
+                    if (device.uid) {
+                        if (device.uid.displayUid) {
+                            displayUid = device.uid.displayUid;
+                        } else if (device.uid.cate && device.uid.idNumber) {
+                            displayUid = device.uid.cate + (device.uid.mfgYear || '') + String(device.uid.idNumber).padStart(4, '0');
+                        }
+                    }
+                    
+                    // 관리번호 표시
+                    let displayId = '';
+                    if (device.manage) {
+                        if (device.manage.displayId) {
+                            displayId = device.manage.displayId;
+                        } else if (device.manage.manageCate && device.manage.manageNum) {
+                            displayId = device.manage.manageCate + (device.manage.year ? device.manage.year : '') + '-' + device.manage.manageNum;
+                        }
+                    }
+                    
+                        // 도입일자 표시
+                        let purchaseDateStr = '';
+                        if (device.purchaseDate) {
+                            try {
+                                const date = new Date(device.purchaseDate);
+                                if (!isNaN(date.getTime())) {
+                                    purchaseDateStr = date.getFullYear() + '년 ' + String(date.getMonth() + 1).padStart(2, '0') + '월';
+                                }
+                            } catch (e) {
+                                purchaseDateStr = device.purchaseDate;
+                            }
+                        }
+                        
+                        html += `<div class="device-card-item">
+                            <div class="device-card-checkbox">
+                                <input type="checkbox" class="device-checkbox" value="${device.deviceId}" id="device-${device.deviceId}">
+                            </div>
+                            <div class="device-card-content">
+                                <div class="device-card-row">
+                                    <div class="device-card-field">
+                                        <span class="field-label">학교</span>
+                                        <span class="field-value">${device.school ? device.school.schoolName : '미지정'}</span>
+                                    </div>
+                                    <div class="device-card-field">
+                                        <span class="field-label">고유번호</span>
+                                        <span class="field-value">${displayUid || '-'}</span>
+                                    </div>
+                                    <div class="device-card-field">
+                                        <span class="field-label">관리번호</span>
+                                        <span class="field-value">${displayId || '-'}</span>
+                                    </div>
+                                </div>
+                                <div class="device-card-row">
+                                    <div class="device-card-field">
+                                        <span class="field-label">유형</span>
+                                        <span class="field-value">${device.type || '-'}</span>
+                                    </div>
+                                    <div class="device-card-field">
+                                        <span class="field-label">직위</span>
+                                        <span class="field-value">${device.operator && device.operator.position ? device.operator.position : '-'}</span>
+                                    </div>
+                                    <div class="device-card-field">
+                                        <span class="field-label">담당자</span>
+                                        <span class="field-value">${device.operator && device.operator.name ? device.operator.name : '-'}</span>
+                                    </div>
+                                </div>
+                                <div class="device-card-row">
+                                    <div class="device-card-field">
+                                        <span class="field-label">제조사</span>
+                                        <span class="field-value">${device.manufacturer || '-'}</span>
+                                    </div>
+                                    <div class="device-card-field">
+                                        <span class="field-label">모델명</span>
+                                        <span class="field-value">${device.modelName || '-'}</span>
+                                    </div>
+                                    <div class="device-card-field">
+                                        <span class="field-label">도입일자</span>
+                                        <span class="field-value">${purchaseDateStr || '-'}</span>
+                                    </div>
+                                </div>
+                                <div class="device-card-row">
+                                    <div class="device-card-field">
+                                        <span class="field-label">IP주소</span>
+                                        <span class="field-value">${device.ipAddress || '-'}</span>
+                                    </div>
+                                    <div class="device-card-field">
+                                        <span class="field-label">교실</span>
+                                        <span class="field-value">${device.classroom && device.classroom.roomName ? device.classroom.roomName : '-'}</span>
+                                    </div>
+                                    <div class="device-card-field">
+                                        <span class="field-label">용도</span>
+                                        <span class="field-value">${device.purpose || '-'}</span>
+                                    </div>
+                                </div>
+                                <div class="device-card-row">
+                                    <div class="device-card-field">
+                                        <span class="field-label">set분류</span>
+                                        <span class="field-value">${device.setType || '-'}</span>
+                                    </div>
+                                    <div class="device-card-field full-width">
+                                        <span class="field-label">비고</span>
+                                        <span class="field-value">${device.note || '-'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+                });
+            });
+            
+                html += '</div>';
+                container.innerHTML = html;
+            };
+        
+            // 일괄 수정 폼 제출
+            if (batchUpdateForm) {
+            batchUpdateForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const checkedDevices = Array.from(document.querySelectorAll('.device-checkbox:checked'))
+                    .map(cb => parseInt(cb.value));
+                
+                if (checkedDevices.length === 0) {
+                    alert('수정할 장비를 선택해주세요.');
+                    return;
+                }
+                
+                const newOperatorName = document.getElementById('newOperatorName').value.trim();
+                const newOperatorPosition = document.getElementById('newOperatorPosition').value.trim();
+                
+                if (!newOperatorName) {
+                    alert('새 담당자 이름을 입력해주세요.');
+                    return;
+                }
+                
+                // 확인 알림
+                if (!confirm('해당 수정버튼을 누를시 즉시 장비들의 담당자 정보가 변경됩니다.')) {
+                    return;
+                }
+                
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.textContent;
+                submitBtn.disabled = true;
+                submitBtn.textContent = '수정 중...';
+                
+                fetch('/device/api/batch-update-operator', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        deviceIds: checkedDevices,
+                        newOperatorName: newOperatorName,
+                        newOperatorPosition: newOperatorPosition
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('담당자가 성공적으로 수정되었습니다.');
+                        if (batchUpdateModal) {
+                            batchUpdateModal.style.display = 'none';
+                        }
+                        location.reload();
+                    } else {
+                        alert('오류: ' + data.error);
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('일괄 수정 오류:', error);
+                    alert('오류가 발생했습니다.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                });
+            });
+        }
+        }); // DOMContentLoaded 종료
     </script>
+    
+    <!-- 담당자 일괄수정 모달 -->
+    <div id="batchUpdateModal" class="batch-update-modal" style="display: none;">
+        <div class="batch-update-modal-content">
+            <div class="batch-update-modal-header">
+                <h2><i class="fas fa-users"></i> 담당자 일괄수정</h2>
+                <div class="header-actions">
+                    <button type="button" id="selectAllDevicesBtn" class="btn-select-all">전체 선택</button>
+                    <span class="close-batch-update-modal" id="closeBatchUpdateModal">&times;</span>
+                </div>
+            </div>
+            <div class="batch-update-modal-body">
+                <div id="deviceListContainer" class="device-list-container">
+                    <!-- 장비 목록이 여기에 표시됩니다 -->
+                </div>
+                <form id="batchUpdateForm" class="batch-update-form">
+                    <div class="batch-update-inputs">
+                        <div class="form-group-modern">
+                            <label>
+                                <i class="fas fa-user-tie"></i>
+                                새 담당자
+                            </label>
+                            <input type="text" id="newOperatorName" placeholder="담당자명" required>
+                        </div>
+                        <div class="form-group-modern">
+                            <label>
+                                <i class="fas fa-id-badge"></i>
+                                새 직위
+                            </label>
+                            <input type="text" id="newOperatorPosition" placeholder="담당자 직위">
+                        </div>
+                    </div>
+                    <div class="batch-update-actions">
+                        <button type="submit" class="btn-submit">수정</button>
+                        <button type="button" class="btn-cancel" onclick="document.getElementById('batchUpdateModal').style.display='none'">취소</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .btn-batch-update {
+            transition: all 0.3s ease;
+        }
+        .btn-batch-update:hover:not(:disabled) {
+            background-color: #2563eb !important;
+            transform: translateY(-1px);
+        }
+        .btn-batch-update:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .batch-update-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .batch-update-modal-content {
+            background-color: #fefefe;
+            margin: 2% auto;
+            padding: 0;
+            border: 1px solid #888;
+            border-radius: 16px;
+            width: 95%;
+            max-width: 1400px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        
+        .batch-update-modal-header {
+            padding: 0.7rem 1.4rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .batch-update-modal-header h2 {
+            margin: 0;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .close-batch-update-modal {
+            color: white;
+            font-size: 1.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            line-height: 1;
+        }
+        
+        .close-batch-update-modal:hover {
+            transform: scale(1.2);
+        }
+        
+        .batch-update-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .btn-select-all {
+            padding: 0.4rem 0.8rem;
+            background-color: #10b981;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background-color 0.3s;
+            white-space: nowrap;
+        }
+        
+        .btn-select-all:hover {
+            background-color: #059669;
+        }
+        
+        .device-list-container {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 1.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        
+        .device-list-wrapper {
+            padding: 1rem;
+        }
+        
+        .device-group-header {
+            background-color: #eff6ff;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            color: #1e40af;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .device-group-header:first-child {
+            margin-top: 0;
+        }
+        
+        .device-set-header {
+            background-color: #f0fdf4;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            color: #166534;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: 1rem;
+        }
+        
+        .device-card-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        .device-card-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-color: #3b82f6;
+        }
+        
+        .device-card-checkbox {
+            display: flex;
+            align-items: flex-start;
+            padding-top: 0.25rem;
+        }
+        
+        .device-checkbox {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+        
+        .device-card-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .device-card-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+        
+        .device-card-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .device-card-field.full-width {
+            grid-column: span 2;
+        }
+        
+        .device-card-field .field-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            font-weight: 500;
+        }
+        
+        .device-card-field .field-value {
+            font-size: 0.875rem;
+            color: #1f2937;
+        }
+        
+        .batch-update-form {
+            border-top: 2px solid #e5e7eb;
+            padding-top: 1.5rem;
+        }
+        
+        .batch-update-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .batch-update-actions {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+        
+        .btn-cancel {
+            padding: 0.75rem 1.5rem;
+            background-color: #6b7280;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-cancel:hover {
+            background-color: #4b5563;
+        }
+        
+        .btn-submit {
+            padding: 0.75rem 1.5rem;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-submit:hover {
+            background-color: #2563eb;
+        }
+        
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 모바일/태블릿 최적화 */
+        @media (max-width: 1024px) {
+            .batch-update-modal-content {
+                width: 98%;
+                margin: 1% auto;
+                max-height: 95vh;
+            }
+            
+            .batch-update-modal-header {
+                padding: 0.6rem 1rem;
+            }
+            
+            .batch-update-modal-header h2 {
+                font-size: 1.1rem;
+            }
+            
+            .btn-select-all {
+                padding: 0.35rem 0.7rem;
+                font-size: 0.75rem;
+            }
+            
+            .close-batch-update-modal {
+                font-size: 1.5rem;
+            }
+            
+            .batch-update-modal-body {
+                padding: 1rem;
+            }
+            
+            .device-card-row {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+            
+            .device-card-field.full-width {
+                grid-column: 1 / -1;
+            }
+            
+            .batch-update-inputs {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .batch-update-modal-header {
+                padding: 0.5rem 0.8rem;
+                flex-wrap: wrap;
+            }
+            
+            .batch-update-modal-header h2 {
+                font-size: 1rem;
+                flex: 1;
+                min-width: 0;
+            }
+            
+            .header-actions {
+                gap: 0.5rem;
+            }
+            
+            .btn-select-all {
+                padding: 0.3rem 0.6rem;
+                font-size: 0.7rem;
+            }
+            
+            .close-batch-update-modal {
+                font-size: 1.3rem;
+            }
+            
+            .device-card-item {
+                flex-direction: column;
+                padding: 0.75rem;
+            }
+            
+            .device-card-checkbox {
+                align-self: flex-start;
+            }
+            
+            .device-card-row {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.5rem;
+            }
+            
+            .device-card-field.full-width {
+                grid-column: 1 / -1;
+            }
+            
+            .device-card-field.full-width {
+                grid-column: span 1;
+            }
+            
+            .device-group-header,
+            .device-set-header {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.875rem;
+            }
+            
+            .batch-update-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .btn-submit,
+            .btn-cancel {
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .batch-update-modal-content {
+                width: 100%;
+                margin: 0;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+            
+            .batch-update-modal-header {
+                border-radius: 0;
+            }
+            
+            .device-list-container {
+                max-height: 300px;
+            }
+        }
+    </style>
 </body>
 </html> 

@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 public class WirelessApHistoryService {
@@ -47,6 +49,17 @@ public class WirelessApHistoryService {
      */
     public List<WirelessApHistory> getWirelessApHistory(WirelessAp wirelessAp) {
         return wirelessApHistoryRepository.findByWirelessApOrderByModifiedAtDesc(wirelessAp);
+    }
+    
+    /**
+     * 무선AP별 마지막 수정일자 조회
+     */
+    public Optional<LocalDateTime> getLastModifiedDate(WirelessAp wirelessAp) {
+        List<WirelessApHistory> histories = wirelessApHistoryRepository.findByWirelessApOrderByModifiedAtDesc(wirelessAp);
+        if (histories.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(histories.get(0).getModifiedAt());
     }
     
     /**

@@ -248,15 +248,9 @@ public class WirelessApHistoryController {
         // 제목 행
         Row titleRow = sheet.createRow(rowNum++);
         Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue("무선AP 수정내역");
+        titleCell.setCellValue((schoolName != null ? schoolName : "") + " 무선AP 수정목록");
         titleCell.setCellStyle(headerStyle);
         sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, 6));
-        
-        // 학교명 행
-        Row schoolRow = sheet.createRow(rowNum++);
-        Cell schoolCell = schoolRow.createCell(0);
-        schoolCell.setCellValue("학교: " + (schoolName != null ? schoolName : ""));
-        schoolCell.setCellStyle(dataStyle);
         
         // 검색 키워드 행 (검색이 있는 경우)
         if (keyword != null && !keyword.trim().isEmpty()) {
@@ -338,9 +332,46 @@ public class WirelessApHistoryController {
             userCell.setCellStyle(dataStyle);
         }
         
-        // 컬럼 너비 자동 조정
+        // 컬럼 너비 자동 조정 (데이터 값에 비례)
         for (int i = 0; i < headers.length; i++) {
-            sheet.autoSizeColumn(i);
+            int maxLength = headers[i].length(); // 헤더 길이로 시작
+            
+            // 해당 컬럼의 모든 셀 값 확인하여 최대 길이 찾기
+            for (int rowIdx = 0; rowIdx <= rowNum - 1; rowIdx++) {
+                Row row = sheet.getRow(rowIdx);
+                if (row != null) {
+                    Cell cell = row.getCell(i);
+                    if (cell != null) {
+                        String cellValue = "";
+                        switch (cell.getCellType()) {
+                            case STRING:
+                                cellValue = cell.getStringCellValue();
+                                break;
+                            case NUMERIC:
+                                cellValue = String.valueOf(cell.getNumericCellValue());
+                                break;
+                            case BOOLEAN:
+                                cellValue = String.valueOf(cell.getBooleanCellValue());
+                                break;
+                            case FORMULA:
+                                cellValue = cell.getCellFormula();
+                                break;
+                        }
+                        // 한글 문자는 영문보다 더 넓으므로 가중치 적용
+                        int weightedLength = calculateWeightedLength(cellValue);
+                        if (weightedLength > maxLength) {
+                            maxLength = weightedLength;
+                        }
+                    }
+                }
+            }
+            
+            // 너비 계산: 한글 기준으로 더 넓게 설정
+            int columnWidth = (int) (maxLength * 256 * 1.5) + 1000; // 여유 공간 추가
+            if (columnWidth < 2500) {
+                columnWidth = 2500; // 최소 너비
+            }
+            sheet.setColumnWidth(i, columnWidth);
         }
         
         // ByteArrayOutputStream에 쓰기
@@ -352,37 +383,59 @@ public class WirelessApHistoryController {
     }
     
     /**
-     * 헤더 스타일 생성
+     * 헤더 스타일 생성 (장비 수정목록과 동일한 스타일)
      */
     private CellStyle createHeaderStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
         Font font = workbook.createFont();
         font.setBold(true);
-        font.setColor(IndexedColors.WHITE.getIndex());
+        font.setFontHeightInPoints((short) 12);
         style.setFont(font);
-        style.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
-        style.setBorderTop(BorderStyle.THIN);
-        style.setBorderBottom(BorderStyle.THIN);
-        style.setBorderLeft(BorderStyle.THIN);
-        style.setBorderRight(BorderStyle.THIN);
         return style;
     }
     
     /**
-     * 데이터 스타일 생성
+     * 데이터 스타일 생성 (장비 수정목록과 동일한 스타일)
      */
     private CellStyle createDataStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
         style.setAlignment(HorizontalAlignment.LEFT);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
-        style.setBorderTop(BorderStyle.THIN);
-        style.setBorderBottom(BorderStyle.THIN);
-        style.setBorderLeft(BorderStyle.THIN);
-        style.setBorderRight(BorderStyle.THIN);
         return style;
+    }
+    
+    /**
+     * 한글 문자를 고려한 가중치 길이 계산
+     */
+    private int calculateWeightedLength(String text) {
+        if (text == null) {
+            return 0;
+        }
+        int length = 0;
+        for (char c : text.toCharArray()) {
+            // 한글, 한자, 일본어 등은 2배 가중치
+            if ((c >= 0xAC00 && c <= 0xD7A3) || // 한글
+                (c >= 0x4E00 && c <= 0x9FFF) || // 한자
+                (c >= 0x3040 && c <= 0x309F) || // 히라가나
+                (c >= 0x30A0 && c <= 0x30FF)) { // 가타카나
+                length += 2;
+            } else {
+                length += 1;
+            }
+        }
+        return length;
     }
     
     /**

@@ -41,6 +41,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Optional;
 
 @Slf4j
 @Controller
@@ -55,6 +56,7 @@ public class WirelessApController {
     private final SchoolPermissionService schoolPermissionService;
     private final UserService userService;
     private final PermissionHelper permissionHelper;
+    private final com.inet.service.WirelessApHistoryService wirelessApHistoryService;
 
     // 권한 체크 메서드
     private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
@@ -255,6 +257,7 @@ public class WirelessApController {
         }
         
         wirelessApService.updateWirelessApWithHistory(wirelessAp, user);
+        redirectAttributes.addFlashAttribute("success", "무선 AP가 성공적으로 수정되었습니다.");
         return "redirect:/wireless-ap/list";
     }
 
@@ -386,28 +389,58 @@ public class WirelessApController {
             dataStyle.setBorderLeft(BorderStyle.THIN);
             dataStyle.setBorderRight(BorderStyle.THIN);
 
-            // 1행: 학교이름 + "무선 AP" 표기
+            // 1행: 학교이름 + "무선 AP 현황" 표기
             String schoolName = "";
             if (!wirelessAps.isEmpty() && wirelessAps.get(0).getSchool() != null) {
                 schoolName = wirelessAps.get(0).getSchool().getSchoolName();
             }
             Row titleRow = sheet.createRow(0);
             Cell titleCell = titleRow.createCell(0);
-            titleCell.setCellValue(schoolName + " 무선 AP");
+            titleCell.setCellValue(schoolName + " 무선 AP 현황");
             titleCell.setCellStyle(headerStyle);
             sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 10)); // A1:K1 병합
 
-            // 2행: 오늘날짜 표기 (A2에만 표시)
+            // 2행: AP 정보의 마지막 수정일자 표기 (A2에만 표시)
+            // AP 정보의 마지막 수정일자 조회 (모든 AP 중 가장 최근 수정일자)
+            java.time.LocalDateTime lastModifiedDateTime = null;
+            for (WirelessAp ap : wirelessAps) {
+                Optional<java.time.LocalDateTime> lastModified = wirelessApHistoryService.getLastModifiedDate(ap);
+                if (lastModified.isPresent()) {
+                    if (lastModifiedDateTime == null || lastModified.get().isAfter(lastModifiedDateTime)) {
+                        lastModifiedDateTime = lastModified.get();
+                    }
+                }
+            }
+            
+            // 작성일자: 마지막 수정일자가 있으면 그것을 사용, 없으면 현재 날짜
+            String dateStr;
+            if (lastModifiedDateTime != null) {
+                dateStr = lastModifiedDateTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            } else {
+                dateStr = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            }
+            
+            // 작성일자 스타일 생성 (배경색 없음)
+            CellStyle dateStyle = workbook.createCellStyle();
+            dateStyle.setAlignment(HorizontalAlignment.RIGHT);
+            Font dateFont = workbook.createFont();
+            dateFont.setBold(true);
+            dateStyle.setFont(dateFont);
+            // 배경색 제거 (기본 스타일 유지)
+            
+            // 두번째 행: 작성일자 (오른쪽 끝에 배치)
+            int lastCol = 10; // K열 (마지막 컬럼)
             Row dateRow = sheet.createRow(1);
-            Cell dateCell = dateRow.createCell(0);
-            dateCell.setCellValue(java.time.LocalDate.now().toString());
-            dateCell.setCellStyle(headerStyle);
-            // A2에만 날짜 표시, 병합 제거
+            Cell dateLabelCell = dateRow.createCell(lastCol - 1); // 마지막 컬럼에서 두 번째
+            dateLabelCell.setCellValue("작성일자");
+            dateLabelCell.setCellStyle(dateStyle);
+            
+            Cell dateValueCell = dateRow.createCell(lastCol); // 마지막 컬럼
+            dateValueCell.setCellValue(dateStr);
+            dateValueCell.setCellStyle(dateStyle);
 
-            // 3행: 빈 행
-
-            // 4행: 헤더 (학교컬럼 제거)
-            Row headerRow = sheet.createRow(3);
+            // 세번째 행: 헤더 (학교컬럼 제거)
+            Row headerRow = sheet.createRow(2);
             String[] headers = {"현위치", "교실구분", "신규라벨번호", "장비번호", "도입년도", "제조사", "모델", "MAC주소", "기존위치", "기존라벨번호", "속도"};
             
             for (int i = 0; i < headers.length; i++) {
@@ -417,8 +450,8 @@ public class WirelessApController {
                 sheet.setColumnWidth(i, 4000);
             }
 
-            // 데이터 행 생성 (4행부터 시작)
-            int rowNum = 4;
+            // 데이터 행 생성 (3행부터 시작)
+            int rowNum = 3;
             for (WirelessAp ap : wirelessAps) {
                 Row row = sheet.createRow(rowNum++);
                 
@@ -499,10 +532,30 @@ public class WirelessApController {
         titleCell.setCellStyle(headerStyle);
         summarySheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 6)); // A1:G1 병합
 
-        // 2행: 오늘날짜 표기 (A2에만 표시)
+        // AP 정보의 마지막 수정일자 조회 (모든 AP 중 가장 최근 수정일자)
+        java.time.LocalDate lastModifiedDate = null;
+        for (WirelessAp ap : wirelessAps) {
+            Optional<java.time.LocalDateTime> lastModified = wirelessApHistoryService.getLastModifiedDate(ap);
+            if (lastModified.isPresent()) {
+                java.time.LocalDate apModifiedDate = lastModified.get().toLocalDate();
+                if (lastModifiedDate == null || apModifiedDate.isAfter(lastModifiedDate)) {
+                    lastModifiedDate = apModifiedDate;
+                }
+            }
+        }
+        
+        // 작성일자: 마지막 수정일자가 있으면 그것을 사용, 없으면 현재 날짜
+        String dateStr;
+        if (lastModifiedDate != null) {
+            dateStr = lastModifiedDate.toString();
+        } else {
+            dateStr = java.time.LocalDate.now().toString();
+        }
+        
+        // 2행: 마지막 수정일자 표기 (A2에만 표시)
         Row dateRow = summarySheet.createRow(1);
         Cell dateCell = dateRow.createCell(0);
-        dateCell.setCellValue(java.time.LocalDate.now().toString());
+        dateCell.setCellValue(dateStr);
         dateCell.setCellStyle(headerStyle);
         // A2에만 날짜 표시, 병합 제거
 

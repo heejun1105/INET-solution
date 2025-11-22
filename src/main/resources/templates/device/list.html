@@ -673,7 +673,7 @@
                         <button id="deviceListBtn" class="btn btn-orange" onclick="openDeviceList()" th:style="${inspectionMode ? '' : 'display: none;'}">
                             <i class="fas fa-list" style="color: white;"></i> <span style="color: white;">장비목록</span>
                         </button>
-                        <a th:href="@{/device/excel(schoolId=${selectedSchoolId}, type=${selectedType}, classroomId=${selectedClassroomId})}" class="btn btn-success" id="excelDownloadBtn" onclick="downloadExcelWithInspection()">
+                        <a th:href="@{/device/excel(schoolId=${selectedSchoolId}, type=${selectedType}, classroomId=${selectedClassroomId})}" class="btn btn-success" id="excelDownloadBtn" onclick="downloadExcelWithInspection(event)">
                             <i class="fas fa-file-excel" style="color: white;"></i> <span style="color: white;">엑셀 다운로드</span>
                         </a>
                         <a th:href="@{/device/history/list(schoolId=${selectedSchoolId})}" class="btn btn-info">
@@ -1613,7 +1613,16 @@
         });
         
         // 엑셀 다운로드 (검사 데이터 포함)
-        function downloadExcelWithInspection() {
+        function downloadExcelWithInspection(event) {
+            if (event) {
+                event.preventDefault();
+            }
+            
+            // 진행 표시
+            const excelBtn = document.getElementById('excelDownloadBtn');
+            const originalHtml = excelBtn.innerHTML;
+            excelBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color: white;"></i> <span style="color: white;">엑셀 다운로드 중...</span>';
+            excelBtn.style.pointerEvents = 'none';
             if (isInspectionMode) {
                 // 검사모드인 경우 서버에서 검사 상태를 가져와서 엑셀 다운로드
                 const schoolSelectElement = document.getElementById('schoolSelect');
@@ -1664,16 +1673,27 @@
                                 form.appendChild(classroomIdInput);
                                 
                                 document.body.appendChild(form);
+                                // form 제출 후에도 진행 표시 유지
                                 form.submit();
+                                // form 제출은 페이지 이동을 유발하므로 진행 표시는 계속 유지됨
                                 document.body.removeChild(form);
                             } else {
                                 // 검사 상태가 없는 경우 일반 엑셀 다운로드
                                 const excelBtn = document.getElementById('excelDownloadBtn');
                                 if (excelBtn && excelBtn.href) {
                                     window.location.href = excelBtn.href;
+                                    // 다운로드 시작 후 버튼 복원 (약간의 지연)
+                                    setTimeout(() => {
+                                        excelBtn.innerHTML = originalHtml;
+                                        excelBtn.style.pointerEvents = '';
+                                    }, 3000);
                                 } else {
                                     // fallback: 직접 URL 구성
                                     window.location.href = '/device/excel';
+                                    setTimeout(() => {
+                                        excelBtn.innerHTML = originalHtml;
+                                        excelBtn.style.pointerEvents = '';
+                                    }, 3000);
                                 }
                             }
                         })
@@ -1681,11 +1701,21 @@
                             console.error('검사 상태 로드 중 오류:', error);
                             // 오류 발생 시 일반 엑셀 다운로드
                             const excelBtn = document.getElementById('excelDownloadBtn');
+                            // 진행 표시 유지
                             if (excelBtn && excelBtn.href) {
                                 window.location.href = excelBtn.href;
+                                // 다운로드 시작 후 버튼 복원 (약간의 지연)
+                                setTimeout(() => {
+                                    excelBtn.innerHTML = originalHtml;
+                                    excelBtn.style.pointerEvents = '';
+                                }, 3000);
                             } else {
                                 // fallback: 직접 URL 구성
                                 window.location.href = '/device/excel';
+                                setTimeout(() => {
+                                    excelBtn.innerHTML = originalHtml;
+                                    excelBtn.style.pointerEvents = '';
+                                }, 3000);
                             }
                         });
                 } else {
@@ -1693,9 +1723,18 @@
                     const excelBtn = document.getElementById('excelDownloadBtn');
                     if (excelBtn && excelBtn.href) {
                         window.location.href = excelBtn.href;
+                        // 다운로드 시작 후 버튼 복원 (약간의 지연)
+                        setTimeout(() => {
+                            excelBtn.innerHTML = originalHtml;
+                            excelBtn.style.pointerEvents = '';
+                        }, 3000);
                     } else {
                         // fallback: 직접 URL 구성
                         window.location.href = '/device/excel';
+                        setTimeout(() => {
+                            excelBtn.innerHTML = originalHtml;
+                            excelBtn.style.pointerEvents = '';
+                        }, 3000);
                     }
                 }
             } else {
@@ -1703,9 +1742,18 @@
                 const excelBtn = document.getElementById('excelDownloadBtn');
                 if (excelBtn && excelBtn.href) {
                     window.location.href = excelBtn.href;
+                    // 다운로드 시작 후 버튼 복원 (약간의 지연)
+                    setTimeout(() => {
+                        excelBtn.innerHTML = originalHtml;
+                        excelBtn.style.pointerEvents = '';
+                    }, 3000);
                 } else {
                     // fallback: 직접 URL 구성
                     window.location.href = '/device/excel';
+                    setTimeout(() => {
+                        excelBtn.innerHTML = originalHtml;
+                        excelBtn.style.pointerEvents = '';
+                    }, 3000);
                 }
             }
         }

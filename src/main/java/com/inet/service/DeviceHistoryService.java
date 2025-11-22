@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 public class DeviceHistoryService {
@@ -47,6 +49,28 @@ public class DeviceHistoryService {
      */
     public List<DeviceHistory> getDeviceHistory(Device device) {
         return deviceHistoryRepository.findByDeviceOrderByModifiedAtDesc(device);
+    }
+    
+    /**
+     * 장비별 마지막 수정일자 조회
+     */
+    public Optional<LocalDateTime> getLastModifiedDate(Device device) {
+        List<DeviceHistory> histories = deviceHistoryRepository.findByDeviceOrderByModifiedAtDesc(device);
+        if (histories.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(histories.get(0).getModifiedAt());
+    }
+    
+    /**
+     * 장비의 IP 주소 필드가 수정된 마지막 날짜 조회
+     */
+    public Optional<LocalDateTime> getLastIpAddressModifiedDate(Device device) {
+        List<DeviceHistory> histories = deviceHistoryRepository.findByDeviceOrderByModifiedAtDesc(device);
+        return histories.stream()
+                .filter(h -> "ipAddress".equals(h.getFieldName()))
+                .findFirst()
+                .map(DeviceHistory::getModifiedAt);
     }
     
     /**

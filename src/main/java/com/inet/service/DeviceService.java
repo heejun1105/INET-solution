@@ -500,6 +500,38 @@ public class DeviceService {
         if (devices.isEmpty()) {
             return Optional.empty();
         }
+        
+        // 페이지 다운로드와 동일한 순서로 정렬 (교실, 세트 타입, 담당자 순)
+        devices.sort((d1, d2) -> {
+            // 1. 교실 기준 정렬
+            String classroom1 = d1.getClassroom() != null && d1.getClassroom().getRoomName() != null ? 
+                                d1.getClassroom().getRoomName() : "미지정 교실";
+            String classroom2 = d2.getClassroom() != null && d2.getClassroom().getRoomName() != null ? 
+                                d2.getClassroom().getRoomName() : "미지정 교실";
+            int classroomCompare = classroom1.compareTo(classroom2);
+            if (classroomCompare != 0) return classroomCompare;
+            
+            // 2. 세트 타입 기준 정렬 (있는 경우)
+            String setType1 = d1.getSetType() != null && !d1.getSetType().trim().isEmpty() ? d1.getSetType() : null;
+            String setType2 = d2.getSetType() != null && !d2.getSetType().trim().isEmpty() ? d2.getSetType() : null;
+            
+            // 세트 타입이 있는 경우 우선 정렬
+            if (setType1 != null && setType2 != null) {
+                return setType1.compareTo(setType2);
+            } else if (setType1 != null) {
+                return -1; // d1이 세트 타입이 있으면 앞으로
+            } else if (setType2 != null) {
+                return 1;  // d2가 세트 타입이 있으면 앞으로
+            }
+            
+            // 3. 담당자 기준 정렬
+            String operator1 = d1.getOperator() != null && d1.getOperator().getName() != null ? 
+                               d1.getOperator().getName() : "미지정 담당자";
+            String operator2 = d2.getOperator() != null && d2.getOperator().getName() != null ? 
+                               d2.getOperator().getName() : "미지정 담당자";
+            return operator1.compareTo(operator2);
+        });
+        
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             exportToExcel(devices, outputStream);
             return Optional.of(outputStream.toByteArray());
@@ -535,13 +567,21 @@ public class DeviceService {
         titleFont.setFontHeightInPoints((short) 14);
         titleStyle.setFont(titleFont);
         titleStyle.setAlignment(HorizontalAlignment.CENTER);
+        titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        titleStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        titleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        titleStyle.setBorderTop(BorderStyle.THIN);
+        titleStyle.setBorderBottom(BorderStyle.THIN);
+        titleStyle.setBorderLeft(BorderStyle.THIN);
+        titleStyle.setBorderRight(BorderStyle.THIN);
         
-        // 2. 날짜 스타일
+        // 2. 날짜 스타일 (배경색 없음)
         CellStyle dateStyle = workbook.createCellStyle();
         dateStyle.setAlignment(HorizontalAlignment.RIGHT);
         Font dateFont = workbook.createFont();
         dateFont.setBold(true);
         dateStyle.setFont(dateFont);
+        // 배경색 제거 (기본 스타일 유지)
         
         // 3. 헤더 스타일
         CellStyle headerStyle = workbook.createCellStyle();
@@ -569,8 +609,24 @@ public class DeviceService {
             schoolName = devices.get(0).getSchool().getSchoolName();
         }
         
-        // 현재 날짜 (작성일자)
-        String today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        // 장비 정보의 마지막 수정일자 조회 (모든 장비 중 가장 최근 수정일자)
+        java.time.LocalDateTime lastModifiedDateTime = null;
+        for (Device device : devices) {
+            Optional<java.time.LocalDateTime> lastModified = deviceHistoryService.getLastModifiedDate(device);
+            if (lastModified.isPresent()) {
+                if (lastModifiedDateTime == null || lastModified.get().isAfter(lastModifiedDateTime)) {
+                    lastModifiedDateTime = lastModified.get();
+                }
+            }
+        }
+        
+        // 작성일자: 마지막 수정일자가 있으면 그것을 사용, 없으면 현재 날짜
+        String dateStr;
+        if (lastModifiedDateTime != null) {
+            dateStr = lastModifiedDateTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        } else {
+            dateStr = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
         
         // 검사 상태가 있는지 확인
         boolean hasInspectionStatus = inspectionStatuses != null && !inspectionStatuses.isEmpty();
@@ -591,7 +647,7 @@ public class DeviceService {
         dateCell.setCellStyle(dateStyle);
         
         Cell todayCell = dateRow.createCell(mergeEndCol); // 마지막 컬럼
-        todayCell.setCellValue(today);
+        todayCell.setCellValue(dateStr);
         todayCell.setCellStyle(dateStyle);
         
         // 세번째 행: 헤더
@@ -1701,5 +1757,116 @@ public class DeviceService {
         }
         
         return devices;
+    }
+    
+    /**
+     * 담당자별 장비 조회 (학교와 담당자로 필터링)
+     */
+    public List<Device> findDevicesByOperator(Long schoolId, Long operatorId) {
+        School school = schoolRepository.findById(schoolId)
+            .orElseThrow(() -> new RuntimeException("School not found with id: " + schoolId));
+        
+        Operator operator = operatorService.getOperatorById(operatorId)
+            .orElseThrow(() -> new RuntimeException("Operator not found with id: " + operatorId));
+        
+        return deviceRepository.findBySchoolAndOperator(school, operator);
+    }
+    
+    /**
+     * 담당자 이름으로 장비 조회 (학교와 담당자 이름으로 필터링)
+     */
+    public List<Device> findDevicesByOperatorName(Long schoolId, String operatorName) {
+        School school = schoolRepository.findById(schoolId)
+            .orElseThrow(() -> new RuntimeException("School not found with id: " + schoolId));
+        
+        if (operatorName == null || operatorName.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // 해당 학교에서 해당 이름을 가진 모든 담당자 찾기
+        List<Operator> operators = operatorService.findBySchoolAndName(school, operatorName.trim());
+        
+        if (operators.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // 각 담당자에 해당하는 장비들을 모두 조회
+        List<Device> allDevices = new ArrayList<>();
+        for (Operator operator : operators) {
+            List<Device> devices = deviceRepository.findBySchoolAndOperator(school, operator);
+            allDevices.addAll(devices);
+        }
+        
+        return allDevices;
+    }
+    
+    /**
+     * 담당자 일괄 수정
+     */
+    @Transactional
+    public void updateDevicesOperator(List<Long> deviceIds, String newOperatorName, String newOperatorPosition, User modifiedBy) {
+        if (deviceIds == null || deviceIds.isEmpty()) {
+            return;
+        }
+        
+        // 새 담당자 정보 처리
+        Operator newOperator = null;
+        if (newOperatorName != null && !newOperatorName.trim().isEmpty()) {
+            // 첫 번째 장비의 학교 정보 가져오기
+            Device firstDevice = deviceRepository.findById(deviceIds.get(0))
+                .orElseThrow(() -> new RuntimeException("Device not found"));
+            School school = firstDevice.getSchool();
+            
+            String trimmedName = newOperatorName.trim();
+            String trimmedPosition = (newOperatorPosition != null) ? newOperatorPosition.trim() : null;
+            
+            if (trimmedPosition != null && !trimmedPosition.isEmpty()) {
+                // 담당자와 직위 둘 다 입력된 경우
+                newOperator = operatorService.findByNameAndPositionAndSchool(trimmedName, trimmedPosition, school)
+                    .orElseGet(() -> {
+                        Operator op = new Operator();
+                        op.setName(trimmedName);
+                        op.setPosition(trimmedPosition);
+                        op.setSchool(school);
+                        return operatorService.saveOperator(op);
+                    });
+            } else {
+                // 담당자만 입력된 경우 (직위는 null)
+                newOperator = operatorService.findByNameAndSchoolAndPositionIsNull(trimmedName, school)
+                    .orElseGet(() -> {
+                        Operator op = new Operator();
+                        op.setName(trimmedName);
+                        op.setPosition(null);
+                        op.setSchool(school);
+                        return operatorService.saveOperator(op);
+                    });
+            }
+        }
+        
+        // 각 장비의 담당자 업데이트
+        for (Long deviceId : deviceIds) {
+            Device device = deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new RuntimeException("Device not found with id: " + deviceId));
+            
+            // 이전 담당자 정보
+            String oldOperatorName = device.getOperator() != null ? device.getOperator().getName() : "";
+            String oldOperatorPosition = device.getOperator() != null && device.getOperator().getPosition() != null 
+                ? device.getOperator().getPosition() : "";
+            String oldOperatorInfo = oldOperatorName + (oldOperatorPosition.isEmpty() ? "" : " (" + oldOperatorPosition + ")");
+            
+            // 새 담당자 정보
+            String newOperatorNameStr = newOperator != null ? newOperator.getName() : "";
+            String newOperatorPositionStr = newOperator != null && newOperator.getPosition() != null 
+                ? newOperator.getPosition() : "";
+            String newOperatorInfo = newOperatorNameStr + (newOperatorPositionStr.isEmpty() ? "" : " (" + newOperatorPositionStr + ")");
+            
+            // 담당자 정보 변경 시 히스토리 저장
+            if (!oldOperatorInfo.equals(newOperatorInfo)) {
+                deviceHistoryService.saveDeviceHistory(device, "operator", oldOperatorInfo, newOperatorInfo, modifiedBy);
+            }
+            
+            device.setOperator(newOperator);
+            deviceRepository.save(device);
+        }
     }
 } 

@@ -1187,6 +1187,27 @@
 
         // 이벤트 리스너 등록
         document.addEventListener('DOMContentLoaded', function() {
+            // 직접 입력 필드의 원래 name 속성 저장 (페이지 로드 시)
+            const customInputs = [
+                { select: 'uidCate', input: 'uidCateInput' },
+                { select: 'uidYear', input: 'uidYearInput' },
+                { select: 'uidNum', input: 'uidNumInput' },
+                { select: 'manageCate', input: 'manageCateInput' },
+                { select: 'manageYear', input: 'manageYearInput' },
+                { select: 'manageNum', input: 'manageNumInput' }
+            ];
+            
+            customInputs.forEach(({ select: selectId, input: inputId }) => {
+                const select = document.getElementById(selectId);
+                const input = document.getElementById(inputId);
+                if (select && input) {
+                    // select의 원래 name을 data-original-name에 저장
+                    if (select.hasAttribute('name') && !select.hasAttribute('data-original-name')) {
+                        select.setAttribute('data-original-name', select.getAttribute('name'));
+                    }
+                }
+            });
+            
             const schoolSelect = document.querySelector('select[name="school"]');
             const manageCate = document.getElementById('manageCate');
             const manageYear = document.getElementById('manageYear');
@@ -1256,6 +1277,20 @@
                     }
                 }
                 setupCustomInput('manageYear', 'manageYearInput');
+            });
+            
+            // 관리번호 연도 직접 입력 이벤트 (debounce 적용)
+            const manageYearInput = document.getElementById('manageYearInput');
+            let manageYearInputTimeout = null;
+            manageYearInput.addEventListener('input', function() {
+                clearTimeout(manageYearInputTimeout);
+                manageYearInputTimeout = setTimeout(() => {
+                    const yearValue = this.value.trim();
+                    if (yearValue && schoolSelect.value && manageCate.value && manageCate.value !== 'custom') {
+                        console.log('관리번호 - 연도 직접 입력:', yearValue);
+                        loadManageNums(schoolSelect.value, manageCate.value, yearValue);
+                    }
+                }, 500); // 500ms 후 실행
             });
 
             // 번호 선택 이벤트
@@ -1363,6 +1398,20 @@
                 }
                 setupCustomInput('uidYear', 'uidYearInput');
             });
+            
+            // 고유번호 연도 직접 입력 이벤트 (debounce 적용)
+            const uidYearInput = document.getElementById('uidYearInput');
+            let uidYearInputTimeout = null;
+            uidYearInput.addEventListener('input', function() {
+                clearTimeout(uidYearInputTimeout);
+                uidYearInputTimeout = setTimeout(() => {
+                    const yearValue = this.value.trim();
+                    if (yearValue && schoolSelect.value && uidCate.value && uidCate.value !== 'custom') {
+                        console.log('고유번호 - 연도 직접 입력:', yearValue);
+                        loadUidNums(schoolSelect.value, uidCate.value, yearValue);
+                    }
+                }, 500); // 500ms 후 실행
+            });
 
             // 고유번호 번호 선택 이벤트
             uidNum.addEventListener('change', function() {
@@ -1387,10 +1436,25 @@
             if (isCustom) {
                 input.required = true;
                 select.required = false;
+                // 직접 입력 필드 활성화 시: select의 name을 제거하고 input의 name을 select의 원래 name으로 변경
+                if (!select.hasAttribute('data-original-name')) {
+                    select.setAttribute('data-original-name', select.getAttribute('name') || '');
+                }
+                const originalName = select.getAttribute('data-original-name');
+                select.removeAttribute('name');
+                if (originalName) {
+                    input.setAttribute('name', originalName);
+                }
                 input.focus();
             } else {
                 input.required = false;
                 select.required = true;
+                // 직접 입력 필드 비활성화 시: 입력 필드 초기화 및 name 제거, select의 name 복원
+                input.value = '';
+                input.removeAttribute('name');
+                if (select.hasAttribute('data-original-name')) {
+                    select.setAttribute('name', select.getAttribute('data-original-name'));
+                }
             }
         }
 

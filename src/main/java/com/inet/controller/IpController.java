@@ -53,6 +53,7 @@ public class IpController {
     private final SchoolPermissionService schoolPermissionService;
     private final UserService userService;
     private final PermissionHelper permissionHelper;
+    private final com.inet.service.DeviceHistoryService deviceHistoryService;
     
     // 권한 체크 메서드
     private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {
@@ -272,6 +273,25 @@ public class IpController {
         Map<String, List<Device>> devicesByOctet = allDevices.stream()
             .collect(Collectors.groupingBy(d -> d.getIpAddress().split("\\.")[1]));
 
+        // 학교 전체의 IP 수정일자 조회 (모든 시트에 동일한 시간 표시)
+        java.time.LocalDateTime lastIpModifiedDateTime = null;
+        for (Device device : allDevices) {
+            Optional<java.time.LocalDateTime> lastIpModified = deviceHistoryService.getLastIpAddressModifiedDate(device);
+            if (lastIpModified.isPresent()) {
+                if (lastIpModifiedDateTime == null || lastIpModified.get().isAfter(lastIpModifiedDateTime)) {
+                    lastIpModifiedDateTime = lastIpModified.get();
+                }
+            }
+        }
+        
+        // 작성일자: IP 수정일자가 있으면 그것을 사용, 없으면 현재 날짜
+        String dateStr;
+        if (lastIpModifiedDateTime != null) {
+            dateStr = lastIpModifiedDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        } else {
+            dateStr = java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+
         // 엑셀 워크북 생성
         try (Workbook workbook = new XSSFWorkbook()) {
             // 스타일 설정
@@ -283,18 +303,18 @@ public class IpController {
 
             if ("all".equalsIgnoreCase(secondOctet)) {
                 // 전체 IP 대역을 하나의 시트에 표시
-                createCombinedSheet(workbook, devicesByOctet, titleStyle, headerStyle, 
+                createCombinedSheet(workbook, devicesByOctet, dateStr, titleStyle, headerStyle, 
                                   dataStyle, warningStyle, sectionHeaderStyle);
             } else if (secondOctet != null && !secondOctet.isEmpty()) {
                 // 단일 시트 생성
                 createSheet(workbook, secondOctet, devicesByOctet.getOrDefault(secondOctet, new ArrayList<>()), 
-                          titleStyle, headerStyle, dataStyle, warningStyle);
+                          dateStr, titleStyle, headerStyle, dataStyle, warningStyle);
             } else {
                 // 각 IP 대역별로 시트 생성
                 devicesByOctet.keySet().stream()
                     .sorted((a, b) -> Integer.parseInt(a) - Integer.parseInt(b))
                     .forEach(octet -> createSheet(workbook, octet, devicesByOctet.get(octet), 
-                                                titleStyle, headerStyle, dataStyle, warningStyle));
+                                                dateStr, titleStyle, headerStyle, dataStyle, warningStyle));
             }
 
             // 파일 다운로드 설정
@@ -379,6 +399,7 @@ public class IpController {
 
     // 전체 IP 대역을 하나의 시트에 표시하는 메서드
     private void createCombinedSheet(Workbook workbook, Map<String, List<Device>> devicesByOctet,
+                                   String dateStr,
                                    CellStyle titleStyle, CellStyle headerStyle, 
                                    CellStyle dataStyle, CellStyle warningStyle,
                                    CellStyle sectionHeaderStyle) {
@@ -391,17 +412,27 @@ public class IpController {
         titleCell.setCellValue("IP대장업무용(전체 IP 대역)");
         titleCell.setCellStyle(titleStyle);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 15));
-
+        
         // 날짜 행 (2행)
+        // 작성일자 스타일 생성 (배경색 없음)
+        CellStyle dateStyle = workbook.createCellStyle();
+        dateStyle.setAlignment(HorizontalAlignment.RIGHT);
+        Font dateFont = workbook.createFont();
+        dateFont.setBold(true);
+        dateStyle.setFont(dateFont);
+        // 배경색 제거 (기본 스타일 유지)
+        
+        // 두번째 행: 작성일자 (오른쪽 끝에 배치)
+        int lastCol = 15; // 마지막 컬럼
         Row dateRow = sheet.createRow(1);
         dateRow.setHeightInPoints(25);
-        Cell dateCell = dateRow.createCell(0);
-        dateCell.setCellValue(LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-        CellStyle dateStyle = workbook.createCellStyle();
-        dateStyle.cloneStyleFrom(headerStyle);
-        dateStyle.setAlignment(HorizontalAlignment.RIGHT);
-        dateCell.setCellStyle(dateStyle);
-        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 15));
+        Cell dateLabelCell = dateRow.createCell(lastCol - 1); // 마지막 컬럼에서 두 번째
+        dateLabelCell.setCellValue("작성일자");
+        dateLabelCell.setCellStyle(dateStyle);
+        
+        Cell dateValueCell = dateRow.createCell(lastCol); // 마지막 컬럼
+        dateValueCell.setCellValue(dateStr);
+        dateValueCell.setCellStyle(dateStyle);
 
         // 헤더 행 생성
         String[] headers = {"IP", "관리번호", "모델명", "설치장소"};
@@ -520,9 +551,10 @@ public class IpController {
 
     // 시트 생성 메서드
     private void createSheet(Workbook workbook, String secondOctet, List<Device> devices,
+                           String dateStr,
                            CellStyle titleStyle, CellStyle headerStyle, 
                            CellStyle dataStyle, CellStyle warningStyle) {
-        Sheet sheet = workbook.createSheet("10." + secondOctet + ".36.x");
+        Sheet sheet = workbook.createSheet(secondOctet);
 
         // IP 번호로 매핑
         Map<Integer, Device> deviceMap = devices.stream()
@@ -543,16 +575,21 @@ public class IpController {
         // 날짜 행 (2행)
         Row dateRow = sheet.createRow(1);
         dateRow.setHeightInPoints(25);
-        Cell dateCell = dateRow.createCell(0);
-        dateCell.setCellValue(LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+        Cell dateLabelCell = dateRow.createCell(14); // 마지막 컬럼에서 두 번째
+        dateLabelCell.setCellValue("작성일자");
         
-        // 날짜 스타일 (오른쪽 정렬)
+        Cell dateValueCell = dateRow.createCell(15); // 마지막 컬럼
+        dateValueCell.setCellValue(dateStr);
+        
+        // 날짜 스타일 (오른쪽 정렬, 배경색 없음)
         CellStyle dateStyle = workbook.createCellStyle();
-        dateStyle.cloneStyleFrom(headerStyle);
         dateStyle.setAlignment(HorizontalAlignment.RIGHT);
-        dateCell.setCellStyle(dateStyle);
-        
-        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 15));
+        Font dateFont = workbook.createFont();
+        dateFont.setBold(true);
+        dateStyle.setFont(dateFont);
+        // 배경색 제거 (흰색 유지)
+        dateLabelCell.setCellStyle(dateStyle);
+        dateValueCell.setCellStyle(dateStyle);
 
         // 헤더 행 (3행)
         String[] headers = {"IP", "관리번호", "모델명", "설치장소"};
