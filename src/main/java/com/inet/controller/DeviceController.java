@@ -1213,16 +1213,10 @@ public class DeviceController {
     @GetMapping("/api/manages/cates")
     @ResponseBody
     public List<String> getManageCatesBySchool(@RequestParam Long schoolId) {
-        System.out.println("=== 카테고리 목록 조회 API 호출 ===");
-        System.out.println("요청 schoolId: " + schoolId);
         try {
-            List<String> result = manageService.getManageCatesBySchool(schoolId);
-            System.out.println("조회된 카테고리 개수: " + result.size());
-            System.out.println("조회된 카테고리 목록: " + result);
-            return result;
+            return manageService.getManageCatesBySchool(schoolId);
         } catch (Exception e) {
-            System.err.println("카테고리 목록 조회 중 오류 발생: " + e.getMessage());
-            e.printStackTrace();
+            log.error("카테고리 목록 조회 중 오류 발생: ", e);
             throw e;
         }
     }
@@ -1362,91 +1356,6 @@ public class DeviceController {
         }
     }
 
-    // 디버깅용 - 학교의 모든 Uid 데이터 조회
-    @GetMapping("/api/debug/uids/{schoolId}")
-    @ResponseBody
-    public List<Uid> debugGetAllUids(@PathVariable Long schoolId) {
-        log.info("=== 고유번호 디버깅 - 모든 UID 조회 ===");
-        log.info("schoolId: {}", schoolId);
-        List<Uid> uids = uidService.getUidsBySchoolId(schoolId);
-        log.info("Found {} UIDs", uids.size());
-        return uids;
-    }
-    
-    // 디버깅용 - 간단한 카테고리 조회 테스트
-    @GetMapping("/api/debug/test-cates/{schoolId}")
-    @ResponseBody
-    public Map<String, Object> debugTestCates(@PathVariable Long schoolId) {
-        log.info("=== 간단한 카테고리 조회 테스트 ===");
-        log.info("schoolId: {}", schoolId);
-        
-        Map<String, Object> result = new LinkedHashMap<>();
-        
-        try {
-            // 1. 학교 존재 확인
-            Optional<School> schoolOpt = schoolService.getSchoolById(schoolId);
-            result.put("schoolExists", schoolOpt.isPresent());
-            if (schoolOpt.isPresent()) {
-                result.put("schoolName", schoolOpt.get().getSchoolName());
-            }
-            
-            // 2. 모든 Uid 데이터 조회
-            List<Uid> allUids = uidService.getAllUids();
-            result.put("totalUids", allUids.size());
-            
-            // 3. 해당 학교의 Uid 데이터 조회
-            List<Uid> schoolUids = uidService.getUidsBySchoolId(schoolId);
-            result.put("schoolUids", schoolUids.size());
-            
-            // 4. 카테고리 직접 조회
-            List<String> cates = uidService.getUidCatesBySchool(schoolId);
-            result.put("categories", cates);
-            
-            result.put("success", true);
-            
-        } catch (Exception e) {
-            log.error("테스트 중 오류: ", e);
-            result.put("success", false);
-            result.put("error", e.getMessage());
-            result.put("errorType", e.getClass().getSimpleName());
-        }
-        
-        return result;
-    }
-    
-    // 테스트용 - 고유번호 테스트 데이터 생성
-    @PostMapping("/api/debug/create-test-uids/{schoolId}")
-    @ResponseBody
-    public String createTestUids(@PathVariable Long schoolId) {
-        log.info("=== 테스트 고유번호 데이터 생성 ===");
-        log.info("schoolId: {}", schoolId);
-        
-        try {
-            School school = schoolService.getSchoolById(schoolId).orElseThrow();
-            
-            // 기본 카테고리별 테스트 데이터 생성
-            String[] categories = {"DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET"};
-            String[] years = {"23", "24", "25"};
-            
-            int count = 0;
-            for (String cate : categories) {
-                for (String year : years) {
-                    Uid uid = new Uid();
-                    uid.setCate(cate);
-                    uid.setIdNumber(1L);
-                    uid.setMfgYear(year);
-                    uid.setSchool(school);
-                    uidService.saveUid(uid);
-                    count++;
-                }
-            }
-            
-            return "테스트 데이터 " + count + "개 생성 완료";
-        } catch (Exception e) {
-            log.error("테스트 데이터 생성 중 오류: ", e);
-            return "오류: " + e.getMessage();
-        }
-    }
     
     /**
      * 담당자별 장비 조회 API

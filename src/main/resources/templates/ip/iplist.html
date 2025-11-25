@@ -252,7 +252,7 @@
                     <div class="ip-grid">
                         <div th:each="ip : ${entry.value}" class="ip-item" 
                              th:classappend="${ip.device != null ? 'used' : ''} + ' ' + ${ip.number >= 245 && ip.number <= 254 ? 'ip-warning' : ''}"
-                             th:attr="data-ip-number=${ip.number}">
+                             th:attr="data-ip-number=${ip.number}, data-device-id=${ip.device != null ? ip.device.deviceId : null}">
                             <div class="ip-number" th:text="${ip.number}">1</div>
                             <div class="ip-info" th:if="${ip.device != null}">
                                 <div class="device-type" th:text="${ip.device.type}">장비유형</div>
@@ -274,7 +274,7 @@
                 <div th:if="${!isAllView}" class="ip-grid">
                     <div th:each="ip : ${ipList}" class="ip-item" 
                          th:classappend="${ip.device != null ? 'used' : ''} + ' ' + ${ip.number >= 245 && ip.number <= 254 ? 'ip-warning' : ''}"
-                         th:attr="data-ip-number=${ip.number}">
+                         th:attr="data-ip-number=${ip.number}, data-device-id=${ip.device != null ? ip.device.deviceId : null}">
                         <div class="ip-number" th:text="${ip.number}">1</div>
                         <div class="ip-info" th:if="${ip.device != null}">
                             <div class="device-type" th:text="${ip.device.type}">장비유형</div>
@@ -324,6 +324,18 @@
                 }, 2000);
             }
         }
+        
+        // IP 카드 클릭 이벤트 (장비 수정 페이지로 이동)
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.ip-item.used').forEach(function(ipItem) {
+                ipItem.addEventListener('click', function() {
+                    const deviceId = this.getAttribute('data-device-id');
+                    if (deviceId) {
+                        window.location.href = '/device/modify/' + deviceId;
+                    }
+                });
+            });
+        });
     </script>
 </body>
 </html> 

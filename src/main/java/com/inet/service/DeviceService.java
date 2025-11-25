@@ -109,6 +109,73 @@ public class DeviceService {
                 device.getManage().getManageNum());
         }
         
+        // IP 주소 중복 검증
+        if (device.getIpAddress() != null && !device.getIpAddress().trim().isEmpty()) {
+            Optional<Device> existingDevice = deviceRepository.findByIpAddress(device.getIpAddress().trim());
+            if (existingDevice.isPresent()) {
+                Device existing = existingDevice.get();
+                String locationInfo = existing.getClassroom() != null && existing.getClassroom().getRoomName() != null 
+                    ? existing.getClassroom().getRoomName() 
+                    : "위치 미지정";
+                
+                // 고유번호 정보
+                String uidInfo = "미지정";
+                if (existing.getUid() != null) {
+                    String cate = existing.getUid().getCate() != null ? existing.getUid().getCate() : "";
+                    String year = existing.getUid().getMfgYear() != null ? existing.getUid().getMfgYear() : "";
+                    Long idNum = existing.getUid().getIdNumber();
+                    if (idNum != null) {
+                        uidInfo = cate + "-" + year + "-" + String.format("%04d", idNum);
+                    } else if (!cate.isEmpty() || !year.isEmpty()) {
+                        uidInfo = cate + "-" + year;
+                    }
+                }
+                
+                // 관리번호 정보
+                String manageInfo = "미지정";
+                if (existing.getManage() != null) {
+                    String manageCate = existing.getManage().getManageCate() != null ? existing.getManage().getManageCate() : "";
+                    Integer manageYear = existing.getManage().getYear();
+                    Long manageNum = existing.getManage().getManageNum();
+                    if (manageNum != null) {
+                        if (manageYear != null) {
+                            manageInfo = manageCate + "-" + manageYear + "-" + String.format("%02d", manageNum);
+                        } else {
+                            manageInfo = manageCate + "-" + String.format("%02d", manageNum);
+                        }
+                    } else if (!manageCate.isEmpty()) {
+                        manageInfo = manageCate;
+                    }
+                }
+                
+                // 장비종류
+                String deviceType = existing.getType() != null ? existing.getType() : "미지정";
+                
+                // 제품명 (제조사 + 모델명)
+                String productName = "";
+                if (existing.getManufacturer() != null && !existing.getManufacturer().trim().isEmpty()) {
+                    productName = existing.getManufacturer().trim();
+                }
+                if (existing.getModelName() != null && !existing.getModelName().trim().isEmpty()) {
+                    if (!productName.isEmpty()) {
+                        productName += " " + existing.getModelName().trim();
+                    } else {
+                        productName = existing.getModelName().trim();
+                    }
+                }
+                if (productName.isEmpty()) {
+                    productName = "미지정";
+                }
+                
+                throw new RuntimeException("이미 있는 IP 주소입니다. IP: " + device.getIpAddress() + 
+                    ", 기존 장비 정보 - 위치: " + locationInfo + 
+                    ", 고유번호: " + uidInfo + 
+                    ", 관리번호: " + manageInfo + 
+                    ", 장비종류: " + deviceType + 
+                    ", 제품명: " + productName);
+            }
+        }
+        
         return deviceRepository.save(device);
     }
     
@@ -375,6 +442,74 @@ public class DeviceService {
             throw new RuntimeException("동일한 관리번호가 이미 존재합니다: " + 
                 updatedDevice.getManage().getManageCate() + "-" + updatedDevice.getManage().getYear() + "-" + 
                 updatedDevice.getManage().getManageNum());
+        }
+        
+        // IP 주소 중복 검증 (자기 자신 제외)
+        if (updatedDevice.getIpAddress() != null && !updatedDevice.getIpAddress().trim().isEmpty()) {
+            Optional<Device> existingDevice = deviceRepository.findByIpAddressExcludingDevice(
+                updatedDevice.getIpAddress().trim(), updatedDevice.getDeviceId());
+            if (existingDevice.isPresent()) {
+                Device existing = existingDevice.get();
+                String locationInfo = existing.getClassroom() != null && existing.getClassroom().getRoomName() != null 
+                    ? existing.getClassroom().getRoomName() 
+                    : "위치 미지정";
+                
+                // 고유번호 정보
+                String uidInfo = "미지정";
+                if (existing.getUid() != null) {
+                    String cate = existing.getUid().getCate() != null ? existing.getUid().getCate() : "";
+                    String year = existing.getUid().getMfgYear() != null ? existing.getUid().getMfgYear() : "";
+                    Long idNum = existing.getUid().getIdNumber();
+                    if (idNum != null) {
+                        uidInfo = cate + "-" + year + "-" + String.format("%04d", idNum);
+                    } else if (!cate.isEmpty() || !year.isEmpty()) {
+                        uidInfo = cate + "-" + year;
+                    }
+                }
+                
+                // 관리번호 정보
+                String manageInfo = "미지정";
+                if (existing.getManage() != null) {
+                    String manageCate = existing.getManage().getManageCate() != null ? existing.getManage().getManageCate() : "";
+                    Integer manageYear = existing.getManage().getYear();
+                    Long manageNum = existing.getManage().getManageNum();
+                    if (manageNum != null) {
+                        if (manageYear != null) {
+                            manageInfo = manageCate + "-" + manageYear + "-" + String.format("%02d", manageNum);
+                        } else {
+                            manageInfo = manageCate + "-" + String.format("%02d", manageNum);
+                        }
+                    } else if (!manageCate.isEmpty()) {
+                        manageInfo = manageCate;
+                    }
+                }
+                
+                // 장비종류
+                String deviceType = existing.getType() != null ? existing.getType() : "미지정";
+                
+                // 제품명 (제조사 + 모델명)
+                String productName = "";
+                if (existing.getManufacturer() != null && !existing.getManufacturer().trim().isEmpty()) {
+                    productName = existing.getManufacturer().trim();
+                }
+                if (existing.getModelName() != null && !existing.getModelName().trim().isEmpty()) {
+                    if (!productName.isEmpty()) {
+                        productName += " " + existing.getModelName().trim();
+                    } else {
+                        productName = existing.getModelName().trim();
+                    }
+                }
+                if (productName.isEmpty()) {
+                    productName = "미지정";
+                }
+                
+                throw new RuntimeException("이미 있는 IP 주소입니다. IP: " + updatedDevice.getIpAddress() + 
+                    ", 기존 장비 정보 - 위치: " + locationInfo + 
+                    ", 고유번호: " + uidInfo + 
+                    ", 관리번호: " + manageInfo + 
+                    ", 장비종류: " + deviceType + 
+                    ", 제품명: " + productName);
+            }
         }
         
         // 히스토리 저장 후에 장비 저장

@@ -25,18 +25,10 @@ public class ManageService {
     private static final Logger log = LoggerFactory.getLogger(ManageService.class);
 
     public List<String> getManageCatesBySchool(Long schoolId) {
-        System.out.println("=== ManageService.getManageCatesBySchool 호출 ===");
-        System.out.println("schoolId: " + schoolId);
-        
         School school = schoolRepository.findById(schoolId)
             .orElseThrow(() -> new IllegalArgumentException("School not found"));
-        System.out.println("학교 조회 성공: " + school.getSchoolName());
         
-        List<String> result = manageRepository.findDistinctManageCateBySchool(school);
-        System.out.println("조회된 카테고리 수: " + result.size());
-        System.out.println("카테고리 목록: " + result);
-        
-        return result;
+        return manageRepository.findDistinctManageCateBySchool(school);
     }
 
     public List<Integer> getYearsBySchoolAndManageCate(Long schoolId, String manageCate) {

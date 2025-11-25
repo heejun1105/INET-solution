@@ -202,9 +202,10 @@
         .actions {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
             gap: 1rem;
             flex-wrap: wrap;
+            position: relative;
         }
 
         .disabled-grid {
@@ -384,7 +385,7 @@
                     </div>
                     <button type="button" class="download-btn" id="downloadBtn" th:disabled="${!hasAccessibleSchools}" disabled>
                         <i class="fas fa-cloud-download-alt"></i>
-                        선택한 파일 다운로드
+                        <span class="download-btn-text">선택한 파일 다운로드</span>
                     </button>
                 </div>
             </div>
@@ -421,6 +422,37 @@
             updateDownloadButtonState();
             updateSelectAllButtonState();
         };
+        
+        const setLoadingStatus = () => {
+            optionCards.forEach(card => {
+                const statusElement = card.querySelector('.option-status');
+                if (statusElement) {
+                    statusElement.textContent = '데이터를 찾고 있습니다...';
+                    statusElement.style.color = '#0d6efd';
+                }
+            });
+        };
+        
+        const updateOptionStatus = (card, isAvailable, optionCode) => {
+            const statusElement = card.querySelector('.option-status');
+            if (!statusElement) return;
+            
+            if (isAvailable) {
+                statusElement.style.display = 'none';
+            } else {
+                statusElement.style.display = 'block';
+                statusElement.style.color = '#dc3545';
+                // 옵션별 메시지 설정
+                const statusMessages = {
+                    'device-ledger': '데이터가 없어 다운로드할 수 없습니다.',
+                    'wireless-ap-summary': '무선 AP 데이터가 없습니다.',
+                    'ip-ledger': '유효한 IP 정보가 없습니다.',
+                    'device-floorplan': '저장된 평면도가 없습니다.',
+                    'wireless-ap-floorplan': '평면도 또는 AP 데이터가 없습니다.'
+                };
+                statusElement.textContent = statusMessages[optionCode] || '데이터가 없습니다.';
+            }
+        };
 
         const updateDownloadButtonState = () => {
             const anyChecked = Array.from(optionCheckboxes).some(cb => cb.checked && !cb.disabled);
@@ -453,6 +485,9 @@
                 return;
             }
 
+            // 로딩 상태 표시
+            setLoadingStatus();
+
             try {
                 const response = await fetch(`/file-download/options?schoolId=${schoolId}`);
                 if (response.status === 403) {
@@ -481,6 +516,9 @@
                         checkbox.disabled = true;
                         checkbox.checked = false;
                     }
+                    
+                    // 상태 메시지 업데이트
+                    updateOptionStatus(card, isAvailable, optionCode);
                 });
             } catch (error) {
                 if (schoolSelect.value) {
@@ -533,10 +571,11 @@
                 return;
             }
 
-            toggleIndicators(true);
+            // 버튼에 다운로드 중 표시 (loadingIndicator는 숨김)
+            loadingIndicator.classList.remove('active');
             downloadBtn.disabled = true;
             const originalText = downloadBtn.innerHTML;
-            downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 다운로드 준비 중...';
+            downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span class="download-btn-text">다운로드 중...</span>';
 
             try {
                 const response = await fetch('/file-download/download', {
@@ -552,11 +591,12 @@
 
                 if (response.status === 403) {
                     alert('해당 학교 자료를 다운로드할 권한이 없습니다. 관리자에게 문의해주세요.');
-                    toggleIndicators(false);
-                    schoolSelect.value = '';
-                    resetOptions();
-                    updateDownloadButtonState();
-                    return;
+            downloadBtn.innerHTML = originalText;
+            downloadBtn.disabled = false;
+            schoolSelect.value = '';
+            resetOptions();
+            updateDownloadButtonState();
+            return;
                 }
                 if (!response.ok) {
                     throw new Error();
@@ -582,15 +622,25 @@
                 anchor.remove();
                 window.URL.revokeObjectURL(url);
 
-                toggleIndicators(false, true);
             } catch (error) {
                 alert('파일 다운로드 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-                toggleIndicators(false);
-            } finally {
-                downloadBtn.disabled = false;
                 downloadBtn.innerHTML = originalText;
-                updateDownloadButtonState();
-                updateSelectAllButtonState();
+                downloadBtn.disabled = false;
+            } finally {
+                // 다운로드가 성공적으로 완료된 경우 약간의 지연 후 버튼 복원
+                if (downloadBtn.innerHTML.includes('다운로드 중')) {
+                    setTimeout(() => {
+                        downloadBtn.disabled = false;
+                        downloadBtn.innerHTML = originalText;
+                        updateDownloadButtonState();
+                        updateSelectAllButtonState();
+                    }, 1000);
+                } else {
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = originalText;
+                    updateDownloadButtonState();
+                    updateSelectAllButtonState();
+                }
                 setTimeout(() => completeIndicator.classList.remove('active'), 3000);
             }
         });

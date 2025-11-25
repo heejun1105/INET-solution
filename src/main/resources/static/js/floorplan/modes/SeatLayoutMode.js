@@ -330,10 +330,10 @@ export default class SeatLayoutMode {
         
         // 컨테이너가 렌더링될 때까지 대기
         setTimeout(() => {
-            // 미니 캔버스 Core 초기화
+            // 미니 캔버스 Core 초기화 (3배 크기로 설정하여 더 많이 축소 가능하도록)
             this.miniCore = new FloorPlanCore(container, {
-                canvasWidth: 2400,
-                canvasHeight: 1800,
+                canvasWidth: 7200,
+                canvasHeight: 5400,
                 zoom: 1.0,
                 gridSize: 20,
                 showGrid: true,

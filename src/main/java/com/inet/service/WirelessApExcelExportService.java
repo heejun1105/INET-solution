@@ -286,6 +286,7 @@ public class WirelessApExcelExportService {
         // 두번째 행: 작성일자 (오른쪽 끝에 배치)
         int lastCol = 10; // K열 (무선AP 목록의 마지막 컬럼)
         Row dateRow = sheet.createRow(1);
+        dateRow.setHeightInPoints(25);
         Cell dateLabelCell = dateRow.createCell(lastCol - 1); // 마지막 컬럼에서 두 번째
         dateLabelCell.setCellValue("작성일자");
         dateLabelCell.setCellStyle(dateStyle);
@@ -294,10 +295,8 @@ public class WirelessApExcelExportService {
         dateValueCell.setCellValue(dateStr);
         dateValueCell.setCellStyle(dateStyle);
 
-        String[] headers = {
-                "신규라벨번호", "기기번호", "설치장소", "교실유형", "제조사", "모델명",
-                "도입연도", "속도", "MAC 주소", "이전 설치장소", "이전 라벨번호"
-        };
+        // 페이지 다운로드와 동일한 컬럼 순서: {"현위치", "교실구분", "신규라벨번호", "장비번호", "도입년도", "제조사", "모델", "MAC주소", "기존위치", "기존라벨번호", "속도"}
+        String[] headers = {"현위치", "교실구분", "신규라벨번호", "장비번호", "도입년도", "제조사", "모델", "MAC주소", "기존위치", "기존라벨번호", "속도"};
 
         Row headerRow = sheet.createRow(2);
         for (int i = 0; i < headers.length; i++) {
@@ -307,20 +306,21 @@ public class WirelessApExcelExportService {
             sheet.setColumnWidth(i, 4000);
         }
 
-        int rowNum = 4;
+        int rowNum = 3;
         for (WirelessAp ap : wirelessAps) {
             Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(orEmpty(ap.getNewLabelNumber()));
-            row.createCell(1).setCellValue(orEmpty(ap.getDeviceNumber()));
-            row.createCell(2).setCellValue(ap.getLocation() != null ? orEmpty(ap.getLocation().getRoomName()) : "");
-            row.createCell(3).setCellValue(orEmpty(ap.getClassroomType()));
-            row.createCell(4).setCellValue(orEmpty(ap.getManufacturer()));
-            row.createCell(5).setCellValue(orEmpty(ap.getModel()));
-            row.createCell(6).setCellValue(ap.getAPYear() != null ? ap.getAPYear().getYear() + "년" : "");
-            row.createCell(7).setCellValue(orEmpty(ap.getSpeed()));
-            row.createCell(8).setCellValue(orEmpty(ap.getMacAddress()));
-            row.createCell(9).setCellValue(orEmpty(ap.getPrevLocation()));
-            row.createCell(10).setCellValue(orEmpty(ap.getPrevLabelNumber()));
+            // 페이지 다운로드와 동일한 순서로 데이터 설정
+            row.createCell(0).setCellValue(ap.getLocation() != null ? orEmpty(ap.getLocation().getRoomName()) : ""); // 현위치
+            row.createCell(1).setCellValue(orEmpty(ap.getClassroomType())); // 교실구분
+            row.createCell(2).setCellValue(orEmpty(ap.getNewLabelNumber())); // 신규라벨번호
+            row.createCell(3).setCellValue(orEmpty(ap.getDeviceNumber())); // 장비번호
+            row.createCell(4).setCellValue(ap.getAPYear() != null ? String.valueOf(ap.getAPYear().getYear()) : ""); // 도입년도
+            row.createCell(5).setCellValue(orEmpty(ap.getManufacturer())); // 제조사
+            row.createCell(6).setCellValue(orEmpty(ap.getModel())); // 모델
+            row.createCell(7).setCellValue(orEmpty(ap.getMacAddress())); // MAC주소
+            row.createCell(8).setCellValue(orEmpty(ap.getPrevLocation())); // 기존위치
+            row.createCell(9).setCellValue(orEmpty(ap.getPrevLabelNumber())); // 기존라벨번호
+            row.createCell(10).setCellValue(orEmpty(ap.getSpeed())); // 속도
 
             for (int i = 0; i < headers.length; i++) {
                 row.getCell(i).setCellStyle(dataStyle);

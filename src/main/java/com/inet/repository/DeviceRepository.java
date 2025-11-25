@@ -94,4 +94,12 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     
     // 담당자별 장비 조회
     List<Device> findBySchoolAndOperator(School school, Operator operator);
+    
+    // IP 주소로 장비 조회 (자기 자신 제외)
+    @Query("SELECT d FROM Device d WHERE d.ipAddress = :ipAddress AND d.deviceId != :deviceId")
+    Optional<Device> findByIpAddressExcludingDevice(@org.springframework.data.repository.query.Param("ipAddress") String ipAddress, 
+                                                      @org.springframework.data.repository.query.Param("deviceId") Long deviceId);
+    
+    // IP 주소로 장비 조회 (등록 시)
+    Optional<Device> findByIpAddress(String ipAddress);
 } 

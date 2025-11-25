@@ -29,6 +29,13 @@
 /* 사용 중인 IP 스타일 */
 .ip-item.used {
     border-left: 3px solid #3d96ff;
+    cursor: pointer;
+}
+
+.ip-item.used:hover {
+    background-color: #e3f2fd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* IP 번호 스타일 */
