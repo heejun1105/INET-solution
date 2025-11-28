@@ -152,7 +152,6 @@ public class UidService {
      * @return 생성된 Uid 객체
      */
     public Uid createNextUidWithSchool(String cate, School school) {
-        System.out.println("Creating next Uid for cate: " + cate + " and school: " + school.getSchoolName());
         
         // 해당 카테고리와 학교의 최대 idNumber 조회
         Long nextIdNumber = uidRepository.findTopBySchoolAndCateOrderByIdNumberDesc(school, cate)
@@ -175,7 +174,6 @@ public class UidService {
      * @return 생성된 Uid 객체
      */
     public Uid createUidWithSchool(String cate, Long idNumber, School school) {
-        System.out.println("Creating Uid with cate: " + cate + ", idNumber: " + idNumber + ", school: " + school.getSchoolName());
         
         Uid uid = new Uid();
         uid.setCate(cate);
@@ -410,7 +408,6 @@ public class UidService {
             return cates;
         } catch (Exception e) {
             log.error("Error in getUidCatesBySchool: ", e);
-            e.printStackTrace(); // 스택 트레이스 출력
             return List.of("DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET");
         }
     }

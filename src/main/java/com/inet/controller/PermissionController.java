@@ -75,8 +75,6 @@ public class PermissionController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> savePermissions(@RequestBody Map<String, Object> request) {
         try {
-            System.out.println("권한 저장 요청 받음: " + request);
-            
             // userId 추출 및 검증
             Object userIdObj = request.get("userId");
             if (userIdObj == null) {
@@ -87,7 +85,6 @@ public class PermissionController {
             }
             
             Long userId = Long.valueOf(userIdObj.toString());
-            System.out.println("사용자 ID: " + userId);
             
             // 기능 권한 추출 및 검증
             Object featurePermissionsObj = request.get("featurePermissions");
@@ -95,7 +92,6 @@ public class PermissionController {
             if (featurePermissionsObj instanceof List) {
                 featurePermissions = (List<String>) featurePermissionsObj;
             }
-            System.out.println("기능 권한: " + featurePermissions);
             
             // 학교 권한 추출 및 검증
             Object schoolPermissionsObj = request.get("schoolPermissions");
@@ -103,7 +99,6 @@ public class PermissionController {
             if (schoolPermissionsObj instanceof List) {
                 schoolPermissions = (List<String>) schoolPermissionsObj;
             }
-            System.out.println("학교 권한: " + schoolPermissions);
             
             // 사용자 존재 확인
             Optional<User> userOpt = userService.findById(userId);
@@ -115,21 +110,17 @@ public class PermissionController {
             }
             
             User user = userOpt.get();
-            System.out.println("사용자 찾음: " + user.getUsername());
             
             // 기존 권한 모두 삭제
             permissionService.revokeAllPermissions(user);
             schoolPermissionService.revokeAllSchoolPermissions(user);
-            System.out.println("기존 권한 삭제 완료");
             
             // 기능 권한 부여
             for (String featureName : featurePermissions) {
                 try {
                     Feature feature = Feature.valueOf(featureName);
                     permissionService.grantPermission(user, feature);
-                    System.out.println("기능 권한 부여: " + featureName);
                 } catch (IllegalArgumentException e) {
-                    System.out.println("잘못된 기능 이름: " + featureName);
                     Map<String, Object> response = new HashMap<>();
                     response.put("success", false);
                     response.put("message", "잘못된 기능 이름입니다: " + featureName);
@@ -144,7 +135,6 @@ public class PermissionController {
                     Long schoolId = Long.valueOf(schoolIdStr);
                     schoolIds.add(schoolId);
                 } catch (NumberFormatException e) {
-                    System.out.println("잘못된 학교 ID: " + schoolIdStr);
                     Map<String, Object> response = new HashMap<>();
                     response.put("success", false);
                     response.put("message", "잘못된 학교 ID입니다: " + schoolIdStr);
@@ -154,24 +144,19 @@ public class PermissionController {
             
             if (!schoolIds.isEmpty()) {
                 schoolPermissionService.grantSchoolPermissions(user, schoolIds);
-                System.out.println("학교 권한 부여 완료: " + schoolIds);
             }
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "권한이 성공적으로 저장되었습니다.");
-            System.out.println("권한 저장 완료");
             return ResponseEntity.ok(response);
             
         } catch (NumberFormatException e) {
-            System.out.println("숫자 변환 오류: " + e.getMessage());
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", "잘못된 숫자 형식입니다: " + e.getMessage());
             return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
-            System.out.println("권한 저장 중 오류: " + e.getMessage());
-            e.printStackTrace();
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", "권한 저장 중 오류가 발생했습니다: " + e.getMessage());

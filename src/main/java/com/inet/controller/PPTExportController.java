@@ -3,6 +3,8 @@ package com.inet.controller;
 import com.inet.service.FloorPlanService;
 import org.apache.poi.sl.usermodel.PictureData;
 import org.apache.poi.xslf.usermodel.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -19,6 +21,8 @@ import java.util.Map;
 @Controller
 @RequestMapping("/floorplan")
 public class PPTExportController {
+    
+    private static final Logger log = LoggerFactory.getLogger(PPTExportController.class);
     
     @Autowired
     private FloorPlanService floorPlanService;
@@ -42,7 +46,7 @@ public class PPTExportController {
                     .body(pptBytes);
                     
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("평면도 PPT 다운로드 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }

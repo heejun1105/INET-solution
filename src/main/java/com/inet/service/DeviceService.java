@@ -93,8 +93,6 @@ public class DeviceService {
     
     // Create
     public Device saveDevice(Device device) {
-        System.out.println("Saving device: " + device);
-        
         // 고유번호 중복 검증
         if (device.getUid() != null && isUidDuplicate(device.getUid(), null)) {
             throw new RuntimeException("동일한 고유번호가 이미 존재합니다: " + 
@@ -181,25 +179,21 @@ public class DeviceService {
     
     // Read
     public List<Device> getAllDevices() {
-        System.out.println("Getting all devices");
         return deviceRepository.findAll();
     }
     
     public List<Device> getDevicesBySchoolId(Long schoolId) {
-        System.out.println("Getting devices by school id: " + schoolId);
         School school = schoolRepository.findById(schoolId)
                 .orElseThrow(() -> new RuntimeException("School not found with id: " + schoolId));
         return deviceRepository.findBySchool(school);
     }
     
     public Optional<Device> getDeviceById(Long id) {
-        System.out.println("Getting device by id: " + id);
         return deviceRepository.findById(id);
     }
     
     // Update
     public Device updateDevice(Device device) {
-        System.out.println("Updating device: " + device);
         return deviceRepository.save(device);
     }
     
@@ -208,46 +202,33 @@ public class DeviceService {
      */
     @Transactional
     public void updateDeviceWithHistory(Device updatedDevice, User modifiedBy) {
-        log.info("=== 장비 수정 히스토리 저장 시작 ===");
-        log.info("장비 ID: {}", updatedDevice.getDeviceId());
-        log.info("수정자: {}", modifiedBy.getName());
-        
         // 데이터베이스에서 원본 장비 정보를 다시 조회 (JPA 영속성 컨텍스트 문제 방지)
         Device originalDevice = deviceRepository.findById(updatedDevice.getDeviceId())
                 .orElseThrow(() -> new RuntimeException("원본 장비를 찾을 수 없습니다: " + updatedDevice.getDeviceId()));
-        
-        log.info("원본 장비 (DB에서 조회): type={}, manufacturer={}, model={}", 
-                originalDevice.getType(), originalDevice.getManufacturer(), originalDevice.getModelName());
-        log.info("수정된 장비: type={}, manufacturer={}, model={}", 
-                updatedDevice.getType(), updatedDevice.getManufacturer(), updatedDevice.getModelName());
         
         int changeCount = 0;
         
         // 각 필드별로 변경사항 확인 및 히스토리 저장
         if (!equals(originalDevice.getType(), updatedDevice.getType())) {
             changeCount++;
-            log.info("Type 변경: {} -> {}", originalDevice.getType(), updatedDevice.getType());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "type", 
                 originalDevice.getType(), updatedDevice.getType(), modifiedBy);
         }
         
         if (!equals(originalDevice.getManufacturer(), updatedDevice.getManufacturer())) {
             changeCount++;
-            log.info("Manufacturer 변경: {} -> {}", originalDevice.getManufacturer(), updatedDevice.getManufacturer());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "manufacturer", 
                 originalDevice.getManufacturer(), updatedDevice.getManufacturer(), modifiedBy);
         }
         
         if (!equals(originalDevice.getModelName(), updatedDevice.getModelName())) {
             changeCount++;
-            log.info("ModelName 변경: {} -> {}", originalDevice.getModelName(), updatedDevice.getModelName());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "modelName", 
                 originalDevice.getModelName(), updatedDevice.getModelName(), modifiedBy);
         }
         
         if (!equals(originalDevice.getPurchaseDate(), updatedDevice.getPurchaseDate())) {
             changeCount++;
-            log.info("PurchaseDate 변경: {} -> {}", originalDevice.getPurchaseDate(), updatedDevice.getPurchaseDate());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "purchaseDate", 
                 originalDevice.getPurchaseDate() != null ? originalDevice.getPurchaseDate().toString() : null,
                 updatedDevice.getPurchaseDate() != null ? updatedDevice.getPurchaseDate().toString() : null, modifiedBy);
@@ -255,28 +236,24 @@ public class DeviceService {
         
         if (!equals(originalDevice.getIpAddress(), updatedDevice.getIpAddress())) {
             changeCount++;
-            log.info("IpAddress 변경: {} -> {}", originalDevice.getIpAddress(), updatedDevice.getIpAddress());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "ipAddress", 
                 originalDevice.getIpAddress(), updatedDevice.getIpAddress(), modifiedBy);
         }
         
         if (!equals(originalDevice.getPurpose(), updatedDevice.getPurpose())) {
             changeCount++;
-            log.info("Purpose 변경: {} -> {}", originalDevice.getPurpose(), updatedDevice.getPurpose());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "purpose", 
                 originalDevice.getPurpose(), updatedDevice.getPurpose(), modifiedBy);
         }
         
         if (!equals(originalDevice.getSetType(), updatedDevice.getSetType())) {
             changeCount++;
-            log.info("SetType 변경: {} -> {}", originalDevice.getSetType(), updatedDevice.getSetType());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "setType", 
                 originalDevice.getSetType(), updatedDevice.getSetType(), modifiedBy);
         }
         
         if (!equals(originalDevice.getUnused(), updatedDevice.getUnused())) {
             changeCount++;
-            log.info("Unused 변경: {} -> {}", originalDevice.getUnused(), updatedDevice.getUnused());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "unused", 
                 originalDevice.getUnused() != null ? originalDevice.getUnused().toString() : null,
                 updatedDevice.getUnused() != null ? updatedDevice.getUnused().toString() : null, modifiedBy);
@@ -284,7 +261,6 @@ public class DeviceService {
         
         if (!equals(originalDevice.getNote(), updatedDevice.getNote())) {
             changeCount++;
-            log.info("Note 변경: {} -> {}", originalDevice.getNote(), updatedDevice.getNote());
             deviceHistoryService.saveDeviceHistory(updatedDevice, "note", 
                 originalDevice.getNote(), updatedDevice.getNote(), modifiedBy);
         }
@@ -292,9 +268,6 @@ public class DeviceService {
         // 연관 엔티티 변경사항 확인
         if (!equals(originalDevice.getSchool(), updatedDevice.getSchool())) {
             changeCount++;
-            log.info("School 변경: {} -> {}", 
-                originalDevice.getSchool() != null ? originalDevice.getSchool().getSchoolName() : null,
-                updatedDevice.getSchool() != null ? updatedDevice.getSchool().getSchoolName() : null);
             deviceHistoryService.saveDeviceHistory(updatedDevice, "school", 
                 originalDevice.getSchool() != null ? originalDevice.getSchool().getSchoolName() : null,
                 updatedDevice.getSchool() != null ? updatedDevice.getSchool().getSchoolName() : null, modifiedBy);
@@ -302,9 +275,6 @@ public class DeviceService {
         
         if (!equals(originalDevice.getClassroom(), updatedDevice.getClassroom())) {
             changeCount++;
-            log.info("Classroom 변경: {} -> {}", 
-                originalDevice.getClassroom() != null ? originalDevice.getClassroom().getRoomName() : null,
-                updatedDevice.getClassroom() != null ? updatedDevice.getClassroom().getRoomName() : null);
             deviceHistoryService.saveDeviceHistory(updatedDevice, "classroom", 
                 originalDevice.getClassroom() != null ? originalDevice.getClassroom().getRoomName() : null,
                 updatedDevice.getClassroom() != null ? updatedDevice.getClassroom().getRoomName() : null, modifiedBy);
@@ -312,9 +282,6 @@ public class DeviceService {
         
         if (!equals(originalDevice.getOperator(), updatedDevice.getOperator())) {
             changeCount++;
-            log.info("Operator 변경: {} -> {}", 
-                originalDevice.getOperator() != null ? originalDevice.getOperator().getName() : null,
-                updatedDevice.getOperator() != null ? updatedDevice.getOperator().getName() : null);
             deviceHistoryService.saveDeviceHistory(updatedDevice, "operator", 
                 originalDevice.getOperator() != null ? originalDevice.getOperator().getName() : null,
                 updatedDevice.getOperator() != null ? updatedDevice.getOperator().getName() : null, modifiedBy);
@@ -360,15 +327,7 @@ public class DeviceService {
                     updatedManage.getManageNum());
             }
             
-            System.out.println("관리번호 변경 감지됨!");
-            System.out.println("원본 관리번호: " + originalManageInfo);
-            System.out.println("수정된 관리번호: " + updatedManageInfo);
-            System.out.println("관리번호 변경: " + originalManageInfo + " -> " + updatedManageInfo);
             deviceHistoryService.saveDeviceHistory(updatedDevice, "manage", originalManageInfo, updatedManageInfo, modifiedBy);
-        } else {
-            System.out.println("관리번호 변경 없음 - 원본: " + 
-                (originalDevice.getManage() != null ? "있음" : "없음") + 
-                ", 수정: " + (updatedDevice.getManage() != null ? "있음" : "없음"));
         }
         
         // 고유번호 변경 감지 (ID 기반 비교)
@@ -411,19 +370,8 @@ public class DeviceService {
                     updatedUid.getIdNumber());
             }
             
-            System.out.println("고유번호 변경 감지됨!");
-            System.out.println("원본 고유번호: " + originalUidInfo);
-            System.out.println("수정된 고유번호: " + updatedUidInfo);
-            System.out.println("고유번호 변경: " + originalUidInfo + " -> " + updatedUidInfo);
             deviceHistoryService.saveDeviceHistory(updatedDevice, "uid", originalUidInfo, updatedUidInfo, modifiedBy);
-        } else {
-            System.out.println("고유번호 변경 없음 - 원본: " + 
-                (originalDevice.getUid() != null ? "있음" : "없음") + 
-                ", 수정: " + (updatedDevice.getUid() != null ? "있음" : "없음"));
         }
-        
-        log.info("=== 장비 수정 히스토리 저장 완료 ===");
-        log.info("총 변경사항 수: {}", changeCount);
         
         // 고유번호 중복 검증 (자기 자신 제외)
         if (updatedDevice.getUid() != null && isUidDuplicate(updatedDevice.getUid(), updatedDevice.getDeviceId())) {
@@ -433,11 +381,6 @@ public class DeviceService {
         }
         
         // 관리번호 중복 검증 (자기 자신 제외)
-        System.out.println("=== 관리번호 중복 검증 호출 ===");
-        System.out.println("수정할 장비 ID: " + updatedDevice.getDeviceId());
-        System.out.println("수정할 관리번호: " + (updatedDevice.getManage() != null ? 
-            updatedDevice.getManage().getManageCate() + "-" + updatedDevice.getManage().getYear() + "-" + updatedDevice.getManage().getManageNum() : "null"));
-        
         if (updatedDevice.getManage() != null && isManageDuplicate(updatedDevice.getManage(), updatedDevice.getDeviceId())) {
             throw new RuntimeException("동일한 관리번호가 이미 존재합니다: " + 
                 updatedDevice.getManage().getManageCate() + "-" + updatedDevice.getManage().getYear() + "-" + 
@@ -546,29 +489,13 @@ public class DeviceService {
     public boolean isManageDuplicate(Manage manage, Long excludeDeviceId) {
         if (manage == null) return false;
         
-        System.out.println("=== 관리번호 중복 검증 시작 ===");
-        System.out.println("검증할 관리번호: " + manage.getManageCate() + "-" + manage.getYear() + "-" + manage.getManageNum());
-        System.out.println("제외할 장비ID: " + excludeDeviceId);
-        
         // 같은 학교 내에서 동일한 관리번호가 있는지 확인
         List<Device> devicesWithSameManage = deviceRepository.findBySchoolAndManageManageCateAndManageYearAndManageManageNum(
             manage.getSchool(), manage.getManageCate(), manage.getYear(), manage.getManageNum());
         
-        System.out.println("동일한 관리번호를 가진 장비 수: " + devicesWithSameManage.size());
-        
         // excludeDeviceId가 있으면 해당 장비는 제외
-        boolean hasDuplicate = devicesWithSameManage.stream()
+        return devicesWithSameManage.stream()
             .anyMatch(device -> !device.getDeviceId().equals(excludeDeviceId));
-        
-        System.out.println("중복 여부: " + hasDuplicate);
-        if (hasDuplicate) {
-            devicesWithSameManage.stream()
-                .filter(device -> !device.getDeviceId().equals(excludeDeviceId))
-                .forEach(device -> System.out.println("중복 장비: ID=" + device.getDeviceId() + ", 관리번호=" + 
-                    (device.getManage() != null ? device.getManage().getManageCate() + "-" + device.getManage().getYear() + "-" + device.getManage().getManageNum() : "null")));
-        }
-        
-        return hasDuplicate;
     }
     
 
@@ -576,7 +503,6 @@ public class DeviceService {
     // Delete
     @Transactional
     public void deleteDevice(Long id) {
-        System.out.println("Deleting device with id: " + id);
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Device not found with id: " + id));
         
@@ -765,7 +691,6 @@ public class DeviceService {
         
         // 검사 상태가 있는지 확인
         boolean hasInspectionStatus = inspectionStatuses != null && !inspectionStatuses.isEmpty();
-        log.info("엑셀 생성 - 검사 상태 포함 여부: {}, 검사 상태 맵: {}", hasInspectionStatus, inspectionStatuses);
         
         // 첫번째 행: 제목 (학교명 + 교실배치별 장비현황)
         Row titleRow = sheet.createRow(0);
@@ -969,26 +894,20 @@ public class DeviceService {
     public void saveDevicesFromExcel(MultipartFile file, Long schoolId) throws Exception {
         // 파일 확장자 검증
         String originalFilename = file.getOriginalFilename();
-        System.out.println("엑셀 파일 업로드 시작: " + originalFilename);
-        
         if (originalFilename == null || !(originalFilename.endsWith(".xls") || originalFilename.endsWith(".xlsx"))) {
-            System.out.println("잘못된 파일 형식: " + originalFilename);
             throw new IllegalArgumentException("엑셀 파일(.xls 또는 .xlsx)만 업로드 가능합니다.");
         }
 
         // 파일 내용 검증
         if (file.isEmpty()) {
-            System.out.println("빈 파일입니다: " + originalFilename);
             throw new IllegalArgumentException("빈 파일입니다. 내용이 있는 엑셀 파일을 업로드해주세요.");
         }
 
         School school = schoolRepository.findById(schoolId)
                 .orElseThrow(() -> {
-                    System.out.println("학교를 찾을 수 없음. 학교 ID: " + schoolId);
+                    log.error("학교를 찾을 수 없음. 학교 ID: {}", schoolId);
                     return new IllegalArgumentException("학교를 찾을 수 없습니다.");
                 });
-        
-        System.out.println("학교 정보: ID=" + school.getSchoolId() + ", 이름=" + school.getSchoolName());
         
         List<Device> devices = new ArrayList<>();
         try (InputStream is = file.getInputStream()) {
@@ -996,11 +915,8 @@ public class DeviceService {
             Sheet sheet = workbook.getSheetAt(0);
             int rowCount = 0;
             
-            System.out.println("총 행 수: " + sheet.getPhysicalNumberOfRows());
-            
             // 시트에 데이터가 없는 경우 확인
             if (sheet.getPhysicalNumberOfRows() == 0) {
-                System.out.println("데이터가 없는 엑셀 파일입니다");
                 throw new IllegalArgumentException("데이터가 없습니다. 최소한 1개 이상의 데이터행이 필요합니다.");
             }
             
@@ -1008,11 +924,8 @@ public class DeviceService {
                 rowCount++;
                 
                 try {
-                    System.out.println(rowCount + "번째 행 처리 시작");
-                    
                     // 빈 행 체크 - 타입(3번째 컬럼)이 비어있으면 스킵
                     if (isEmptyRow(row)) {
-                        System.out.println(rowCount + "번째 행은 빈 행이므로 스킵합니다");
                         continue;
                     }
                     
@@ -1020,9 +933,8 @@ public class DeviceService {
                     String uidInfo = null;
                     try {
                         uidInfo = getCellString(row.getCell(0));
-                        System.out.println(rowCount + "번째 행 UID 정보: " + uidInfo);
                     } catch (Exception e) {
-                        System.out.println(rowCount + "번째 행 UID 정보 처리 중 오류: " + e.getMessage());
+                        // UID 정보는 선택사항이므로 오류 무시
                     }
                     
                     String uidCate = null;
@@ -1031,9 +943,8 @@ public class DeviceService {
                     String manageNo = null;
                     try {
                         manageNo = getCellString(row.getCell(1));
-                        System.out.println(rowCount + "번째 행 관리번호: " + manageNo);
                     } catch (Exception e) {
-                        System.out.println(rowCount + "번째 행 관리번호 처리 중 오류: " + e.getMessage());
+                        // 관리번호는 선택사항이므로 오류 무시
                     }
                     
                     // Manage 엔티티 조회/생성 (관리번호가 없으면 null)
@@ -1041,15 +952,11 @@ public class DeviceService {
                     if (manageNo != null && !manageNo.trim().isEmpty()) {
                         try {
                             ManageNumber mn = parseManageNo(manageNo);
-                            System.out.println(rowCount + "번째 행 관리번호 파싱 결과: 카테고리=" + 
-                                    mn.manageCate + ", 연도=" + mn.year + ", 번호=" + mn.manageNum);
                             
                             // ManageService.findOrCreate()을 사용하여 학교별로 정확한 관리번호 생성
                             manage = manageService.findOrCreate(school, mn.manageCate, mn.year, mn.manageNum);
-                            
-                            System.out.println(rowCount + "번째 행 Manage 엔티티 처리 완료: ID=" + manage.getManageId());
                         } catch (Exception e) {
-                            System.out.println(rowCount + "번째 행 관리번호 형식 오류: " + manageNo + ", " + e.getMessage());
+                            log.warn("{}번째 행 관리번호 형식 오류: {}, {}", rowCount, manageNo, e.getMessage());
                             // 특정 행의 관리번호 오류를 알림
                             throw new IllegalArgumentException(rowCount + "번째 행의 관리번호 형식이 잘못되었습니다: " + manageNo);
                         }
@@ -1059,14 +966,12 @@ public class DeviceService {
                     String type = null;
                     try {
                         type = getCellString(row.getCell(2));
-                        System.out.println(rowCount + "번째 행 장비 타입: " + type);
                     } catch (Exception e) {
-                        System.out.println(rowCount + "번째 행 장비 타입 처리 중 오류: " + e.getMessage());
+                        // 타입 정보 처리 중 오류
                     }
                     
                     // 유효한 타입이 없으면 구체적인 오류 메시지와 함께 예외 발생
                     if (type == null || type.trim().isEmpty()) {
-                        System.out.println(rowCount + "번째 행 장비 타입 누락");
                         throw new IllegalArgumentException(rowCount + "번째 행에 장비 타입이 없습니다. 장비 타입은 필수 값입니다.");
                     }
                     
@@ -1086,10 +991,8 @@ public class DeviceService {
                                     op.setSchool(school);
                                     return operatorService.saveOperator(op);
                                 });
-                            System.out.println(rowCount + "번째 행 취급자 정보: " + operatorName + " (" + operatorPosition + ")");
                         }
                     } catch (Exception e) {
-                        System.out.println(rowCount + "번째 행 취급자 정보 처리 중 오류: " + e.getMessage());
                         // 취급자 정보는 선택사항이므로 오류가 있어도 진행
                     }
                     
@@ -1104,29 +1007,13 @@ public class DeviceService {
                         modelName = getCellString(row.getCell(6));
                         
                         Cell dateCell = row.getCell(7); // 도입일자 컬럼
-                        System.out.println("=== DATE CELL PROCESSING ===");
-                        System.out.println("Row: " + rowCount + ", Cell index: 7");
-                        System.out.println("Cell: " + dateCell);
-                        System.out.println("Cell type: " + (dateCell != null ? dateCell.getCellType() : "null"));
-                        System.out.println("Cell value: " + (dateCell != null ? getCellString(dateCell) : "null"));
-                        
-                        // 모든 셀 정보 출력 (디버깅용)
-                        System.out.println("=== ALL CELLS INFO ===");
-                        for (int i = 0; i < 13; i++) {
-                            Cell cell = row.getCell(i);
-                            System.out.println("Cell[" + i + "]: " + (cell != null ? getCellString(cell) : "null"));
-                        }
                         
                         if (dateCell != null && dateCell.getCellType() != CellType.BLANK) {
                             purchaseDate = parseLocalDate(dateCell);
-                            System.out.println(rowCount + "번째 행 도입일자 파싱 결과: " + purchaseDate);
-                        } else {
-                            System.out.println("도입일자 셀이 비어있습니다");
                         }
                         
                         ipAddress = getCellString(row.getCell(8));
                     } catch (Exception e) {
-                        System.out.println(rowCount + "번째 행 기타 정보 처리 중 오류: " + e.getMessage());
                         // 선택적 정보이므로 진행
                     }
                     
@@ -1136,10 +1023,8 @@ public class DeviceService {
                     
                     try {
                         classroomName = getCellString(row.getCell(9));
-                        System.out.println(rowCount + "번째 행 설치장소(교실): " + classroomName);
                         
                         if (classroomName == null || classroomName.isBlank()) {
-                            System.out.println(rowCount + "번째 행 설치장소(교실) 누락");
                             throw new IllegalArgumentException(rowCount + "번째 행에 설치장소(교실)가 지정되지 않았습니다. 설치장소는 필수 항목입니다.");
                         }
                         
@@ -1147,7 +1032,6 @@ public class DeviceService {
                         Optional<Classroom> existingClassroom = classroomService.findByRoomNameAndSchool(classroomName.trim(), school.getSchoolId());
                         if (existingClassroom.isPresent()) {
                             classroom = existingClassroom.get();
-                            System.out.println(rowCount + "번째 행 기존 교실 사용: " + classroomName);
                         } else {
                             classroom = new Classroom();
                             classroom.setRoomName(classroomName.trim());
@@ -1157,7 +1041,6 @@ public class DeviceService {
                             classroom.setWidth(100);
                             classroom.setHeight(100);
                             classroom = classroomService.saveClassroom(classroom);
-                            System.out.println(rowCount + "번째 행 새 교실 생성: " + classroomName);
                         }
                     } catch (IllegalArgumentException e) {
                         throw e; // 이미 구체적인 오류 메시지가 있는 예외는 그대로 던짐
@@ -1243,7 +1126,6 @@ public class DeviceService {
                         uidCate = uidInfo;
                     }
                     
-                    System.out.println(rowCount + "번째 행 최종 UID 카테고리: " + uidCate);
                     
                     // Device 객체 생성 및 기본 정보 설정
                     Device device = new Device();
@@ -1264,12 +1146,11 @@ public class DeviceService {
                     // 디바이스 저장 전에 UID 설정 - 필수 데이터 확인
                     if (uidCate != null && !uidCate.trim().isEmpty()) {
                         devices.add(device);
-                        System.out.println(rowCount + "번째 행 장비 처리 완료");
                     } else {
-                        System.out.println(rowCount + "번째 행 UID 카테고리 누락으로 장비 무시");
+                        log.warn("{}번째 행 UID 카테고리 누락으로 장비 무시", rowCount);
                     }
                 } catch (Exception e) {
-                    System.out.println(rowCount + "번째 행 처리 중 예외 발생: " + e.getMessage());
+                    log.error("{}번째 행 처리 중 예외 발생: {}", rowCount, e.getMessage(), e);
                     throw new IllegalArgumentException(rowCount + "번째 행 처리 중 오류가 발생했습니다: " + e.getMessage());
                 }
             }
@@ -1312,14 +1193,10 @@ public class DeviceService {
                         }
                     }));
             
-            System.out.println("UID 카테고리별 장비 수: " + devicesByCate.size() + "개 카테고리");
-            
             // 각 카테고리별로 ID 번호 부여하고 UID 생성
             for (Map.Entry<String, List<Device>> entry : devicesByCate.entrySet()) {
                 String cate = entry.getKey();
                 List<Device> deviceList = entry.getValue();
-                
-                System.out.println("카테고리 '" + cate + "'의 장비 수: " + deviceList.size() + "개");
                 
                 // 각 장비 처리
                 for (Device device : deviceList) {
@@ -1345,18 +1222,11 @@ public class DeviceService {
                     // displayUid 자동 생성
                     uid.generateDisplayUid();
                     device.setUid(uid);
-                    
-                    System.out.println("장비에 UID 설정: 카테고리=" + cate + 
-                            ", 학교코드=" + schoolCode + 
-                            ", 제조년=" + mfgYear + 
-                            ", ID번호=" + String.format("%04d", idNumber) + 
-                            " (표시: " + cate + schoolCode + mfgYear + String.format("%04d", idNumber) + ")");
                 }
             }
             
             // 최종 저장
-            int savedCount = deviceRepository.saveAll(devices).size();
-            System.out.println("총 " + savedCount + "개의 장비 저장 완료");
+            deviceRepository.saveAll(devices);
         }
         
         // 메서드 끝에 추가 (return 문 바로 앞에)
@@ -1386,7 +1256,7 @@ public class DeviceService {
                                     .toLocalDate();
                                 return localDate.toString();
                             } catch (Exception e) {
-                                System.out.println("Excel date conversion failed: " + e.getMessage());
+                                log.warn("Excel date conversion failed: {}", e.getMessage());
                             }
                         }
                         // 일반 숫자 처리
@@ -1402,7 +1272,6 @@ public class DeviceService {
                     try {
                         // 엑셀 공식의 계산된 결과값을 가져옴
                         CellType cachedFormulaResultType = cell.getCachedFormulaResultType();
-                        System.out.println("getCellString: FORMULA cell with cached result type = " + cachedFormulaResultType);
                         
                         if (cachedFormulaResultType == CellType.STRING) {
                             return cell.getStringCellValue().trim();
@@ -1421,7 +1290,7 @@ public class DeviceService {
                                             .toLocalDate();
                                         return localDate.toString();
                                     } catch (Exception e) {
-                                        System.out.println("Excel date conversion failed: " + e.getMessage());
+                                        log.warn("Excel date conversion failed: {}", e.getMessage());
                                     }
                                 }
                                 // 일반 숫자 처리
@@ -1437,7 +1306,6 @@ public class DeviceService {
                             return "";
                         }
                     } catch (Exception e) {
-                        System.out.println("getCellString: Failed to process FORMULA cell: " + e.getMessage());
                         return "";
                     }
                     break;
@@ -1447,7 +1315,6 @@ public class DeviceService {
                     return "";
             }
         } catch (Exception e) {
-            System.out.println("getCellString: 셀 값 추출 중 오류 발생: " + e.getMessage());
             return "";
         }
         return "";
@@ -1476,17 +1343,13 @@ public class DeviceService {
     }
 
     private LocalDate parseLocalDate(Cell cell) {
-        System.out.println("=== PARSE LOCAL DATE CALLED ===");
-        System.out.println("Cell: " + cell);
         if (cell == null) {
-            System.out.println("Cell is null");
             return null;
         }
         
         try {
             // 1. Excel의 날짜 형식인 경우 직접 변환 (가장 우선)
             if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-                System.out.println("Excel 날짜 형식 감지됨: " + cell.getLocalDateTimeCellValue());
                 return cell.getLocalDateTimeCellValue().toLocalDate();
             }
             
@@ -1495,21 +1358,16 @@ public class DeviceService {
                 try {
                     CellType cachedType = cell.getCachedFormulaResultType();
                     if (cachedType == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-                        System.out.println("Excel 날짜 공식 결과 감지됨: " + cell.getLocalDateTimeCellValue());
                         return cell.getLocalDateTimeCellValue().toLocalDate();
                     }
                 } catch (Exception e) {
-                    System.out.println("공식 셀 날짜 처리 중 오류: " + e.getMessage());
+                    // 공식 셀 날짜 처리 중 오류 무시
                 }
             }
             
             // 3. 문자열로 변환하여 처리
             String value = getCellString(cell);
             if (value == null || value.isBlank()) return null;
-            
-            System.out.println("String date processing: " + value);
-            System.out.println("Original cell type: " + cell.getCellType());
-            System.out.println("Cell value: " + cell.toString());
             
             // 문자열 전처리 - 다양한 구분자와 형식 정규화
             value = value.trim()
@@ -1518,23 +1376,17 @@ public class DeviceService {
                     .replaceAll("--", "-").replaceAll("-$", "");
             
             // 다양한 날짜 형식 처리
-            System.out.println("날짜 형식 매칭 시도: " + value);
-            
             if (value.matches("\\d{4}-\\d{1,2}-\\d{1,2}")) {
                 // YYYY-MM-DD 형식
-                System.out.println("YYYY-MM-DD 형식 매칭됨: " + value);
                 return LocalDate.parse(value, DateTimeFormatter.ofPattern("yyyy-M-d"));
             } else if (value.matches("\\d{4}-\\d{1,2}")) {
                 // YYYY-MM 형식 (일은 1일로 설정)
-                System.out.println("YYYY-MM 형식 매칭됨: " + value);
                 return LocalDate.parse(value + "-01", DateTimeFormatter.ofPattern("yyyy-M-d"));
             } else if (value.matches("\\d{4}")) {
                 // YYYY 형식 (월과 일은 1월 1일로 설정)
-                System.out.println("YYYY 형식 매칭됨: " + value);
                 return LocalDate.parse(value + "-01-01", DateTimeFormatter.ofPattern("yyyy-M-d"));
             } else if (value.matches("\\d{2}-\\d{1,2}")) {
                 // YY-MM 형식 (현재 세기에 맞춰 연도 해석, 일은 1일로 설정)
-                System.out.println("YY-MM 형식 매칭됨: " + value);
                 int currentCentury = LocalDate.now().getYear() / 100 * 100;
                 int year = Integer.parseInt(value.split("-")[0]);
                 if (year > LocalDate.now().getYear() % 100) {
@@ -1545,7 +1397,6 @@ public class DeviceService {
                         DateTimeFormatter.ofPattern("yyyy-M-d"));
             } else if (value.matches("\\d{2}")) {
                 // YY 형식 (현재 세기에 맞춰 연도 해석, 월과 일은 1월 1일로 설정)
-                System.out.println("YY 형식 매칭됨: " + value);
                 int currentCentury = LocalDate.now().getYear() / 100 * 100;
                 int year = Integer.parseInt(value);
                 if (year > LocalDate.now().getYear() % 100) {
@@ -1578,9 +1429,8 @@ public class DeviceService {
             
         } catch (DateTimeParseException | NumberFormatException e) {
             // 날짜 파싱 실패 시 null 반환 (오류 메시지 없이 계속 진행)
-            System.out.println("날짜 파싱 오류: " + (cell != null ? getCellString(cell) : "null") + " - " + e.getMessage());
         } catch (Exception e) {
-            System.out.println("날짜 처리 중 예상치 못한 오류: " + e.getMessage());
+            log.error("날짜 처리 중 예상치 못한 오류: {}", e.getMessage(), e);
         }
         
         // 어떤 형식으로도 파싱할 수 없는 경우 null 반환 (오류 발생 없이 빈 값으로 처리)
@@ -1594,7 +1444,6 @@ public class DeviceService {
      * @return 업데이트된 장비 객체
      */
     public Device setDeviceUid(Device device, String cate) {
-        System.out.println("Creating new Uid with cate: " + cate + " for device: " + device);
         
         // 장비의 학교 정보 가져오기
         School school = device.getSchool();
@@ -1629,7 +1478,6 @@ public class DeviceService {
      * @return 업데이트된 장비 객체
      */
     public Device setDeviceUidWithNumber(Device device, String cate, Long idNumber) {
-        System.out.println("Setting Uid with cate: " + cate + ", idNumber: " + idNumber + " for device: " + device);
         
         // 장비의 학교 정보 가져오기
         School school = device.getSchool();

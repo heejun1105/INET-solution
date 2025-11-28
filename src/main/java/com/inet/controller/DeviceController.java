@@ -1251,20 +1251,6 @@ public class DeviceController {
         return result;
     }
 
-    // 디버깅용 - 학교의 모든 Manage 데이터 조회 (Device 기반)
-    @GetMapping("/api/debug/manages/{schoolId}")
-    @ResponseBody
-    public List<com.inet.entity.Manage> debugGetAllManages(@PathVariable Long schoolId) {
-        return manageService.findBySchoolId(schoolId);
-    }
-
-    // 디버깅용 - Manage 테이블에서 직접 조회
-    @GetMapping("/api/debug/manages-direct/{schoolId}")
-    @ResponseBody
-    public List<com.inet.entity.Manage> debugGetAllManagesDirect(@PathVariable Long schoolId) {
-        return manageService.findDirectBySchoolId(schoolId);
-    }
-
     // 고유번호 관련 API들
 
     // 학교별 고유번호 연도 목록 조회
@@ -1350,7 +1336,6 @@ public class DeviceController {
             return cates;
         } catch (Exception e) {
             log.error("고유번호 카테고리 조회 중 오류: ", e);
-            e.printStackTrace(); // 스택 트레이스 출력
             // 오류 발생 시 기본 카테고리 반환
             return List.of("DW", "MO", "PR", "TV", "ID", "ED", "DI", "TB", "PJ", "ET");
         }

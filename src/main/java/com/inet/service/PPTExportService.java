@@ -25,9 +25,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.awt.geom.Rectangle2D;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class PPTExportService {
+    
+    private static final Logger log = LoggerFactory.getLogger(PPTExportService.class);
     
     @Autowired
     private FloorPlanRepository floorPlanRepository;
@@ -73,16 +77,13 @@ public class PPTExportService {
      */
     public ByteArrayOutputStream exportFloorPlanToPPT(Long schoolId, String mode) throws IOException {
         try {
-            System.out.println("PPT 내보내기 시작 - schoolId: " + schoolId + ", mode: " + mode);
+            log.info("PPT 내보내기 시작 - schoolId: {}, mode: {}", schoolId, mode);
             
             // 학교 정보 조회
             School school = schoolRepository.findById(schoolId)
                 .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다: " + schoolId));
-            System.out.println("학교 정보 조회 완료: " + school.getSchoolName());
-            
             // 활성 평면도 조회
             List<FloorPlan> activeFloorPlans = floorPlanRepository.findAllBySchoolIdAndIsActive(schoolId, true);
-            System.out.println("활성 평면도 개수: " + activeFloorPlans.size());
             
             if (activeFloorPlans.isEmpty()) {
                 throw new RuntimeException("저장된 평면도가 없습니다.");
@@ -93,34 +94,29 @@ public class PPTExportService {
                 .sorted((a, b) -> b.getUpdatedAt().compareTo(a.getUpdatedAt()))
                 .findFirst()
                 .get();
-            System.out.println("평면도 선택 완료 - ID: " + floorPlan.getId());
             
             // 평면도 요소 조회
             List<FloorPlanElement> elements = floorPlanElementRepository.findByFloorPlanId(floorPlan.getId());
-            System.out.println("평면도 요소 개수: " + elements.size());
             
             // 장비 보기 모드인 경우 장비 정보 조회
             Map<Long, List<Map<String, Object>>> devicesByClassroom = null;
             if ("equipment".equals(mode)) {
                 devicesByClassroom = floorPlanService.getDevicesByClassroom(schoolId);
-                System.out.println("장비 정보 조회 완료 - 교실 수: " + devicesByClassroom.size());
             }
             
             // PPT 프레젠테이션 생성
             XMLSlideShow ppt = createPPTPresentation(school, floorPlan, elements, mode, devicesByClassroom);
-            System.out.println("PPT 프레젠테이션 생성 완료");
             
             // 바이트 배열로 변환
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             ppt.write(outputStream);
             ppt.close();
-            System.out.println("PPT 파일 변환 완료 - 크기: " + outputStream.size() + " bytes");
+            log.info("PPT 파일 변환 완료 - 크기: {} bytes", outputStream.size());
             
             return outputStream;
             
         } catch (Exception e) {
-            System.err.println("PPT 내보내기 중 오류 발생: " + e.getMessage());
-            e.printStackTrace();
+            log.error("PPT 내보내기 중 오류 발생: {}", e.getMessage(), e);
             throw new IOException("PPT 파일 생성 중 오류가 발생했습니다: " + e.getMessage(), e);
         }
     }
@@ -283,15 +279,8 @@ public class PPTExportService {
             elementsToProcess.addAll(resolvedApElements);
         }
         
-        if ("wireless-ap".equals(mode)) {
-            System.out.println("무선 AP 보기 모드: " + elementsToProcess.size() + "개 요소 포함 (전체: " + elements.size() + "개)");
-        } else if ("equipment".equals(mode)) {
-            System.out.println("장비 보기 모드: " + elementsToProcess.size() + "개 요소 포함 (전체: " + elements.size() + "개)");
-        }
-        
         // 필터링된 요소들로 바운딩 박스 계산
         BoundingBox bounds = calculateBoundingBox(elementsToProcess);
-        System.out.println("실제 평면도 범위: " + bounds);
         
         // 동적 스케일 및 오프셋 계산 (헤더 영역 및 범례 영역 제외)
         double availableWidth = PPT_WIDTH - 40;  // 좌우 여백 20px씩
@@ -299,7 +288,7 @@ public class PPTExportService {
         
         // 바운딩 박스 크기 확인
         if (bounds.width <= 0 || bounds.height <= 0) {
-            System.err.println("⚠️ 바운딩 박스 크기가 0 이하입니다: " + bounds);
+            log.warn("⚠️ 바운딩 박스 크기가 0 이하입니다: {}", bounds);
             bounds = new BoundingBox(0, 0, 1000, 1000);
         }
         
@@ -309,7 +298,7 @@ public class PPTExportService {
         
         // 스케일이 너무 작거나 큰 경우 제한
         if (scale <= 0 || Double.isNaN(scale) || Double.isInfinite(scale)) {
-            System.err.println("⚠️ 스케일 계산 오류: " + scale + ", 기본값 0.15 사용");
+            log.warn("⚠️ 스케일 계산 오류: {}, 기본값 0.15 사용", scale);
             scale = 0.15;
         }
         
@@ -340,28 +329,10 @@ public class PPTExportService {
         this.currentBoundsMinY = bounds.minY;
         
         if (marginX < 0 || marginY < 0) {
-            System.err.println("⚠️ 마진이 음수입니다!");
-            System.err.println(String.format("  bounds: minX=%.2f, minY=%.2f, width=%.2f, height=%.2f", 
-                bounds.minX, bounds.minY, bounds.width, bounds.height));
-            System.err.println(String.format("  scale: %.6f, scaledWidth=%.2f, scaledHeight=%.2f", 
-                scale, scaledWidth, scaledHeight));
-            System.err.println(String.format("  availableWidth=%.2f, availableHeight=%.2f", availableWidth, availableHeight));
-            System.err.println(String.format("  marginX=%.2f, marginY=%.2f", marginX, marginY));
+            log.warn("⚠️ 마진이 음수입니다! bounds: minX={:.2f}, minY={:.2f}, width={:.2f}, height={:.2f}, scale: {:.6f}, scaledWidth: {:.2f}, scaledHeight: {:.2f}, availableWidth: {:.2f}, availableHeight: {:.2f}, marginX: {:.2f}, marginY: {:.2f}", 
+                    bounds.minX, bounds.minY, bounds.width, bounds.height, scale, scaledWidth, scaledHeight, availableWidth, availableHeight, marginX, marginY);
         }
         
-        System.out.println(String.format("=== PPT 스케일 및 오프셋 계산 정보 ==="));
-        System.out.println(String.format("바운딩 박스: minX=%.2f, minY=%.2f, maxX=%.2f, maxY=%.2f, width=%.2f, height=%.2f",
-            bounds.minX, bounds.minY, bounds.maxX, bounds.maxY, bounds.width, bounds.height));
-        System.out.println(String.format("사용 가능 영역: width=%.2f, height=%.2f", availableWidth, availableHeight));
-        System.out.println(String.format("스케일 계산: scaleX=%.6f, scaleY=%.6f, 최종 scale=%.6f (%.2f%%)", 
-            scaleX, scaleY, scale, scale * 100));
-        System.out.println(String.format("스케일된 크기: width=%.2f, height=%.2f", scaledWidth, scaledHeight));
-        System.out.println(String.format("중앙 정렬 여백: marginX=%.2f, marginY=%.2f", marginX, marginY));
-        System.out.println(String.format("최종 오프셋: offsetX=%.2f, offsetY=%.2f", offsetX, offsetY));
-        System.out.println(String.format("기준 스케일: %.6f (%.2f%%)", REFERENCE_ZOOM, REFERENCE_ZOOM * 100));
-        System.out.println(String.format("스케일 비율: %.6f (실제/기준)", scale / REFERENCE_ZOOM));
-        System.out.println(String.format("기준 PPT 폰트: %.2fpt", REFERENCE_PPT_FONT));
-        System.out.println("모드: " + mode + ", 장비 데이터: " + (devicesByClassroom != null ? devicesByClassroom.size() + "개 교실" : "null"));
         
         // 평면도 요소들을 z-index 순서대로 추가
         int roomCount = 0;
@@ -390,16 +361,14 @@ public class PPTExportService {
                 // 장비 보기 모드이고 교실 요소인 경우 장비 카드 추가
                 if ("equipment".equals(mode) && "room".equals(element.getElementType())) {
                     roomCount++;
-                    System.out.println("교실 요소 발견 (ID: " + element.getId() + ", Type: " + element.getElementType() + ")");
                     if (devicesByClassroom != null) {
                         addEquipmentCardsToRoom(floorPlanSlide, element, devicesByClassroom, scale, offsetX, offsetY, elements);
                     } else {
-                        System.err.println("⚠️ 장비 데이터가 null입니다!");
+                        log.warn("⚠️ 장비 데이터가 null입니다!");
                     }
                 }
             } catch (Exception e) {
-                System.err.println("요소 추가 중 오류 발생 (ID: " + element.getId() + "): " + e.getMessage());
-                e.printStackTrace();
+                log.error("요소 추가 중 오류 발생 (ID: {}): {}", element.getId(), e.getMessage(), e);
             }
         }
         
@@ -410,15 +379,12 @@ public class PPTExportService {
                     apCount++;
                 }
             } catch (Exception e) {
-                System.err.println("무선AP 요소 추가 중 오류 발생 (ID: " + apElement.getId() + "): " + e.getMessage());
-                e.printStackTrace();
+                log.error("무선AP 요소 추가 중 오류 발생 (ID: {}): {}", apElement.getId(), e.getMessage(), e);
             }
         }
         
         if ("equipment".equals(mode)) {
-            System.out.println("총 " + roomCount + "개의 교실 처리됨");
         } else if ("wireless-ap".equals(mode)) {
-            System.out.println("총 " + apCount + "개의 AP, " + mdfCount + "개의 MDF 처리됨");
         }
         
         // 범례 추가 (평면도 하단에 50px 간격)
@@ -513,7 +479,7 @@ public class PPTExportService {
         if (minX == Double.MAX_VALUE || minY == Double.MAX_VALUE || 
             maxX == Double.MIN_VALUE || maxY == Double.MIN_VALUE) {
             // 유효하지 않은 경우 기본값 반환
-            System.err.println("⚠️ 바운딩 박스 계산 실패: 기본값 사용");
+            log.warn("⚠️ 바운딩 박스 계산 실패: 기본값 사용");
             return new BoundingBox(0, 0, 1000, 1000);
         }
         
@@ -523,8 +489,6 @@ public class PPTExportService {
         maxX += padding;
         maxY += padding;
         
-        System.out.println(String.format("바운딩 박스 계산: minX=%.2f, minY=%.2f, maxX=%.2f, maxY=%.2f, width=%.2f, height=%.2f",
-            minX, minY, maxX, maxY, maxX - minX, maxY - minY));
         
         return new BoundingBox(minX, minY, maxX, maxY);
     }
@@ -573,7 +537,7 @@ public class PPTExportService {
                 createMdfIdfShape(slide, element, scale, offsetX, offsetY);
                 break;
             default:
-                System.err.println("알 수 없는 요소 타입: " + elementType);
+                log.warn("알 수 없는 요소 타입: {}", elementType);
         }
     }
     
@@ -612,8 +576,6 @@ public class PPTExportService {
         }
         
         double borderThickness = Double.parseDouble(borderThicknessStr);
-        System.out.println(String.format("[교실 선 굵기] borderWidth=%s, scale=%.6f, 계산결과=%.6fpt", 
-            borderThicknessStr, scale, borderThickness * scale));
         
         // 배경색 가져오기 (없으면 투명)
         String bgColorStr = (String) elementData.getOrDefault("backgroundColor", null);
@@ -676,8 +638,6 @@ public class PPTExportService {
         }
         
         double borderThickness = Double.parseDouble(borderThicknessStr);
-        System.out.println(String.format("[건물 선 굵기] borderWidth=%s, scale=%.6f, 계산결과=%.6fpt", 
-            borderThicknessStr, scale, borderThickness * scale));
         
         // 배경색 가져오기 (없으면 연한 파란색)
         String bgColorStr = (String) elementData.getOrDefault("backgroundColor", null);
@@ -743,8 +703,6 @@ public class PPTExportService {
         }
         
         double lineWidth = Double.parseDouble(lineWidthStr);
-        System.out.println(String.format("[도형 선 굵기] shapeType=%s, borderWidth=%s, scale=%.6f, 계산결과=%.6fpt", 
-            shapeType, lineWidthStr, scale, lineWidth * scale));
         
         // 배경색 가져오기
         String bgColorStr = (String) elementData.getOrDefault("backgroundColor", null);
@@ -798,12 +756,10 @@ public class PPTExportService {
                             org.openxmlformats.schemas.drawingml.x2006.main.CTPresetLineDashProperties.Factory.newInstance();
                         presetDash.setVal(org.openxmlformats.schemas.drawingml.x2006.main.STPresetLineDashVal.DASH);
                         lineProps.setPrstDash(presetDash);
-                        System.out.println("[점선 도형] 점선 스타일 적용: " + shapeType);
                     }
                 }
             } catch (Exception e) {
-                System.out.println("[점선 도형] 점선 스타일 설정 실패: " + e.getMessage());
-                e.printStackTrace();
+                log.warn("[점선 도형] 점선 스타일 설정 실패: {}", e.getMessage());
             }
         }
         
@@ -885,8 +841,6 @@ public class PPTExportService {
         // 스케일이 작아도 선이 보이도록 최소값 조정 (0.2pt)
         double otherSpaceLineWidth = Math.max(0.2, lineWidth * scale);
         shape.setLineWidth(otherSpaceLineWidth);
-        System.out.println(String.format("[기타공간 선 굵기] borderWidth=%s, scale=%.6f, 계산결과=%.6fpt", 
-            borderThicknessStr != null ? borderThicknessStr : "2.0", scale, otherSpaceLineWidth));
         
         // 텍스트 추가
         XSLFTextParagraph paragraph = shape.addNewTextParagraph();
@@ -970,8 +924,6 @@ public class PPTExportService {
         double heightRatio = originalHeight / 40.0;
         double fontSize = REFERENCE_PPT_FONT * scaleRatio * heightRatio * 1.2; // 20% 증가
         // 최소값 제거 - 계산된 값 그대로 사용 (스케일이 작을 때는 작은 폰트가 정상)
-        System.out.println(String.format("[이름박스 폰트 계산] 원본높이=%.1fpx, 스케일=%.6f, 스케일비율=%.6f, 높이비율=%.6f, 계산결과=%.6fpt, 최종=%.2fpt", 
-            originalHeight, scale, scaleRatio, heightRatio, REFERENCE_PPT_FONT * scaleRatio * heightRatio * 1.2, fontSize));
         textRun.setFontSize(fontSize);
         textRun.setFontColor(Color.BLACK);
         textRun.setBold(true);
@@ -1050,8 +1002,6 @@ public class PPTExportService {
         double fontRatio = baseFontSize / nameBoxFontSize;
         double fontSize = REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2; // 20% 증가
         // 최소값 제거 - 계산된 값 그대로 사용
-        System.out.println(String.format("[WC 폰트 계산] 스케일=%.6f, 스케일비율=%.6f, 폰트비율=%.6f, 계산결과=%.6fpt, 최종=%.2fpt", 
-            scale, scaleRatio, fontRatio, REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2, fontSize));
         textRun.setFontSize(fontSize);
         textRun.setFontColor(Color.BLACK);
         textRun.setBold(true);
@@ -1092,8 +1042,6 @@ public class PPTExportService {
         double fontRatio = baseFontSize / nameBoxFontSize;
         double fontSize = REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2; // 20% 증가
         // 최소값 제거 - 계산된 값 그대로 사용
-        System.out.println(String.format("[EV 폰트 계산] 스케일=%.6f, 스케일비율=%.6f, 폰트비율=%.6f, 계산결과=%.6fpt, 최종=%.2fpt", 
-            scale, scaleRatio, fontRatio, REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2, fontSize));
         textRun.setFontSize(fontSize);
         textRun.setFontColor(Color.BLACK);
         textRun.setBold(true);
@@ -1304,14 +1252,13 @@ public class PPTExportService {
             classroomId = roomElement.getReferenceId();
         }
         if (classroomId == null) {
-            System.err.println("장비 카드 추가 실패: classroomId를 찾을 수 없음 (elementId=" + roomElement.getId() + ")");
+            log.error("장비 카드 추가 실패: classroomId를 찾을 수 없음 (elementId={})", roomElement.getId());
             return;
         }
         
         // 해당 교실의 장비 조회
         List<Map<String, Object>> devices = devicesByClassroom.get(classroomId);
         if (devices == null || devices.isEmpty()) {
-            System.out.println("교실 " + classroomId + " 장비 없음");
             return;
         }
         
@@ -1439,10 +1386,6 @@ public class PPTExportService {
             double fontSize = REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2; // 20% 증가
             // 최소 폰트 크기 보장 (너무 작아지지 않도록)
             fontSize = Math.max(1.0, fontSize);
-            if (i == 0) { // 첫 번째 카드만 로그 출력
-                System.out.println(String.format("[장비카드 폰트 계산] 스케일=%.6f, 스케일비율=%.6f, 폰트비율=%.6f, 계산결과=%.6fpt, 최종=%.2fpt", 
-                    scale, scaleRatio, fontRatio, REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2, fontSize));
-            }
             textRun.setFontSize(fontSize);
             textRun.setFontColor(Color.WHITE);
             textRun.setBold(true);
@@ -1450,9 +1393,6 @@ public class PPTExportService {
             
             cardShape.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
         }
-        
-        System.out.println(String.format("교실 %s에 장비 카드 %d개 추가됨", 
-            roomElement.getId(), maxCards));
     }
     
     /**
@@ -1486,7 +1426,7 @@ public class PPTExportService {
                 return objectMapper.readValue(elementData, Map.class);
             }
         } catch (Exception e) {
-            System.err.println("JSON 파싱 실패: " + e.getMessage());
+            log.error("JSON 파싱 실패: {}", e.getMessage(), e);
         }
         return Map.of();
     }
@@ -1810,7 +1750,7 @@ public class PPTExportService {
         try {
             element.setElementData(objectMapper.writeValueAsString(data));
         } catch (Exception e) {
-            System.err.println("무선AP elementData 직렬화 실패: " + e.getMessage());
+            log.error("무선AP elementData 직렬화 실패: {}", e.getMessage(), e);
             element.setElementData(null);
         }
     }
@@ -2076,8 +2016,7 @@ public class PPTExportService {
                 addApLegendWithShapes(slide, legendX, legendY, boxPadding, boxHeight, fontSize);
             }
         } catch (Exception e) {
-            System.err.println("범례 추가 중 오류: " + e.getMessage());
-            e.printStackTrace();
+            log.error("범례 추가 중 오류: {}", e.getMessage(), e);
         }
     }
     

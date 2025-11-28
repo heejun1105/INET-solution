@@ -32,13 +32,11 @@ RUN mkdir -p /app/logs
 # 포트 노출
 EXPOSE 8082
 
-# 환경 변수 설정 (기본값)
+# 환경 변수 설정 (기본값 - 실제 운영에서는 docker-compose나 docker run으로 덮어씀)
 ENV SPRING_PROFILES_ACTIVE=prod
-ENV DB_HOST=localhost
-ENV DB_PORT=3306
-ENV DB_NAME=inet
-ENV DB_USERNAME=root
 ENV SERVER_PORT=8082
+# 데이터베이스 연결은 환경변수로 전달 (보안)
+# SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD
 
 # 헬스체크
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \

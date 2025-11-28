@@ -44,11 +44,8 @@ public class AdminAccountInitializer implements CommandLineRunner {
             admin.setApprovedBy("SYSTEM");
             
             userRepository.save(admin);
-            System.out.println("✅ 관리자 계정이 생성되었습니다.");
-            System.out.println("   아이디: admin");
-            System.out.println("   비밀번호: admin123!");
         } else {
-            System.out.println("ℹ️ 관리자 계정이 이미 존재합니다.");
+            // 이미 관리자 계정이 존재하는 경우 아무 작업도 수행하지 않음
         }
     }
 } 
