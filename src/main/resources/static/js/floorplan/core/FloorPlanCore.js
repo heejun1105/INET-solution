@@ -524,17 +524,10 @@ export default class FloorPlanCore {
         const w = element.width || 160;  // 120 → 160
         const h = element.height || 40;  // 35 → 40
         
-        // 배경
-        ctx.fillStyle = element.backgroundColor || '#ffffff';
-        ctx.fillRect(x, y, w, h);
+        // 배경과 테두리 제거 (투명하게 렌더링)
         
-        // 테두리
-        ctx.strokeStyle = element.borderColor || '#000000';
-        ctx.lineWidth = element.borderWidth || 1;
-        ctx.strokeRect(x, y, w, h);
-        
-        // 텍스트 - 박스 높이에 비례하는 폰트 크기 + 2px
-        const dynamicFontSize = Math.max(12, h * 0.5 + 2); // 최소 12px, +2px 증가
+        // 텍스트 - 박스 높이에 비례하는 폰트 크기 (기존의 1.5배)
+        const dynamicFontSize = Math.max(12, (h * 0.5 + 2) * 1.5); // 기존 크기의 1.5배
         ctx.font = `bold ${dynamicFontSize}px ${element.fontFamily || 'Arial, sans-serif'}`;
         ctx.fillStyle = element.textColor || '#000000';
         ctx.textAlign = 'center';
@@ -677,45 +670,139 @@ export default class FloorPlanCore {
     }
     
     /**
-     * 장비 카드 렌더링 (개선된 가시성)
+     * 장비 텍스트 렌더링 (카드 형태 제거, 텍스트만 표시)
      */
     renderEquipmentCard(ctx, element) {
-        const x = element.xCoordinate;
-        const y = element.yCoordinate;
-        const w = element.width || 65;  // 65px 고정 (4x2 배치)
-        const h = element.height || 43; // 43px 높이
-        const radius = 5; // 둥근 모서리
+        // 요소 유효성 검사
+        if (!element) {
+            console.warn('⚠️ renderEquipmentCard: element가 없습니다.');
+            return;
+        }
         
-        // 둥근 모서리 사각형 (배경만)
-        ctx.fillStyle = element.color || '#4b5563';
-        ctx.beginPath();
-        ctx.moveTo(x + radius, y);
-        ctx.lineTo(x + w - radius, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-        ctx.lineTo(x + w, y + h - radius);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-        ctx.lineTo(x + radius, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-        ctx.lineTo(x, y + radius);
-        ctx.quadraticCurveTo(x, y, x + radius, y);
-        ctx.closePath();
-        ctx.fill();
+        const x = element.xCoordinate || 0;
+        const y = element.yCoordinate || 0;
+        const maxWidth = element.width || 200; // 교실 너비에서 좌우 여백 제외한 너비
+        // Core에 저장된 폰트 크기 사용, 없으면 기본값 28px
+        const requestedFontSize = this.equipmentFontSize || 28;
         
-        // 텍스트 렌더링
-        const text = `${element.deviceType || '장비'} ${element.count || 0}`;
-        const fontSize = 17;  // 17px 고정
-        ctx.font = `900 ${fontSize}px Arial, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        // 텍스트 렌더링 품질 향상을 위한 설정
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         
-        // 텍스트 외곽선 (가시성 향상)
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.lineWidth = 3;
-        ctx.strokeText(text, x + w / 2, y + h / 2);
+        // 텍스트 생성
+        let text = element.text;
+        if (!text && element.cards && Array.isArray(element.cards)) {
+            // cards 배열에서 텍스트 생성
+            const textParts = element.cards.map(card => `${card.type} ${card.count}`);
+            text = textParts.join(', ');
+        } else if (!text && element.deviceType && element.count !== undefined) {
+            // 기존 방식 (하위 호환성)
+            text = `${element.deviceType} ${element.count}`;
+        }
         
-        // 텍스트 본문 (흰색)
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(text, x + w / 2, y + h / 2);
+        if (!text) {
+            ctx.restore();
+            return;
+        }
+        
+        // 교실 내부를 넘지 않도록 최대 폰트 크기 계산
+        // 줄바꿈을 고려하여 교실 너비와 높이 모두를 체크
+        const roomHeight = element.roomHeight || element.height || 200; // 교실 높이
+        const maxHeight = roomHeight * 0.4; // 교실 높이의 40%를 최대 텍스트 영역으로 사용 (3/5 지점에서 시작하므로)
+        
+        // 줄바꿈을 시뮬레이션하여 최대 폰트 크기 계산
+        let maxFontSize = requestedFontSize;
+        const testFontSize = requestedFontSize;
+        ctx.font = `bold ${testFontSize}px Arial, sans-serif`;
+        
+        // 줄바꿈을 고려한 실제 줄 수와 높이 계산
+        const parts = text.split(', ');
+        const testLineHeight = testFontSize * 1.2; // 테스트용 줄 간격
+        let lines = [];
+        let testCurrentLine = ''; // 테스트용 currentLine
+        
+        parts.forEach((part) => {
+            const testText = testCurrentLine ? `${testCurrentLine}, ${part}` : part;
+            const metrics = ctx.measureText(testText);
+            
+            if (metrics.width > maxWidth && testCurrentLine) {
+                lines.push(testCurrentLine);
+                testCurrentLine = part;
+            } else {
+                testCurrentLine = testText;
+            }
+        });
+        if (testCurrentLine) {
+            lines.push(testCurrentLine);
+        }
+        
+        const totalHeight = lines.length * testLineHeight;
+        
+        // 높이를 넘으면 폰트 크기 조정
+        if (totalHeight > maxHeight) {
+            const heightRatio = maxHeight / totalHeight;
+            maxFontSize = Math.floor(testFontSize * heightRatio);
+            maxFontSize = Math.max(10, maxFontSize);
+        }
+        
+        // 각 줄의 너비도 체크하여 폰트 크기 추가 조정
+        ctx.font = `bold ${maxFontSize}px Arial, sans-serif`;
+        let widthExceeded = false;
+        for (const line of lines) {
+            const lineWidth = ctx.measureText(line).width;
+            if (lineWidth > maxWidth) {
+                widthExceeded = true;
+                const widthRatio = (maxWidth - 10) / lineWidth;
+                const adjustedSize = Math.floor(maxFontSize * widthRatio);
+                maxFontSize = Math.min(maxFontSize, adjustedSize);
+                maxFontSize = Math.max(10, maxFontSize);
+                break;
+            }
+        }
+        
+        // 요청된 폰트 크기와 최대 폰트 크기 중 작은 값 사용
+        const fontSize = Math.min(requestedFontSize, maxFontSize);
+        
+        // 텍스트 설정
+        ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+        ctx.fillStyle = '#ff0000'; // 붉은색
+        ctx.textAlign = 'center'; // 중앙 정렬
+        ctx.textBaseline = 'middle'; // 중앙 기준선으로 변경 (더 선명한 렌더링)
+        
+        // 중앙 정렬을 위한 x 좌표 계산 (정수로 반올림하여 선명한 렌더링)
+        const centerX = Math.round(x + maxWidth / 2);
+        
+        // 여러 줄 텍스트 렌더링 (자동 줄바꿈)
+        // parts는 이미 위에서 선언되었으므로 재사용
+        const lineHeight = fontSize * 1.2; // 실제 렌더링용 줄 간격
+        // textBaseline이 'middle'이므로 y 좌표 자체가 텍스트의 중앙이 됨 (정수로 반올림)
+        let currentY = Math.round(y);
+        let currentLine = '';
+        
+        parts.forEach((part, index) => {
+            // 현재 줄에 추가할 텍스트
+            const testText = currentLine ? `${currentLine}, ${part}` : part;
+            const metrics = ctx.measureText(testText);
+            
+            // 줄이 너비를 넘으면 현재 줄 출력하고 다음 줄로
+            if (metrics.width > maxWidth && currentLine) {
+                // 좌표를 정수로 반올림하여 선명한 렌더링
+                ctx.fillText(currentLine, centerX, Math.round(currentY));
+                currentY += lineHeight;
+                currentLine = part;
+            } else {
+                currentLine = testText;
+            }
+            
+            // 마지막 부분이면 출력
+            if (index === parts.length - 1 && currentLine) {
+                // 좌표를 정수로 반올림하여 선명한 렌더링
+                ctx.fillText(currentLine, centerX, Math.round(currentY));
+            }
+        });
+        
+        ctx.restore();
     }
     
     /**

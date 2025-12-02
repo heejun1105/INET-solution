@@ -13,7 +13,12 @@ import com.inet.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-@Component
+// 운영 환경에서는 Flyway 마이그레이션(V5__create_admin_account.sql)에서 관리자 계정을 생성하므로
+// 이 클래스는 비활성화합니다.
+// 개발 환경에서만 사용하려면 아래 주석을 해제하고 @Component를 활성화하세요.
+// @Component
+// @ConditionalOnProperty(name = "app.admin-initializer.enabled", havingValue = "true", matchIfMissing = false)
+// @Deprecated
 public class AdminAccountInitializer implements CommandLineRunner {
 
     @Autowired

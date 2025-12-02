@@ -656,6 +656,13 @@
                     
                     <!-- 우측: 저장/설계/보기 버튼 -->
                     <div class="workspace-controls-right">
+                        <!-- 장비 폰트 크기 조절 (장비 보기 모드에서만 표시) -->
+                        <div id="equipment-font-size-control" class="equipment-font-control" style="display: none;">
+                            <label for="equipment-font-size-input" class="font-size-label">장비 폰트:</label>
+                            <input type="number" id="equipment-font-size-input" class="font-size-input" value="28" min="10" max="50" step="1" title="장비 텍스트 폰트 크기">
+                            <span class="font-size-unit">px</span>
+                        </div>
+                        
                         <!-- 보기 버튼 (설계 모드에서만 표시) -->
                         <button id="workspace-view-btn" class="workspace-btn view-btn" style="display: none;">
                             <i class="fas fa-eye"></i>

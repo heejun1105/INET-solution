@@ -1320,6 +1320,52 @@
     justify-content: flex-end;
 }
 
+/* 장비 폰트 크기 조절 */
+.equipment-font-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #bae6fd;
+}
+
+.font-size-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.font-size-input {
+    width: 60px;
+    padding: 0.5rem 0.375rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: white;
+    color: #334155;
+    font-size: 0.85rem;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.font-size-input:hover {
+    border-color: #94a3b8;
+}
+
+.font-size-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.font-size-unit {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
 /* 헤더 도구 그룹 */
 .header-tool-group {
     display: flex;

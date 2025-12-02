@@ -1141,19 +1141,16 @@ export default class ClassroomDesignMode {
         
         console.log('🏢 건물 생성 완료:', building);
         
-        // 이름박스 자동 생성 (건물 상단 중앙)
-        const nameBoxWidth = 160;  // 150 → 160
-        const nameBoxHeight = 40;
+        // 이름박스 자동 생성 (건물 상단 중앙) - 건물 크기에 비례
+        const nameBoxWidth = buildingWidth * 0.7;  // 건물 너비의 70%
+        const nameBoxHeight = buildingHeight * 0.15;  // 건물 높이의 15%
         this.elementManager.createElement('name_box', {
             xCoordinate: buildingX + (buildingWidth - nameBoxWidth) / 2,  // 중앙 정렬
             yCoordinate: buildingY + 25,  // 상단에서 25px 아래
             width: nameBoxWidth,
             height: nameBoxHeight,
             label: name,
-            backgroundColor: '#ffffff',
-            borderColor: '#000000',
-            borderWidth: 2,
-            fontSize: 18,  // 16 → 18 (+2px)
+            // backgroundColor, borderColor, borderWidth 제거 (투명하게 렌더링)
             parentElementId: building.id,
             zIndex: 0  // 건물과 동일한 레이어
         });
@@ -1201,19 +1198,16 @@ export default class ClassroomDesignMode {
         
         console.log('🚪 교실 생성 완료:', room);
         
-        // 이름박스 자동 생성 (교실 상단 중앙)
-        const nameBoxWidth = 160;  // 120 → 160
-        const nameBoxHeight = 40;  // 35 → 40
+        // 이름박스 자동 생성 (교실 상단 중앙) - 교실 크기에 비례
+        const nameBoxWidth = roomWidth * 0.7;  // 교실 너비의 70%
+        const nameBoxHeight = roomHeight * 0.15;  // 교실 높이의 15%
         this.elementManager.createElement('name_box', {
             xCoordinate: roomX + (roomWidth - nameBoxWidth) / 2,  // 중앙 정렬
             yCoordinate: roomY + 40,  // 상단에서 40px 아래
             width: nameBoxWidth,
             height: nameBoxHeight,
             label: name,
-            backgroundColor: '#ffffff',
-            borderColor: '#000000',
-            borderWidth: 1,
-            fontSize: 18,  // 16 → 18 (+2px)
+            // backgroundColor, borderColor, borderWidth 제거 (투명하게 렌더링)
             parentElementId: room.id,
             zIndex: 2  // 교실과 동일한 레이어
         });

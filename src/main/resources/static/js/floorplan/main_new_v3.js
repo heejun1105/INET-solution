@@ -187,6 +187,32 @@ class FloorPlanApp {
         // 배율 조정 버튼
         this.setupZoomControls();
         
+        // 장비 폰트 크기 조절
+        const equipmentFontSizeInput = document.getElementById('equipment-font-size-input');
+        if (equipmentFontSizeInput) {
+            equipmentFontSizeInput.addEventListener('input', (e) => {
+                const fontSize = parseInt(e.target.value) || 28;
+                if (this.core) {
+                    // Core에 폰트 크기 저장
+                    this.core.equipmentFontSize = fontSize;
+                    
+                    // 학교별 폰트 크기 localStorage에 저장
+                    if (this.currentSchoolId) {
+                        const storageKey = `equipmentFontSize_${this.currentSchoolId}`;
+                        localStorage.setItem(storageKey, fontSize.toString());
+                        console.log(`💾 장비 폰트 크기 저장 (학교 ${this.currentSchoolId}): ${fontSize}px`);
+                    }
+                    
+                    // 장비 텍스트 재렌더링
+                    if (this.modeManager && this.currentMode === 'view-equipment') {
+                        this.modeManager.renderEquipmentCards();
+                        this.core.markDirty();
+                        this.core.render && this.core.render();
+                    }
+                }
+            });
+        }
+        
         // 저장 버튼 (설계 모드용)
         const saveBtn = document.getElementById('workspace-save-btn');
         if (saveBtn) {
@@ -1045,6 +1071,27 @@ class FloorPlanApp {
             if (currentMode) {
                 console.log('🔄 모드 재활성화:', currentMode);
                 await this.switchMode(currentMode);
+                
+                // 장비 보기 모드인 경우 해당 학교의 저장된 폰트 크기 불러오기
+                if (currentMode === 'view-equipment') {
+                    const equipmentFontSizeInput = document.getElementById('equipment-font-size-input');
+                    if (equipmentFontSizeInput && this.core) {
+                        const storageKey = `equipmentFontSize_${this.currentSchoolId}`;
+                        const savedFontSize = localStorage.getItem(storageKey);
+                        const fontSize = savedFontSize ? parseInt(savedFontSize) : 28;
+                        
+                        equipmentFontSizeInput.value = fontSize;
+                        this.core.equipmentFontSize = fontSize;
+                        console.log(`📖 학교 변경 후 장비 폰트 크기 불러오기 (학교 ${this.currentSchoolId}): ${fontSize}px`);
+                        
+                        // 장비 텍스트 재렌더링
+                        if (this.modeManager && this.modeManager.renderEquipmentCards) {
+                            this.modeManager.renderEquipmentCards();
+                            this.core.markDirty();
+                            this.core.render && this.core.render();
+                        }
+                    }
+                }
             } else {
                 console.warn('⚠️ 재활성화할 모드가 없음');
             }
@@ -1166,6 +1213,24 @@ class FloorPlanApp {
         const pptBtn = document.getElementById('workspace-ppt-btn');
         if (pptBtn) {
             pptBtn.style.display = isViewMode ? 'flex' : 'none';
+        }
+        
+        // 장비 폰트 크기 조절 UI 표시 여부 (장비 보기 모드에서만)
+        const equipmentFontControl = document.getElementById('equipment-font-size-control');
+        const equipmentFontSizeInput = document.getElementById('equipment-font-size-input');
+        if (equipmentFontControl) {
+            equipmentFontControl.style.display = (mode === 'view-equipment') ? 'flex' : 'none';
+        }
+        // 장비 보기 모드로 전환 시 해당 학교의 저장된 폰트 크기 불러오기
+        if (mode === 'view-equipment' && equipmentFontSizeInput && this.core && this.currentSchoolId) {
+            const storageKey = `equipmentFontSize_${this.currentSchoolId}`;
+            const savedFontSize = localStorage.getItem(storageKey);
+            const fontSize = savedFontSize ? parseInt(savedFontSize) : 28; // 저장된 값이 있으면 사용, 없으면 기본값 28
+            
+            // 입력 필드와 Core에 폰트 크기 설정
+            equipmentFontSizeInput.value = fontSize;
+            this.core.equipmentFontSize = fontSize;
+            console.log(`📖 장비 폰트 크기 불러오기 (학교 ${this.currentSchoolId}): ${fontSize}px`);
         }
         
         // 강제 렌더링

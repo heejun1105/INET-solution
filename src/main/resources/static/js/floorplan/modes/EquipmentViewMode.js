@@ -32,20 +32,27 @@ export default class EquipmentViewMode {
      * 모드 활성화
      */
     async activate() {
-        console.log('✅ 장비보기 모드 활성화');
-        
-        // 모든 요소 잠금 (보기 모드에서는 이동 불가)
-        this.lockAllElements();
-        
-        await this.loadDevices();
-        this.renderEquipmentCards();
-        this.bindEvents();
-        
-        // 범례 생성
-        this.legendComponent.create();
-        
-        // 강제 렌더링
-        this.core.markDirty();
+        try {
+            console.log('✅ 장비보기 모드 활성화');
+            
+            // 모든 요소 잠금 (보기 모드에서는 이동 불가)
+            this.lockAllElements();
+            
+            await this.loadDevices();
+            this.renderEquipmentCards();
+            this.bindEvents();
+            
+            // 범례 생성
+            if (this.legendComponent && typeof this.legendComponent.create === 'function') {
+                this.legendComponent.create();
+            }
+            
+            // 강제 렌더링
+            this.core.markDirty();
+        } catch (error) {
+            console.error('❌ 장비보기 모드 활성화 오류:', error);
+            throw error; // 에러를 다시 throw하여 상위에서 처리할 수 있도록
+        }
     }
     
     /**
@@ -91,39 +98,52 @@ export default class EquipmentViewMode {
      * 장비 카드 렌더링
      */
     renderEquipmentCards() {
-        const elements = this.core.state.elements;
-        const roomElements = elements.filter(e => e.elementType === 'room');
-        
-        roomElements.forEach(room => {
-            if (!room.referenceId && !room.classroomId) return;
+        try {
+            if (!this.core || !this.core.state || !this.core.state.elements) {
+                console.warn('⚠️ Core 또는 state가 초기화되지 않았습니다.');
+                return;
+            }
             
-            const classroomId = room.referenceId || room.classroomId;
-            const devices = this.devicesByClassroom[classroomId] || [];
-            if (devices.length === 0) return;
+            const elements = this.core.state.elements;
+            const roomElements = elements.filter(e => e && e.elementType === 'room');
             
-            // 고유번호 카테고리별 개수 집계
-            const deviceCounts = {};
-            devices.forEach(device => {
-                const cate = device.uidCate || '미분류';  // 고유번호 카테고리 사용
-                deviceCounts[cate] = (deviceCounts[cate] || 0) + 1;
+            roomElements.forEach(room => {
+                try {
+                    if (!room || (!room.referenceId && !room.classroomId)) return;
+                    
+                    const classroomId = room.referenceId || room.classroomId;
+                    const devices = this.devicesByClassroom[classroomId] || [];
+                    if (devices.length === 0) return;
+                    
+                    // 고유번호 카테고리별 개수 집계
+                    const deviceCounts = {};
+                    devices.forEach(device => {
+                        const cate = device.uidCate || '미분류';  // 고유번호 카테고리 사용
+                        deviceCounts[cate] = (deviceCounts[cate] || 0) + 1;
+                    });
+                    
+                    // 카드 배치 계산
+                    const cards = Object.entries(deviceCounts).map(([cate, count]) => ({
+                        type: cate,  // 카테고리를 type으로 전달
+                        count,
+                        color: this.getDeviceColor(cate),
+                        text: `${cate} ${count}`
+                    }));
+                    
+                    this.layoutCards(room, cards);
+                } catch (error) {
+                    console.error('❌ 교실 장비 렌더링 오류:', error, room);
+                }
             });
             
-            // 카드 배치 계산
-            const cards = Object.entries(deviceCounts).map(([cate, count]) => ({
-                type: cate,  // 카테고리를 type으로 전달
-                count,
-                color: this.getDeviceColor(cate),
-                text: `${cate} ${count}`
-            }));
-            
-            this.layoutCards(room, cards);
-        });
-        
-        this.core.markDirty();
+            this.core.markDirty();
+        } catch (error) {
+            console.error('❌ 장비 카드 렌더링 오류:', error);
+        }
     }
     
     /**
-     * 카드 배치 계산 (여러 줄 지원, 이름박스 회피)
+     * 텍스트 형태로 장비 표시 (카드 형태 제거)
      */
     layoutCards(room, cards) {
         const roomX = room.xCoordinate;
@@ -131,65 +151,30 @@ export default class EquipmentViewMode {
         const roomW = room.width || 100;
         const roomH = room.height || 80;
         
-        // 카드 설정 (4x2 배치, 가로형 교실 280x180)
-        // 가로: 65px 고정 × 4개
-        // 세로: 43px × 2줄
-        const cardWidth = 65;      // 카드 너비 고정
-        const cardHeight = 43;     // 카드 높이
-        const cardPadding = 5;     // 상하좌우 여백
-        const cardMargin = 3;      // 카드 간 간격 (위아래)
-        const cardsPerRow = 4;     // 가로 4개 고정
+        // 텍스트 생성: "TV 1, DK 6, ..." 형식
+        const textParts = cards.map(card => `${card.type} ${card.count}`);
+        const text = textParts.join(', ');
         
-        // 이름박스 위치 찾기 (겹침 방지)
-        const nameBox = this.core.state.elements.find(
-            el => el.elementType === 'name_box' && el.parentElementId === room.id
-        );
+        // 위치: 교실 높이의 3/5 지점
+        const textY = roomY + (roomH * 3 / 5);
+        const textX = roomX; // 중앙 정렬을 위해 x는 교실 시작점으로 설정 (렌더링 시 중앙 계산)
         
-        let nameBoxBottom = 0;
-        if (nameBox) {
-            // 이름박스 하단 절대 위치 + 안전 여백
-            nameBoxBottom = nameBox.yCoordinate + (nameBox.height || 40) + 5;
-        }
+        // 텍스트 요소 생성 (카드 형태 제거)
+        const textElement = {
+            id: `equipment_text_${room.id}`,
+            elementType: 'equipment_card', // 렌더링 타입은 유지하되 내용만 텍스트
+            parentElementId: room.id,
+            xCoordinate: textX,
+            yCoordinate: textY,
+            width: roomW, // 교실 전체 너비 사용 (중앙 정렬)
+            height: roomH / 3, // 교실 높이의 1/3 (아래 3분의 1 영역)
+            roomHeight: roomH, // 교실 높이 정보 저장 (폰트 크기 계산용)
+            text: text, // 전체 텍스트
+            cards: cards, // 개별 카드 정보 (줄바꿈 계산용)
+            zIndex: 1000
+        };
         
-        // 필요한 줄 수
-        const totalRows = Math.ceil(cards.length / cardsPerRow);
-        
-        // 카드 생성
-        cards.forEach((card, index) => {
-            const row = Math.floor(index / cardsPerRow);
-            const col = index % cardsPerRow;
-            
-            // 하단에서 위로 쌓기
-            const cardX = roomX + cardPadding + col * (cardWidth + cardMargin);
-            let cardY = roomY + roomH - cardPadding - cardHeight - row * (cardHeight + cardMargin);
-            
-            // 이름박스와 겹치지 않도록 체크
-            if (nameBoxBottom > 0 && cardY < nameBoxBottom) {
-                console.warn('⚠️ 카드가 이름박스와 겹침 방지:', {
-                    카드Y: cardY,
-                    이름박스하단: nameBoxBottom,
-                    교실: room.label
-                });
-                // 카드를 이름박스 아래로 제한
-                cardY = nameBoxBottom;
-            }
-            
-            const cardElement = {
-                id: `equipment_card_${room.id}_${index}`,
-                elementType: 'equipment_card',
-                parentElementId: room.id,
-                xCoordinate: cardX,
-                yCoordinate: cardY,
-                width: cardWidth,
-                height: cardHeight,
-                deviceType: card.type,
-                count: card.count,
-                color: card.color,
-                zIndex: 1000
-            };
-            
-            this.core.state.elements.push(cardElement);
-        });
+        this.core.state.elements.push(textElement);
     }
     
     /**

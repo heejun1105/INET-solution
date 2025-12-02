@@ -4,7 +4,6 @@ WORKDIR /app
 
 # Gradle 캐시를 활용하기 위해 build.gradle과 settings.gradle을 먼저 복사
 COPY build.gradle settings.gradle ./
-# Gradle Wrapper 디렉토리 복사 (Gradle Wrapper를 사용하는 경우 필요)
 COPY gradle ./gradle
 
 # 의존성 다운로드 (캐시 활용)

@@ -457,7 +457,7 @@ public class PPTExportService {
                                 radius = ((Number) radiusObj).doubleValue();
                             }
                         }
-                    } catch (Exception e) {
+            } catch (Exception e) {
                         // 파싱 실패 시 기본값 사용
                     }
                 }

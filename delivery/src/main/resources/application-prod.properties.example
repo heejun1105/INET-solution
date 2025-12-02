@@ -14,13 +14,9 @@ server.port=8082
 server.address=0.0.0.0
 
 ########################################
-# 프로파일 설정
-# 주의: 프로파일 특정 파일(application-prod.properties) 내에서는 
-# spring.profiles.active를 설정할 수 없습니다.
-# 프로파일은 환경변수(SPRING_PROFILES_ACTIVE) 또는 
-# application.properties에서만 설정하세요.
-# Docker 배포 시 docker-compose.yml의 환경변수로 설정됩니다.
+# 프로파일 (운영 환경)
 ########################################
+spring.profiles.active=prod
 
 ########################################
 # 데이터베이스 연결 (환경변수로 설정 필수!)
@@ -37,14 +33,11 @@ spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
 ########################################
 # 운영에서는 자동 스키마 변경 금지 (데이터 손실 방지)
 spring.jpa.hibernate.ddl-auto=none
-# JPA open-in-view 경고 해결
-spring.jpa.open-in-view=false
 
 # SQL 로그 출력 비활성화 (성능 향상)
 spring.jpa.show-sql=false
 spring.jpa.properties.hibernate.format_sql=false
-# MySQL8Dialect는 deprecated되었으므로 MySQLDialect 사용 (또는 생략 가능)
-# spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
 
 ########################################
 # Flyway (DB 마이그레이션)
@@ -58,20 +51,14 @@ spring.flyway.validate-on-migrate=true
 ########################################
 # Thymeleaf (운영 환경 최적화)
 ########################################
-# 운영 환경(JAR)에서는 classpath를 사용해야 함 (file: 경로 사용 불가)
-spring.thymeleaf.prefix=classpath:/templates/
-spring.thymeleaf.suffix=.html
 # 템플릿 캐시 활성화 (성능 향상)
 spring.thymeleaf.cache=true
 spring.thymeleaf.mode=HTML
 spring.thymeleaf.encoding=UTF-8
-spring.thymeleaf.check-template-location=true
 
 ########################################
 # 정적 리소스 (운영 환경 최적화)
 ########################################
-# 운영 환경(JAR)에서는 classpath를 사용해야 함
-spring.web.resources.static-locations=classpath:/static/
 spring.web.resources.cache.period=3600
 spring.web.resources.chain.cache=true
 
@@ -103,8 +90,6 @@ logging.logback.rollingpolicy.max-file-size=10MB
 # 관리자 계정 초기화 (환경변수로 설정 가능)
 ########################################
 # 운영 환경에서는 반드시 기본 비밀번호 변경 권장!
-# Flyway 마이그레이션에서 ${ADMIN_USERNAME}, ${ADMIN_PASSWORD} 환경변수를 사용합니다.
-# docker-compose.yml에서 환경변수로 설정하거나, 여기서 주석을 해제하여 설정할 수 있습니다.
-# ADMIN_USERNAME=admin
-# ADMIN_PASSWORD=admin123!
+# admin.account.username=${ADMIN_USERNAME:admin}
+# admin.account.password=${ADMIN_PASSWORD:admin123!}
 
