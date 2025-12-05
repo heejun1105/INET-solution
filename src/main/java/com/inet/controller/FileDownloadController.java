@@ -99,7 +99,7 @@ public class FileDownloadController {
                 .map(DownloadFileType::fromCode)
                 .collect(Collectors.toList());
 
-        byte[] archive = fileDownloadService.createArchive(requestBody.getSchoolId(), downloadTypes);
+        byte[] archive = fileDownloadService.createArchive(requestBody.getSchoolId(), downloadTypes, requestBody.getEquipmentFontSize());
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String filename = "파일_다운로드_" + timestamp + ".zip";
@@ -137,6 +137,7 @@ public class FileDownloadController {
     public static class DownloadRequest {
         private Long schoolId;
         private List<String> types;
+        private Integer equipmentFontSize; // 장비보기 폰트 크기
     }
 }
 

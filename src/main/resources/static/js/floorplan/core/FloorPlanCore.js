@@ -229,6 +229,14 @@ export default class FloorPlanCore {
         // 4. 요소들 렌더링 (z-index 순서대로)
         this.renderElements(ctx);
         
+        // 4.5. A4 규격 가상선 렌더링
+        // - 교실설계 모드(design-classroom)
+        // - 장비보기 모드(view-equipment)
+        const a4GuideModes = ['design-classroom', 'view-equipment'];
+        if (a4GuideModes.includes(this.state.currentMode)) {
+            this.renderA4Guide(ctx);
+        }
+        
         // 5. 선택 표시 (드래그/리사이즈 중이 아닐 때만 - 절대로 스킵!)
         if (!this.state.isDragging && !this.state.isResizing) {
         this.renderSelection(ctx);
@@ -287,6 +295,37 @@ export default class FloorPlanCore {
         ctx.strokeStyle = '#3b82f6';
         ctx.lineWidth = 3 / zoom;
         ctx.strokeRect(0, 0, canvasWidth, canvasHeight);
+        
+        ctx.restore();
+    }
+    
+    /**
+     * A4 규격 가상선 렌더링 (교실설계 모드용)
+     */
+    renderA4Guide(ctx) {
+        const { zoom, canvasWidth, canvasHeight } = this.state;
+        
+        // A4 규격: 210mm x 297mm
+        // 96 DPI 기준으로 픽셀 변환: 1mm = 96/25.4 ≈ 3.7795px
+        // 5배 크기로 확대
+        const mmToPx = 96 / 25.4;
+        const scale = 5; // 5배 크기
+        const a4Width = 210 * mmToPx * scale;  // 약 3970px (794px * 5)
+        const a4Height = 297 * mmToPx * scale; // 약 5615px (1123px * 5)
+        
+        // 캔버스 중앙에 A4 가상선 배치
+        const a4X = (canvasWidth - a4Width) / 2;
+        const a4Y = (canvasHeight - a4Height) / 2;
+        
+        ctx.save();
+        
+        // A4 가상선 스타일
+        ctx.strokeStyle = '#ff6b6b'; // 빨간색
+        ctx.lineWidth = 1 / zoom;
+        ctx.setLineDash([5 / zoom, 5 / zoom]); // 점선
+        
+        // A4 한 칸만 표시 (캔버스 중앙)
+        ctx.strokeRect(a4X, a4Y, a4Width, a4Height);
         
         ctx.restore();
     }

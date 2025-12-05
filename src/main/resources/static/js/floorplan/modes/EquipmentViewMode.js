@@ -33,22 +33,22 @@ export default class EquipmentViewMode {
      */
     async activate() {
         try {
-            console.log('✅ 장비보기 모드 활성화');
-            
-            // 모든 요소 잠금 (보기 모드에서는 이동 불가)
-            this.lockAllElements();
-            
-            await this.loadDevices();
-            this.renderEquipmentCards();
-            this.bindEvents();
-            
-            // 범례 생성
+        console.log('✅ 장비보기 모드 활성화');
+        
+        // 모든 요소 잠금 (보기 모드에서는 이동 불가)
+        this.lockAllElements();
+        
+        await this.loadDevices();
+        this.renderEquipmentCards();
+        this.bindEvents();
+        
+        // 범례 생성
             if (this.legendComponent && typeof this.legendComponent.create === 'function') {
-                this.legendComponent.create();
+        this.legendComponent.create();
             }
-            
-            // 강제 렌더링
-            this.core.markDirty();
+        
+        // 강제 렌더링
+        this.core.markDirty();
         } catch (error) {
             console.error('❌ 장비보기 모드 활성화 오류:', error);
             throw error; // 에러를 다시 throw하여 상위에서 처리할 수 있도록
@@ -104,39 +104,39 @@ export default class EquipmentViewMode {
                 return;
             }
             
-            const elements = this.core.state.elements;
+        const elements = this.core.state.elements;
             const roomElements = elements.filter(e => e && e.elementType === 'room');
-            
-            roomElements.forEach(room => {
+        
+        roomElements.forEach(room => {
                 try {
                     if (!room || (!room.referenceId && !room.classroomId)) return;
-                    
-                    const classroomId = room.referenceId || room.classroomId;
-                    const devices = this.devicesByClassroom[classroomId] || [];
-                    if (devices.length === 0) return;
-                    
-                    // 고유번호 카테고리별 개수 집계
-                    const deviceCounts = {};
-                    devices.forEach(device => {
-                        const cate = device.uidCate || '미분류';  // 고유번호 카테고리 사용
-                        deviceCounts[cate] = (deviceCounts[cate] || 0) + 1;
-                    });
-                    
-                    // 카드 배치 계산
-                    const cards = Object.entries(deviceCounts).map(([cate, count]) => ({
-                        type: cate,  // 카테고리를 type으로 전달
-                        count,
-                        color: this.getDeviceColor(cate),
-                        text: `${cate} ${count}`
-                    }));
-                    
-                    this.layoutCards(room, cards);
+            
+            const classroomId = room.referenceId || room.classroomId;
+            const devices = this.devicesByClassroom[classroomId] || [];
+            if (devices.length === 0) return;
+            
+            // 고유번호 카테고리별 개수 집계
+            const deviceCounts = {};
+            devices.forEach(device => {
+                const cate = device.uidCate || '미분류';  // 고유번호 카테고리 사용
+                deviceCounts[cate] = (deviceCounts[cate] || 0) + 1;
+            });
+            
+            // 카드 배치 계산
+            const cards = Object.entries(deviceCounts).map(([cate, count]) => ({
+                type: cate,  // 카테고리를 type으로 전달
+                count,
+                color: this.getDeviceColor(cate),
+                text: `${cate} ${count}`
+            }));
+            
+            this.layoutCards(room, cards);
                 } catch (error) {
                     console.error('❌ 교실 장비 렌더링 오류:', error, room);
                 }
-            });
-            
-            this.core.markDirty();
+        });
+        
+        this.core.markDirty();
         } catch (error) {
             console.error('❌ 장비 카드 렌더링 오류:', error);
         }
@@ -163,7 +163,7 @@ export default class EquipmentViewMode {
         const textElement = {
             id: `equipment_text_${room.id}`,
             elementType: 'equipment_card', // 렌더링 타입은 유지하되 내용만 텍스트
-            parentElementId: room.id,
+                parentElementId: room.id,
             xCoordinate: textX,
             yCoordinate: textY,
             width: roomW, // 교실 전체 너비 사용 (중앙 정렬)
@@ -171,9 +171,9 @@ export default class EquipmentViewMode {
             roomHeight: roomH, // 교실 높이 정보 저장 (폰트 크기 계산용)
             text: text, // 전체 텍스트
             cards: cards, // 개별 카드 정보 (줄바꿈 계산용)
-            zIndex: 1000
-        };
-        
+                zIndex: 1000
+            };
+            
         this.core.state.elements.push(textElement);
     }
     

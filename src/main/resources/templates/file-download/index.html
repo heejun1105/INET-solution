@@ -578,6 +578,11 @@
             downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span class="download-btn-text">다운로드 중...</span>';
 
             try {
+                // 해당 학교의 저장된 장비 폰트 크기 가져오기
+                const storageKey = `equipmentFontSize_${schoolId}`;
+                const savedFontSize = localStorage.getItem(storageKey);
+                const equipmentFontSize = savedFontSize ? parseInt(savedFontSize) : null;
+                
                 const response = await fetch('/file-download/download', {
                     method: 'POST',
                     headers: {
@@ -585,7 +590,8 @@
                     },
                     body: JSON.stringify({
                         schoolId,
-                        types: selectedTypes
+                        types: selectedTypes,
+                        equipmentFontSize: equipmentFontSize
                     })
                 });
 

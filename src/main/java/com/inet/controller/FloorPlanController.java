@@ -448,7 +448,8 @@ public class FloorPlanController {
     @ResponseBody
     public ResponseEntity<byte[]> exportToPPT(
             @RequestParam Long schoolId,
-            @RequestParam(defaultValue = "design") String mode) {
+            @RequestParam(defaultValue = "design") String mode,
+            @RequestParam(required = false) Integer equipmentFontSize) {
         try {
             User user = getCurrentUser();
             if (user == null || !hasSchoolPermission(user, schoolId)) {
@@ -464,7 +465,7 @@ public class FloorPlanController {
             
             School school = schoolOpt.get();
             
-            java.io.ByteArrayOutputStream pptStream = pptExportService.exportFloorPlanToPPT(schoolId, mode);
+            java.io.ByteArrayOutputStream pptStream = pptExportService.exportFloorPlanToPPT(schoolId, mode, equipmentFontSize);
             byte[] pptBytes = pptStream.toByteArray();
             
             String fileName = String.format("평면도_%s_%s.pptx", 

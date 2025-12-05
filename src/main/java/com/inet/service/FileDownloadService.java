@@ -62,7 +62,7 @@ public class FileDownloadService {
         );
     }
 
-    public byte[] createArchive(Long schoolId, List<DownloadFileType> selectedTypes) {
+    public byte[] createArchive(Long schoolId, List<DownloadFileType> selectedTypes, Integer equipmentFontSize) {
         if (selectedTypes == null || selectedTypes.isEmpty()) {
             throw new IllegalArgumentException("다운로드할 파일을 선택해주세요.");
         }
@@ -77,8 +77,8 @@ public class FileDownloadService {
                 case DEVICE_LEDGER -> deviceService.generateDeviceLedgerExcel(schoolId);
                 case WIRELESS_AP_SUMMARY -> wirelessApExcelExportService.generateSchoolExcel(schoolId);
                 case IP_LEDGER -> ipExcelExportService.generateExcel(schoolId, null);
-                case DEVICE_FLOORPLAN -> generateFloorPlanPpt(schoolId, "equipment");
-                case WIRELESS_AP_FLOORPLAN -> generateFloorPlanPpt(schoolId, "wireless-ap");
+                case DEVICE_FLOORPLAN -> generateFloorPlanPpt(schoolId, "equipment", equipmentFontSize);
+                case WIRELESS_AP_FLOORPLAN -> generateFloorPlanPpt(schoolId, "wireless-ap", equipmentFontSize);
             };
 
             content.ifPresent(bytes -> fileContents.put(type, bytes));
@@ -106,9 +106,10 @@ public class FileDownloadService {
         }
     }
 
-    private Optional<byte[]> generateFloorPlanPpt(Long schoolId, String mode) {
+    private Optional<byte[]> generateFloorPlanPpt(Long schoolId, String mode, Integer equipmentFontSize) {
         try {
-            ByteArrayOutputStream outputStream = pptExportService.exportFloorPlanToPPT(schoolId, mode);
+            // ZIP 다운로드 시에도 해당 학교의 저장된 폰트 크기 사용
+            ByteArrayOutputStream outputStream = pptExportService.exportFloorPlanToPPT(schoolId, mode, equipmentFontSize);
             return Optional.ofNullable(outputStream).map(ByteArrayOutputStream::toByteArray);
         } catch (Exception e) {
             return Optional.empty();

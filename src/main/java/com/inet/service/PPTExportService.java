@@ -55,8 +55,12 @@ public class PPTExportService {
     // 좌표 변환 상수 (FloorPlanCore.js와 동일하게 설정)
     private static final double CANVAS_WIDTH = 16000.0;  // 캔버스 기본 너비
     private static final double CANVAS_HEIGHT = 12000.0; // 캔버스 기본 높이
-    private static final double PPT_WIDTH = 720.0;  // 10인치 * 72 포인트
-    private static final double PPT_HEIGHT = 540.0; // 7.5인치 * 72 포인트
+    // PPT 슬라이드 크기: A4 세로 (21cm x 29.7cm)
+    // 1인치 = 2.54cm, 1포인트 = 1/72인치
+    // A4 폭: 21 / 2.54 * 72 ≈ 595pt
+    // A4 높이: 29.7 / 2.54 * 72 ≈ 842pt
+    private static final double PPT_WIDTH = 595.0;   // A4 폭 (pt)
+    private static final double PPT_HEIGHT = 842.0;  // A4 높이 (pt)
     private static final double SCALE_X = PPT_WIDTH / CANVAS_WIDTH;
     private static final double SCALE_Y = PPT_HEIGHT / CANVAS_HEIGHT;
     
@@ -75,7 +79,7 @@ public class PPTExportService {
     /**
      * 학교별 평면도를 PPT 파일로 내보내기
      */
-    public ByteArrayOutputStream exportFloorPlanToPPT(Long schoolId, String mode) throws IOException {
+    public ByteArrayOutputStream exportFloorPlanToPPT(Long schoolId, String mode, Integer equipmentFontSize) throws IOException {
         try {
             log.info("PPT 내보내기 시작 - schoolId: {}, mode: {}", schoolId, mode);
             
@@ -105,7 +109,7 @@ public class PPTExportService {
             }
             
             // PPT 프레젠테이션 생성
-            XMLSlideShow ppt = createPPTPresentation(school, floorPlan, elements, mode, devicesByClassroom);
+            XMLSlideShow ppt = createPPTPresentation(school, floorPlan, elements, mode, devicesByClassroom, equipmentFontSize);
             
             // 바이트 배열로 변환
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -125,17 +129,18 @@ public class PPTExportService {
      * PPT 프레젠테이션 생성
      */
     private XMLSlideShow createPPTPresentation(School school, FloorPlan floorPlan, List<FloorPlanElement> elements,
-                                              String mode, Map<Long, List<Map<String, Object>>> devicesByClassroom) {
+                                              String mode, Map<Long, List<Map<String, Object>>> devicesByClassroom,
+                                              Integer equipmentFontSize) {
         XMLSlideShow ppt = new XMLSlideShow();
         
-        // 슬라이드 크기 설정 (16:10 와이드스크린)
-        ppt.setPageSize(new java.awt.Dimension(720, 540));
+        // 슬라이드 크기 설정: A4 세로 비율
+        ppt.setPageSize(new java.awt.Dimension((int) PPT_WIDTH, (int) PPT_HEIGHT));
         
         // 제목 슬라이드 생성
         createTitleSlide(ppt, school);
         
         // 평면도 슬라이드 생성
-        createFloorPlanSlide(ppt, school, floorPlan, elements, mode, devicesByClassroom);
+        createFloorPlanSlide(ppt, school, floorPlan, elements, mode, devicesByClassroom, equipmentFontSize);
         
         return ppt;
     }
@@ -173,7 +178,8 @@ public class PPTExportService {
      * 평면도 슬라이드 생성
      */
     private void createFloorPlanSlide(XMLSlideShow ppt, School school, FloorPlan floorPlan, List<FloorPlanElement> elements,
-                                     String mode, Map<Long, List<Map<String, Object>>> devicesByClassroom) {
+                                     String mode, Map<Long, List<Map<String, Object>>> devicesByClassroom,
+                                     Integer equipmentFontSize) {
         XSLFSlide floorPlanSlide = ppt.createSlide();
         
         // 슬라이드 제목 추가
@@ -362,7 +368,7 @@ public class PPTExportService {
                 if ("equipment".equals(mode) && "room".equals(element.getElementType())) {
                     roomCount++;
                     if (devicesByClassroom != null) {
-                        addEquipmentCardsToRoom(floorPlanSlide, element, devicesByClassroom, scale, offsetX, offsetY, elements);
+                        addEquipmentCardsToRoom(floorPlanSlide, element, devicesByClassroom, scale, offsetX, offsetY, elements, equipmentFontSize);
                     } else {
                         log.warn("⚠️ 장비 데이터가 null입니다!");
                     }
@@ -901,12 +907,10 @@ public class PPTExportService {
         shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
         shape.setAnchor(new Rectangle(x, y, width, height));
         
-        // 테두리 색상 및 굵기 설정 (스케일에 비례, 이름박스는 얇게)
-        shape.setLineColor(parseColor(borderColorStr));
-        // 이름박스는 기본적으로 얇은 테두리 (1px 기준, 스케일 적용 시 최소값 보장)
-        double nameBoxLineWidth = Math.max(0.3, borderThickness * scale);
-        shape.setLineWidth(nameBoxLineWidth);
-        shape.setFillColor(Color.WHITE);
+        // 이름박스 스타일 단순화: 테두리/배경 제거, 텍스트만 표시
+        shape.setLineColor(null);          // 테두리 없음
+        shape.setLineWidth(0.0);           // 선 두께 0
+        shape.setFillColor(null);          // 배경 없음 (투명)
         
         // 텍스트 설정: 자동맞춤 사용하지 않고 고정 비율 폰트 적용
         shape.setWordWrap(false);
@@ -914,16 +918,63 @@ public class PPTExportService {
         paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
         XSLFTextRun textRun = paragraph.addNewTextRun();
         textRun.setText(label);
-        // 동적 스케일 기반 폰트 크기
-        // 기본 이름박스: 원본 높이 40px, 원본 폰트 18pt
-        // 스케일이 0.15일 때 PPT 폰트 크기가 2.5pt가 되려면:
-        // PPT폰트 = 기준PPT폰트 * (실제스케일 / 기준스케일) * (높이비율)
-        //         = 2.5 * (scale / 0.15) * (originalHeight / 40)
+        // 동적 스케일 기반 폰트 크기 (장비텍스트 공식 참고)
+        // 화면: Math.max(12, (h * 0.5 + 2) * 1.5)
+        // PPT: 장비텍스트처럼 화면 폰트 크기를 직접 스케일로 변환
         double originalHeight = element.getHeight();
-        double scaleRatio = scale / REFERENCE_ZOOM;
-        double heightRatio = originalHeight / 40.0;
-        double fontSize = REFERENCE_PPT_FONT * scaleRatio * heightRatio * 1.2; // 20% 증가
-        // 최소값 제거 - 계산된 값 그대로 사용 (스케일이 작을 때는 작은 폰트가 정상)
+        // 화면 공식: (h * 0.5 + 2) * 1.5
+        double screenFontSize = (originalHeight * 0.5 + 2) * 1.5;
+        // 최소값 적용 (화면: 12px)
+        screenFontSize = Math.max(12.0, screenFontSize);
+        
+        // PPT 포인트로 변환: 화면 px * scale * 보정계수 (장비텍스트와 유사한 방식)
+        // 장비텍스트: equipmentFontSize * scale * 0.8
+        // 이름박스: screenFontSize * scale * 보정계수
+        double calculatedFontSize = screenFontSize * scale * 0.8;
+        
+        // 순수 지수 함수를 사용한 통합 변환: fontSize = a * (calculatedFontSize)^b + c
+        // 초기 계수 기준으로 지수 함수 결과값을 목표 최종값으로 보정
+        double fontSize;
+        if (calculatedFontSize <= 0) {
+            fontSize = 0;
+        } else {
+            // 지수 함수: fontSize = a * (calculatedFontSize)^b + c
+            // 초기 계수 사용
+            double a = 0.45;   // 스케일 계수
+            double b = 0.75;   // 지수 (1보다 작아서 작은 값에서 완만하게 증가)
+            double c = 2.0;    // 오프셋
+            
+            double expResult = a * Math.pow(calculatedFontSize, b) + c;
+            
+            // 지수 함수 결과값을 목표 최종값으로 보정
+            // 보정 포인트: 3→4, 5.2→9, 6.7→14, 9.9→50
+            if (expResult <= 3.0) {
+                // 3 이하: 선형 보간 (0 → 0, 3 → 4)
+                if (expResult <= 0) {
+                    fontSize = 0;
+                } else {
+                    double t = expResult / 3.0;
+                    fontSize = 4.0 * t;
+                }
+            } else if (expResult <= 5.2) {
+                // 3과 5.2 사이: 3 → 4, 5.2 → 9 선형 보간
+                double t = (expResult - 3.0) / (5.2 - 3.0);
+                fontSize = 4.0 + (9.0 - 4.0) * t;
+            } else if (expResult <= 6.7) {
+                // 5.2와 6.7 사이: 5.2 → 9, 6.7 → 14 선형 보간
+                double t = (expResult - 5.2) / (6.7 - 5.2);
+                fontSize = 9.0 + (14.0 - 9.0) * t;
+            } else if (expResult <= 9.9) {
+                // 6.7과 9.9 사이: 6.7 → 14, 9.9 → 50 선형 보간
+                double t = (expResult - 6.7) / (9.9 - 6.7);
+                fontSize = 14.0 + (50.0 - 14.0) * t;
+            } else {
+                // 9.9 이상: 9.9 → 50 비율을 유지하여 확장
+                double ratio = 50.0 / 9.9;
+                fontSize = expResult * ratio;
+            }
+        }
+        
         textRun.setFontSize(fontSize);
         textRun.setFontColor(Color.BLACK);
         textRun.setBold(true);
@@ -934,6 +985,9 @@ public class PPTExportService {
     
     /**
      * 장비 카드 생성 (동적 스케일 적용)
+     * 
+     * 프론트엔드와 동일하게 카드 형태 대신 텍스트만 표시하도록 단순화.
+     * (기존 사각형/배경 제거)
      */
     private void createEquipmentCardShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
         // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
@@ -945,25 +999,27 @@ public class PPTExportService {
         Map<String, Object> elementData = parseElementData(element.getElementData());
         String deviceType = (String) elementData.getOrDefault("deviceType", "장비");
         Integer count = (Integer) elementData.getOrDefault("count", 0);
-        String colorHex = (String) elementData.getOrDefault("color", "#4b5563");
+        
+        // 장비 정보 텍스트
+        String label = deviceType + " " + count;
         
         XSLFAutoShape shape = slide.createAutoShape();
-        shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ROUND_RECT);
+        shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
         shape.setAnchor(new Rectangle(x, y, width, height));
         
-        // 배경색 설정 (카테고리별 색상)
-        Color bgColor = parseColor(colorHex);
-        shape.setFillColor(bgColor);
-        shape.setLineColor(bgColor);  // 테두리도 같은 색
-        shape.setLineWidth(0.5);
+        // 카드 배경/테두리 제거 → 텍스트만 표시
+        shape.setFillColor(null);
+        shape.setLineColor(null);
+        shape.setLineWidth(0.0);
         
-        // 텍스트 추가
+        // 텍스트 설정 (붉은색, 중앙 정렬)
+        shape.setWordWrap(true);
         XSLFTextParagraph paragraph = shape.addNewTextParagraph();
         paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
         XSLFTextRun textRun = paragraph.addNewTextRun();
-        textRun.setText(deviceType + " " + count);
-        textRun.setFontSize(Math.min(14.0, height * 0.4));
-        textRun.setFontColor(Color.WHITE);
+        textRun.setText(label);
+        textRun.setFontSize(Math.min(16.0, height * 0.6));
+        textRun.setFontColor(new Color(0xFF0000));
         textRun.setBold(true);
         
         shape.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
@@ -1236,7 +1292,7 @@ public class PPTExportService {
     private void addEquipmentCardsToRoom(XSLFSlide slide, FloorPlanElement roomElement, 
                                         Map<Long, List<Map<String, Object>>> devicesByClassroom,
                                         double scale, double offsetX, double offsetY, 
-                                        List<FloorPlanElement> elements) throws Exception {
+                                        List<FloorPlanElement> elements, Integer equipmentFontSize) throws Exception {
         // 교실 식별자 가져오기 (element_data.classroomId 우선, 없으면 referenceId 사용)
         Long classroomId = null;
         Map<String, Object> elementData = parseElementData(roomElement.getElementData());
@@ -1262,20 +1318,13 @@ public class PPTExportService {
             return;
         }
         
-        // uidCate별로 그룹화 및 카운트
-        Map<String, Integer> deviceCounts = new java.util.HashMap<>();
+        // uidCate별로 그룹화 및 카운트 (보기모드와 동일한 순서 보장)
+        // LinkedHashMap을 사용하여 장비가 처음 나타나는 순서대로 유지
+        Map<String, Integer> deviceCounts = new java.util.LinkedHashMap<>();
         for (Map<String, Object> device : devices) {
             String cate = (String) device.getOrDefault("uidCate", "미분류");
             deviceCounts.put(cate, deviceCounts.getOrDefault(cate, 0) + 1);
         }
-        
-        // 카드 레이아웃 설정 (프론트엔드와 동일)
-        // 프론트엔드: cardWidth=65, cardHeight=43, cardPadding=5, cardMargin=3 (위아래), cardsPerRow=4
-        int cardWidth = (int)(65 * scale);
-        int cardHeight = (int)(43 * scale);
-        int cardPadding = (int)(5 * scale);
-        int cardMargin = (int)(3 * scale);  // 카드 간격 (프론트엔드와 동일)
-        int cardsPerRow = 4;  // 4열
         
         // 교실 좌표 변환 (동적 스케일 및 오프셋 적용)
         // PPT 좌표 = (원본 좌표 - bounds.minX) * scale + offsetX
@@ -1330,69 +1379,144 @@ public class PPTExportService {
             }
         }
         
-        // 카드 리스트 생성 (최대 8개)
-        List<Map.Entry<String, Integer>> cardList = new java.util.ArrayList<>(deviceCounts.entrySet());
+        // 카드 리스트 생성 (최대 8개) → 단일 텍스트로 변환 (프론트엔드: "TV 1, DK 6, ...")
+        // LinkedHashMap의 entrySet을 사용하여 순서 보장
+        java.util.List<Map.Entry<String, Integer>> cardList = new java.util.ArrayList<>(deviceCounts.entrySet());
         int maxCards = Math.min(cardList.size(), 8);
         
-        // 카드 생성
+        StringBuilder labelBuilder = new StringBuilder();
         for (int i = 0; i < maxCards; i++) {
             Map.Entry<String, Integer> entry = cardList.get(i);
             String cate = entry.getKey();
             int count = entry.getValue();
             
-            // 카드 위치 계산 (하단에서 위로, 왼쪽에서 오른쪽) - 프론트엔드와 동일
-            int row = i / cardsPerRow;
-            int col = i % cardsPerRow;
-            
-            // 프론트엔드: cardX = roomX + cardPadding + col * (cardWidth + cardMargin)
-            int cardX = roomX + cardPadding + col * (cardWidth + cardMargin);
-            // 프론트엔드: cardY = roomY + roomH - cardPadding - cardHeight - row * (cardHeight + cardMargin)
-            int cardY = roomY + roomH - cardPadding - cardHeight - row * (cardHeight + cardMargin);
-            
-            // 이름박스와 겹치지 않도록 체크 (프론트엔드와 동일)
-            if (nameBoxBottom > 0 && cardY < nameBoxBottom) {
-                cardY = nameBoxBottom;
+            if (labelBuilder.length() > 0) {
+                labelBuilder.append(", ");
             }
-            
-            // 카드 색상 가져오기
-            Color cardColor = getDeviceColorForPPT(cate);
-            
-            // 카드 도형 생성
-            XSLFAutoShape cardShape = slide.createAutoShape();
-            cardShape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ROUND_RECT);
-            cardShape.setAnchor(new Rectangle(cardX, cardY, cardWidth, cardHeight));
-            
-            // 배경색 및 테두리
-            cardShape.setFillColor(cardColor);
-            cardShape.setLineColor(cardColor);
-            cardShape.setLineWidth(0.5);
-            
-            // 텍스트 추가
-        cardShape.setWordWrap(false);
-        XSLFTextParagraph paragraph = cardShape.addNewTextParagraph();
-            paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
-            XSLFTextRun textRun = paragraph.addNewTextRun();
-            textRun.setText(cate + " " + count);
-            // 동적 스케일 기반 폰트 크기 (프론트엔드와 동일한 비율 적용)
-            // 기본 장비카드: 원본 높이 43px, 원본 폰트 17pt
-            // 스케일 0.15일 때 PPT 폰트 크기 계산:
-            // 이름박스: 18pt → 2.5pt (비율 2.5/18 = 0.139)
-            // 장비카드: 17pt → 2.5pt * (17/18) = 2.36pt (동일 비율 적용)
-            // 일반화: PPT폰트 = 2.5 * (scale/0.15) * (17/18)
-            double baseCardFontSize = 17.0; // 장비카드 원본 폰트
-            double nameBoxFontSize = 18.0; // 이름박스 원본 폰트
-            double scaleRatio = scale / REFERENCE_ZOOM;
-            double fontRatio = baseCardFontSize / nameBoxFontSize;
-            double fontSize = REFERENCE_PPT_FONT * scaleRatio * fontRatio * 1.2; // 20% 증가
-            // 최소 폰트 크기 보장 (너무 작아지지 않도록)
-            fontSize = Math.max(1.0, fontSize);
-            textRun.setFontSize(fontSize);
-            textRun.setFontColor(Color.WHITE);
-            textRun.setBold(true);
-        cardShape.setInsets(new org.apache.poi.sl.usermodel.Insets2D(2, 4, 2, 4));
-            
-            cardShape.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
+            labelBuilder.append(cate).append(" ").append(count);
         }
+        
+        if (labelBuilder.length() == 0) {
+            return;
+        }
+        
+        String label = labelBuilder.toString();
+        
+        // 텍스트 위치: 교실 높이의 3/5 지점 (프론트엔드와 동일)
+        int roomWidth = (int)(roomElement.getWidth() * scale);
+        int textY = roomY + (int)(roomH * 3.0 / 5.0);
+        int textX = roomX;
+        int textWidth = roomWidth;
+        int textHeight = (int)(roomH / 3.0);
+        
+        XSLFAutoShape textShape = slide.createAutoShape();
+        textShape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
+        textShape.setAnchor(new Rectangle(textX, textY, textWidth, textHeight));
+        
+        // 배경/테두리 제거 → 텍스트만 표시
+        textShape.setFillColor(null);
+        textShape.setLineColor(null);
+        textShape.setLineWidth(0.0);
+        
+        // 텍스트 설정 (붉은색, 중앙 정렬, 자동 줄바꿈)
+        textShape.setWordWrap(true);
+        // 왼쪽/오른쪽 여백 0으로 설정 (교실 벽에 가깝게)
+        textShape.setLeftInset(0.0);
+        textShape.setRightInset(0.0);
+        textShape.setTopInset(0.0);
+        textShape.setBottomInset(0.0);
+        
+        XSLFTextParagraph paragraph = textShape.addNewTextParagraph();
+        paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
+        XSLFTextRun textRun = paragraph.addNewTextRun();
+        textRun.setText(label);
+        // 장비 텍스트 폰트 크기: 프론트엔드에서 설정한 폰트 크기 사용
+        // 화면: equipmentFontSize (px), 기본값 28px
+        // PPT: 화면 폰트 크기를 PPT 스케일로 직접 변환 (px * scale = pt)
+        double requestedPptFontSize;
+        if (equipmentFontSize != null && equipmentFontSize > 0) {
+            // 화면 폰트 크기(px)를 PPT 포인트로 변환: px * scale * 0.8 (0.8배 스케일 적용)
+            requestedPptFontSize = equipmentFontSize * scale * 0.8;
+        } else {
+            // 기본값: 화면 28px를 PPT 포인트로 변환
+            requestedPptFontSize = 28.0 * scale * 0.8;
+        }
+        
+        // 교실 크기에 따라 폰트가 안 커지게 제한 (화면 로직과 동일)
+        // 교실 높이의 40%를 최대 텍스트 영역으로 사용 (3/5 지점에서 시작하므로)
+        double maxHeight = roomH * 0.4; // 교실 높이의 40%
+        // 여백 없는 기준으로 줄바꿈: 교실 너비 전체 사용 (왼쪽/오른쪽 여백 0)
+        double maxWidth = textWidth; // 여백 없이 교실 너비 전체 사용
+        
+        // 줄바꿈을 시뮬레이션하여 최대 폰트 크기 계산
+        // 장비종류와 숫자는 분리되지 않도록 쉼표 기준으로만 분리
+        double maxFontSize = requestedPptFontSize;
+        String[] parts = label.split(", "); // "TV 1", "DK 6" 등으로 분리 (장비종류+숫자 세트 유지)
+        double testFontSize = requestedPptFontSize;
+        double testLineHeight = testFontSize * 1.2; // 줄 간격
+        
+        // 줄바꿈 시뮬레이션: 여백 없는 기준으로 엄격하게 계산
+        // 각 장비 항목("TV 1", "DK 6" 등)은 하나의 단위로 유지되어야 함
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        String testCurrentLine = "";
+        for (String part : parts) {
+            // 현재 줄에 추가할 텍스트: 비어있으면 장비 항목만, 아니면 ", " + 장비 항목
+            String testText = testCurrentLine.isEmpty() ? part : testCurrentLine + ", " + part;
+            double lineWidth = estimateTextWidth(testText, testFontSize);
+            
+            // 여백 없는 기준: 추정 오차를 최소화하기 위해 1% 여유만 허용
+            // 장비종류+숫자 세트가 분리되지 않도록 각 part는 반드시 함께 유지
+            if (lineWidth > maxWidth * 1.01 && !testCurrentLine.isEmpty()) {
+                // 현재 줄이 꽉 찼으므로 이전 줄을 저장하고 새 줄 시작
+                lines.add(testCurrentLine);
+                testCurrentLine = part; // 새 줄에 현재 장비 항목 추가
+            } else {
+                // 현재 줄에 추가 가능
+                testCurrentLine = testText;
+            }
+        }
+        if (!testCurrentLine.isEmpty()) {
+            lines.add(testCurrentLine);
+        }
+        
+        // 총 높이 계산
+        double totalHeight = lines.size() * testLineHeight;
+        
+        // 높이를 넘으면 폰트 크기 조정
+        if (totalHeight > maxHeight) {
+            double heightRatio = maxHeight / totalHeight;
+            maxFontSize = Math.floor(testFontSize * heightRatio);
+            maxFontSize = Math.max(3.0, maxFontSize);
+        }
+        
+        // 각 줄의 너비도 체크하여 폰트 크기 추가 조정
+        // 여백 없는 기준으로 엄격하게 체크
+        for (String line : lines) {
+            double lineWidth = estimateTextWidth(line, maxFontSize);
+            // 여백 없는 기준: maxWidth를 초과하면 폰트 크기 조정
+            if (lineWidth > maxWidth) {
+                double widthRatio = maxWidth / lineWidth; // 정확히 maxWidth에 맞춤
+                double adjustedSize = Math.floor(maxFontSize * widthRatio);
+                maxFontSize = Math.min(maxFontSize, adjustedSize);
+                maxFontSize = Math.max(3.0, maxFontSize);
+                break;
+            }
+        }
+        
+        // 요청된 폰트 크기와 최대 폰트 크기 중 작은 값 사용
+        double pptFontSize = Math.min(requestedPptFontSize, maxFontSize);
+        pptFontSize = Math.max(3.0, pptFontSize); // 최소값 보장
+        
+        // 줄바꿈 시뮬레이션 결과를 사용하여 수동으로 줄바꿈 적용
+        // 장비종류+숫자 세트가 분리되지 않도록 각 줄을 \n으로 연결
+        String formattedLabel = String.join("\n", lines);
+        
+        textRun.setText(formattedLabel);
+        textRun.setFontSize(pptFontSize);
+        textRun.setFontColor(new Color(0xFF0000));
+        textRun.setBold(true);
+        
+        textShape.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
     }
     
     /**
@@ -2187,15 +2311,20 @@ public class PPTExportService {
     
     /**
      * 텍스트 너비 추정 (대략적인 값)
+     * 줄바꿈을 더 빡빡하게 하기 위해 실제보다 약간 작게 계산 (추정 오차 보정)
      */
     private double estimateTextWidth(String text, double fontSize) {
-        // 대략적인 계산: 한글은 폰트 크기의 1.0배, 영문은 0.6배
+        // 여백 없는 기준으로 더 정확하게 계산
+        // 한글은 폰트 크기의 0.9배, 영문/숫자는 0.55배, 공백/쉼표는 0.3배
+        // 추정 오차를 줄이기 위해 실제 값에 더 가깝게 계산
         double width = 0;
         for (char c : text.toCharArray()) {
             if (c >= 0xAC00 && c <= 0xD7A3) { // 한글
-                width += fontSize * 1.0;
-            } else {
-                width += fontSize * 0.6;
+                width += fontSize * 0.9; // 한글은 실제보다 약간 크게 계산
+            } else if (c == ' ' || c == ',') { // 공백, 쉼표
+                width += fontSize * 0.3; // 공백/쉼표는 실제보다 약간 크게 계산
+            } else { // 영문, 숫자, 기호
+                width += fontSize * 0.55; // 영문/숫자는 실제보다 약간 크게 계산
             }
         }
         return width;

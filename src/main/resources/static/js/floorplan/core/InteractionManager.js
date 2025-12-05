@@ -374,11 +374,9 @@ export default class InteractionManager {
             return; // 팬/선택박스 시작하지 않음
         }
         
-        if (isMobileOrTablet) {
-            this.startPan(x, y);
-        } else {
+        // 빈 공간 드래그 시 선택 박스 시작 (모바일/태블릿도 포함)
+        // 팬은 Shift 키를 누른 상태에서만 가능
             this.startSelectionBox(x, y);
-        }
         }
     }
     

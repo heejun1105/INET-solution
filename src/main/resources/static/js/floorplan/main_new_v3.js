@@ -785,7 +785,19 @@ class FloorPlanApp {
         
         try {
             const mode = this.currentMode === 'view-equipment' ? 'equipment' : 'wireless-ap';
-            window.location.href = `/floorplan/export/ppt?schoolId=${this.currentSchoolId}&mode=${mode}`;
+            
+            // 장비보기 모드인 경우 장비 폰트 크기 전달
+            let url = `/floorplan/export/ppt?schoolId=${this.currentSchoolId}&mode=${mode}`;
+            if (mode === 'equipment' && this.core && this.core.equipmentFontSize) {
+                // localStorage에서 해당 학교의 저장된 폰트 크기 확인
+                const storageKey = `equipmentFontSize_${this.currentSchoolId}`;
+                const savedFontSize = localStorage.getItem(storageKey);
+                const fontSize = savedFontSize ? parseInt(savedFontSize) : this.core.equipmentFontSize;
+                url += `&equipmentFontSize=${fontSize}`;
+                console.log(`📤 PPT 다운로드: 장비 폰트 크기 ${fontSize}px 전달`);
+            }
+            
+            window.location.href = url;
             
             this.uiManager.showNotification('PPT 다운로드 시작', 'success');
         } catch (error) {
