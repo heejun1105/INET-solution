@@ -60,4 +60,16 @@ public interface FloorPlanElementRepository extends JpaRepository<FloorPlanEleme
      */
     @Query("SELECT fpe FROM FloorPlanElement fpe WHERE fpe.parentElementId = :parentElementId")
     List<FloorPlanElement> findByParentElementId(@Param("parentElementId") Long parentElementId);
+    
+    /**
+     * 평면도별 특정 페이지의 요소 조회
+     */
+    @Query("SELECT fpe FROM FloorPlanElement fpe WHERE fpe.floorPlanId = :floorPlanId AND fpe.pageNumber = :pageNumber ORDER BY fpe.zIndex ASC, fpe.id ASC")
+    List<FloorPlanElement> findByFloorPlanIdAndPageNumber(@Param("floorPlanId") Long floorPlanId, @Param("pageNumber") Integer pageNumber);
+    
+    /**
+     * 평면도별 최대 페이지 번호 조회
+     */
+    @Query("SELECT COALESCE(MAX(fpe.pageNumber), 1) FROM FloorPlanElement fpe WHERE fpe.floorPlanId = :floorPlanId")
+    Integer findMaxPageNumberByFloorPlanId(@Param("floorPlanId") Long floorPlanId);
 } 

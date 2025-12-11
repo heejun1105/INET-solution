@@ -139,8 +139,31 @@ public class PPTExportService {
         // 제목 슬라이드 생성
         createTitleSlide(ppt, school);
         
-        // 평면도 슬라이드 생성
-        createFloorPlanSlide(ppt, school, floorPlan, elements, mode, devicesByClassroom, equipmentFontSize);
+        // 페이지별로 슬라이드 생성 (요소가 있는 페이지만)
+        // 실제로 요소가 있는 페이지 번호들을 수집
+        Set<Integer> pagesWithElements = elements.stream()
+            .filter(el -> el.getPageNumber() != null)
+            .map(FloorPlanElement::getPageNumber)
+            .collect(java.util.stream.Collectors.toSet());
+        
+        // 페이지 번호 순서대로 정렬
+        List<Integer> sortedPages = new ArrayList<>(pagesWithElements);
+        java.util.Collections.sort(sortedPages);
+        
+        // 요소가 있는 페이지만 슬라이드 생성
+        int finalMaxPage = sortedPages.size(); // 실제 요소가 있는 페이지 수
+        for (Integer pageNum : sortedPages) {
+            final int currentPageNum = pageNum;
+            // 해당 페이지의 요소들만 필터링
+            List<FloorPlanElement> pageElements = elements.stream()
+                .filter(el -> el.getPageNumber() != null && el.getPageNumber().equals(currentPageNum))
+                .collect(java.util.stream.Collectors.toList());
+            
+            // 요소가 있는 페이지만 슬라이드 생성
+            if (!pageElements.isEmpty()) {
+                createFloorPlanSlide(ppt, school, floorPlan, pageElements, mode, devicesByClassroom, equipmentFontSize, currentPageNum, finalMaxPage);
+            }
+        }
         
         return ppt;
     }
@@ -179,15 +202,19 @@ public class PPTExportService {
      */
     private void createFloorPlanSlide(XMLSlideShow ppt, School school, FloorPlan floorPlan, List<FloorPlanElement> elements,
                                      String mode, Map<Long, List<Map<String, Object>>> devicesByClassroom,
-                                     Integer equipmentFontSize) {
+                                     Integer equipmentFontSize, Integer pageNumber, Integer maxPage) {
         XSLFSlide floorPlanSlide = ppt.createSlide();
         
-        // 슬라이드 제목 추가
+        // 슬라이드 제목 추가 (페이지 정보 포함)
         XSLFTextBox headerBox = floorPlanSlide.createTextBox();
         headerBox.setAnchor(new Rectangle(20, 10, 680, 30));
         XSLFTextParagraph headerPara = headerBox.addNewTextParagraph();
         XSLFTextRun headerRun = headerPara.addNewTextRun();
-        headerRun.setText(school.getSchoolName() + " - 평면도");
+        String title = school.getSchoolName() + " - 평면도";
+        if (maxPage != null && maxPage > 1) {
+            title += " (페이지 " + pageNumber + "/" + maxPage + ")";
+        }
+        headerRun.setText(title);
         headerRun.setFontSize(18.0);
         headerRun.setBold(true);
         headerRun.setFontColor(new Color(31, 78, 121));

@@ -18,6 +18,82 @@
     transition: width 0.3s ease, left 0.3s ease;
 }
 
+/* 기본 크기 설정 그룹 */
+.size-control-group {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.size-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.size-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0;
+}
+
+.size-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.size-input {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+    transition: border-color 0.2s;
+}
+
+.size-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.size-separator {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.size-reset-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #f9fafb;
+    color: #6b7280;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    transition: all 0.2s;
+}
+
+.size-reset-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    color: #374151;
+    transform: scale(1.1);
+}
+
+.size-reset-btn:active {
+    transform: scale(0.95);
+}
+
 /* 간소화 상태 */
 .design-toolbar-container.collapsed {
     width: 120px;
@@ -1537,6 +1613,170 @@
 }
 
 /* 도움말 버튼 */
+/* 도움말 모달 */
+.help-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20030;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.help-modal-content {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 700px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.help-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    border-radius: 16px 16px 0 0;
+}
+
+.help-modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.help-modal-header h2 i {
+    font-size: 1.3rem;
+}
+
+.help-modal-close {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 1.1rem;
+}
+
+.help-modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.help-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.help-modal-body .help-section {
+    margin-bottom: 24px;
+}
+
+.help-modal-body .help-section:last-child {
+    margin-bottom: 0;
+}
+
+.help-modal-body .help-section h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.help-modal-body .help-section h4 i {
+    color: #3b82f6;
+}
+
+.help-modal-body .help-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.help-modal-body .help-item:last-child {
+    border-bottom: none;
+}
+
+.help-modal-body .help-item kbd {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    min-width: 80px;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.help-modal-body .help-item span {
+    color: #4b5563;
+    font-size: 0.95rem;
+}
+
+.help-modal-body .help-item .help-text {
+    color: #6b7280;
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+.help-modal-body .help-item i {
+    color: #3b82f6;
+    width: 20px;
+    text-align: center;
+}
+
+/* 기존 도움말 드롭다운 (사용 안 함) */
 .help-dropdown {
     position: relative;
     display: flex;

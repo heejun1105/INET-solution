@@ -301,9 +301,17 @@ export default class DataSyncManager {
     prepareSaveData() {
         const { elements, canvasWidth, canvasHeight, zoom, panX, panY, gridSize, showGrid, snapToGrid } = this.core.state;
         
+        // 현재 페이지 번호 가져오기 (FloorPlanApp에서 설정된 값)
+        const currentPage = this.core.currentPage || window.floorPlanApp?.currentPage || 1;
+        
         // 모든 요소 저장 (타입 구분 없이)
         const allElements = elements.map(element => {
             const elementData = { ...element };
+            
+            // 페이지 번호가 없으면 현재 페이지로 설정
+            if (!elementData.pageNumber && (elementData.id || elementData.elementType)) {
+                elementData.pageNumber = currentPage;
+            }
             
             // temp로 시작하는 ID는 null로 설정
             if (elementData.id && elementData.id.toString().startsWith('temp')) {
@@ -479,7 +487,33 @@ export default class DataSyncManager {
             classroomId: el.classroomId
         })));
         
-        this.core.setElements(loadedElements);
+        // 현재 페이지의 요소만 필터링 (페이지별 로드 시)
+        // 중복 방지: pageNumber가 null/undefined인 요소와 pageNumber === 1인 요소가 중복되지 않도록 처리
+        const currentPage = this.core.currentPage || window.floorPlanApp?.currentPage || 1;
+        const seenElementIds = new Set();
+        const filteredByPage = loadedElements.filter(el => {
+            // 중복 체크: 같은 ID의 요소가 이미 포함되었는지 확인
+            const elementId = el.id ? el.id.toString() : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
+            if (seenElementIds.has(elementId)) {
+                console.warn(`⚠️ 중복 요소 제거 (DataSyncManager): ${elementId}`);
+                return false;
+            }
+            
+            const elPage = el.pageNumber;
+            // pageNumber가 null/undefined이면 1페이지로 간주
+            const normalizedPage = (elPage === null || elPage === undefined) ? 1 : elPage;
+            
+            // 현재 페이지와 일치하는 것만 포함
+            if (normalizedPage === currentPage) {
+                seenElementIds.add(elementId);
+                return true;
+            }
+            return false;
+        });
+        
+        console.log(`📄 페이지 필터링: 전체 ${loadedElements.length}개 → 페이지 ${currentPage} ${filteredByPage.length}개`);
+        
+        this.core.setElements(filteredByPage);
         
         // 로드 후 검증
         this.validateAfterLoad();

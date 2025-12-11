@@ -348,6 +348,25 @@ public class FloorPlanService {
         element.setLabel(getStringValue(elementData, "label", null));
         element.setShowLabel(getBooleanValue(elementData, "showLabel", true));
         
+        // 페이지 번호 설정
+        Integer pageNumber = getIntValue(elementData, "pageNumber", null);
+        if (pageNumber == null) {
+            // elementData에서 pageNumber 확인
+            try {
+                if (elementData.containsKey("pageNumber")) {
+                    Object pageNumObj = elementData.get("pageNumber");
+                    if (pageNumObj instanceof Number) {
+                        pageNumber = ((Number) pageNumObj).intValue();
+                    } else if (pageNumObj instanceof String) {
+                        pageNumber = Integer.parseInt((String) pageNumObj);
+                    }
+                }
+            } catch (Exception e) {
+                logger.debug("페이지 번호 파싱 실패, 기본값 사용", e);
+            }
+        }
+        element.setPageNumber(pageNumber != null && pageNumber > 0 ? pageNumber : 1);
+        
         // 추가 데이터는 JSON으로 저장
         try {
             element.setElementData(objectMapper.writeValueAsString(elementData));
@@ -928,6 +947,42 @@ public class FloorPlanService {
         layout.put("devices", new ArrayList<>());
         layout.put("textBoxes", new ArrayList<>());
         return layout;
+    }
+    
+    /**
+     * 페이지별 평면도 요소 조회
+     */
+    public List<FloorPlanElement> getElementsByPage(Long floorPlanId, Integer pageNumber) {
+        if (pageNumber == null || pageNumber < 1) {
+            pageNumber = 1;
+        }
+        return floorPlanElementRepository.findByFloorPlanIdAndPageNumber(floorPlanId, pageNumber);
+    }
+    
+    /**
+     * 평면도별 최대 페이지 번호 조회
+     */
+    public Integer getMaxPageNumber(Long floorPlanId) {
+        Integer maxPage = floorPlanElementRepository.findMaxPageNumberByFloorPlanId(floorPlanId);
+        return maxPage != null ? maxPage : 1;
+    }
+    
+    /**
+     * 활성 평면도 조회 (Optional 반환)
+     */
+    public Optional<FloorPlan> findActiveFloorPlanBySchoolId(Long schoolId) {
+        return floorPlanRepository.findBySchoolIdAndIsActive(schoolId, true);
+    }
+    
+    /**
+     * 페이지별 요소 삭제
+     */
+    @Transactional
+    public void deleteElementsByPage(Long floorPlanId, Integer pageNumber) {
+        List<FloorPlanElement> elements = floorPlanElementRepository.findByFloorPlanIdAndPageNumber(floorPlanId, pageNumber);
+        floorPlanElementRepository.deleteAll(elements);
+        logger.info("페이지 요소 삭제 완료 - floorPlanId: {}, pageNumber: {}, 삭제된 요소 수: {}", 
+                    floorPlanId, pageNumber, elements.size());
     }
 
 }

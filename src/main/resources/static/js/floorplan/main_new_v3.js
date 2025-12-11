@@ -36,6 +36,12 @@ class FloorPlanApp {
         
         this.schools = [];
         
+        // 페이지 관리
+        this.currentPage = 1; // 현재 페이지 번호
+        this.maxPage = 1; // 최대 페이지 번호
+        this.deletedPages = []; // 삭제 예정인 페이지 번호 목록 (저장 시 실제 삭제)
+        this.localElementsByPage = {}; // 페이지별 로컬 요소 저장 (저장되지 않은 요소)
+        
         // 첫 진입 여부 확인 (localStorage 사용)
         this.isFirstEntry = !localStorage.getItem('floorplan_has_entered');
         
@@ -64,6 +70,9 @@ class FloorPlanApp {
             // UI 설정
             this.setupUI();
             
+            // 페이지 UI 생성
+            this.createPageNavigationUI();
+            
             // 학교 목록 로드
             await this.loadSchools();
             
@@ -91,8 +100,12 @@ class FloorPlanApp {
         this.uiManager = new UIManager(this.core, this.dataSyncManager, this.elementManager);
         this.interactionManager = new InteractionManager(this.core, this.elementManager, this.historyManager);
         
-        // Core에 schoolId 저장
+        // Core에 schoolId 및 현재 페이지 정보 저장
         this.core.currentSchoolId = null;
+        this.core.currentPage = 1;
+        
+        // FloorPlanApp 인스턴스를 전역으로 저장 (DataSyncManager에서 접근 가능하도록)
+        window.floorPlanApp = this;
     }
 
     // 뷰포트 크기 변화에 맞춰 배율/팬을 보정 (필요 시만 확대)
@@ -582,6 +595,13 @@ class FloorPlanApp {
         this.currentSchoolId = schoolId;
         this.core.currentSchoolId = schoolId;
         
+        // 현재 페이지를 1로 초기화 (새 학교 선택 시)
+        this.currentPage = 1;
+        // maxPage는 서버에서 받은 값으로 설정되므로 여기서는 초기화하지 않음
+        if (this.core) {
+            this.core.currentPage = 1;
+        }
+        
         const school = this.schools.find(s => s.schoolId === schoolId);
         const schoolName = school ? school.schoolName : `학교 ID: ${schoolId}`;
         
@@ -603,10 +623,65 @@ class FloorPlanApp {
      */
     async loadFloorPlan(schoolId) {
         try {
-            const result = await this.dataSyncManager.load(schoolId);
+            // 삭제 예정 목록 초기화 (새 학교 로드 시)
+            this.deletedPages = [];
+            // 로컬 요소 저장소 초기화 (새 학교 로드 시)
+            this.localElementsByPage = {};
             
-            if (result.success) {
+            // 먼저 maxPage를 조회 (1페이지를 로드하면서 받아오지만, 실패 시를 대비)
+            let maxPageFromServer = null;
+            try {
+                const maxPageResponse = await fetch(`/floorplan/api/elements?schoolId=${schoolId}&pageNumber=1`);
+                if (maxPageResponse.ok) {
+                    const maxPageData = await maxPageResponse.json();
+                    if (maxPageData.success && maxPageData.maxPage) {
+                        maxPageFromServer = maxPageData.maxPage;
+                        console.log(`📄 서버에서 최대 페이지 번호 조회: ${maxPageFromServer}`);
+                    }
+                }
+            } catch (error) {
+                console.warn('최대 페이지 번호 조회 실패, 요소 로드 시 받아올 예정:', error);
+            }
+            
+            // 현재 페이지의 요소들만 로드
+            const result = await this.loadPageElements(this.currentPage);
+            
+            if (result && result.success) {
                 console.log('✅ 평면도 로드 완료');
+                
+                // 최대 페이지 번호 업데이트 (서버에서 받은 값으로 설정)
+                // result.maxPage가 있으면 우선 사용, 없으면 maxPageFromServer 사용
+                const finalMaxPage = result.maxPage || maxPageFromServer || 1;
+                this.maxPage = finalMaxPage;
+                console.log(`📄 최대 페이지 번호 설정: ${this.maxPage}`);
+                
+                // 현재 페이지의 요소만 필터링 (다른 페이지 요소 제거)
+                // pageNumber가 명시적으로 다른 페이지인 요소는 제거
+                // 중복 방지: pageNumber가 null/undefined인 요소와 pageNumber === 1인 요소가 중복되지 않도록 처리
+                const seenElementIds = new Set();
+                this.core.state.elements = this.core.state.elements.filter(el => {
+                    if (!el || (!el.id && !el.elementType)) return false;
+                    
+                    // 중복 체크: 같은 ID의 요소가 이미 포함되었는지 확인
+                    const elementId = el.id ? el.id.toString() : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
+                    if (seenElementIds.has(elementId)) {
+                        console.warn(`⚠️ 중복 요소 제거: ${elementId}`);
+                        return false;
+                    }
+                    
+                    const elPage = el.pageNumber;
+                    // pageNumber가 null/undefined이면 1페이지로 간주
+                    const normalizedPage = (elPage === null || elPage === undefined) ? 1 : elPage;
+                    
+                    // 현재 페이지와 일치하는 것만 포함
+                    if (normalizedPage === this.currentPage) {
+                        seenElementIds.add(elementId);
+                        return true;
+                    }
+                    return false;
+                });
+                
+                console.log(`📄 필터링 후 현재 페이지 ${this.currentPage}의 요소: ${this.core.state.elements.length}개`);
                 
                 // 첫 로드 시에만 모든 요소가 보이도록 자동 피팅
                 // (이미 로드된 상태에서 다시 로드할 때는 이전 시점 유지)
@@ -614,9 +689,76 @@ class FloorPlanApp {
                     this.core.fitToElements();
                 }
                 this.updateZoomDisplay(); // 줌 디스플레이 업데이트
+                this.updatePageDisplay(); // 페이지 정보 업데이트
             } else {
-                console.log('ℹ️ 저장된 평면도 없음');
-                this.updateZoomDisplay(); // 줌 디스플레이 업데이트
+                // 기존 방식으로 로드 (하위 호환성)
+                const oldResult = await this.dataSyncManager.load(schoolId);
+                if (oldResult.success) {
+                    console.log('✅ 평면도 로드 완료 (기존 방식)');
+                    
+                    // maxPage 업데이트 (서버에서 조회한 값 사용)
+                    if (maxPageFromServer) {
+                        this.maxPage = maxPageFromServer;
+                        console.log(`📄 최대 페이지 번호 설정 (기존 방식): ${this.maxPage}`);
+                    } else {
+                        // 요소들에서 최대 pageNumber 찾기
+                        const allPageNumbers = this.core.state.elements
+                            .map(el => el.pageNumber)
+                            .filter(pageNum => pageNum != null && pageNum !== undefined);
+                        if (allPageNumbers.length > 0) {
+                            this.maxPage = Math.max(...allPageNumbers, 1);
+                            console.log(`📄 요소에서 최대 페이지 번호 추출: ${this.maxPage}`);
+                        }
+                    }
+                    
+                    // 현재 페이지의 요소만 필터링 (다른 페이지 요소 제거)
+                    // 중복 방지: pageNumber가 null/undefined인 요소와 pageNumber === 1인 요소가 중복되지 않도록 처리
+                    const seenElementIds = new Set();
+                    this.core.state.elements = this.core.state.elements.filter(el => {
+                        if (!el || (!el.id && !el.elementType)) return false;
+                        
+                        // 중복 체크: 같은 ID의 요소가 이미 포함되었는지 확인
+                        const elementId = el.id ? el.id.toString() : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
+                        if (seenElementIds.has(elementId)) {
+                            console.warn(`⚠️ 중복 요소 제거: ${elementId}`);
+                            return false;
+                        }
+                        
+                        const elPage = el.pageNumber;
+                        // pageNumber가 null/undefined이면 1페이지로 간주
+                        const normalizedPage = (elPage === null || elPage === undefined) ? 1 : elPage;
+                        
+                        // 현재 페이지와 일치하는 것만 포함
+                        if (normalizedPage === this.currentPage) {
+                            seenElementIds.add(elementId);
+                            return true;
+                        }
+                        return false;
+                    });
+                    
+                    console.log(`📄 필터링 후 현재 페이지 ${this.currentPage}의 요소: ${this.core.state.elements.length}개`);
+                    
+                    if (this.core.state.elements.length === 0 || this.isFirstEntry) {
+                        this.core.fitToElements();
+                    }
+                    this.updateZoomDisplay();
+                } else {
+                    console.log('ℹ️ 저장된 평면도 없음');
+                    // 요소 초기화
+                    this.core.state.elements = [];
+                    this.maxPage = 1; // 기본값
+                    this.updateZoomDisplay();
+                }
+                this.updatePageDisplay();
+            }
+            
+            // 캔버스 재렌더링 (필터링 후)
+            this.core.markDirty();
+            this.core.render && this.core.render();
+            
+            // 보기 모드인 경우 모드 매니저에 알림 (장비 카드 재렌더링 등)
+            if (this.modeManager && typeof this.modeManager.onPageSwitch === 'function') {
+                this.modeManager.onPageSwitch(this.currentPage);
             }
         } catch (error) {
             console.error('평면도 로드 오류:', error);
@@ -1161,6 +1303,63 @@ class FloorPlanApp {
             }
         }
         
+        // 보기 모드로 전환하는 경우 현재 페이지의 요소만 로드
+        if (mode.startsWith('view-')) {
+            console.log('🔄 보기 모드로 전환 - 현재 페이지 요소만 로드');
+            try {
+                // 현재 페이지의 로컬 요소를 먼저 저장
+                if (this.core && this.core.state && this.core.state.elements) {
+                    const currentPageLocalElements = this.core.state.elements.filter(el => {
+                        if (!el || (!el.id && !el.elementType)) return false;
+                        const elPage = el.pageNumber || this.currentPage;
+                        return elPage === this.currentPage;
+                    });
+                    
+                    if (currentPageLocalElements.length > 0) {
+                        this.localElementsByPage[this.currentPage] = JSON.parse(JSON.stringify(currentPageLocalElements));
+                        console.log(`💾 보기 모드 전환 전 페이지 ${this.currentPage}의 요소 ${currentPageLocalElements.length}개 저장`);
+                    }
+                }
+                
+                await this.loadPageElements(this.currentPage);
+                
+                // 서버에서 로드한 요소의 ID 목록
+                const serverElementIds = new Set(
+                    this.core.state.elements
+                        .filter(el => el.id && !el.id.toString().startsWith('temp'))
+                        .map(el => el.id.toString())
+                );
+                
+                // 저장된 로컬 요소 복원
+                if (this.localElementsByPage[this.currentPage]) {
+                    const savedLocalElements = this.localElementsByPage[this.currentPage];
+                    const restoredElements = JSON.parse(JSON.stringify(savedLocalElements));
+                    
+                    const localOnlyElements = restoredElements.filter(el => {
+                        if (!el.id || el.id.toString().startsWith('temp')) {
+                            return true;
+                        }
+                        return !serverElementIds.has(el.id.toString());
+                    });
+                    
+                    if (localOnlyElements.length > 0) {
+                        this.core.state.elements = [...this.core.state.elements, ...localOnlyElements];
+                        console.log(`📂 보기 모드 전환 후 페이지 ${this.currentPage}의 로컬 요소 ${localOnlyElements.length}개 복원`);
+                    }
+                }
+                
+                // 현재 페이지의 요소만 필터링
+                this.core.state.elements = this.core.state.elements.filter(el => 
+                    el.pageNumber === this.currentPage || el.pageNumber === null || el.pageNumber === undefined
+                );
+                this.core.markDirty();
+                this.core.render && this.core.render();
+                console.log('✅ 현재 페이지 요소만 로드 완료');
+            } catch (error) {
+                console.error('❌ 페이지 요소 로드 오류:', error);
+            }
+        }
+        
         // 새 모드 시작
         await this.switchMode(mode);
         
@@ -1351,7 +1550,107 @@ class FloorPlanApp {
         }
         
         try {
-            // 1. 교실 좌표 저장 (교실 설계 모드인 경우)
+            // 1. 삭제 예정인 페이지들 먼저 삭제
+            if (this.deletedPages.length > 0) {
+                for (const pageNumber of this.deletedPages) {
+                    try {
+                        const response = await fetch(`/floorplan/api/elements/delete-page?schoolId=${this.currentSchoolId}&pageNumber=${pageNumber}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (!response.ok) {
+                            console.error(`페이지 ${pageNumber} 삭제 실패`);
+                        } else {
+                            console.log(`✅ 페이지 ${pageNumber} 삭제 완료`);
+                        }
+                    } catch (error) {
+                        console.error(`페이지 ${pageNumber} 삭제 오류:`, error);
+                    }
+                }
+                // 삭제 완료 후 목록 초기화
+                this.deletedPages = [];
+            }
+            
+            // 2. 현재 페이지의 요소들에 페이지 번호 설정 및 메모리에 저장
+            const currentPageElements = this.core.state.elements;
+            for (const element of currentPageElements) {
+                if (element.id || element.elementType) {
+                    element.pageNumber = this.currentPage;
+                }
+            }
+            // 현재 페이지의 요소를 localElementsByPage에 저장 (빈 배열이어도 저장하여 삭제 상태 반영)
+            this.localElementsByPage[this.currentPage] = JSON.parse(JSON.stringify(currentPageElements));
+            
+            // 3. 서버에서 모든 페이지의 요소들 로드
+            const allPageElements = await this.loadAllPageElements();
+            
+            // 4. 서버 요소의 ID 목록 생성 (중복 제거용)
+            const serverElementIds = new Set(
+                allPageElements
+                    .filter(el => el.id && !el.id.toString().startsWith('temp'))
+                    .map(el => el.id.toString())
+            );
+            
+            // 5. 모든 페이지의 로컬 요소들을 수집 (localElementsByPage에서)
+            // 다른 페이지의 로컬 요소는 서버 요소와 병합하여 유지
+            const allLocalElements = [];
+            for (const pageNum in this.localElementsByPage) {
+                const pageNumInt = parseInt(pageNum);
+                const pageLocalElements = this.localElementsByPage[pageNumInt];
+                
+                // 현재 페이지는 currentPageElements로 교체되므로 제외
+                if (pageNumInt === this.currentPage) {
+                    continue;
+                }
+                
+                if (pageLocalElements && pageLocalElements.length > 0) {
+                    // 페이지 번호 설정
+                    const elementsWithPage = pageLocalElements.map(el => {
+                        const element = JSON.parse(JSON.stringify(el));
+                        element.pageNumber = pageNumInt;
+                        return element;
+                    });
+                    allLocalElements.push(...elementsWithPage);
+                }
+            }
+            
+            // 6. 서버 요소와 로컬 요소를 병합
+            // 서버 요소 중 현재 페이지에 속한 요소는 제외 (현재 페이지 요소로 교체)
+            // 다른 페이지의 요소는 그대로 유지
+            const otherPageElements = allPageElements.filter(el => {
+                const elPage = el.pageNumber || 1;
+                return elPage !== this.currentPage;
+            });
+            
+            // 다른 페이지의 로컬 요소 중 서버에 없는 것만 추가 (로컬에서 추가/수정한 요소)
+            const otherPageLocalElements = allLocalElements.filter(el => {
+                if (!el.id || el.id.toString().startsWith('temp')) {
+                    return true; // 새로 추가한 요소
+                }
+                return !serverElementIds.has(el.id.toString()); // 수정된 요소
+            });
+            
+            // 현재 페이지의 로컬 요소 중 서버에 없는 것만 추가 (로컬에서 추가/수정한 요소)
+            const currentPageLocalElements = currentPageElements.filter(el => {
+                if (!el.id || el.id.toString().startsWith('temp')) {
+                    return true; // 새로 추가한 요소
+                }
+                return !serverElementIds.has(el.id.toString()); // 수정된 요소
+            });
+            
+            // 모든 요소 병합: 다른 페이지 요소 + 다른 페이지 로컬 요소 + 현재 페이지 요소
+            // currentPageElements가 빈 배열이어도 포함하여 삭제 상태를 반영
+            const mergedElements = [
+                ...otherPageElements, 
+                ...otherPageLocalElements, 
+                ...currentPageElements
+            ];
+            
+            // 5. 임시로 core.state.elements를 모든 페이지 요소로 설정
+            const originalElements = this.core.state.elements;
+            this.core.state.elements = mergedElements;
+            
+            // 6. 교실 좌표 저장 (교실 설계 모드인 경우)
             let classroomSaveFailed = false;
             if (this.currentMode === 'design-classroom' && this.modeManager) {
                 const classroomSaveResult = await this.saveClassroomCoordinates();
@@ -1360,13 +1659,23 @@ class FloorPlanApp {
                 }
             }
             
-            // 2. 평면도 데이터 저장 (알림은 여기서 통합 표시)
+            // 7. 평면도 데이터 저장 (알림은 여기서 통합 표시)
             const result = await this.dataSyncManager.save(this.currentSchoolId, false); // 내부 알림 비활성화
+            
+            // 8. core.state.elements를 원래대로 복원 (현재 페이지 요소만)
+            this.core.state.elements = originalElements;
             
             console.log('💾 평면도 저장 결과:', result);
             
             // result가 객체인 경우와 boolean인 경우 모두 처리
             if (result === true || (result && result.success === true)) {
+                // 저장 성공 후 로컬 요소 저장소 초기화 (모든 요소가 서버에 저장되었으므로)
+                this.localElementsByPage = {};
+                console.log('🔄 저장 완료 후 로컬 요소 저장소 초기화');
+                
+                // 5. 저장 후 빈 페이지 제거 및 maxPage 업데이트
+                await this.cleanupEmptyPages();
+                
                 if (classroomSaveFailed) {
                     this.uiManager.showNotification('저장 완료 (일부 교실 저장 실패)', 'warning');
                 } else {
@@ -1436,6 +1745,494 @@ class FloorPlanApp {
         
         // 알림은 saveCurrentWork에서 통합 표시하므로 여기서는 반환만
         return successCount === roomElements.length;
+    }
+    
+    /**
+     * 페이지 네비게이션 UI 생성
+     */
+    createPageNavigationUI() {
+        // 기존 페이지 UI가 있으면 제거
+        const existingPageUI = document.getElementById('page-navigation-ui');
+        if (existingPageUI) {
+            existingPageUI.remove();
+        }
+        
+        // 페이지 네비게이션 컨테이너 생성
+        const pageNav = document.createElement('div');
+        pageNav.id = 'page-navigation-ui';
+        pageNav.style.cssText = `
+            position: fixed;
+            top: 120px;
+            right: 20px;
+            z-index: 10000;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 6px 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        `;
+        
+        // 이전 페이지 버튼
+        const prevBtn = document.createElement('button');
+        prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        prevBtn.style.cssText = `
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            padding: 0;
+        `;
+        prevBtn.addEventListener('click', () => this.switchPage(this.currentPage - 1));
+        prevBtn.title = '이전 페이지';
+        
+        // 페이지 정보 표시
+        const pageInfo = document.createElement('span');
+        pageInfo.id = 'page-info-display';
+        pageInfo.style.cssText = `
+            min-width: 60px;
+            text-align: center;
+            font-weight: 500;
+            font-size: 12px;
+        `;
+        pageInfo.textContent = `페이지 1 / 1`;
+        
+        // 다음 페이지 버튼
+        const nextBtn = document.createElement('button');
+        nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        nextBtn.style.cssText = `
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            padding: 0;
+        `;
+        nextBtn.addEventListener('click', () => this.switchPage(this.currentPage + 1));
+        nextBtn.title = '다음 페이지';
+        
+        // 버튼들을 컨테이너에 추가
+        pageNav.appendChild(prevBtn);
+        pageNav.appendChild(pageInfo);
+        pageNav.appendChild(nextBtn);
+        
+        // 캔버스 컨테이너에 추가
+        const canvasContainer = document.getElementById('workspace-canvas-wrapper') || 
+                                document.getElementById('canvas') || 
+                                document.body;
+        canvasContainer.appendChild(pageNav);
+        
+        // 초기 페이지 정보 업데이트
+        this.updatePageDisplay();
+    }
+    
+    /**
+     * 페이지 표시 정보 업데이트
+     */
+    updatePageDisplay() {
+        const pageInfo = document.getElementById('page-info-display');
+        if (pageInfo) {
+            pageInfo.textContent = `페이지 ${this.currentPage} / ${this.maxPage}`;
+        }
+        
+        // 버튼 활성화/비활성화
+        const prevBtn = document.querySelector('#page-navigation-ui button:first-child');
+        const nextBtn = document.querySelector('#page-navigation-ui button:last-child');
+        
+        if (prevBtn) {
+            // 이전 페이지 버튼: 첫 페이지일 때만 비활성화
+            prevBtn.disabled = this.currentPage <= 1;
+            prevBtn.style.opacity = this.currentPage <= 1 ? '0.5' : '1';
+            prevBtn.style.cursor = this.currentPage <= 1 ? 'not-allowed' : 'pointer';
+        }
+        
+        if (nextBtn) {
+            // 다음 페이지 버튼: 항상 활성화 (자동 페이지 생성)
+            nextBtn.disabled = false;
+            nextBtn.style.opacity = '1';
+            nextBtn.style.cursor = 'pointer';
+        }
+    }
+    
+    /**
+     * 페이지 전환
+     */
+    async switchPage(pageNumber) {
+        // 페이지 번호가 1보다 작으면 1로 고정
+        if (pageNumber < 1) {
+            pageNumber = 1;
+        }
+        
+        // 현재 페이지의 모든 요소를 메모리에 저장 (서버에 저장되지 않은 모든 요소)
+        if (this.core && this.core.state && this.core.state.elements) {
+            // 현재 페이지의 모든 요소 저장 (나중에 서버 요소와 비교하여 로컬 요소만 유지)
+            const currentPageElements = this.core.state.elements.filter(el => {
+                if (!el || (!el.id && !el.elementType)) return false;
+                const elPage = el.pageNumber || this.currentPage;
+                return elPage === this.currentPage;
+            });
+            
+            // 빈 배열이어도 저장 (삭제 상태 반영)
+            this.localElementsByPage[this.currentPage] = JSON.parse(JSON.stringify(currentPageElements));
+            console.log(`💾 페이지 ${this.currentPage}의 요소 ${currentPageElements.length}개 저장 (로컬)`);
+        }
+        
+        // 다음 페이지로 넘기면 자동으로 페이지 생성
+        if (pageNumber > this.maxPage) {
+            this.maxPage = pageNumber;
+        }
+        
+        // 페이지 변경 (저장은 나중에 저장 버튼을 눌렀을 때)
+        this.currentPage = pageNumber;
+        
+        // Core에 현재 페이지 정보 업데이트
+        if (this.core) {
+            this.core.currentPage = pageNumber;
+        }
+        
+        // 해당 페이지의 요소들만 필터링하여 표시
+        await this.loadPageElements(pageNumber);
+        
+        // 서버에서 로드한 요소의 ID와 좌표 정보를 Map으로 저장 (중복 체크 강화)
+        const serverElementMap = new Map();
+        const serverElementIdSet = new Set();
+        this.core.state.elements.forEach(el => {
+            if (el.id && !el.id.toString().startsWith('temp')) {
+                const elementId = el.id.toString();
+                const key = `${elementId}_${el.xCoordinate}_${el.yCoordinate}`;
+                serverElementIdSet.add(elementId);
+                serverElementMap.set(key, el);
+            }
+        });
+        
+        // 저장된 로컬 요소 복원 (있는 경우)
+        // 저장 후에는 localElementsByPage가 초기화되므로, 저장되지 않은 작업만 복원
+        if (this.localElementsByPage[pageNumber] && this.localElementsByPage[pageNumber].length > 0) {
+            const savedLocalElements = this.localElementsByPage[pageNumber];
+            // 깊은 복사로 복원
+            const restoredElements = JSON.parse(JSON.stringify(savedLocalElements));
+            
+            // 서버에 없는 요소만 복원 (로컬에서 추가/수정한 요소)
+            // 중복 체크 강화: ID와 좌표를 모두 확인
+            const localOnlyElements = restoredElements.filter(el => {
+                // id가 없거나 temp로 시작하면 새로 추가한 로컬 요소
+                if (!el.id || el.id.toString().startsWith('temp')) {
+                    return true;
+                }
+                
+                const elementId = el.id.toString();
+                // id가 있으면 서버에 없는지 확인
+                if (serverElementIdSet.has(elementId)) {
+                    // ID가 서버에 있으면 좌표도 확인 (같은 요소인지 체크)
+                    const key = `${elementId}_${el.xCoordinate}_${el.yCoordinate}`;
+                    if (serverElementMap.has(key)) {
+                        // 서버에 동일한 요소가 있으면 제외 (중복)
+                        return false;
+                    }
+                }
+                
+                // 서버에 없는 요소만 포함
+                return true;
+            });
+            
+            if (localOnlyElements.length > 0) {
+                // 서버에서 로드한 요소와 병합 (로컬 요소는 뒤에 추가)
+                this.core.state.elements = [...this.core.state.elements, ...localOnlyElements];
+                console.log(`📂 페이지 ${pageNumber}의 로컬 요소 ${localOnlyElements.length}개 복원`);
+            } else {
+                console.log(`📂 페이지 ${pageNumber}의 로컬 요소 없음 (모두 서버에 저장됨)`);
+            }
+        }
+        
+        // 현재 페이지의 요소만 필터링 (pageNumber 확인)
+        // 중복 방지: 같은 ID의 요소가 여러 개 있으면 하나만 유지
+        const seenElementIds = new Set();
+        this.core.state.elements = this.core.state.elements.filter(el => {
+            if (!el || (!el.id && !el.elementType)) return false;
+            
+            const elPage = el.pageNumber || pageNumber;
+            const normalizedPage = (elPage === null || elPage === undefined) ? 1 : elPage;
+            
+            // 현재 페이지와 일치하는 요소만 포함
+            if (normalizedPage === pageNumber) {
+                // 중복 체크: 같은 ID의 요소가 이미 포함되었는지 확인
+                const elementId = el.id ? el.id.toString() : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
+                if (seenElementIds.has(elementId)) {
+                    console.warn(`⚠️ 중복 요소 제거 (switchPage): ${elementId}`);
+                    return false;
+                }
+                seenElementIds.add(elementId);
+                return true;
+            }
+            return false;
+        });
+        
+        // 페이지 정보 업데이트
+        this.updatePageDisplay();
+        
+        // 캔버스 재렌더링
+        this.core.markDirty();
+        this.core.render && this.core.render();
+        
+        // 모드별 추가 처리
+        if (this.modeManager && typeof this.modeManager.onPageSwitch === 'function') {
+            this.modeManager.onPageSwitch(pageNumber);
+        }
+        
+        console.log(`📄 페이지 전환: ${pageNumber} (최대: ${this.maxPage})`);
+    }
+    
+    /**
+     * 현재 페이지의 요소들 저장 (더 이상 사용하지 않음 - saveCurrentWork에서 처리)
+     */
+    async saveCurrentPageElements() {
+        // 이 메서드는 더 이상 사용하지 않음
+        // 페이지 번호는 saveCurrentWork에서 저장 시 설정됨
+        return;
+    }
+    
+    /**
+     * 빈 페이지 정리 (요소가 없는 페이지 제거)
+     */
+    async cleanupEmptyPages() {
+        if (!this.currentSchoolId) {
+            return;
+        }
+        
+        try {
+            // 서버에서 모든 페이지의 요소 개수 확인
+            const pagesWithElements = new Set();
+            let maxPageWithElements = 0;
+            
+            // 1부터 maxPage까지 각 페이지의 요소 확인
+            for (let pageNum = 1; pageNum <= this.maxPage; pageNum++) {
+                try {
+                    const response = await fetch(`/floorplan/api/elements?schoolId=${this.currentSchoolId}&pageNumber=${pageNum}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.elements && data.elements.length > 0) {
+                            pagesWithElements.add(pageNum);
+                            maxPageWithElements = Math.max(maxPageWithElements, pageNum);
+                        } else {
+                            // 빈 페이지: 서버에서 삭제
+                            console.log(`🗑️ 빈 페이지 ${pageNum} 삭제`);
+                            const deleteResponse = await fetch(`/floorplan/api/elements/delete-page?schoolId=${this.currentSchoolId}&pageNumber=${pageNum}`, {
+                                method: 'DELETE'
+                            });
+                            if (deleteResponse.ok) {
+                                console.log(`✅ 빈 페이지 ${pageNum} 삭제 완료`);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error(`페이지 ${pageNum} 확인 오류:`, error);
+                }
+            }
+            
+            // maxPage 업데이트 (실제 요소가 있는 최대 페이지 번호)
+            const newMaxPage = maxPageWithElements > 0 ? maxPageWithElements : 1;
+            
+            // 현재 페이지가 삭제된 경우, 마지막 요소가 있는 페이지로 이동
+            if (this.currentPage > newMaxPage) {
+                this.currentPage = newMaxPage;
+                // Core에 현재 페이지 정보 업데이트
+                if (this.core) {
+                    this.core.currentPage = this.currentPage;
+                }
+                // 해당 페이지의 요소들 로드
+                await this.loadPageElements(this.currentPage);
+            }
+            
+            // maxPage 업데이트
+            this.maxPage = newMaxPage;
+            
+            // 페이지 정보 업데이트
+            this.updatePageDisplay();
+            
+            console.log(`🧹 빈 페이지 정리 완료: maxPage = ${this.maxPage}`);
+        } catch (error) {
+            console.error('빈 페이지 정리 오류:', error);
+        }
+    }
+    
+    /**
+     * 모든 페이지의 요소들 로드
+     */
+    async loadAllPageElements() {
+        if (!this.currentSchoolId) {
+            return [];
+        }
+        
+        try {
+            const allElements = [];
+            
+            // 1부터 maxPage까지 모든 페이지의 요소들 로드
+            for (let pageNum = 1; pageNum <= this.maxPage; pageNum++) {
+                try {
+                    const response = await fetch(`/floorplan/api/elements?schoolId=${this.currentSchoolId}&pageNumber=${pageNum}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.elements) {
+                            // 백엔드 엔티티를 프론트엔드 형식으로 변환
+                            const elements = data.elements.map(el => {
+                                const element = {
+                                    id: el.id,
+                                    elementType: el.elementType,
+                                    xCoordinate: el.xCoordinate,
+                                    yCoordinate: el.yCoordinate,
+                                    width: el.width,
+                                    height: el.height,
+                                    zIndex: el.zIndex,
+                                    pageNumber: el.pageNumber || pageNum,
+                                    label: el.label,
+                                    // elementData 파싱
+                                    ...(el.elementData ? JSON.parse(el.elementData) : {})
+                                };
+                                return element;
+                            });
+                            allElements.push(...elements);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`페이지 ${pageNum} 요소 로드 오류:`, error);
+                }
+            }
+            
+            console.log(`📥 모든 페이지 요소 로드 완료: ${allElements.length}개`);
+            return allElements;
+        } catch (error) {
+            console.error('모든 페이지 요소 로드 오류:', error);
+            return [];
+        }
+    }
+    
+    /**
+     * 페이지 요소 로드
+     */
+    async loadPageElements(pageNumber) {
+        if (!this.currentSchoolId) {
+            return { success: false };
+        }
+        
+        try {
+            // 서버에서 해당 페이지의 요소들만 로드
+            const response = await fetch(`/floorplan/api/elements?schoolId=${this.currentSchoolId}&pageNumber=${pageNumber}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.elements) {
+                    // 요소들을 Core에 로드 (프론트엔드 형식으로 변환)
+                    const elements = data.elements.map(el => {
+                        // 백엔드 엔티티를 프론트엔드 형식으로 변환
+                        const element = {
+                            id: el.id,
+                            elementType: el.elementType,
+                            xCoordinate: el.xCoordinate,
+                            yCoordinate: el.yCoordinate,
+                            width: el.width,
+                            height: el.height,
+                            zIndex: el.zIndex,
+                            pageNumber: el.pageNumber || pageNumber,
+                            label: el.label,
+                            // elementData 파싱
+                            ...(el.elementData ? JSON.parse(el.elementData) : {})
+                        };
+                        return element;
+                    });
+                    
+                    this.core.state.elements = elements;
+                    
+                    // 최대 페이지 번호 업데이트 (서버에서 받은 값으로 설정)
+                    const maxPage = data.maxPage || 1;
+                    
+                    this.core.markDirty();
+                    this.core.render && this.core.render();
+                    
+                    return { success: true, maxPage: maxPage };
+                }
+            }
+            return { success: false };
+        } catch (error) {
+            console.error('페이지 요소 로드 오류:', error);
+            // 오류 시 빈 배열로 초기화
+            this.core.state.elements = [];
+            this.core.markDirty();
+            this.core.render && this.core.render();
+            return { success: false };
+        }
+    }
+    
+    /**
+     * 새 페이지 추가
+     */
+    async addNewPage() {
+        // 새 페이지로 전환 (저장은 나중에 저장 버튼을 눌렀을 때)
+        this.maxPage++;
+        this.currentPage = this.maxPage;
+        
+        // 빈 캔버스 표시
+        this.core.state.elements = [];
+        this.core.markDirty();
+        this.core.render && this.core.render();
+        
+        // 페이지 정보 업데이트
+        this.updatePageDisplay();
+        
+        console.log(`➕ 새 페이지 추가: ${this.currentPage} (저장 필요)`);
+    }
+    
+    /**
+     * 현재 페이지 삭제
+     */
+    async deleteCurrentPage() {
+        // 페이지가 1개만 있으면 삭제 불가
+        if (this.maxPage <= 1) {
+            alert('최소 1개의 페이지가 필요합니다.');
+            return;
+        }
+        
+        // 마지막 페이지가 아니면 삭제 불가 (현재는 마지막 페이지만 삭제 가능)
+        if (this.currentPage !== this.maxPage) {
+            alert('마지막 페이지만 삭제할 수 있습니다.');
+            return;
+        }
+        
+        // 확인 메시지
+        if (!confirm(`페이지 ${this.currentPage}를 삭제하시겠습니까? (저장 버튼을 눌러야 실제로 삭제됩니다)`)) {
+            return;
+        }
+        
+        // 삭제 예정 목록에 추가 (저장 시 실제 삭제)
+        this.deletedPages.push(this.currentPage);
+        
+        // 최대 페이지 번호 감소
+        this.maxPage--;
+        
+        // 마지막 페이지로 전환
+        this.currentPage = this.maxPage;
+        
+        // 해당 페이지의 요소들 로드
+        await this.loadPageElements(this.currentPage);
+        
+        // 페이지 정보 업데이트
+        this.updatePageDisplay();
+        
+        console.log(`🗑️ 페이지 삭제 예정: ${this.deletedPages[this.deletedPages.length - 1]} (저장 필요)`);
     }
 }
 

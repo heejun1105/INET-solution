@@ -464,14 +464,6 @@
                     
                     <!-- 중앙: 레이어 관리/스타일/추가 기능 -->
                     <div class="workspace-controls-center" id="workspace-tools" style="display: none;">
-                        <!-- 요소 크기 설정 -->
-                        <div class="header-tool-group" id="element-size-group">
-                            <span class="header-group-label">크기</span>
-                            <input type="number" id="element-width-input" class="header-size-input" value="280" min="20" max="2000" step="10" title="가로 크기 (px)">
-                            <span class="header-size-separator">×</span>
-                            <input type="number" id="element-height-input" class="header-size-input" value="180" min="20" max="2000" step="10" title="세로 크기 (px)">
-                        </div>
-                        
                         <!-- 레이어 관리 -->
                         <div class="header-tool-group">
                             <span class="header-group-label">레이어</span>
@@ -548,109 +540,11 @@
                             </div>
                         </div>
                         
-                        <!-- 도움말 드롭다운 -->
+                        <!-- 도움말 버튼 -->
                         <div class="header-tool-group">
-                            <div class="help-dropdown">
-                                <button id="help-btn" class="help-btn" title="도움말">
-                                    <i class="fas fa-question-circle"></i>
-                                </button>
-                                <div id="help-menu" class="help-dropdown-menu" style="display: none;">
-                                    <div class="help-menu-header">
-                                        <i class="fas fa-keyboard"></i>
-                                        <span>단축키 및 조작법</span>
-                                    </div>
-                                    <div class="help-menu-content">
-                                        <div class="help-section">
-                                            <h4><i class="fas fa-mouse"></i> 마우스 조작</h4>
-                                            <div class="help-item">
-                                                <kbd>클릭</kbd>
-                                                <span>요소 선택</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <kbd>Ctrl</kbd> + <kbd>클릭</kbd>
-                                                <span>다중 선택/해제</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <kbd>드래그</kbd>
-                                                <span>선택 박스 (다중 선택)</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <kbd>요소 드래그</kbd>
-                                                <span>요소 이동</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <kbd>핸들 드래그</kbd>
-                                                <span>요소 크기 조정</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="help-section">
-                                            <h4><i class="fas fa-arrows-alt"></i> 캔버스 이동</h4>
-                                            <div class="help-item">
-                                                <kbd>Shift</kbd> + <kbd>드래그</kbd>
-                                                <span>캔버스 이동 (팬)</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <kbd>마우스 휠</kbd>
-                                                <span>상하 스크롤</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <kbd>Alt</kbd> + <kbd>휠</kbd>
-                                                <span>좌우 스크롤</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <kbd>Ctrl</kbd> + <kbd>휠</kbd>
-                                                <span>확대/축소</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="help-section">
-                                            <h4><i class="fas fa-edit"></i> 요소 생성</h4>
-                                            <div class="help-item">
-                                                <span class="help-text">좌측 툴바에서 도구 선택 후 캔버스 클릭</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <span class="help-text">도형: 클릭 + 드래그로 크기 지정</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="help-section">
-                                            <h4><i class="fas fa-layer-group"></i> 레이어</h4>
-                                            <div class="help-item">
-                                                <span class="help-text">요소 선택 후 상단 레이어 버튼 사용</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <i class="fas fa-arrow-up"></i>
-                                                <span>앞으로 가져오기</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <i class="fas fa-arrow-down"></i>
-                                                <span>뒤로 보내기</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="help-section">
-                                            <h4><i class="fas fa-keyboard"></i> 키보드 단축키</h4>
-                                            <div class="help-item">
-                                                <kbd>Ctrl</kbd> + <kbd>Z</kbd>
-                                                <span>되돌리기</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <kbd>Ctrl</kbd> + <kbd>Y</kbd>
-                                                <span>다시 실행</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd>
-                                                <span>다시 실행</span>
-                                            </div>
-                                            <div class="help-item">
-                                                <kbd>Delete</kbd>
-                                                <span>선택한 요소 삭제</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <button id="help-btn" class="help-btn header-tool-btn" title="도움말">
+                                <i class="fas fa-question-circle"></i>
+                            </button>
                         </div>
                     </div>
                     
@@ -723,6 +617,111 @@
                         </div>
                     </div>
                 </div>
+
+    <!-- 도움말 모달 -->
+    <div id="help-modal" class="help-modal-overlay" style="display: none;">
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <h2>
+                    <i class="fas fa-keyboard"></i>
+                    <span>단축키 및 조작법</span>
+                </h2>
+                <button id="help-modal-close" class="help-modal-close" title="닫기">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="help-modal-body">
+                <div class="help-section">
+                    <h4><i class="fas fa-mouse"></i> 마우스 조작</h4>
+                    <div class="help-item">
+                        <kbd>클릭</kbd>
+                        <span>요소 선택</span>
+                    </div>
+                    <div class="help-item">
+                        <kbd>Ctrl</kbd> + <kbd>클릭</kbd>
+                        <span>다중 선택/해제</span>
+                    </div>
+                    <div class="help-item">
+                        <kbd>드래그</kbd>
+                        <span>선택 박스 (다중 선택)</span>
+                    </div>
+                    <div class="help-item">
+                        <kbd>요소 드래그</kbd>
+                        <span>요소 이동</span>
+                    </div>
+                    <div class="help-item">
+                        <kbd>핸들 드래그</kbd>
+                        <span>요소 크기 조정</span>
+                    </div>
+                </div>
+                
+                <div class="help-section">
+                    <h4><i class="fas fa-arrows-alt"></i> 캔버스 이동</h4>
+                    <div class="help-item">
+                        <kbd>Shift</kbd> + <kbd>드래그</kbd>
+                        <span>캔버스 이동 (팬)</span>
+                    </div>
+                    <div class="help-item">
+                        <kbd>마우스 휠</kbd>
+                        <span>상하 스크롤</span>
+                    </div>
+                    <div class="help-item">
+                        <kbd>Alt</kbd> + <kbd>휠</kbd>
+                        <span>좌우 스크롤</span>
+                    </div>
+                    <div class="help-item">
+                        <kbd>Ctrl</kbd> + <kbd>휠</kbd>
+                        <span>확대/축소</span>
+                    </div>
+                </div>
+                
+                <div class="help-section">
+                    <h4><i class="fas fa-edit"></i> 요소 생성</h4>
+                    <div class="help-item">
+                        <span class="help-text">좌측 툴바에서 도구 선택 후 캔버스 클릭</span>
+                    </div>
+                    <div class="help-item">
+                        <span class="help-text">도형: 클릭 + 드래그로 크기 지정</span>
+                    </div>
+                </div>
+                
+                <div class="help-section">
+                    <h4><i class="fas fa-layer-group"></i> 레이어</h4>
+                    <div class="help-item">
+                        <span class="help-text">요소 선택 후 상단 레이어 버튼 사용</span>
+                    </div>
+                    <div class="help-item">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>앞으로 가져오기</span>
+                    </div>
+                    <div class="help-item">
+                        <i class="fas fa-arrow-down"></i>
+                        <span>뒤로 보내기</span>
+                    </div>
+                </div>
+                
+                <div class="help-section">
+                    <h4><i class="fas fa-keyboard"></i> 키보드 단축키</h4>
+                    <div class="help-item">
+                        <kbd>Ctrl</kbd> + <kbd>Z</kbd>
+                        <span>되돌리기</span>
+                    </div>
+                    <div class="help-item">
+                        <kbd>Ctrl</kbd> + <kbd>Y</kbd>
+                        <span>다시 실행</span>
+                    </div>
+                    <div class="help-item">
+                        <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd>
+                        <span>다시 실행</span>
+                    </div>
+                    <div class="help-item">
+                        <kbd>Delete</kbd>
+                        <span>선택한 요소 삭제</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- CSS -->
     <link rel="stylesheet" href="/css/floorplan-rebuild.css?v=20251030v28">

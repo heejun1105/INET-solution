@@ -26,6 +26,10 @@ export default class ClassroomDesignMode {
         this.customElementWidth = 280;  // 교실 기본 너비
         this.customElementHeight = 180;  // 교실 기본 높이
         
+        // 이름박스 기본 크기
+        this.defaultNameBoxWidth = 160;  // 이름박스 기본 너비
+        this.defaultNameBoxHeight = 40;  // 이름박스 기본 높이
+        
         this.selectedElements = [];
         this.isDrawing = false;
         this.drawStartPos = null;
@@ -504,6 +508,36 @@ export default class ClassroomDesignMode {
         
         toolbar.innerHTML = `
             <div class="toolbar-section">
+                <h3>기본 크기 설정</h3>
+                <div class="size-control-group">
+                    <div class="size-label-row">
+                        <label class="size-label">교실/건물 크기</label>
+                        <button class="size-reset-btn" id="reset-element-size-btn" title="기본값으로 복원">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    </div>
+                    <div class="size-inputs">
+                        <input type="number" id="toolbar-element-width-input" class="size-input" value="280" min="20" max="2000" step="10" title="가로 크기 (px)">
+                        <span class="size-separator">×</span>
+                        <input type="number" id="toolbar-element-height-input" class="size-input" value="180" min="20" max="2000" step="10" title="세로 크기 (px)">
+                    </div>
+                </div>
+                <div class="size-control-group">
+                    <div class="size-label-row">
+                        <label class="size-label">이름박스 크기</label>
+                        <button class="size-reset-btn" id="reset-namebox-size-btn" title="기본값으로 복원">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    </div>
+                    <div class="size-inputs">
+                        <input type="number" id="toolbar-namebox-width-input" class="size-input" value="160" min="20" max="2000" step="10" title="가로 크기 (px)">
+                        <span class="size-separator">×</span>
+                        <input type="number" id="toolbar-namebox-height-input" class="size-input" value="40" min="20" max="2000" step="10" title="세로 크기 (px)">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="toolbar-section">
                 <h3>요소 생성</h3>
                 <div class="tool-buttons">
                     <button class="tool-btn" data-tool="building" title="건물 추가">
@@ -549,6 +583,164 @@ export default class ClassroomDesignMode {
         
         // 이벤트 바인딩
         this.bindToolbarEvents();
+        
+        // 크기 입력 필드 이벤트 바인딩 (도구창 생성 후)
+        this.bindSizeInputEvents();
+    }
+    
+    /**
+     * 크기 입력 필드 이벤트 바인딩
+     */
+    bindSizeInputEvents() {
+        // 좌측 도구창의 교실/건물 크기 입력 필드
+        const toolbarWidthInput = document.getElementById('toolbar-element-width-input');
+        const toolbarHeightInput = document.getElementById('toolbar-element-height-input');
+        
+        if (toolbarWidthInput) {
+            // HTML 요소의 현재 값을 읽어와서 this.customElementWidth에 설정
+            this.customElementWidth = parseInt(toolbarWidthInput.value) || this.customElementWidth;
+            console.log('📐 초기 가로 크기:', this.customElementWidth);
+            
+            toolbarWidthInput.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.customElementWidth = value;
+                    console.log('📐 가로 크기 변경:', this.customElementWidth);
+                }
+            });
+            toolbarWidthInput.addEventListener('change', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.customElementWidth = value;
+                    console.log('📐 가로 크기 확정:', this.customElementWidth);
+                } else {
+                    // 범위를 벗어나면 기본값으로 복원
+                    e.target.value = this.customElementWidth;
+                }
+            });
+        } else {
+            console.warn('⚠️ toolbar-element-width-input 요소를 찾을 수 없습니다!');
+        }
+        
+        if (toolbarHeightInput) {
+            // HTML 요소의 현재 값을 읽어와서 this.customElementHeight에 설정
+            this.customElementHeight = parseInt(toolbarHeightInput.value) || this.customElementHeight;
+            console.log('📐 초기 세로 크기:', this.customElementHeight);
+            
+            toolbarHeightInput.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.customElementHeight = value;
+                    console.log('📐 세로 크기 변경:', this.customElementHeight);
+                }
+            });
+            toolbarHeightInput.addEventListener('change', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.customElementHeight = value;
+                    console.log('📐 세로 크기 확정:', this.customElementHeight);
+                } else {
+                    // 범위를 벗어나면 기본값으로 복원
+                    e.target.value = this.customElementHeight;
+                }
+            });
+        } else {
+            console.warn('⚠️ toolbar-element-height-input 요소를 찾을 수 없습니다!');
+        }
+        
+        // 이름박스 기본 크기 설정
+        if (!this.defaultNameBoxWidth) {
+            this.defaultNameBoxWidth = 160;
+        }
+        if (!this.defaultNameBoxHeight) {
+            this.defaultNameBoxHeight = 40;
+        }
+        
+        const nameboxWidthInput = document.getElementById('toolbar-namebox-width-input');
+        const nameboxHeightInput = document.getElementById('toolbar-namebox-height-input');
+        
+        if (nameboxWidthInput) {
+            this.defaultNameBoxWidth = parseInt(nameboxWidthInput.value) || this.defaultNameBoxWidth;
+            console.log('📐 초기 이름박스 가로 크기:', this.defaultNameBoxWidth);
+            
+            nameboxWidthInput.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.defaultNameBoxWidth = value;
+                    console.log('📐 이름박스 가로 크기 변경:', this.defaultNameBoxWidth);
+                }
+            });
+            nameboxWidthInput.addEventListener('change', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.defaultNameBoxWidth = value;
+                    console.log('📐 이름박스 가로 크기 확정:', this.defaultNameBoxWidth);
+                } else {
+                    e.target.value = this.defaultNameBoxWidth;
+                }
+            });
+        }
+        
+        if (nameboxHeightInput) {
+            this.defaultNameBoxHeight = parseInt(nameboxHeightInput.value) || this.defaultNameBoxHeight;
+            console.log('📐 초기 이름박스 세로 크기:', this.defaultNameBoxHeight);
+            
+            nameboxHeightInput.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.defaultNameBoxHeight = value;
+                    console.log('📐 이름박스 세로 크기 변경:', this.defaultNameBoxHeight);
+                }
+            });
+            nameboxHeightInput.addEventListener('change', (e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 20 && value <= 2000) {
+                    this.defaultNameBoxHeight = value;
+                    console.log('📐 이름박스 세로 크기 확정:', this.defaultNameBoxHeight);
+                } else {
+                    e.target.value = this.defaultNameBoxHeight;
+                }
+            });
+        }
+        
+        // 기본값 복원 버튼 이벤트
+        const resetElementSizeBtn = document.getElementById('reset-element-size-btn');
+        if (resetElementSizeBtn) {
+            resetElementSizeBtn.addEventListener('click', () => {
+                const defaultWidth = 280;
+                const defaultHeight = 180;
+                
+                if (toolbarWidthInput) {
+                    toolbarWidthInput.value = defaultWidth;
+                    this.customElementWidth = defaultWidth;
+                }
+                if (toolbarHeightInput) {
+                    toolbarHeightInput.value = defaultHeight;
+                    this.customElementHeight = defaultHeight;
+                }
+                
+                console.log('🔄 교실/건물 크기 기본값으로 복원:', defaultWidth, '×', defaultHeight);
+            });
+        }
+        
+        const resetNameboxSizeBtn = document.getElementById('reset-namebox-size-btn');
+        if (resetNameboxSizeBtn) {
+            resetNameboxSizeBtn.addEventListener('click', () => {
+                const defaultWidth = 160;
+                const defaultHeight = 40;
+                
+                if (nameboxWidthInput) {
+                    nameboxWidthInput.value = defaultWidth;
+                    this.defaultNameBoxWidth = defaultWidth;
+                }
+                if (nameboxHeightInput) {
+                    nameboxHeightInput.value = defaultHeight;
+                    this.defaultNameBoxHeight = defaultHeight;
+                }
+                
+                console.log('🔄 이름박스 크기 기본값으로 복원:', defaultWidth, '×', defaultHeight);
+            });
+        }
     }
     
     /**
@@ -626,61 +818,6 @@ export default class ClassroomDesignMode {
             console.error('❌ header-line-width 요소를 찾을 수 없습니다!');
         }
         
-        // 크기 입력 필드
-        const widthInput = document.getElementById('element-width-input');
-        const heightInput = document.getElementById('element-height-input');
-        
-        if (widthInput) {
-            // HTML 요소의 현재 값을 읽어와서 this.customElementWidth에 설정
-            this.customElementWidth = parseInt(widthInput.value) || this.customElementWidth;
-            console.log('📐 초기 가로 크기:', this.customElementWidth);
-            
-            widthInput.addEventListener('input', (e) => {
-                const value = parseInt(e.target.value);
-                if (!isNaN(value) && value >= 20 && value <= 2000) {
-                    this.customElementWidth = value;
-                    console.log('📐 가로 크기 변경:', this.customElementWidth);
-                }
-            });
-            widthInput.addEventListener('change', (e) => {
-                const value = parseInt(e.target.value);
-                if (!isNaN(value) && value >= 20 && value <= 2000) {
-                    this.customElementWidth = value;
-                    console.log('📐 가로 크기 확정:', this.customElementWidth);
-                } else {
-                    // 범위를 벗어나면 기본값으로 복원
-                    e.target.value = this.customElementWidth;
-                }
-            });
-        } else {
-            console.warn('⚠️ element-width-input 요소를 찾을 수 없습니다!');
-        }
-        
-        if (heightInput) {
-            // HTML 요소의 현재 값을 읽어와서 this.customElementHeight에 설정
-            this.customElementHeight = parseInt(heightInput.value) || this.customElementHeight;
-            console.log('📐 초기 세로 크기:', this.customElementHeight);
-            
-            heightInput.addEventListener('input', (e) => {
-                const value = parseInt(e.target.value);
-                if (!isNaN(value) && value >= 20 && value <= 2000) {
-                    this.customElementHeight = value;
-                    console.log('📐 세로 크기 변경:', this.customElementHeight);
-                }
-            });
-            heightInput.addEventListener('change', (e) => {
-                const value = parseInt(e.target.value);
-                if (!isNaN(value) && value >= 20 && value <= 2000) {
-                    this.customElementHeight = value;
-                    console.log('📐 세로 크기 확정:', this.customElementHeight);
-                } else {
-                    // 범위를 벗어나면 기본값으로 복원
-                    e.target.value = this.customElementHeight;
-                }
-            });
-        } else {
-            console.warn('⚠️ element-height-input 요소를 찾을 수 없습니다!');
-        }
         
         console.log('🔧 헤더 도구 설정 완료 - 현재 상태:', {
             currentColor: this.currentColor,
@@ -765,25 +902,39 @@ export default class ClassroomDesignMode {
             });
         }
         
-        // 도움말 드롭다운
+        // 도움말 모달
         const helpBtn = document.getElementById('help-btn');
-        const helpMenu = document.getElementById('help-menu');
-        if (helpBtn && helpMenu) {
+        const helpModal = document.getElementById('help-modal');
+        const helpModalClose = document.getElementById('help-modal-close');
+        
+        if (helpBtn && helpModal) {
+            // 도움말 버튼 클릭 시 모달 열기
             helpBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 // 추가 기능 메뉴가 열려있으면 닫기
                 if (moreMenu) moreMenu.style.display = 'none';
-                helpMenu.style.display = helpMenu.style.display === 'none' ? 'block' : 'none';
+                helpModal.style.display = 'flex';
             });
             
-            // 드롭다운 외부 클릭 시 닫기
-            document.addEventListener('click', () => {
-                helpMenu.style.display = 'none';
+            // 모달 닫기 버튼
+            if (helpModalClose) {
+                helpModalClose.addEventListener('click', () => {
+                    helpModal.style.display = 'none';
+                });
+            }
+            
+            // 모달 배경 클릭 시 닫기
+            helpModal.addEventListener('click', (e) => {
+                if (e.target === helpModal) {
+                    helpModal.style.display = 'none';
+                }
             });
             
-            // 메뉴 내부 클릭 시 닫히지 않도록
-            helpMenu.addEventListener('click', (e) => {
-                e.stopPropagation();
+            // ESC 키로 모달 닫기
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && helpModal.style.display === 'flex') {
+                    helpModal.style.display = 'none';
+                }
             });
         }
     }
@@ -1141,9 +1292,9 @@ export default class ClassroomDesignMode {
         
         console.log('🏢 건물 생성 완료:', building);
         
-        // 이름박스 자동 생성 (건물 상단 중앙) - 건물 크기에 비례
-        const nameBoxWidth = buildingWidth * 0.7;  // 건물 너비의 70%
-        const nameBoxHeight = buildingHeight * 0.15;  // 건물 높이의 15%
+        // 이름박스 자동 생성 (건물 상단 중앙) - 기본 크기 사용
+        const nameBoxWidth = this.defaultNameBoxWidth || 160;
+        const nameBoxHeight = this.defaultNameBoxHeight || 40;
         this.elementManager.createElement('name_box', {
             xCoordinate: buildingX + (buildingWidth - nameBoxWidth) / 2,  // 중앙 정렬
             yCoordinate: buildingY + 25,  // 상단에서 25px 아래
@@ -1198,9 +1349,9 @@ export default class ClassroomDesignMode {
         
         console.log('🚪 교실 생성 완료:', room);
         
-        // 이름박스 자동 생성 (교실 상단 중앙) - 교실 크기에 비례
-        const nameBoxWidth = roomWidth * 0.7;  // 교실 너비의 70%
-        const nameBoxHeight = roomHeight * 0.15;  // 교실 높이의 15%
+        // 이름박스 자동 생성 (교실 상단 중앙) - 기본 크기 사용
+        const nameBoxWidth = this.defaultNameBoxWidth || 160;
+        const nameBoxHeight = this.defaultNameBoxHeight || 40;
         this.elementManager.createElement('name_box', {
             xCoordinate: roomX + (roomWidth - nameBoxWidth) / 2,  // 중앙 정렬
             yCoordinate: roomY + 40,  // 상단에서 40px 아래
@@ -1768,9 +1919,9 @@ export default class ClassroomDesignMode {
             zIndex: 2  // 교실은 도형보다 위 (건물:0, 도형:1, 교실:2)
         });
         
-        // 이름박스 자동 생성
-        const nameBoxWidth = 160;  // 120 → 160
-        const nameBoxHeight = 40;  // 35 → 40
+        // 이름박스 자동 생성 - 기본 크기 사용
+        const nameBoxWidth = this.defaultNameBoxWidth || 160;
+        const nameBoxHeight = this.defaultNameBoxHeight || 40;
         this.elementManager.createElement('name_box', {
             xCoordinate: roomX + (roomWidth - nameBoxWidth) / 2,
             yCoordinate: roomY + 40,  // 상단에서 40px 아래

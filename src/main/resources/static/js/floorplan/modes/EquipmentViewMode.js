@@ -35,6 +35,43 @@ export default class EquipmentViewMode {
         try {
         console.log('✅ 장비보기 모드 활성화');
         
+        // 현재 페이지의 요소만 필터링 (다른 페이지 요소 제거)
+        // 단, 로컬 요소는 유지 (저장되지 않은 작업 내용 보존)
+        const currentPage = this.core.currentPage || window.floorPlanApp?.currentPage || 1;
+        const app = window.floorPlanApp;
+        
+        // 로컬 요소 저장소에서 현재 페이지 요소 복원 (있는 경우)
+        if (app && app.localElementsByPage && app.localElementsByPage[currentPage]) {
+            const savedLocalElements = app.localElementsByPage[currentPage];
+            const restoredElements = JSON.parse(JSON.stringify(savedLocalElements));
+            
+            // 서버에서 로드한 요소의 ID 목록
+            const serverElementIds = new Set(
+                this.core.state.elements
+                    .filter(el => el.id && !el.id.toString().startsWith('temp'))
+                    .map(el => el.id.toString())
+            );
+            
+            // 로컬 요소만 필터링
+            const localOnlyElements = restoredElements.filter(el => {
+                if (!el.id || el.id.toString().startsWith('temp')) {
+                    return true;
+                }
+                return !serverElementIds.has(el.id.toString());
+            });
+            
+            if (localOnlyElements.length > 0) {
+                this.core.state.elements = [...this.core.state.elements, ...localOnlyElements];
+                console.log(`📂 장비보기 모드: 페이지 ${currentPage}의 로컬 요소 ${localOnlyElements.length}개 복원`);
+            }
+        }
+        
+        // 현재 페이지의 요소만 필터링
+        this.core.state.elements = this.core.state.elements.filter(el => 
+            el.pageNumber === currentPage || el.pageNumber === null || el.pageNumber === undefined
+        );
+        console.log(`📄 현재 페이지 ${currentPage}의 요소만 표시: ${this.core.state.elements.length}개`);
+        
         // 모든 요소 잠금 (보기 모드에서는 이동 불가)
         this.lockAllElements();
         
@@ -49,6 +86,7 @@ export default class EquipmentViewMode {
         
         // 강제 렌더링
         this.core.markDirty();
+        this.core.render && this.core.render();
         } catch (error) {
             console.error('❌ 장비보기 모드 활성화 오류:', error);
             throw error; // 에러를 다시 throw하여 상위에서 처리할 수 있도록
@@ -75,6 +113,17 @@ export default class EquipmentViewMode {
         this.clearEquipmentCards();
         this.unbindEvents();
         this.legendComponent.remove();
+    }
+    
+    /**
+     * 페이지 전환 시 호출
+     */
+    onPageSwitch(pageNumber) {
+        console.log(`📄 장비보기 모드: 페이지 ${pageNumber}로 전환`);
+        // 기존 장비 카드 제거
+        this.clearEquipmentCards();
+        // 새 페이지의 장비 카드 렌더링
+        this.renderEquipmentCards();
     }
     
     /**
@@ -105,7 +154,13 @@ export default class EquipmentViewMode {
             }
             
         const elements = this.core.state.elements;
-            const roomElements = elements.filter(e => e && e.elementType === 'room');
+            // 현재 페이지의 요소만 필터링
+            const currentPage = this.core.currentPage || window.floorPlanApp?.currentPage || 1;
+            const roomElements = elements.filter(e => 
+                e && 
+                e.elementType === 'room' && 
+                (e.pageNumber === currentPage || e.pageNumber === null || e.pageNumber === undefined)
+            );
         
         roomElements.forEach(room => {
                 try {

@@ -113,6 +113,10 @@ public class FloorPlanElement {
     @Column(name = "element_data", columnDefinition = "TEXT")
     private String elementData; // JSON 형태의 추가 데이터
     
+    // 페이지 번호 (학교별 평면도를 여러 페이지로 나눌 수 있음)
+    @Column(name = "page_number")
+    private Integer pageNumber = 1; // 기본값: 1페이지
+    
     // 버전 관리 (낙관적 락)
     @Version
     @Column(name = "version")
@@ -393,6 +397,14 @@ public class FloorPlanElement {
     
     public void setMetadata(String metadata) {
         this.metadata = metadata;
+    }
+    
+    public Integer getPageNumber() {
+        return pageNumber;
+    }
+    
+    public void setPageNumber(Integer pageNumber) {
+        this.pageNumber = pageNumber != null ? pageNumber : 1;
     }
     
     @PreUpdate

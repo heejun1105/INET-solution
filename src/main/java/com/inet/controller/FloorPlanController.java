@@ -31,6 +31,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import com.inet.service.ClassroomService;
 import com.inet.entity.Classroom;
+import com.inet.entity.FloorPlan;
+import com.inet.entity.FloorPlanElement;
+import java.util.ArrayList;
 
 /**
  * 평면도 컨트롤러
@@ -877,5 +880,100 @@ public class FloorPlanController {
         public boolean isSuccess() { return success; }
         public String getMessage() { return message; }
         public Object getData() { return data; }
+    }
+    
+    /**
+     * 페이지별 평면도 요소 조회
+     * GET /floorplan/api/elements?schoolId={schoolId}&pageNumber={pageNumber}
+     */
+    @GetMapping("/api/elements")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getElementsByPage(
+            @RequestParam Long schoolId,
+            @RequestParam(required = false, defaultValue = "1") Integer pageNumber) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                response.put("success", false);
+                response.put("message", "권한이 없습니다");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            // 평면도 조회
+            Optional<FloorPlan> floorPlanOpt = floorPlanService.findActiveFloorPlanBySchoolId(schoolId);
+            if (!floorPlanOpt.isPresent()) {
+                response.put("success", true);
+                response.put("elements", new ArrayList<>());
+                response.put("maxPage", 1);
+                return ResponseEntity.ok(response);
+            }
+            
+            FloorPlan floorPlan = floorPlanOpt.get();
+            
+            // 해당 페이지의 요소들 조회
+            List<FloorPlanElement> elements = floorPlanService.getElementsByPage(floorPlan.getId(), pageNumber);
+            
+            // 최대 페이지 번호 조회
+            Integer maxPage = floorPlanService.getMaxPageNumber(floorPlan.getId());
+            
+            response.put("success", true);
+            response.put("elements", elements);
+            response.put("maxPage", maxPage);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("페이지별 요소 조회 실패 - schoolId: {}, pageNumber: {}", schoolId, pageNumber, e);
+            response.put("success", false);
+            response.put("message", "요소 조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * 페이지 삭제
+     * DELETE /floorplan/api/elements/delete-page?schoolId={schoolId}&pageNumber={pageNumber}
+     */
+    @DeleteMapping("/api/elements/delete-page")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> deletePage(
+            @RequestParam Long schoolId,
+            @RequestParam Integer pageNumber) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = getCurrentUser();
+            if (user == null || !hasSchoolPermission(user, schoolId)) {
+                response.put("success", false);
+                response.put("message", "권한이 없습니다");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            // 평면도 조회
+            Optional<FloorPlan> floorPlanOpt = floorPlanService.findActiveFloorPlanBySchoolId(schoolId);
+            if (!floorPlanOpt.isPresent()) {
+                response.put("success", false);
+                response.put("message", "평면도를 찾을 수 없습니다");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+            
+            FloorPlan floorPlan = floorPlanOpt.get();
+            
+            // 해당 페이지의 요소들 삭제
+            floorPlanService.deleteElementsByPage(floorPlan.getId(), pageNumber);
+            
+            response.put("success", true);
+            response.put("message", "페이지가 삭제되었습니다");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("페이지 삭제 실패 - schoolId: {}, pageNumber: {}", schoolId, pageNumber, e);
+            response.put("success", false);
+            response.put("message", "페이지 삭제 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 }
