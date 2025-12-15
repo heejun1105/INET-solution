@@ -192,6 +192,12 @@ public class FloorPlanService {
         // 새로운 형식: elements 배열로 통합 (모든 타입 포함)
         if (floorPlanData.containsKey("elements")) {
             List<Map<String, Object>> elements = (List<Map<String, Object>>) floorPlanData.get("elements");
+            
+            // elements가 null이거나 비어있으면 빈 리스트로 처리
+            if (elements == null) {
+                elements = new ArrayList<>();
+            }
+            
             logger.info("평면도 요소 저장 시작 - floorPlanId: {}, 요소 수: {}", floorPlanId, elements.size());
             
             // ID 매핑 테이블 (프론트엔드 임시 ID -> 백엔드 실제 ID)

@@ -628,20 +628,45 @@ class FloorPlanApp {
             // 로컬 요소 저장소 초기화 (새 학교 로드 시)
             this.localElementsByPage = {};
             
-            // 먼저 maxPage를 조회 (1페이지를 로드하면서 받아오지만, 실패 시를 대비)
+            // 먼저 서버에서 maxPage 정보를 가져옴 (요소 로드 전에 설정하여 페이지 정보가 올바르게 표시되도록)
             let maxPageFromServer = null;
             try {
                 const maxPageResponse = await fetch(`/floorplan/api/elements?schoolId=${schoolId}&pageNumber=1`);
                 if (maxPageResponse.ok) {
                     const maxPageData = await maxPageResponse.json();
-                    if (maxPageData.success && maxPageData.maxPage) {
-                        maxPageFromServer = maxPageData.maxPage;
-                        console.log(`📄 서버에서 최대 페이지 번호 조회: ${maxPageFromServer}`);
+                    console.log(`📄 서버 응답 데이터 (loadFloorPlan 초기):`, JSON.stringify(maxPageData, null, 2));
+                    if (maxPageData.success) {
+                        // maxPage를 숫자로 명시적 변환 (문자열로 올 수 있음)
+                        // null, undefined, 빈 문자열 등도 처리
+                        const maxPageRaw = maxPageData.maxPage;
+                        if (maxPageRaw !== null && maxPageRaw !== undefined && maxPageRaw !== '') {
+                            const maxPageValue = parseInt(maxPageRaw, 10);
+                            if (!isNaN(maxPageValue) && maxPageValue > 0) {
+                                maxPageFromServer = maxPageValue;
+                                console.log(`📄 서버에서 최대 페이지 번호 조회: ${maxPageFromServer} (원본: ${maxPageRaw}, 타입: ${typeof maxPageRaw})`);
+                            } else {
+                                console.warn(`⚠️ 서버에서 maxPage를 제공하지 않음 또는 유효하지 않음: ${maxPageRaw} (타입: ${typeof maxPageRaw}, 파싱 결과: ${maxPageValue})`);
+                            }
+                        } else {
+                            console.warn(`⚠️ 서버에서 maxPage가 null/undefined/빈 문자열: ${maxPageRaw}`);
+                        }
+                    } else {
+                        console.warn(`⚠️ 서버 응답이 실패: ${maxPageData.message || '알 수 없는 오류'}`);
                     }
+                } else {
+                    console.warn(`⚠️ 서버 응답 오류: ${maxPageResponse.status} ${maxPageResponse.statusText}`);
                 }
             } catch (error) {
                 console.warn('최대 페이지 번호 조회 실패, 요소 로드 시 받아올 예정:', error);
             }
+            
+            // maxPage를 먼저 설정 (요소 로드 전에 설정하여 페이지 정보가 올바르게 표시되도록)
+            // maxPageFromServer가 null이면 1로 설정하되, loadPageElements에서 업데이트될 예정
+            this.maxPage = maxPageFromServer || 1;
+            console.log(`📄 최대 페이지 번호 설정 (초기): ${this.maxPage} (서버 값: ${maxPageFromServer})`);
+            
+            // 초기 maxPage 설정 후 즉시 페이지 정보 업데이트
+            this.updatePageDisplay();
             
             // 현재 페이지의 요소들만 로드
             const result = await this.loadPageElements(this.currentPage);
@@ -649,25 +674,44 @@ class FloorPlanApp {
             if (result && result.success) {
                 console.log('✅ 평면도 로드 완료');
                 
-                // 최대 페이지 번호 업데이트 (서버에서 받은 값으로 설정)
-                // result.maxPage가 있으면 우선 사용, 없으면 maxPageFromServer 사용
-                const finalMaxPage = result.maxPage || maxPageFromServer || 1;
-                this.maxPage = finalMaxPage;
-                console.log(`📄 최대 페이지 번호 설정: ${this.maxPage}`);
+                // result.maxPage가 있으면 우선 사용 (더 정확한 값, 요소 로드 결과)
+                const resultMaxPageValue = parseInt(result.maxPage, 10);
+                if (!isNaN(resultMaxPageValue) && resultMaxPageValue > 0) {
+                    this.maxPage = resultMaxPageValue;
+                    console.log(`📄 최대 페이지 번호 업데이트 (요소 로드 결과): ${this.maxPage} (원본: ${result.maxPage}, 타입: ${typeof result.maxPage})`);
+                }
                 
-                // 현재 페이지의 요소만 필터링 (다른 페이지 요소 제거)
-                // pageNumber가 명시적으로 다른 페이지인 요소는 제거
-                // 중복 방지: pageNumber가 null/undefined인 요소와 pageNumber === 1인 요소가 중복되지 않도록 처리
-                const seenElementIds = new Set();
+                // maxPage 설정 후 페이지 정보 즉시 업데이트
+                this.updatePageDisplay();
+                console.log(`📄 페이지 정보 업데이트: ${this.currentPage} / ${this.maxPage}`);
+                
+                // loadPageElements에서 이미 필터링되었지만, 추가 중복 제거 및 페이지 필터링
+                // pageNumber가 null/undefined인 요소와 pageNumber === 1인 요소가 중복되지 않도록 처리
+                const seenElementKeys = new Set(); // ID + 좌표
+                const seenElementCoords = new Set(); // 타입 + 좌표 (임시 ID와 실제 ID가 다른 경우 대비)
                 this.core.state.elements = this.core.state.elements.filter(el => {
                     if (!el || (!el.id && !el.elementType)) return false;
                     
-                    // 중복 체크: 같은 ID의 요소가 이미 포함되었는지 확인
-                    const elementId = el.id ? el.id.toString() : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
-                    if (seenElementIds.has(elementId)) {
-                        console.warn(`⚠️ 중복 요소 제거: ${elementId}`);
+                    // 중복 체크: ID와 좌표를 모두 확인하여 완전히 동일한 요소 제거
+                    const elementKey = el.id 
+                        ? `${el.id}_${el.xCoordinate}_${el.yCoordinate}` 
+                        : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
+                    
+                    // 좌표 기반 중복 체크 (임시 ID와 실제 ID가 다른 경우 대비)
+                    const coordKey = `${el.elementType || 'unknown'}_${el.xCoordinate}_${el.yCoordinate}`;
+                    
+                    if (seenElementKeys.has(elementKey)) {
+                        console.warn(`⚠️ 중복 요소 제거 (loadFloorPlan - ID+좌표): ${elementKey}`);
                         return false;
                     }
+                    
+                    if (seenElementCoords.has(coordKey)) {
+                        console.warn(`⚠️ 중복 요소 제거 (loadFloorPlan - 좌표): ${coordKey}`);
+                        return false;
+                    }
+                    
+                    seenElementKeys.add(elementKey);
+                    seenElementCoords.add(coordKey);
                     
                     const elPage = el.pageNumber;
                     // pageNumber가 null/undefined이면 1페이지로 간주
@@ -675,7 +719,7 @@ class FloorPlanApp {
                     
                     // 현재 페이지와 일치하는 것만 포함
                     if (normalizedPage === this.currentPage) {
-                        seenElementIds.add(elementId);
+                        seenElementKeys.add(elementKey);
                         return true;
                     }
                     return false;
@@ -742,8 +786,8 @@ class FloorPlanApp {
                         this.core.fitToElements();
                     }
                     this.updateZoomDisplay();
-                } else {
-                    console.log('ℹ️ 저장된 평면도 없음');
+            } else {
+                console.log('ℹ️ 저장된 평면도 없음');
                     // 요소 초기화
                     this.core.state.elements = [];
                     this.maxPage = 1; // 기본값
@@ -1202,9 +1246,14 @@ class FloorPlanApp {
         });
         this.core.markDirty();
         
-        // 2. 학교 ID 업데이트
+        // 2. 학교 ID 및 페이지 정보 업데이트
         this.currentSchoolId = parseInt(schoolId);
         this.core.currentSchoolId = this.currentSchoolId;
+        // 새 학교 선택 시 항상 1페이지부터 시작
+        this.currentPage = 1;
+        if (this.core) {
+            this.core.currentPage = 1;
+        }
         
         // 3. 현재 모드 저장 및 비활성화
         const currentMode = this.currentMode;
@@ -1217,9 +1266,9 @@ class FloorPlanApp {
         
         // 4. 평면도 로드
         try {
-            const success = await this.dataSyncManager.load(this.currentSchoolId);
-            
-            console.log('📥 평면도 로드 결과:', success ? '성공 (요소 있음)' : '실패 또는 빈 평면도');
+            // 기존 DataSyncManager.load 대신, 페이지/페이지수 정보를 함께 처리하는 loadFloorPlan 사용
+            // 이렇게 해야 초기 진입 시에도 올바른 maxPage와 페이지 표시(1 / maxPage)를 보장할 수 있음
+            await this.loadFloorPlan(this.currentSchoolId);
             
             // 5. 모드 재활성화 (로드 후)
             if (currentMode) {
@@ -1251,11 +1300,13 @@ class FloorPlanApp {
             }
             
             // 6. 뷰 조정
-            if (success && this.core.state.elements && this.core.state.elements.length > 0) {
-                console.log('📍 요소에 맞춰 뷰 조정:', this.core.state.elements.length, '개');
+            // loadFloorPlan 내부에서 요소 로드가 이미 수행되었으므로,
+            // 여기서는 현재 elements 상태만 보고 뷰를 조정한다.
+            if (this.core.state.elements && this.core.state.elements.length > 0) {
+                console.log('📍 요소에 맞춰 뷰 조정 (onWorkspaceSchoolChange):', this.core.state.elements.length, '개');
                 this.core.fitToElements();
             } else {
-                console.log('📍 기본 뷰 (빈 캔버스)');
+                console.log('📍 기본 뷰 (빈 캔버스, onWorkspaceSchoolChange)');
                 this.core.centerView();
             }
             
@@ -1289,18 +1340,6 @@ class FloorPlanApp {
         if (this.modeManager && this.modeManager.deactivate) {
             this.modeManager.deactivate();
             this.modeManager = null;
-        }
-        
-        // 교실 설계 모드에서 저장 후 다른 모드로 전환하는 경우 평면도 재로드
-        // (교실 좌표가 업데이트되었을 수 있으므로)
-        if (this.currentMode === 'design-classroom') {
-            console.log('🔄 교실 설계 모드에서 전환 - 평면도 재로드');
-            try {
-                await this.dataSyncManager.load(this.currentSchoolId);
-                console.log('✅ 평면도 재로드 완료');
-            } catch (error) {
-                console.error('❌ 평면도 재로드 오류:', error);
-            }
         }
         
         // 보기 모드로 전환하는 경우 현재 페이지의 요소만 로드
@@ -1348,13 +1387,33 @@ class FloorPlanApp {
                     }
                 }
                 
-                // 현재 페이지의 요소만 필터링
-                this.core.state.elements = this.core.state.elements.filter(el => 
-                    el.pageNumber === this.currentPage || el.pageNumber === null || el.pageNumber === undefined
-                );
+                // 현재 페이지의 요소만 필터링 및 중복 제거
+                const seenElementKeys = new Set();
+                this.core.state.elements = this.core.state.elements.filter(el => {
+                    if (!el || (!el.id && !el.elementType)) return false;
+                    
+                    // 페이지 필터링
+                    const elPage = el.pageNumber;
+                    const normalizedPage = (elPage === null || elPage === undefined) ? 1 : elPage;
+                    if (normalizedPage !== this.currentPage) {
+                        return false;
+                    }
+                    
+                    // 중복 체크: ID와 좌표를 모두 확인하여 완전히 동일한 요소 제거
+                    const elementKey = el.id 
+                        ? `${el.id}_${el.xCoordinate}_${el.yCoordinate}` 
+                        : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
+                    
+                    if (seenElementKeys.has(elementKey)) {
+                        console.warn(`⚠️ 중복 요소 제거 (보기 모드 전환): ${elementKey}`);
+                        return false;
+                    }
+                    seenElementKeys.add(elementKey);
+                    return true;
+                });
                 this.core.markDirty();
                 this.core.render && this.core.render();
-                console.log('✅ 현재 페이지 요소만 로드 완료');
+                console.log(`✅ 현재 페이지 ${this.currentPage} 요소만 로드 완료: ${this.core.state.elements.length}개`);
             } catch (error) {
                 console.error('❌ 페이지 요소 로드 오류:', error);
             }
@@ -1581,17 +1640,32 @@ class FloorPlanApp {
             // 현재 페이지의 요소를 localElementsByPage에 저장 (빈 배열이어도 저장하여 삭제 상태 반영)
             this.localElementsByPage[this.currentPage] = JSON.parse(JSON.stringify(currentPageElements));
             
-            // 3. 서버에서 모든 페이지의 요소들 로드
+            // 3. 서버에서 실제 maxPage를 먼저 조회하여 this.maxPage 업데이트
+            try {
+                const maxPageResponse = await fetch(`/floorplan/api/elements?schoolId=${this.currentSchoolId}&pageNumber=1`);
+                if (maxPageResponse.ok) {
+                    const maxPageData = await maxPageResponse.json();
+                    const maxPageValue = parseInt(maxPageData.maxPage, 10);
+                    if (maxPageData.success && !isNaN(maxPageValue) && maxPageValue > 0) {
+                        this.maxPage = maxPageValue;
+                        console.log(`📄 저장 전 maxPage 업데이트: ${this.maxPage} (원본: ${maxPageData.maxPage}, 타입: ${typeof maxPageData.maxPage})`);
+                    }
+                }
+            } catch (error) {
+                console.warn('저장 전 maxPage 조회 실패:', error);
+            }
+            
+            // 4. 서버에서 모든 페이지의 요소들 로드
             const allPageElements = await this.loadAllPageElements();
             
-            // 4. 서버 요소의 ID 목록 생성 (중복 제거용)
+            // 5. 서버 요소의 ID 목록 생성 (중복 제거용)
             const serverElementIds = new Set(
                 allPageElements
                     .filter(el => el.id && !el.id.toString().startsWith('temp'))
                     .map(el => el.id.toString())
             );
             
-            // 5. 모든 페이지의 로컬 요소들을 수집 (localElementsByPage에서)
+            // 6. 모든 페이지의 로컬 요소들을 수집 (localElementsByPage에서)
             // 다른 페이지의 로컬 요소는 서버 요소와 병합하여 유지
             const allLocalElements = [];
             for (const pageNum in this.localElementsByPage) {
@@ -1614,7 +1688,7 @@ class FloorPlanApp {
                 }
             }
             
-            // 6. 서버 요소와 로컬 요소를 병합
+            // 7. 서버 요소와 로컬 요소를 병합
             // 서버 요소 중 현재 페이지에 속한 요소는 제외 (현재 페이지 요소로 교체)
             // 다른 페이지의 요소는 그대로 유지
             const otherPageElements = allPageElements.filter(el => {
@@ -1630,27 +1704,49 @@ class FloorPlanApp {
                 return !serverElementIds.has(el.id.toString()); // 수정된 요소
             });
             
-            // 현재 페이지의 로컬 요소 중 서버에 없는 것만 추가 (로컬에서 추가/수정한 요소)
-            const currentPageLocalElements = currentPageElements.filter(el => {
-                if (!el.id || el.id.toString().startsWith('temp')) {
-                    return true; // 새로 추가한 요소
-                }
-                return !serverElementIds.has(el.id.toString()); // 수정된 요소
-            });
-            
             // 모든 요소 병합: 다른 페이지 요소 + 다른 페이지 로컬 요소 + 현재 페이지 요소
             // currentPageElements가 빈 배열이어도 포함하여 삭제 상태를 반영
-            const mergedElements = [
-                ...otherPageElements, 
-                ...otherPageLocalElements, 
-                ...currentPageElements
-            ];
+            // 중복 제거: 같은 ID의 요소가 여러 번 포함되지 않도록
+            const mergedElementsMap = new Map();
             
-            // 5. 임시로 core.state.elements를 모든 페이지 요소로 설정
+            // 1. 다른 페이지 요소 추가
+            otherPageElements.forEach(el => {
+                if (el.id && !el.id.toString().startsWith('temp')) {
+                    mergedElementsMap.set(el.id.toString(), el);
+                }
+            });
+            
+            // 2. 다른 페이지 로컬 요소 추가 (서버에 없는 것만)
+            otherPageLocalElements.forEach(el => {
+                if (el.id && !el.id.toString().startsWith('temp')) {
+                    // 서버에 없거나 서버 요소와 다른 것만 추가
+                    if (!mergedElementsMap.has(el.id.toString())) {
+                        mergedElementsMap.set(el.id.toString(), el);
+                    }
+                } else {
+                    // temp ID는 항상 추가 (새로 추가한 요소)
+                    mergedElementsMap.set(`${el.elementType}_${el.xCoordinate}_${el.yCoordinate}_${Date.now()}`, el);
+                }
+            });
+            
+            // 3. 현재 페이지 요소 추가 (최우선, 삭제 상태 반영)
+            currentPageElements.forEach(el => {
+                if (el.id && !el.id.toString().startsWith('temp')) {
+                    // 현재 페이지 요소는 항상 덮어쓰기 (최신 상태)
+                    mergedElementsMap.set(el.id.toString(), el);
+                } else {
+                    // temp ID는 항상 추가 (새로 추가한 요소)
+                    mergedElementsMap.set(`${el.elementType}_${el.xCoordinate}_${el.yCoordinate}_${Date.now()}`, el);
+                }
+            });
+            
+            const mergedElements = Array.from(mergedElementsMap.values());
+            
+            // 8. 임시로 core.state.elements를 모든 페이지 요소로 설정
             const originalElements = this.core.state.elements;
             this.core.state.elements = mergedElements;
             
-            // 6. 교실 좌표 저장 (교실 설계 모드인 경우)
+            // 9. 교실 좌표 저장 (교실 설계 모드인 경우)
             let classroomSaveFailed = false;
             if (this.currentMode === 'design-classroom' && this.modeManager) {
                 const classroomSaveResult = await this.saveClassroomCoordinates();
@@ -1659,10 +1755,10 @@ class FloorPlanApp {
                 }
             }
             
-            // 7. 평면도 데이터 저장 (알림은 여기서 통합 표시)
+            // 10. 평면도 데이터 저장 (알림은 여기서 통합 표시)
             const result = await this.dataSyncManager.save(this.currentSchoolId, false); // 내부 알림 비활성화
             
-            // 8. core.state.elements를 원래대로 복원 (현재 페이지 요소만)
+            // 11. core.state.elements를 원래대로 복원 (현재 페이지 요소만)
             this.core.state.elements = originalElements;
             
             console.log('💾 평면도 저장 결과:', result);
@@ -1673,8 +1769,27 @@ class FloorPlanApp {
                 this.localElementsByPage = {};
                 console.log('🔄 저장 완료 후 로컬 요소 저장소 초기화');
                 
-                // 5. 저장 후 빈 페이지 제거 및 maxPage 업데이트
+                // 12. 저장 후 서버에서 실제 maxPage를 다시 조회하여 업데이트
+                try {
+                    const maxPageResponse = await fetch(`/floorplan/api/elements?schoolId=${this.currentSchoolId}&pageNumber=1`);
+                    if (maxPageResponse.ok) {
+                        const maxPageData = await maxPageResponse.json();
+                        const maxPageValue = parseInt(maxPageData.maxPage, 10);
+                        if (maxPageData.success && !isNaN(maxPageValue) && maxPageValue > 0) {
+                            this.maxPage = maxPageValue;
+                            console.log(`📄 저장 후 maxPage 업데이트: ${this.maxPage} (원본: ${maxPageData.maxPage}, 타입: ${typeof maxPageData.maxPage})`);
+                        }
+                    }
+                } catch (error) {
+                    console.warn('저장 후 maxPage 조회 실패:', error);
+                }
+                
+                // 13. 저장 후 빈 페이지 제거 및 maxPage 업데이트
                 await this.cleanupEmptyPages();
+                
+                // 14. 저장 후 maxPage 업데이트 및 페이지 정보 표시 업데이트
+                this.updatePageDisplay();
+                console.log(`📄 저장 후 페이지 정보 업데이트: ${this.currentPage} / ${this.maxPage}`);
                 
                 if (classroomSaveFailed) {
                     this.uiManager.showNotification('저장 완료 (일부 교실 저장 실패)', 'warning');
@@ -1848,7 +1963,11 @@ class FloorPlanApp {
     updatePageDisplay() {
         const pageInfo = document.getElementById('page-info-display');
         if (pageInfo) {
-            pageInfo.textContent = `페이지 ${this.currentPage} / ${this.maxPage}`;
+            const displayText = `페이지 ${this.currentPage} / ${this.maxPage}`;
+            pageInfo.textContent = displayText;
+            console.log(`📄 updatePageDisplay 호출: ${displayText} (currentPage: ${this.currentPage}, maxPage: ${this.maxPage})`);
+        } else {
+            console.warn('⚠️ page-info-display 요소를 찾을 수 없습니다.');
         }
         
         // 버튼 활성화/비활성화
@@ -1893,11 +2012,6 @@ class FloorPlanApp {
             console.log(`💾 페이지 ${this.currentPage}의 요소 ${currentPageElements.length}개 저장 (로컬)`);
         }
         
-        // 다음 페이지로 넘기면 자동으로 페이지 생성
-        if (pageNumber > this.maxPage) {
-            this.maxPage = pageNumber;
-        }
-        
         // 페이지 변경 (저장은 나중에 저장 버튼을 눌렀을 때)
         this.currentPage = pageNumber;
         
@@ -1906,13 +2020,60 @@ class FloorPlanApp {
             this.core.currentPage = pageNumber;
         }
         
+        // 다음 페이지로 넘기면 자동으로 페이지 생성 (loadPageElements 전에 설정)
+        if (pageNumber > this.maxPage) {
+            this.maxPage = pageNumber;
+            console.log(`📄 maxPage 자동 증가 (switchPage): ${this.maxPage}`);
+        }
+        
         // 해당 페이지의 요소들만 필터링하여 표시
-        await this.loadPageElements(pageNumber);
+        const loadResult = await this.loadPageElements(pageNumber);
+        
+        // loadPageElements에서 받은 maxPage 정보로 업데이트 (서버에서 받은 값이 더 정확)
+        const loadResultMaxPageValue = parseInt(loadResult?.maxPage, 10);
+        if (loadResult && loadResult.success && !isNaN(loadResultMaxPageValue) && loadResultMaxPageValue > 0) {
+            // 서버에서 받은 maxPage가 현재 maxPage보다 크거나 같으면 업데이트
+            if (loadResultMaxPageValue >= this.maxPage) {
+                this.maxPage = loadResultMaxPageValue;
+                console.log(`📄 maxPage 업데이트 (switchPage - 서버 값): ${this.maxPage} (원본: ${loadResult.maxPage}, 타입: ${typeof loadResult.maxPage})`);
+            }
+        }
+        
+        // loadPageElements 후 중복 제거 (서버에서 로드한 요소 중복 방지)
+        // loadPageElements 내부에서 이미 중복 제거를 했지만, 추가로 확인
+        const serverElementsMap = new Map();
+        const serverElements = [];
+        this.core.state.elements.forEach(el => {
+            if (!el || (!el.id && !el.elementType)) return;
+            
+            // ID와 좌표를 키로 사용하여 중복 제거
+            const elementKey = el.id 
+                ? `${el.id}_${el.xCoordinate}_${el.yCoordinate}` 
+                : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
+            
+            if (!serverElementsMap.has(elementKey)) {
+                serverElementsMap.set(elementKey, el);
+                serverElements.push(el);
+            } else {
+                console.warn(`⚠️ 중복 요소 제거 (switchPage - loadPageElements 후): ${elementKey}`);
+            }
+        });
+        this.core.state.elements = serverElements;
+        console.log(`📥 서버 요소 중복 제거 후: ${this.core.state.elements.length}개`);
         
         // 서버에서 로드한 요소의 ID와 좌표 정보를 Map으로 저장 (중복 체크 강화)
-        const serverElementMap = new Map();
-        const serverElementIdSet = new Set();
+        const serverElementMap = new Map(); // ID + 좌표로 키 생성
+        const serverElementIdSet = new Set(); // ID만 저장
+        const serverElementCoordSet = new Set(); // 좌표만 저장 (타입 + 좌표) - 모든 서버 요소 포함
         this.core.state.elements.forEach(el => {
+            if (!el || (!el.id && !el.elementType)) return;
+            
+            // 좌표 기반 중복 체크를 위해 모든 서버 요소의 좌표를 저장
+            const coordKey = `${el.elementType || 'unknown'}_${el.xCoordinate}_${el.yCoordinate}`;
+            serverElementCoordSet.add(coordKey);
+            
+            // ID가 있고 임시 ID가 아닌 경우에만 ID 기반 맵에 추가
+            // element_로 시작하는 ID도 서버에서 로드한 요소일 수 있으므로 포함
             if (el.id && !el.id.toString().startsWith('temp')) {
                 const elementId = el.id.toString();
                 const key = `${elementId}_${el.xCoordinate}_${el.yCoordinate}`;
@@ -1923,46 +2084,105 @@ class FloorPlanApp {
         
         // 저장된 로컬 요소 복원 (있는 경우)
         // 저장 후에는 localElementsByPage가 초기화되므로, 저장되지 않은 작업만 복원
+        // 로컬 변경사항(이동, 삭제)을 우선시해야 함
         if (this.localElementsByPage[pageNumber] && this.localElementsByPage[pageNumber].length > 0) {
             const savedLocalElements = this.localElementsByPage[pageNumber];
             // 깊은 복사로 복원
             const restoredElements = JSON.parse(JSON.stringify(savedLocalElements));
             
-            // 서버에 없는 요소만 복원 (로컬에서 추가/수정한 요소)
-            // 중복 체크 강화: ID와 좌표를 모두 확인
-            const localOnlyElements = restoredElements.filter(el => {
-                // id가 없거나 temp로 시작하면 새로 추가한 로컬 요소
-                if (!el.id || el.id.toString().startsWith('temp')) {
-                    return true;
+            // 로컬 요소의 ID 목록 생성 (삭제된 요소 확인용)
+            const localElementIds = new Set();
+            const localElementsById = new Map(); // ID -> 로컬 요소 (빠른 조회용)
+            restoredElements.forEach(el => {
+                if (!el || (!el.id && !el.elementType)) return;
+                const elementId = el.id ? el.id.toString() : null;
+                if (elementId && !elementId.startsWith('temp')) {
+                    localElementIds.add(elementId);
+                    localElementsById.set(elementId, el);
                 }
+            });
+            
+            // 최종 요소 목록 구성: 로컬 변경사항 우선
+            const finalElements = [];
+            const addedElementIds = new Set(); // 추가된 요소 ID 추적
+            const addedCoords = new Set(); // 추가된 좌표 추적 (중복 방지)
+            
+            // 1단계: 서버 요소 처리 (로컬에 같은 ID가 있으면 로컬 버전 사용, 없으면 서버 버전 사용)
+            this.core.state.elements.forEach(serverEl => {
+                if (!serverEl || (!serverEl.id && !serverEl.elementType)) return;
                 
-                const elementId = el.id.toString();
-                // id가 있으면 서버에 없는지 확인
-                if (serverElementIdSet.has(elementId)) {
-                    // ID가 서버에 있으면 좌표도 확인 (같은 요소인지 체크)
-                    const key = `${elementId}_${el.xCoordinate}_${el.yCoordinate}`;
-                    if (serverElementMap.has(key)) {
-                        // 서버에 동일한 요소가 있으면 제외 (중복)
-                        return false;
+                const serverElementId = serverEl.id ? serverEl.id.toString() : null;
+                
+                // 서버 요소의 ID가 로컬 요소에 있으면 로컬 버전 사용 (로컬에서 이동한 경우)
+                // temp ID가 아닌 경우에만 확인
+                if (serverElementId && !serverElementId.startsWith('temp')) {
+                    if (localElementsById.has(serverElementId)) {
+                        // 로컬에 같은 ID가 있으면 로컬 버전 사용 (로컬 변경사항 우선)
+                        const localEl = localElementsById.get(serverElementId);
+                        const coordKey = `${localEl.elementType || 'unknown'}_${localEl.xCoordinate}_${localEl.yCoordinate}`;
+                        if (!addedCoords.has(coordKey)) {
+                            addedCoords.add(coordKey);
+                            addedElementIds.add(serverElementId);
+                            finalElements.push(localEl);
+                            console.log(`🔄 로컬 버전 사용 (이동/수정): ID ${serverElementId}`);
+                        }
+                    } else {
+                        // 로컬에 없으면 서버 버전 사용 (삭제하지 않은 요소)
+                        const coordKey = `${serverEl.elementType || 'unknown'}_${serverEl.xCoordinate}_${serverEl.yCoordinate}`;
+                        if (!addedCoords.has(coordKey)) {
+                            addedCoords.add(coordKey);
+                            addedElementIds.add(serverElementId);
+                            finalElements.push(serverEl);
+                        }
+                    }
+                } else {
+                    // temp ID인 서버 요소는 좌표 기반으로 확인
+                    const coordKey = `${serverEl.elementType || 'unknown'}_${serverEl.xCoordinate}_${serverEl.yCoordinate}`;
+                    if (!addedCoords.has(coordKey)) {
+                        addedCoords.add(coordKey);
+                        finalElements.push(serverEl);
+                    }
+                }
+            });
+            
+            // 2단계: 로컬에만 있는 요소 추가 (새로 추가한 요소)
+            restoredElements.forEach(localEl => {
+                if (!localEl || (!localEl.id && !localEl.elementType)) return;
+                
+                const elementId = localEl.id ? localEl.id.toString() : null;
+                
+                // 이미 추가된 요소는 제외
+                if (elementId && !elementId.startsWith('temp')) {
+                    if (addedElementIds.has(elementId)) {
+                        return; // 이미 추가됨
                     }
                 }
                 
-                // 서버에 없는 요소만 포함
-                return true;
+                const coordKey = `${localEl.elementType || 'unknown'}_${localEl.xCoordinate}_${localEl.yCoordinate}`;
+                
+                // 좌표 기반 중복 체크
+                if (addedCoords.has(coordKey)) {
+                    console.warn(`⚠️ 로컬 요소 좌표 중복 제외 (switchPage): ${coordKey}`);
+                    return;
+                }
+                
+                addedCoords.add(coordKey);
+                if (elementId) {
+                    addedElementIds.add(elementId);
+                }
+                finalElements.push(localEl);
+                console.log(`➕ 로컬에만 있는 요소 추가: ${elementId || 'temp'}`);
             });
             
-            if (localOnlyElements.length > 0) {
-                // 서버에서 로드한 요소와 병합 (로컬 요소는 뒤에 추가)
-                this.core.state.elements = [...this.core.state.elements, ...localOnlyElements];
-                console.log(`📂 페이지 ${pageNumber}의 로컬 요소 ${localOnlyElements.length}개 복원`);
-            } else {
-                console.log(`📂 페이지 ${pageNumber}의 로컬 요소 없음 (모두 서버에 저장됨)`);
-            }
+            // 최종 요소 목록으로 교체
+            this.core.state.elements = finalElements;
+            console.log(`📂 페이지 ${pageNumber}의 로컬 요소 복원 완료: 총 ${finalElements.length}개 (로컬 변경사항 반영)`);
         }
         
         // 현재 페이지의 요소만 필터링 (pageNumber 확인)
-        // 중복 방지: 같은 ID의 요소가 여러 개 있으면 하나만 유지
-        const seenElementIds = new Set();
+        // 중복 방지: 같은 ID와 좌표를 가진 요소가 여러 개 있으면 하나만 유지
+        const seenElementKeys = new Set(); // ID + 좌표
+        const seenCoords = new Set(); // 타입 + 좌표 (임시 ID와 실제 ID가 다른 경우 대비)
         this.core.state.elements = this.core.state.elements.filter(el => {
             if (!el || (!el.id && !el.elementType)) return false;
             
@@ -1971,20 +2191,34 @@ class FloorPlanApp {
             
             // 현재 페이지와 일치하는 요소만 포함
             if (normalizedPage === pageNumber) {
-                // 중복 체크: 같은 ID의 요소가 이미 포함되었는지 확인
-                const elementId = el.id ? el.id.toString() : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
-                if (seenElementIds.has(elementId)) {
-                    console.warn(`⚠️ 중복 요소 제거 (switchPage): ${elementId}`);
+                // 좌표 기반 중복 체크 (임시 ID와 실제 ID가 다른 경우 대비)
+                const coordKey = `${el.elementType || 'unknown'}_${el.xCoordinate}_${el.yCoordinate}`;
+                if (seenCoords.has(coordKey)) {
+                    console.warn(`⚠️ 좌표 기반 중복 요소 제거 (switchPage - 최종 필터링): ${coordKey}`);
                     return false;
                 }
-                seenElementIds.add(elementId);
+                seenCoords.add(coordKey);
+                
+                // 중복 체크: ID와 좌표를 모두 확인하여 완전히 동일한 요소 제거
+                const elementKey = el.id 
+                    ? `${el.id}_${el.xCoordinate}_${el.yCoordinate}` 
+                    : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
+                
+                if (seenElementKeys.has(elementKey)) {
+                    console.warn(`⚠️ ID+좌표 기반 중복 요소 제거 (switchPage - 최종 필터링): ${elementKey}`);
+                    return false;
+                }
+                seenElementKeys.add(elementKey);
                 return true;
             }
             return false;
         });
         
-        // 페이지 정보 업데이트
+        console.log(`📄 페이지 ${pageNumber} 필터링 완료: ${this.core.state.elements.length}개 요소`);
+        
+        // 페이지 정보 업데이트 (maxPage 포함)
         this.updatePageDisplay();
+        console.log(`📄 페이지 정보 업데이트: ${this.currentPage} / ${this.maxPage}`);
         
         // 캔버스 재렌더링
         this.core.markDirty();
@@ -2016,12 +2250,28 @@ class FloorPlanApp {
         }
         
         try {
+            // 먼저 서버에서 실제 maxPage를 조회
+            let serverMaxPage = this.maxPage;
+            try {
+                const maxPageResponse = await fetch(`/floorplan/api/elements?schoolId=${this.currentSchoolId}&pageNumber=1`);
+                if (maxPageResponse.ok) {
+                    const maxPageData = await maxPageResponse.json();
+                    const maxPageValue = parseInt(maxPageData.maxPage, 10);
+                    if (maxPageData.success && !isNaN(maxPageValue) && maxPageValue > 0) {
+                        serverMaxPage = maxPageValue;
+                        console.log(`📄 cleanupEmptyPages: 서버에서 maxPage 조회: ${serverMaxPage} (원본: ${maxPageData.maxPage}, 타입: ${typeof maxPageData.maxPage})`);
+                    }
+                }
+            } catch (error) {
+                console.warn('cleanupEmptyPages: maxPage 조회 실패:', error);
+            }
+            
             // 서버에서 모든 페이지의 요소 개수 확인
             const pagesWithElements = new Set();
             let maxPageWithElements = 0;
             
-            // 1부터 maxPage까지 각 페이지의 요소 확인
-            for (let pageNum = 1; pageNum <= this.maxPage; pageNum++) {
+            // 1부터 서버 maxPage까지 각 페이지의 요소 확인
+            for (let pageNum = 1; pageNum <= serverMaxPage; pageNum++) {
                 try {
                     const response = await fetch(`/floorplan/api/elements?schoolId=${this.currentSchoolId}&pageNumber=${pageNum}`);
                     if (response.ok) {
@@ -2030,13 +2280,20 @@ class FloorPlanApp {
                             pagesWithElements.add(pageNum);
                             maxPageWithElements = Math.max(maxPageWithElements, pageNum);
                         } else {
-                            // 빈 페이지: 서버에서 삭제
-                            console.log(`🗑️ 빈 페이지 ${pageNum} 삭제`);
-                            const deleteResponse = await fetch(`/floorplan/api/elements/delete-page?schoolId=${this.currentSchoolId}&pageNumber=${pageNum}`, {
-                                method: 'DELETE'
-                            });
-                            if (deleteResponse.ok) {
-                                console.log(`✅ 빈 페이지 ${pageNum} 삭제 완료`);
+                            // 빈 페이지: 1페이지는 항상 유지 (최소 1개 페이지 필요)
+                            if (pageNum === 1) {
+                                console.log(`📄 페이지 1은 항상 유지 (최소 1개 페이지 필요)`);
+                                pagesWithElements.add(1);
+                                maxPageWithElements = Math.max(maxPageWithElements, 1);
+                            } else {
+                                // 1페이지가 아닌 빈 페이지만 삭제
+                                console.log(`🗑️ 빈 페이지 ${pageNum} 삭제`);
+                                const deleteResponse = await fetch(`/floorplan/api/elements/delete-page?schoolId=${this.currentSchoolId}&pageNumber=${pageNum}`, {
+                                    method: 'DELETE'
+                                });
+                                if (deleteResponse.ok) {
+                                    console.log(`✅ 빈 페이지 ${pageNum} 삭제 완료`);
+                                }
                             }
                         }
                     }
@@ -2045,7 +2302,7 @@ class FloorPlanApp {
                 }
             }
             
-            // maxPage 업데이트 (실제 요소가 있는 최대 페이지 번호)
+            // maxPage 업데이트 (실제 요소가 있는 최대 페이지 번호, 최소 1)
             const newMaxPage = maxPageWithElements > 0 ? maxPageWithElements : 1;
             
             // 현재 페이지가 삭제된 경우, 마지막 요소가 있는 페이지로 이동
@@ -2061,9 +2318,11 @@ class FloorPlanApp {
             
             // maxPage 업데이트
             this.maxPage = newMaxPage;
+            console.log(`📄 cleanupEmptyPages: maxPage 업데이트: ${this.maxPage}`);
             
             // 페이지 정보 업데이트
             this.updatePageDisplay();
+            console.log(`📄 cleanupEmptyPages 완료: maxPage = ${this.maxPage}, currentPage = ${this.currentPage}`);
             
             console.log(`🧹 빈 페이지 정리 완료: maxPage = ${this.maxPage}`);
         } catch (error) {
@@ -2155,15 +2414,65 @@ class FloorPlanApp {
                         return element;
                     });
                     
-                    this.core.state.elements = elements;
+                    // 중복 제거: ID와 좌표를 모두 확인하여 완전히 동일한 요소 제거
+                    const uniqueElementsMap = new Map(); // ID + 좌표
+                    const seenCoords = new Set(); // 타입 + 좌표 (임시 ID와 실제 ID가 다른 경우 대비)
+                    elements.forEach(el => {
+                        if (!el || (!el.id && !el.elementType)) return;
+                        
+                        // 좌표 기반 중복 체크 (임시 ID와 실제 ID가 다른 경우 대비)
+                        const coordKey = `${el.elementType || 'unknown'}_${el.xCoordinate}_${el.yCoordinate}`;
+                        if (seenCoords.has(coordKey)) {
+                            console.warn(`⚠️ 좌표 기반 중복 요소 제거 (loadPageElements): ${coordKey}`);
+                            return; // 이미 같은 좌표에 요소가 있으면 제외
+                        }
+                        seenCoords.add(coordKey);
+                        
+                        // ID와 좌표를 모두 포함한 키로 중복 체크 (더 정확한 중복 방지)
+                        // element_로 시작하는 ID도 서버에서 로드한 요소일 수 있으므로 ID를 사용
+                        const elementKey = el.id && !el.id.toString().startsWith('temp')
+                            ? `${el.id}_${el.xCoordinate}_${el.yCoordinate}`
+                            : `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}`;
+                        
+                        if (!uniqueElementsMap.has(elementKey)) {
+                            uniqueElementsMap.set(elementKey, el);
+                        } else {
+                            console.warn(`⚠️ ID+좌표 기반 중복 요소 제거 (loadPageElements): ${elementKey}`);
+                        }
+                    });
+                    
+                    this.core.state.elements = Array.from(uniqueElementsMap.values());
+                    console.log(`📥 페이지 ${pageNumber} 로드: 서버 ${elements.length}개 → 중복 제거 후 ${this.core.state.elements.length}개`);
                     
                     // 최대 페이지 번호 업데이트 (서버에서 받은 값으로 설정)
-                    const maxPage = data.maxPage || 1;
+                    // 주의: 이미 클라이언트에서 더 큰 maxPage를 가지고 있을 수 있으므로, 절대 감소시키지 않음
+                    const maxPageValue = parseInt(data.maxPage, 10);
+                    if (!isNaN(maxPageValue) && maxPageValue > 0) {
+                        const oldMaxPage = this.maxPage;
+                        this.maxPage = Math.max(this.maxPage, maxPageValue);
+                        console.log(`📄 maxPage 업데이트 (loadPageElements): ${this.maxPage} (원본: ${data.maxPage}, 기존: ${oldMaxPage}, 타입: ${typeof data.maxPage})`);
+                    } else {
+                        // 서버에서 maxPage를 제공하지 않으면 현재 값 유지
+                        console.log(`📄 maxPage 유지 (loadPageElements): ${this.maxPage} (서버에서 제공하지 않음: ${data.maxPage}, 타입: ${typeof data.maxPage})`);
+                    }
                     
                     this.core.markDirty();
                     this.core.render && this.core.render();
                     
-                    return { success: true, maxPage: maxPage };
+                    return { success: true, maxPage: this.maxPage };
+                } else {
+                    // elements가 없어도 maxPage는 업데이트
+                    // 단, 이미 클라이언트가 더 큰 maxPage를 알고 있다면 줄이지 않음
+                    const maxPageValue = parseInt(data.maxPage, 10);
+                    if (!isNaN(maxPageValue) && maxPageValue > 0) {
+                        const oldMaxPage = this.maxPage;
+                        this.maxPage = Math.max(this.maxPage, maxPageValue);
+                        console.log(`📄 maxPage 업데이트 (loadPageElements - 요소 없음): ${this.maxPage} (원본: ${data.maxPage}, 기존: ${oldMaxPage}, 타입: ${typeof data.maxPage})`);
+                    }
+                    this.core.state.elements = [];
+                    this.core.markDirty();
+                    this.core.render && this.core.render();
+                    return { success: true, maxPage: this.maxPage };
                 }
             }
             return { success: false };

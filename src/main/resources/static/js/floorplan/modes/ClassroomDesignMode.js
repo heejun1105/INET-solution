@@ -147,6 +147,11 @@ export default class ClassroomDesignMode {
             this.loadUnplacedClassrooms(this.core.currentSchoolId);
         }
         
+        // 현재 요소들 기준으로 뷰 자동 피팅 (장비보기 모드와 동일한 기준을 유지)
+        if (this.core && this.core.state && this.core.state.elements) {
+            this.core.fitToElements();
+        }
+        
         // 강제 렌더링
         this.core.markDirty();
     }
@@ -920,7 +925,7 @@ export default class ClassroomDesignMode {
             if (helpModalClose) {
                 helpModalClose.addEventListener('click', () => {
                     helpModal.style.display = 'none';
-                });
+            });
             }
             
             // 모달 배경 클릭 시 닫기

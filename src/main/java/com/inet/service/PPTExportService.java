@@ -1439,12 +1439,12 @@ public class PPTExportService {
         XSLFAutoShape textShape = slide.createAutoShape();
         textShape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
         textShape.setAnchor(new Rectangle(textX, textY, textWidth, textHeight));
-        
+            
         // 배경/테두리 제거 → 텍스트만 표시
         textShape.setFillColor(null);
         textShape.setLineColor(null);
         textShape.setLineWidth(0.0);
-        
+            
         // 텍스트 설정 (붉은색, 중앙 정렬, 자동 줄바꿈)
         textShape.setWordWrap(true);
         // 왼쪽/오른쪽 여백 0으로 설정 (교실 벽에 가깝게)
@@ -1454,8 +1454,8 @@ public class PPTExportService {
         textShape.setBottomInset(0.0);
         
         XSLFTextParagraph paragraph = textShape.addNewTextParagraph();
-        paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
-        XSLFTextRun textRun = paragraph.addNewTextRun();
+            paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
+            XSLFTextRun textRun = paragraph.addNewTextRun();
         textRun.setText(label);
         // 장비 텍스트 폰트 크기: 프론트엔드에서 설정한 폰트 크기 사용
         // 화면: equipmentFontSize (px), 기본값 28px
@@ -1541,7 +1541,7 @@ public class PPTExportService {
         textRun.setText(formattedLabel);
         textRun.setFontSize(pptFontSize);
         textRun.setFontColor(new Color(0xFF0000));
-        textRun.setBold(true);
+            textRun.setBold(true);
         
         textShape.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
     }

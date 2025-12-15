@@ -84,7 +84,7 @@ export default class EquipmentViewMode {
         this.legendComponent.create();
             }
         
-        // 강제 렌더링
+        // 강제 렌더링 (카메라 위치/줌은 이전 모드(예: 교실설계)의 상태를 그대로 유지)
         this.core.markDirty();
         this.core.render && this.core.render();
         } catch (error) {
