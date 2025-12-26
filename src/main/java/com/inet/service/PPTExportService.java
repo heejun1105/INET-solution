@@ -136,8 +136,8 @@ public class PPTExportService {
         // 슬라이드 크기 설정: A4 세로 비율
         ppt.setPageSize(new java.awt.Dimension((int) PPT_WIDTH, (int) PPT_HEIGHT));
         
-        // 제목 슬라이드 생성
-        createTitleSlide(ppt, school);
+        // 제목 슬라이드 생성 제거 (바로 평면도부터 시작)
+        // createTitleSlide(ppt, school);
         
         // 페이지별로 슬라이드 생성 (요소가 있는 페이지만)
         // 실제로 요소가 있는 페이지 번호들을 수집
@@ -207,7 +207,7 @@ public class PPTExportService {
         
         // 슬라이드 제목 추가 (페이지 정보 포함)
         XSLFTextBox headerBox = floorPlanSlide.createTextBox();
-        headerBox.setAnchor(new Rectangle(20, 10, 680, 30));
+        headerBox.setAnchor(new Rectangle(20, 10, 400, 30));
         XSLFTextParagraph headerPara = headerBox.addNewTextParagraph();
         XSLFTextRun headerRun = headerPara.addNewTextRun();
         String title = school.getSchoolName() + " - 평면도";
@@ -218,6 +218,17 @@ public class PPTExportService {
         headerRun.setFontSize(18.0);
         headerRun.setBold(true);
         headerRun.setFontColor(new Color(31, 78, 121));
+        
+        // 저장 날짜 추가 (우측)
+        XSLFTextBox dateBox = floorPlanSlide.createTextBox();
+        dateBox.setAnchor(new Rectangle(420, 10, 155, 30));
+        XSLFTextParagraph datePara = dateBox.addNewTextParagraph();
+        datePara.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.RIGHT);
+        XSLFTextRun dateRun = datePara.addNewTextRun();
+        String savedDate = floorPlan.getUpdatedAt().format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일"));
+        dateRun.setText(savedDate);
+        dateRun.setFontSize(14.0);
+        dateRun.setFontColor(new Color(89, 89, 89));
         
         // 모드별 필터링 (바운딩 박스 계산 전에 먼저 필터링)
         // 바운딩 박스 계산에서는 실제 평면도 요소만 포함 (seat_layout, equipment_card 등 제외)
@@ -240,6 +251,7 @@ public class PPTExportService {
             .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
 
         if ("wireless-ap".equals(mode)) {
+            // 무선AP 보기 모드: 교실 요소는 그대로 유지하고, AP 요소만 처리
             List<FloorPlanElement> savedApElements = new ArrayList<>();
             Map<Long, FloorPlanElement> savedApMap = new HashMap<>();
             for (FloorPlanElement el : elementsToProcess) {
@@ -251,12 +263,32 @@ public class PPTExportService {
                 }
             }
 
+            // 교실 맵 생성 (모든 교실 요소 포함, referenceId가 없어도 포함)
             Map<Long, FloorPlanElement> roomMap = new HashMap<>();
             for (FloorPlanElement el : elementsToProcess) {
-                if ("room".equals(el.getElementType()) && el.getReferenceId() != null) {
+                if ("room".equals(el.getElementType())) {
+                    if (el.getReferenceId() != null) {
                     roomMap.putIfAbsent(el.getReferenceId(), el);
+                    }
+                    // referenceId가 없어도 element_data에서 classroomId 확인
+                    if (el.getReferenceId() == null) {
+                        try {
+                            Map<String, Object> elementData = parseElementData(el.getElementData());
+                            Object classroomIdObj = elementData.get("classroomId");
+                            if (classroomIdObj != null) {
+                                Long classroomId = toLong(classroomIdObj);
+                                if (classroomId != null) {
+                                    roomMap.putIfAbsent(classroomId, el);
+                                }
+                            }
+                        } catch (Exception e) {
+                            // 파싱 실패 시 무시
+                        }
+                    }
                 }
             }
+            
+            log.info("무선AP 보기 모드 - 교실 개수: {}, 저장된 AP 개수: {}", roomMap.size(), savedApElements.size());
 
             List<Map<String, Object>> wirelessAps = floorPlanService.getWirelessApsBySchool(school.getSchoolId());
             Map<Long, Map<String, Object>> wirelessApMap = new HashMap<>();
@@ -288,6 +320,65 @@ public class PPTExportService {
                         if (!newLabel.isBlank()) {
                             resolved.setLabel(newLabel);
                         }
+                        
+                        // 저장된 AP 좌표를 교실 기준 오프셋으로 간주하고 절대 좌표로 변환
+                        // (장비 보기 모드와 동일한 방식으로 처리)
+                        Long classroomId = toLong(apInfo.get("classroomId"));
+                        if (classroomId != null) {
+                            FloorPlanElement roomElement = roomMap.get(classroomId);
+                            if (roomElement != null) {
+                                double roomX = roomElement.getXCoordinate() != null ? roomElement.getXCoordinate() : 0.0;
+                                double roomY = roomElement.getYCoordinate() != null ? roomElement.getYCoordinate() : 0.0;
+                                
+                                // element_data에서 offsetX, offsetY 확인 (우선순위 1)
+                                double offsetX = extractDouble(elementData.get("offsetX"), Double.NaN);
+                                double offsetY = extractDouble(elementData.get("offsetY"), Double.NaN);
+                                
+                                if (!Double.isNaN(offsetX) && !Double.isNaN(offsetY)) {
+                                    // element_data에 offsetX, offsetY가 있으면 교실 기준 오프셋으로 사용
+                                    double centerX = roomX + offsetX;
+                                    double centerY = roomY + offsetY;
+                                    resolved.setXCoordinate(centerX);
+                                    resolved.setYCoordinate(centerY);
+                                } else {
+                                    // 저장된 좌표를 교실 기준 오프셋으로 간주하고 절대 좌표로 변환
+                                    // (프론트엔드에서 저장 시 교실 기준 오프셋으로 저장하므로)
+                                    double savedX = resolved.getXCoordinate() != null ? resolved.getXCoordinate() : 0.0;
+                                    double savedY = resolved.getYCoordinate() != null ? resolved.getYCoordinate() : 0.0;
+                                    
+                                    // 저장된 좌표가 교실 범위 내에 있으면 오프셋으로 간주
+                                    double roomWidth = roomElement.getWidth() != null ? roomElement.getWidth() : 1000.0;
+                                    double roomHeight = roomElement.getHeight() != null ? roomElement.getHeight() : 1000.0;
+                                    
+                                    // 좌표가 교실 범위 내에 있거나, 절대 좌표가 아닌 경우 오프셋으로 간주
+                                    // 절대 좌표는 보통 매우 큰 값(수천 이상)이므로, 작은 값은 오프셋으로 간주
+                                    boolean isOffset = false;
+                                    if (savedX >= 0 && savedX <= roomWidth && savedY >= 0 && savedY <= roomHeight) {
+                                        // 교실 범위 내에 있으면 오프셋
+                                        isOffset = true;
+                                    } else if (Math.abs(savedX) < 5000 && Math.abs(savedY) < 5000) {
+                                        // 작은 값이면 오프셋으로 간주 (절대 좌표는 보통 수천 이상)
+                                        isOffset = true;
+                                    } else if (Math.abs(savedX - roomX) < roomWidth * 2 && Math.abs(savedY - roomY) < roomHeight * 2) {
+                                        // 교실 좌표와 가까우면 오프셋으로 간주
+                                        isOffset = true;
+                                    }
+                                    
+                                    if (isOffset) {
+                                        // 교실 기준 오프셋으로 간주하고 절대 좌표로 변환
+                                        double centerX = roomX + savedX;
+                                        double centerY = roomY + savedY;
+                                        resolved.setXCoordinate(centerX);
+                                        resolved.setYCoordinate(centerY);
+                                        log.debug("AP 좌표 변환 (오프셋): savedX={}, savedY={}, roomX={}, roomY={}, centerX={}, centerY={}", 
+                                                savedX, savedY, roomX, roomY, centerX, centerY);
+                                    } else {
+                                        // 이미 절대 좌표로 간주하고 그대로 사용
+                                        log.debug("AP 좌표 유지 (절대 좌표): savedX={}, savedY={}", savedX, savedY);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -296,20 +387,35 @@ public class PPTExportService {
                 resolvedApElements.add(resolved);
             }
 
+            // 평면도에 배치된 교실에 속한 AP만 표시 (배치되지 않은 교실의 AP는 제외)
             for (Map.Entry<Long, Map<String, Object>> entry : wirelessApMap.entrySet()) {
                 Long apId = entry.getKey();
                 if (handledApIds.contains(apId)) {
                     continue;
                 }
-                FloorPlanElement virtualAp = createVirtualWirelessApElement(floorPlan, roomMap, entry.getValue());
+                
+                // 해당 AP의 교실이 평면도에 배치되어 있는지 확인
+                Map<String, Object> apInfo = entry.getValue();
+                Long classroomId = toLong(apInfo.get("classroomId"));
+                if (classroomId == null || !roomMap.containsKey(classroomId)) {
+                    // 교실이 평면도에 배치되지 않은 AP는 제외
+                    log.debug("AP 제외 (교실 미배치): apId={}, classroomId={}", apId, classroomId);
+                    continue;
+                }
+                
+                FloorPlanElement virtualAp = createVirtualWirelessApElement(floorPlan, roomMap, apInfo);
                 virtualAp.setReferenceId(apId);
                 ensureWirelessApElementData(virtualAp);
                 normalizeWirelessApDefaults(virtualAp);
                 resolvedApElements.add(virtualAp);
             }
 
+            // 기존 AP 요소 제거하고 변환된 AP 요소 추가
             elementsToProcess.removeIf(el -> "wireless_ap".equals(el.getElementType()));
             elementsToProcess.addAll(resolvedApElements);
+            
+            log.info("무선AP 보기 모드 - 처리 후 요소 개수: {}, AP 개수: {}", 
+                    elementsToProcess.size(), resolvedApElements.size());
         }
         
         // 필터링된 요소들로 바운딩 박스 계산
@@ -1002,6 +1108,9 @@ public class PPTExportService {
             }
         }
         
+        // 폰트 크기 30% 증가
+        fontSize = fontSize * 1.3;
+        
         textRun.setFontSize(fontSize);
         textRun.setFontColor(Color.BLACK);
         textRun.setBold(true);
@@ -1534,6 +1643,9 @@ public class PPTExportService {
         double pptFontSize = Math.min(requestedPptFontSize, maxFontSize);
         pptFontSize = Math.max(3.0, pptFontSize); // 최소값 보장
         
+        // 폰트 크기 30% 증가
+        pptFontSize = pptFontSize * 1.3;
+        
         // 줄바꿈 시뮬레이션 결과를 사용하여 수동으로 줄바꿈 적용
         // 장비종류+숫자 세트가 분리되지 않도록 각 줄을 \n으로 연결
         String formattedLabel = String.join("\n", lines);
@@ -1628,6 +1740,62 @@ public class PPTExportService {
             shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
             shape.setAnchor(new Rectangle(x, y, diameter, diameter));
             applyWirelessApStyle(shape, elementData, scale, fillColor);
+            return;
+        }
+        
+        if ("circle-l".equalsIgnoreCase(shapeType)) {
+            // 원형 테두리 + 대문자 L
+            if (radius <= 0) {
+                radius = Math.min(width, height) / 2.0;
+                if (radius <= 0) {
+                    radius = 20.0;
+                }
+            }
+            
+            double left = centerX - radius;
+            double top = centerY - radius;
+            
+            int x = (int)(((left) - this.currentBoundsMinX) * scale + offsetX);
+            int y = (int)(((top) - this.currentBoundsMinY) * scale + offsetY);
+            int diameter = (int)(radius * 2 * scale);
+            
+            // 원형 테두리만 그리기 (채우기 없음)
+            XSLFAutoShape circleShape = slide.createAutoShape();
+            circleShape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
+            circleShape.setAnchor(new Rectangle(x, y, diameter, diameter));
+            
+            // 테두리 색상과 두께 설정
+            String borderColorStr = (String) elementData.getOrDefault("borderColor", "#000000");
+            Color borderColor = parseColor(borderColorStr);
+            circleShape.setFillColor(null); // 채우기 없음
+            circleShape.setLineColor(borderColor);
+            double borderWidth = extractDouble(elementData.get("borderWidth"), 2.0);
+            circleShape.setLineWidth(Math.max(0.2, borderWidth * scale));
+            
+            // 대문자 L 그리기
+            String letterColorStr = (String) elementData.getOrDefault("letterColor", borderColorStr);
+            Color letterColor = parseColor(letterColorStr);
+            double letterSize = radius * 0.6 * scale; // L 크기
+            int letterX = x + (int)(diameter / 2.0 - letterSize * 0.3);
+            int letterY = y + (int)(diameter / 2.0 - letterSize * 0.3);
+            
+            XSLFTextBox letterBox = slide.createTextBox();
+            letterBox.setAnchor(new Rectangle(letterX, letterY, (int)letterSize, (int)letterSize));
+            letterBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
+            letterBox.setLeftInset(0.0);
+            letterBox.setRightInset(0.0);
+            letterBox.setTopInset(0.0);
+            letterBox.setBottomInset(0.0);
+            XSLFTextParagraph letterPara = letterBox.addNewTextParagraph();
+            letterPara.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.LEFT);
+            XSLFTextRun letterRun = letterPara.addNewTextRun();
+            letterRun.setText("L");
+            letterRun.setFontSize(Math.max(8.0, letterSize * 0.7));
+            letterRun.setFontColor(letterColor);
+            letterRun.setBold(true);
+            
+            // 라벨 추가
+            addWirelessApLabel(slide, element, elementData, x, y, diameter, diameter, radius * 2, scale);
             return;
         }
 
@@ -2098,11 +2266,13 @@ public class PPTExportService {
             double fontSize = 10.0;
             double boxPadding = 10.0; // 박스 내부 여백
             double boxHeight = 35.0; // 박스 높이
+            // A4 가로 크기(595pt)에서 좌우 여백(각 20pt)을 뺀 범례 너비
+            double legendWidth = PPT_WIDTH - legendX * 2; // 595 - 20 - 20 = 555
             
             // 직사각형 테두리 박스 생성
             XSLFAutoShape legendBox = slide.createAutoShape();
             legendBox.setShapeType(org.apache.poi.sl.usermodel.ShapeType.RECT);
-            legendBox.setAnchor(new Rectangle((int)legendX, (int)legendY, 680, (int)boxHeight));
+            legendBox.setAnchor(new Rectangle((int)legendX, (int)legendY, (int)legendWidth, (int)boxHeight));
             legendBox.setFillColor(Color.WHITE);
             legendBox.setLineColor(Color.BLACK);
             legendBox.setLineWidth(1.0);
@@ -2117,7 +2287,7 @@ public class PPTExportService {
                 // 범례 텍스트 추가
                 XSLFTextBox textBox = slide.createTextBox();
                 textBox.setAnchor(new Rectangle((int)(legendX + boxPadding), (int)(legendY + boxPadding), 
-                                                (int)(680 - boxPadding * 2), (int)(boxHeight - boxPadding * 2)));
+                                                (int)(legendWidth - boxPadding * 2), (int)(boxHeight - boxPadding * 2)));
                 textBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
                 textBox.setLeftInset(0.0);
                 textBox.setRightInset(0.0);

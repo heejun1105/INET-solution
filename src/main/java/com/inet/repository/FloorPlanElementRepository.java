@@ -38,6 +38,13 @@ public interface FloorPlanElementRepository extends JpaRepository<FloorPlanEleme
     void deleteByFloorPlanId(@Param("floorPlanId") Long floorPlanId);
     
     /**
+     * 평면도 특정 페이지의 요소 삭제
+     */
+    @Modifying
+    @Query("DELETE FROM FloorPlanElement fpe WHERE fpe.floorPlanId = :floorPlanId AND fpe.pageNumber = :pageNumber")
+    void deleteByFloorPlanIdAndPageNumber(@Param("floorPlanId") Long floorPlanId, @Param("pageNumber") Integer pageNumber);
+    
+    /**
      * 평면도별 요소 개수 조회
      */
     @Query("SELECT COUNT(fpe) FROM FloorPlanElement fpe WHERE fpe.floorPlanId = :floorPlanId")

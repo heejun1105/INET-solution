@@ -20,7 +20,15 @@ export default class WirelessApDesignMode {
         this.selectedElement = null; // AP 또는 MDF 선택용
         this.currentTool = null; // 'mdf-idf'
         this.shapeButtons = [];
+        // FloorPlanApp 레벨에서 savedApPositions 관리 (모드 전환 시에도 유지)
+        if (window.floorPlanApp && window.floorPlanApp.savedApPositions) {
+            this.savedApPositions = window.floorPlanApp.savedApPositions;
+        } else {
         this.savedApPositions = {};
+            if (window.floorPlanApp) {
+                window.floorPlanApp.savedApPositions = this.savedApPositions;
+            }
+        }
         
         this.apColors = [
             { name: '빨강', value: '#ef4444' },
@@ -40,7 +48,8 @@ export default class WirelessApDesignMode {
             { name: '원형', value: 'circle' },
             { name: '삼각형', value: 'triangle' },
             { name: '사각형', value: 'square' },
-            { name: '마름모', value: 'diamond' }
+            { name: '마름모', value: 'diamond' },
+            { name: '원형L', value: 'circle-l' }
         ];
         
         console.log('📡 WirelessApDesignMode 초기화');
@@ -51,6 +60,13 @@ export default class WirelessApDesignMode {
      */
     async activate() {
         console.log('✅ 무선AP설계 모드 활성화');
+        
+        // 현재 페이지 확인 및 설정
+        if (this.core) {
+            // main_new_v3.js에서 설정한 currentPage를 사용하거나 기본값 1
+            this.core.currentPage = this.core.currentPage || 1;
+            console.log('📄 무선AP 설계 모드 활성화 - 현재 페이지:', this.core.currentPage);
+        }
         
         // 먼저 기존 AP/MDF 요소 모두 제거 (중복 방지)
         this.clearApElements();
@@ -293,14 +309,26 @@ export default class WirelessApDesignMode {
     async loadWirelessAps() {
         try {
             const schoolId = this.core.currentSchoolId;
+            console.log('📡 무선AP 데이터 로드 시작 - schoolId:', schoolId);
             const response = await fetch(`/floorplan/api/schools/${schoolId}/wireless-aps`);
             const result = await response.json();
             
             if (result.success) {
                 this.wirelessAps = result.wirelessAps;
+                console.log('✅ 무선AP 데이터 로드 완료:', this.wirelessAps.length, '개');
+                if (this.wirelessAps.length > 0) {
+                    console.log('📊 무선AP 샘플 (처음 5개):', this.wirelessAps.slice(0, 5).map(ap => ({
+                        apId: ap.apId,
+                        classroomId: ap.classroomId,
+                        classroomName: ap.classroomName,
+                        newLabelNumber: ap.newLabelNumber
+                    })));
+                }
+            } else {
+                console.error('❌ 무선AP 로드 실패:', result.message);
             }
         } catch (error) {
-            console.error('무선AP 로드 오류:', error);
+            console.error('❌ 무선AP 로드 오류:', error);
         }
     }
     
@@ -328,16 +356,30 @@ export default class WirelessApDesignMode {
     renderWirelessAps() {
         console.log('📡 무선AP 렌더링 시작:', this.wirelessAps.length, '개');
         
-        // Core state에서 직접 모든 무선AP 요소 제거 (강제)
+        // 현재 페이지 확인
+        const currentPage = this.core.currentPage || 1;
+        console.log('📄 현재 페이지:', currentPage);
+        
+        // Core state에서 직접 현재 페이지의 무선AP 요소만 제거 (강제)
         const allElements = [...(this.core.state.elements || [])];
-        const existingAps = allElements.filter(e => e.elementType === 'wireless_ap');
-        console.log('🗑️ 기존 무선AP 제거:', existingAps.length, '개');
+        const existingAps = allElements.filter(e => {
+            if (e.elementType !== 'wireless_ap') return false;
+            const apPage = e.pageNumber || 1;
+            return apPage === currentPage;
+        });
+        console.log('🗑️ 현재 페이지의 기존 무선AP 제거:', existingAps.length, '개');
         
         if (existingAps.length > 0) {
-            // Core state에서 직접 제거 (동기적으로)
-            const remainingElements = allElements.filter(e => e.elementType !== 'wireless_ap');
+            // Core state에서 직접 제거 (동기적으로) - 현재 페이지의 AP만 제거
+            const remainingElements = allElements.filter(e => {
+                if (e.elementType === 'wireless_ap') {
+                    const apPage = e.pageNumber || 1;
+                    return apPage !== currentPage; // 현재 페이지가 아닌 AP는 유지
+                }
+                return true;
+            });
             this.core.setState({ elements: remainingElements });
-            console.log('🗑️ Core state에서 무선AP 제거 완료 (제거 전:', allElements.length, '→ 제거 후:', remainingElements.length, ')');
+            console.log('🗑️ Core state에서 현재 페이지 무선AP 제거 완료 (제거 전:', allElements.length, '→ 제거 후:', remainingElements.length, ')');
         }
         
         // 교실에 배치된 무선AP 렌더링
@@ -345,9 +387,13 @@ export default class WirelessApDesignMode {
         let skippedCount = 0;
         const processedApIds = new Set(); // 중복 방지용 Set
         
-        // 교실 요소 확인
-        const roomElements = this.core.state.elements.filter(e => e.elementType === 'room');
-        console.log('📚 교실 요소 개수:', roomElements.length);
+        // 현재 페이지의 교실 요소만 확인
+        const roomElements = this.core.state.elements.filter(e => {
+            if (e.elementType !== 'room') return false;
+            const roomPage = e.pageNumber || 1;
+            return roomPage === currentPage;
+        });
+        console.log('📚 현재 페이지의 교실 요소 개수:', roomElements.length);
         
         this.wirelessAps.forEach(ap => {
             if (!ap.classroomId) {
@@ -364,23 +410,100 @@ export default class WirelessApDesignMode {
             }
             processedApIds.add(ap.apId);
             
-            // 교실 요소 찾기 (referenceId로 찾기)
-            const roomElement = this.elementManager.findElementByReferenceId(ap.classroomId);
+            // 교실 요소 찾기 (여러 방법으로 시도, 타입 변환 포함)
+            // classroomId를 숫자로 변환 (문자열일 수 있음)
+            const targetClassroomId = typeof ap.classroomId === 'string' 
+                ? parseInt(ap.classroomId, 10) 
+                : ap.classroomId;
+            
+            if (!targetClassroomId || isNaN(targetClassroomId)) {
+                console.log('⚠️ 유효하지 않은 classroomId:', ap.classroomId, 'AP:', ap.apId);
+                skippedCount++;
+                return;
+            }
+            
+            let roomElement = this.elementManager.findElementByReferenceId(targetClassroomId);
+            
+            // referenceId로 찾지 못한 경우 다른 방법으로 찾기 시도
             if (!roomElement) {
-                console.log('⚠️ 교실 요소를 찾을 수 없음 - classroomId:', ap.classroomId, '교실명:', ap.classroomName);
+                const allRooms = this.core.state.elements.filter(e => e.elementType === 'room');
+                roomElement = allRooms.find(r => {
+                    // 1. referenceId로 매칭 (타입 변환)
+                    const rRefId = typeof r.referenceId === 'string' ? parseInt(r.referenceId, 10) : r.referenceId;
+                    if (rRefId && rRefId === targetClassroomId) {
+                        return true;
+                    }
+                    // 2. classroomId로 매칭 (타입 변환)
+                    const rClassroomId = typeof r.classroomId === 'string' ? parseInt(r.classroomId, 10) : r.classroomId;
+                    if (rClassroomId && rClassroomId === targetClassroomId) {
+                        return true;
+                    }
+                    // 3. element_data에서 classroomId 확인
+                    if (r.elementData) {
+                        try {
+                            const elementData = typeof r.elementData === 'string' 
+                                ? JSON.parse(r.elementData) 
+                                : r.elementData;
+                            if (elementData) {
+                                const dataClassroomId = typeof elementData.classroomId === 'string' 
+                                    ? parseInt(elementData.classroomId, 10) 
+                                    : elementData.classroomId;
+                                if (dataClassroomId && dataClassroomId === targetClassroomId) {
+                                    return true;
+                                }
+                                // referenceId도 확인
+                                const dataRefId = typeof elementData.referenceId === 'string' 
+                                    ? parseInt(elementData.referenceId, 10) 
+                                    : elementData.referenceId;
+                                if (dataRefId && dataRefId === targetClassroomId) {
+                                    return true;
+                                }
+                            }
+                        } catch (e) {
+                            // 파싱 실패 시 무시
+                        }
+                    }
+                    return false;
+                }) || null;
+            }
+            
+            if (!roomElement) {
+                console.log('⚠️ 교실 요소를 찾을 수 없음 - classroomId:', targetClassroomId, '(원본:', ap.classroomId, ')', '교실명:', ap.classroomName, 'AP ID:', ap.apId);
                 
                 // 디버깅: 모든 교실 요소 출력
                 const allRooms = this.core.state.elements.filter(e => e.elementType === 'room');
-                console.log('📚 현재 로드된 교실들:', allRooms.map(r => ({
+                console.log('📚 현재 로드된 교실들:', allRooms.map(r => {
+                    const rRefId = typeof r.referenceId === 'string' ? parseInt(r.referenceId, 10) : r.referenceId;
+                    const rClassroomId = typeof r.classroomId === 'string' ? parseInt(r.classroomId, 10) : r.classroomId;
+                    return {
                     id: r.id,
-                    referenceId: r.referenceId,
-                    classroomId: r.classroomId,
-                    label: r.label
-                })));
+                        referenceId: rRefId,
+                        classroomId: rClassroomId,
+                        label: r.label,
+                        elementData: r.elementData ? (typeof r.elementData === 'string' ? JSON.parse(r.elementData) : r.elementData) : null
+                    };
+                }));
+                
+                // 매칭 가능한 교실이 있는지 확인
+                const possibleMatch = allRooms.find(r => {
+                    const rRefId = typeof r.referenceId === 'string' ? parseInt(r.referenceId, 10) : r.referenceId;
+                    return rRefId && Math.abs(rRefId - targetClassroomId) < 10; // 10 이내 차이
+                });
+                if (possibleMatch) {
+                    console.log('💡 유사한 교실 발견 (차이:', Math.abs((typeof possibleMatch.referenceId === 'string' ? parseInt(possibleMatch.referenceId, 10) : possibleMatch.referenceId) - targetClassroomId), '):', possibleMatch);
+                }
                 
                 skippedCount++;
                 return;
             }
+            
+            console.log('✅ 교실 요소 찾음:', {
+                apId: ap.apId,
+                classroomId: targetClassroomId,
+                roomId: roomElement.id,
+                roomLabel: roomElement.label,
+                roomReferenceId: roomElement.referenceId
+            });
             
             // referenceId 기준으로 이미 존재하는지 최종 확인 (Core state에서 직접)
             const currentElements = this.core.state.elements || [];
@@ -410,13 +533,19 @@ export default class WirelessApDesignMode {
             let width = DEFAULT_SIZE;
             let height = DEFAULT_SIZE;
             
+            let letterColor = '#000000'; // circle-l 기본 색상
+            
             if (savedPosition) {
                 backgroundColor = savedPosition.backgroundColor || backgroundColor;
                 borderColor = savedPosition.borderColor || borderColor;
                 shapeType = savedPosition.shapeType || 'circle';
-                centerX = savedPosition.x;
-                centerY = savedPosition.y;
-                if (shapeType === 'circle') {
+                letterColor = savedPosition.letterColor || letterColor; // letterColor 추가
+                
+                // savedPosition.x, y는 교실 기준 상대 좌표(오프셋)
+                const offsetX = savedPosition.x || 0;
+                const offsetY = savedPosition.y || 0;
+                
+                if (shapeType === 'circle' || shapeType === 'circle-l') {
                     radius = savedPosition.radius || DEFAULT_RADIUS;
                     width = radius * 2;
                     height = radius * 2;
@@ -424,12 +553,20 @@ export default class WirelessApDesignMode {
                     width = savedPosition.width || DEFAULT_SIZE;
                     height = savedPosition.height || DEFAULT_SIZE;
                 }
-                console.log('✅ 저장된 AP 위치 사용:', ap.apId, {
+                
+                // 교실 위치 + 상대 좌표 = 실제 중앙 좌표
+                centerX = roomElement.xCoordinate + offsetX;
+                centerY = roomElement.yCoordinate + offsetY;
+                
+                console.log('✅ 저장된 AP 위치 사용 (교실 기준):', ap.apId, {
                     shapeType,
+                    offsetX,
+                    offsetY,
                     centerX,
                     centerY,
                     width,
-                    height
+                    height,
+                    letterColor
                 });
             } else {
                 // 기본 위치 (교실 중앙 살짝 아래) - 20px 아래로 이동
@@ -438,6 +575,30 @@ export default class WirelessApDesignMode {
                 const baseCenterY = roomElement.yCoordinate + roomElement.height / 2 + 30;
                 centerX = baseCenterX;
                 centerY = baseCenterY;
+                
+                // 기본 위치도 offset으로 계산하여 저장
+                const defaultOffsetX = centerX - roomElement.xCoordinate;
+                const defaultOffsetY = centerY - roomElement.yCoordinate;
+                
+                // savedApPositions에 기본 위치 저장 (다음 로드 시에도 유지)
+                const apIdKey = String(ap.apId);
+                if (!this.savedApPositions[apIdKey]) {
+                    this.savedApPositions[apIdKey] = {
+                        x: defaultOffsetX,
+                        y: defaultOffsetY,
+                        backgroundColor,
+                        borderColor,
+                        shapeType,
+                        width,
+                        height,
+                        radius: (shapeType === 'circle' || shapeType === 'circle-l') ? radius : null
+                    };
+                    console.log('💾 기본 위치를 savedApPositions에 저장:', {
+                        apId: ap.apId,
+                        offsetX: defaultOffsetX,
+                        offsetY: defaultOffsetY
+                    });
+                }
             }
             
             // 좌상단 좌표 계산
@@ -452,39 +613,89 @@ export default class WirelessApDesignMode {
                 yCoordinate,
                 width,
                 height,
-                radius: shapeType === 'circle' ? radius : null,
+                radius: (shapeType === 'circle' || shapeType === 'circle-l') ? radius : null,
                 shapeType,
                 borderColor,
                 backgroundColor,
+                letterColor: (shapeType === 'circle-l') ? letterColor : undefined, // circle-l일 때만 letterColor 추가
                 borderWidth: 2,
                 referenceId: ap.apId,
                 parentElementId: roomElement.id,
                 label: ap.newLabelNumber,
-                zIndex: 1000 // 높은 우선순위
+                zIndex: 1000, // 높은 우선순위
+                pageNumber: roomElement.pageNumber != null ? roomElement.pageNumber : (this.core.currentPage || 1) // 교실과 같은 페이지에 배치
             };
             
-            this.elementManager.createElement('wireless_ap', apElement);
+            console.log('🔍 AP 요소 생성 시도:', {
+                apId: ap.apId,
+                label: ap.newLabelNumber,
+                classroomId: ap.classroomId,
+                roomId: roomElement.id,
+                x: xCoordinate,
+                y: yCoordinate,
+                width,
+                height,
+                shapeType,
+                pageNumber: apElement.pageNumber
+            });
             
-            // 저장 위치 초기화 (새로 생성된 경우)
-            if (!this.savedApPositions[ap.apId]) {
-                this.savedApPositions[ap.apId] = {
-                    x: centerX,
-                    y: centerY,
+            const createdElement = this.elementManager.createElement('wireless_ap', apElement);
+            
+            // 생성 확인
+            const verifyElement = this.core.state.elements.find(e => e.id === createdElement.id);
+            if (!verifyElement) {
+                console.error('❌ AP 요소가 Core state에 추가되지 않음:', ap.apId);
+            } else {
+                console.log('✅ AP 요소 Core state 확인:', verifyElement.id, verifyElement.elementType);
+            }
+            
+            // 저장 위치 확인 및 업데이트 (savedPosition이 없는 경우에만)
+            // apId를 문자열로 변환하여 키 일치 보장
+            const apIdKey = String(ap.apId);
+            if (!this.savedApPositions[apIdKey]) {
+                // 교실 기준 상대 좌표로 저장 (교실이 이동해도 AP가 함께 이동하도록)
+                const offsetX = centerX - roomElement.xCoordinate;
+                const offsetY = centerY - roomElement.yCoordinate;
+                this.savedApPositions[apIdKey] = {
+                    x: offsetX,
+                    y: offsetY,
                     backgroundColor,
                     borderColor,
                     shapeType,
                     width,
                     height,
-                    radius: shapeType === 'circle' ? radius : null
+                    radius: (shapeType === 'circle' || shapeType === 'circle-l') ? radius : null
                 };
+                console.log('💾 새로 생성된 AP 위치를 savedApPositions에 저장:', {
+                    apId: ap.apId,
+                    offsetX,
+                    offsetY
+                });
             }
             
             createdCount++;
-            console.log('✅ AP 생성:', ap.apId, ap.newLabelNumber, '교실:', roomElement.label || roomElement.id);
+            console.log('✅ AP 생성 완료:', ap.apId, ap.newLabelNumber, '교실:', roomElement.label || roomElement.id, '요소 ID:', createdElement.id);
         });
         
         console.log('✅ 무선AP 렌더링 완료: 생성', createdCount, '개, 스킵', skippedCount, '개');
+        
+        // 생성된 AP 요소 확인
+        const allApElements = this.core.state.elements.filter(e => e.elementType === 'wireless_ap');
+        console.log('📊 Core state의 무선AP 요소 개수:', allApElements.length);
+        if (allApElements.length > 0) {
+            console.log('📊 무선AP 요소 샘플:', allApElements.slice(0, 3).map(ap => ({
+                id: ap.id,
+                referenceId: ap.referenceId,
+                x: ap.xCoordinate,
+                y: ap.yCoordinate,
+                shapeType: ap.shapeType,
+                pageNumber: ap.pageNumber
+            })));
+        }
+        
+        // 강제 렌더링
         this.core.markDirty();
+        this.core.render && this.core.render();
     }
     
     
@@ -599,7 +810,7 @@ export default class WirelessApDesignMode {
         
         let updates = { shapeType: shape };
         
-        if (shape === 'circle') {
+        if (shape === 'circle' || shape === 'circle-l') {
             const radius = this.selectedElement.radius || Math.max(currentWidth, currentHeight) / 2 || (DEFAULT_SIZE / 2);
             const width = radius * 2;
             const height = radius * 2;
@@ -611,6 +822,10 @@ export default class WirelessApDesignMode {
                 xCoordinate: centerX - width / 2,
                 yCoordinate: centerY - height / 2
             };
+            // circle-l의 경우 letterColor 기본값 설정
+            if (shape === 'circle-l' && !this.selectedElement.letterColor) {
+                updates.letterColor = '#000000';
+            }
         } else {
             const size = Math.max(currentWidth, currentHeight, DEFAULT_SIZE);
             const width = size;
@@ -632,18 +847,170 @@ export default class WirelessApDesignMode {
         }
         
         if (this.selectedElement && this.selectedElement.referenceId && this.savedApPositions) {
-            const refId = this.selectedElement.referenceId;
+            // referenceId를 문자열로 변환하여 키 일치 보장
+            const refId = String(this.selectedElement.referenceId);
             const existing = this.savedApPositions[refId] || {};
+            
+            // 교실 요소 찾기 (renderWirelessAps와 동일한 로직 사용)
+            const parentElementId = this.selectedElement.parentElementId;
+            let roomElement = null;
+            
+            // 1. parentElementId로 직접 찾기
+            if (parentElementId) {
+                roomElement = this.elementManager.findElement(parentElementId);
+            }
+            
+            // 2. parentElementId로 찾지 못한 경우, 무선AP 데이터에서 classroomId 찾기
+            if (!roomElement) {
+                // apId도 숫자일 수 있으므로 타입 변환하여 비교
+                const apData = this.wirelessAps.find(ap => String(ap.apId) === refId || ap.apId === this.selectedElement.referenceId);
+                if (apData && apData.classroomId) {
+                    const targetClassroomId = typeof apData.classroomId === 'string' 
+                        ? parseInt(apData.classroomId, 10) 
+                        : apData.classroomId;
+                    
+                    if (targetClassroomId && !isNaN(targetClassroomId)) {
+                        // referenceId로 찾기
+                        roomElement = this.elementManager.findElementByReferenceId(targetClassroomId);
+                        
+                        // referenceId로 찾지 못한 경우 다른 방법으로 찾기
+                        if (!roomElement) {
+                            const allRooms = this.core.state.elements.filter(e => e.elementType === 'room');
+                            roomElement = allRooms.find(r => {
+                                // 1. referenceId로 매칭 (타입 변환)
+                                const rRefId = typeof r.referenceId === 'string' ? parseInt(r.referenceId, 10) : r.referenceId;
+                                if (rRefId && rRefId === targetClassroomId) {
+                                    return true;
+                                }
+                                // 2. classroomId로 매칭 (타입 변환)
+                                const rClassroomId = typeof r.classroomId === 'string' ? parseInt(r.classroomId, 10) : r.classroomId;
+                                if (rClassroomId && rClassroomId === targetClassroomId) {
+                                    return true;
+                                }
+                                // 3. element_data에서 classroomId 확인
+                                if (r.elementData) {
+                                    try {
+                                        const elementData = typeof r.elementData === 'string' 
+                                            ? JSON.parse(r.elementData) 
+                                            : r.elementData;
+                                        if (elementData) {
+                                            const dataClassroomId = typeof elementData.classroomId === 'string' 
+                                                ? parseInt(elementData.classroomId, 10) 
+                                                : elementData.classroomId;
+                                            if (dataClassroomId && dataClassroomId === targetClassroomId) {
+                                                return true;
+                                            }
+                                            // referenceId도 확인
+                                            const dataRefId = typeof elementData.referenceId === 'string' 
+                                                ? parseInt(elementData.referenceId, 10) 
+                                                : elementData.referenceId;
+                                            if (dataRefId && dataRefId === targetClassroomId) {
+                                                return true;
+                                            }
+                                        }
+                                    } catch (e) {
+                                        // 파싱 실패 시 무시
+                                    }
+                                }
+                                return false;
+                            }) || null;
+                        }
+                    }
+                }
+            }
+            
+            // offset 계산 (교실 기준 상대 좌표)
+            let offsetX = existing.x || 0;
+            let offsetY = existing.y || 0;
+            
+            if (roomElement) {
+                offsetX = centerX - roomElement.xCoordinate;
+                offsetY = centerY - roomElement.yCoordinate;
+                console.log('✅ 교실 요소 찾음, offset 계산:', {
+                    apId: refId,
+                    roomId: roomElement.id,
+                    centerX,
+                    centerY,
+                    roomX: roomElement.xCoordinate,
+                    roomY: roomElement.yCoordinate,
+                    offsetX,
+                    offsetY
+                });
+            } else {
+                // 교실 요소를 찾지 못한 경우, 기존 값이 offset인지 절대 좌표인지 확인
+                const existingX = existing.x || 0;
+                const existingY = existing.y || 0;
+                
+                // 절대 좌표인지 확인 (1000 이상이면 절대 좌표로 간주)
+                if (Math.abs(existingX) > 1000 || Math.abs(existingY) > 1000) {
+                    // 절대 좌표인 경우, 현재 AP의 parentElementId를 사용해서 교실을 찾아보기
+                    // parentElementId가 있으면 그 요소를 교실로 간주
+                    if (this.selectedElement.parentElementId) {
+                        const parentElement = this.elementManager.findElement(this.selectedElement.parentElementId);
+                        if (parentElement && parentElement.elementType === 'room') {
+                            offsetX = centerX - parentElement.xCoordinate;
+                            offsetY = centerY - parentElement.yCoordinate;
+                            console.log('✅ parentElementId로 교실 찾음, offset 계산:', {
+                                apId: refId,
+                                parentElementId: this.selectedElement.parentElementId,
+                                centerX,
+                                centerY,
+                                roomX: parentElement.xCoordinate,
+                                roomY: parentElement.yCoordinate,
+                                offsetX,
+                                offsetY
+                            });
+                        } else {
+                            // parentElement가 교실이 아니면 기존 offset 유지 (0이 아닌 경우)
+                            if (Math.abs(existingX) < 1000 && Math.abs(existingY) < 1000) {
+                                offsetX = existingX;
+                                offsetY = existingY;
+                            } else {
+                                // 절대 좌표이고 교실을 찾을 수 없으면 기본값 사용
+                                offsetX = 140; // 기본 offset (교실 중앙 살짝 아래)
+                                offsetY = 120;
+                            }
+                            console.warn('⚠️ 교실 요소를 찾을 수 없음, 기본 offset 사용:', {
+                                apId: refId,
+                                parentElementId: this.selectedElement.parentElementId,
+                                offsetX,
+                                offsetY
+                            });
+                        }
+                    } else {
+                        // parentElementId도 없으면 기본값 사용
+                        offsetX = 140; // 기본 offset (교실 중앙 살짝 아래)
+                        offsetY = 120;
+                        console.warn('⚠️ 교실 요소를 찾을 수 없음, 기본 offset 사용:', {
+                            apId: refId,
+                            parentElementId: null,
+                            offsetX,
+                            offsetY
+                        });
+                    }
+                } else {
+                    // 기존 값이 offset인 경우 그대로 사용
+                    offsetX = existingX;
+                    offsetY = existingY;
+                    console.warn('⚠️ 교실 요소를 찾을 수 없음, 기존 offset 사용:', {
+                        apId: refId,
+                        parentElementId,
+                        existingOffset: { x: existingX, y: existingY }
+                    });
+                }
+            }
+            
             this.savedApPositions[refId] = {
                 ...existing,
                 shapeType: shape,
-                x: centerX,
-                y: centerY,
+                x: offsetX,  // 교실 기준 상대 좌표 (offset)
+                y: offsetY,  // 교실 기준 상대 좌표 (offset)
                 width: updates.width,
                 height: updates.height,
-                radius: shape === 'circle' ? updates.radius : null,
+                radius: (shape === 'circle' || shape === 'circle-l') ? updates.radius : null,
                 backgroundColor: existing.backgroundColor ?? this.selectedElement.backgroundColor,
-                borderColor: existing.borderColor ?? this.selectedElement.borderColor
+                borderColor: existing.borderColor ?? this.selectedElement.borderColor,
+                letterColor: existing.letterColor ?? this.selectedElement.letterColor
             };
         }
         
@@ -673,21 +1040,34 @@ export default class WirelessApDesignMode {
             return;
         }
         
-        // backgroundColor 변경 (wireless_ap, mdf_idf 모두)
-        this.selectedElement.backgroundColor = color;
+        const shapeType = this.selectedElement.shapeType || 'circle';
+        let updates = {};
+        
+        // circle-l 모양인 경우: 테두리 색상과 L 색상 모두 변경
+        if (shapeType === 'circle-l') {
+            updates.borderColor = color;
+            updates.letterColor = color;
+        } else {
+            // 다른 모양: backgroundColor 변경 (기존 동작)
+            updates.backgroundColor = color;
+        }
+        
+        // 요소 속성 업데이트
+        Object.assign(this.selectedElement, updates);
         
         // Core 업데이트
-        this.elementManager.updateElement(this.selectedElement.id, { backgroundColor: color });
+        this.elementManager.updateElement(this.selectedElement.id, updates);
         const updatedElement = this.elementManager.findElement(this.selectedElement.id);
         if (updatedElement) {
             this.selectedElement = updatedElement;
         }
         if (this.selectedElement && this.selectedElement.referenceId && this.savedApPositions) {
-            const refId = this.selectedElement.referenceId;
+            // referenceId를 문자열로 변환하여 키 일치 보장
+            const refId = String(this.selectedElement.referenceId);
             const existing = this.savedApPositions[refId] || {};
             this.savedApPositions[refId] = {
                 ...existing,
-                backgroundColor: color
+                ...updates
             };
         }
         this.core.markDirty();
@@ -794,7 +1174,17 @@ export default class WirelessApDesignMode {
             const schoolId = this.core.currentSchoolId;
             if (!schoolId) return;
             
+            // 기존 savedApPositions 백업 (변경 사항 보존) - 깊은 복사
+            // FloorPlanApp 레벨에서 관리하므로 직접 참조
+            const existingSavedPositions = this.savedApPositions ? JSON.parse(JSON.stringify(this.savedApPositions)) : {};
+            
+            console.log('💾 기존 변경 사항 백업:', Object.keys(existingSavedPositions).length, '개');
+            
+            // 새로 초기화 (FloorPlanApp 레벨에서도 초기화)
             this.savedApPositions = {};
+            if (window.floorPlanApp) {
+                window.floorPlanApp.savedApPositions = this.savedApPositions;
+            }
             
             // 평면도 데이터 로드
             const response = await fetch(`/floorplan/api/schools/${schoolId}`);
@@ -802,6 +1192,8 @@ export default class WirelessApDesignMode {
             
             if (!result.success || !result.data || !result.data.elements) {
                 console.log('ℹ️ 저장된 AP/MDF 데이터 없음');
+                // 서버 데이터가 없어도 기존 변경 사항은 유지
+                this.savedApPositions = existingSavedPositions;
                 return;
             }
             
@@ -834,18 +1226,212 @@ export default class WirelessApDesignMode {
             });
             
             // 저장된 AP 위치 맵 생성 (referenceId 기준)
+            // 무선AP 위치는 "교실 기준 좌표"로 관리한다.
+            // - 백엔드에서 전달되는 xCoordinate, yCoordinate는 교실 기준 좌표(상대 좌표)로 간주한다.
+            // - 렌더링 시에는 항상 교실 위치(roomElement.xCoordinate, yCoordinate)에 상대 좌표를 더해 실제 위치를 계산한다.
             savedAps.forEach(apData => {
                 if (apData.referenceId) {
-                    this.savedApPositions[apData.referenceId] = {
-                        x: apData.xCoordinate,
-                        y: apData.yCoordinate,
+                    // referenceId를 문자열로 변환하여 키 일치 보장
+                    const apIdKey = String(apData.referenceId);
+                    
+                    // 기존 변경 사항이 있으면 우선 사용 (서버 데이터보다 우선)
+                    // referenceId가 문자열일 수도 있고 숫자일 수도 있으므로 둘 다 확인
+                    const existingPosition = existingSavedPositions[apIdKey] || existingSavedPositions[String(apData.referenceId)] || existingSavedPositions[apData.referenceId];
+                    if (existingPosition) {
+                        // 기존 변경 사항을 그대로 유지 (서버 데이터와 병합하지 않음)
+                        // 깊은 복사로 보존
+                        this.savedApPositions[apIdKey] = JSON.parse(JSON.stringify(existingPosition));
+                        console.log('💾 기존 변경 사항 유지 (AP ID:', apIdKey, '):', this.savedApPositions[apIdKey]);
+                        return;
+                    }
+                    
+                    const shapeType = apData.shapeType || 'circle';
+                    let width = apData.width;
+                    let height = apData.height;
+                    
+                    // circle 또는 circle-l인 경우 radius로부터 width/height 계산
+                    if ((shapeType === 'circle' || shapeType === 'circle-l') && apData.radius) {
+                        width = apData.radius * 2;
+                        height = apData.radius * 2;
+                    } else {
+                        width = width || 40;
+                        height = height || 40;
+                    }
+                    
+                    // 서버에서 받은 좌표는 절대 좌표(중앙 좌표)이므로, 교실 기준 offset으로 변환 필요
+                    // 먼저 해당 AP의 교실을 찾아야 함
+                    // this.wirelessAps에서 AP 정보를 찾아 실제 classroomId를 확인
+                    const apInfo = this.wirelessAps.find(ap => ap.apId === apData.referenceId);
+                    const apClassroomId = apInfo ? (typeof apInfo.classroomId === 'string' 
+                        ? parseInt(apInfo.classroomId, 10) 
+                        : apInfo.classroomId) : (typeof apData.classroomId === 'string' 
+                        ? parseInt(apData.classroomId, 10) 
+                        : apData.classroomId);
+                    
+                    let offsetX = 0;
+                    let offsetY = 0;
+                    
+                    if (apClassroomId && apData.xCoordinate != null && apData.yCoordinate != null) {
+                        // 교실 요소 찾기 (renderWirelessAps와 동일한 로직 사용)
+                        // 1. core.state.elements에서 찾기
+                        let allRooms = this.core.state.elements.filter(e => e.elementType === 'room');
+                        let apRoom = allRooms.find(r => {
+                            const rRefId = typeof r.referenceId === 'string' ? parseInt(r.referenceId, 10) : r.referenceId;
+                            const rClassroomId = typeof r.classroomId === 'string' ? parseInt(r.classroomId, 10) : r.classroomId;
+                            // 1. referenceId로 매칭
+                            if (rRefId && rRefId === apClassroomId) return true;
+                            // 2. classroomId로 매칭
+                            if (rClassroomId && rClassroomId === apClassroomId) return true;
+                            // 3. element_data에서 classroomId 확인
+                            if (r.elementData) {
+                                try {
+                                    const elementData = typeof r.elementData === 'string' ? JSON.parse(r.elementData) : r.elementData;
+                                    if (elementData) {
+                                        const dataClassroomId = typeof elementData.classroomId === 'string' 
+                                            ? parseInt(elementData.classroomId, 10) 
+                                            : elementData.classroomId;
+                                        if (dataClassroomId && dataClassroomId === apClassroomId) return true;
+                                        // referenceId도 확인
+                                        const dataRefId = typeof elementData.referenceId === 'string' 
+                                            ? parseInt(elementData.referenceId, 10) 
+                                            : elementData.referenceId;
+                                        if (dataRefId && dataRefId === apClassroomId) return true;
+                                    }
+                                } catch (e) {}
+                            }
+                            return false;
+                        });
+                        
+                        // 2. core.state.elements에서 찾지 못한 경우, 서버에서 받은 elements에서 찾기
+                        if (!apRoom) {
+                            const serverRooms = elements.filter(el => el.elementType === 'room');
+                            const serverRoom = serverRooms.find(r => {
+                                const rRefId = typeof r.referenceId === 'string' ? parseInt(r.referenceId, 10) : r.referenceId;
+                                const rClassroomId = typeof r.classroomId === 'string' ? parseInt(r.classroomId, 10) : r.classroomId;
+                                // 1. referenceId로 매칭
+                                if (rRefId && rRefId === apClassroomId) return true;
+                                // 2. classroomId로 매칭
+                                if (rClassroomId && rClassroomId === apClassroomId) return true;
+                                // 3. element_data에서 classroomId 확인
+                                if (r.elementData) {
+                                    try {
+                                        const elementData = typeof r.elementData === 'string' ? JSON.parse(r.elementData) : r.elementData;
+                                        if (elementData) {
+                                            const dataClassroomId = typeof elementData.classroomId === 'string' 
+                                                ? parseInt(elementData.classroomId, 10) 
+                                                : elementData.classroomId;
+                                            if (dataClassroomId && dataClassroomId === apClassroomId) return true;
+                                            // referenceId도 확인
+                                            const dataRefId = typeof elementData.referenceId === 'string' 
+                                                ? parseInt(elementData.referenceId, 10) 
+                                                : elementData.referenceId;
+                                            if (dataRefId && dataRefId === apClassroomId) return true;
+                                        }
+                                    } catch (e) {}
+                                }
+                                return false;
+                            });
+                            
+                            if (serverRoom) {
+                                // 서버에서 받은 교실 요소를 core.state.elements 형식으로 변환
+                                apRoom = {
+                                    id: serverRoom.id,
+                                    elementType: serverRoom.elementType,
+                                    xCoordinate: serverRoom.xCoordinate,
+                                    yCoordinate: serverRoom.yCoordinate,
+                                    width: serverRoom.width,
+                                    height: serverRoom.height,
+                                    referenceId: serverRoom.referenceId,
+                                    classroomId: serverRoom.classroomId,
+                                    pageNumber: serverRoom.pageNumber,
+                                    elementData: serverRoom.elementData
+                                };
+                                console.log('📥 서버에서 교실 요소 찾음 (core.state.elements에 없음):', {
+                                    apId: apData.referenceId,
+                                    classroomId: apClassroomId,
+                                    roomId: apRoom.id,
+                                    roomPageNumber: apRoom.pageNumber
+                                });
+                            }
+                        }
+                        
+                        if (apRoom) {
+                            // 절대 좌표(중앙)를 교실 기준 offset으로 변환
+                            // 서버에 저장된 좌표는 중앙 좌표이므로, 교실의 좌상단 좌표를 빼서 offset 계산
+                            offsetX = apData.xCoordinate - apRoom.xCoordinate;
+                            offsetY = apData.yCoordinate - apRoom.yCoordinate;
+                            console.log('🔄 절대 좌표를 offset으로 변환:', {
+                                apId: apData.referenceId,
+                                pageNumber: apRoom.pageNumber,
+                                absoluteX: apData.xCoordinate,
+                                absoluteY: apData.yCoordinate,
+                                roomX: apRoom.xCoordinate,
+                                roomY: apRoom.yCoordinate,
+                                offsetX,
+                                offsetY
+                            });
+                        } else {
+                            // 교실을 찾지 못한 경우, 절대 좌표가 작으면 offset으로 간주
+                            if (apData.xCoordinate < 5000 && apData.yCoordinate < 5000) {
+                                offsetX = apData.xCoordinate;
+                                offsetY = apData.yCoordinate;
+                                console.log('⚠️ 교실을 찾지 못함, 작은 값이므로 offset으로 간주:', {
+                                    apId: apData.referenceId,
+                                    classroomId: apClassroomId,
+                                    offsetX,
+                                    offsetY,
+                                    availableRooms: allRooms.map(r => ({
+                                        id: r.referenceId,
+                                        classroomId: r.classroomId,
+                                        pageNumber: r.pageNumber
+                                    }))
+                                });
+                            } else {
+                                // 큰 값이면 절대 좌표일 가능성이 높지만, 교실을 찾지 못했으므로 기본값 사용
+                                console.warn('⚠️ 교실을 찾지 못하고 좌표가 큼, 기본 offset 사용:', {
+                                    apId: apData.referenceId,
+                                    classroomId: apClassroomId,
+                                    absoluteX: apData.xCoordinate,
+                                    absoluteY: apData.yCoordinate,
+                                    availableRooms: allRooms.map(r => ({
+                                        id: r.referenceId,
+                                        classroomId: r.classroomId,
+                                        pageNumber: r.pageNumber
+                                    }))
+                                });
+                            }
+                        }
+                    }
+                    
+                    // apIdKey는 이미 위에서 선언되었으므로 재사용
+                    this.savedApPositions[apIdKey] = {
+                        // 교실 기준 상대 좌표 (offset)
+                        x: offsetX,
+                        y: offsetY,
                         backgroundColor: apData.backgroundColor,
                         borderColor: apData.borderColor,
-                        shapeType: apData.shapeType || 'circle',
-                        width: apData.width,
-                        height: apData.height,
-                        radius: apData.radius
+                        letterColor: apData.letterColor || '#000000',
+                        shapeType: shapeType,
+                        width: width,
+                        height: height,
+                        radius: (shapeType === 'circle' || shapeType === 'circle-l') ? (apData.radius || width / 2) : null
                     };
+                }
+            });
+            
+            // 기존 변경 사항 중 서버에 없는 AP도 유지 (새로 생성된 AP)
+            Object.keys(existingSavedPositions).forEach(apId => {
+                // apId를 문자열로 변환하여 키 일치 보장
+                const apIdKey = String(apId);
+                // 서버 데이터에서 해당 AP를 찾지 못했거나, 키가 다른 경우
+                const foundInServer = savedAps.some(ap => {
+                    const serverApIdKey = String(ap.referenceId);
+                    return serverApIdKey === apIdKey || String(ap.referenceId) === apId;
+                });
+                
+                if (!foundInServer || !this.savedApPositions[apIdKey]) {
+                    this.savedApPositions[apIdKey] = existingSavedPositions[apId];
+                    console.log('💾 새로 생성된 AP 변경 사항 유지 (AP ID:', apIdKey, '):', this.savedApPositions[apIdKey]);
                 }
             });
             
@@ -859,7 +1445,111 @@ export default class WirelessApDesignMode {
      */
     getSavedApPosition(apId) {
         if (!this.savedApPositions) return null;
-        return this.savedApPositions[apId] || null;
+        // apId를 문자열로 변환하여 키 일치 보장
+        const apIdKey = String(apId);
+        return this.savedApPositions[apIdKey] || this.savedApPositions[apId] || null;
+    }
+    
+    /**
+     * 무선AP 요소 위치 업데이트 (드래그 종료 시 호출)
+     * 요소의 좌상단 좌표를 "교실 기준 상대 좌표"로 변환하여 savedApPositions에 저장
+     */
+    updateApPosition(element) {
+        if (!element || element.elementType !== 'wireless_ap' || !element.referenceId) {
+            return;
+        }
+        
+        const width = element.width || (element.radius ? element.radius * 2 : 40);
+        const height = element.height || (element.radius ? element.radius * 2 : 40);
+        const centerX = element.xCoordinate + width / 2;
+        const centerY = element.yCoordinate + height / 2;
+        
+        // 부모 교실 요소 기준 상대 좌표 계산
+        const roomElement = this.core.state.elements.find(e => e.id === element.parentElementId);
+        if (!roomElement) {
+            console.warn('⚠️ AP 부모 교실 요소를 찾을 수 없음 - 절대 좌표로 저장됩니다.', {
+                apId: element.referenceId,
+                elementId: element.id
+            });
+            
+            // 교실을 찾지 못한 경우, 기존 offset을 유지하거나 기본값 사용
+            const refIdKey = String(element.referenceId);
+            const existingFallback = this.savedApPositions[refIdKey] || {};
+            
+            // 기존 offset이 있으면 유지, 없으면 기본 offset 사용
+            const defaultOffsetX = existingFallback.x != null ? existingFallback.x : 140; // 교실 중앙 살짝 아래
+            const defaultOffsetY = existingFallback.y != null ? existingFallback.y : 120;
+            
+            this.savedApPositions[refIdKey] = {
+                ...existingFallback,
+                x: defaultOffsetX,
+                y: defaultOffsetY,
+                width: width,
+                height: height,
+                radius: (element.shapeType === 'circle' || element.shapeType === 'circle-l') ? (element.radius || width / 2) : null,
+                shapeType: element.shapeType || existingFallback.shapeType || 'circle',
+                backgroundColor: element.backgroundColor || existingFallback.backgroundColor,
+                borderColor: element.borderColor || existingFallback.borderColor
+            };
+            console.warn('⚠️ 교실을 찾지 못함, 기본 offset 사용:', {
+                apId: element.referenceId,
+                offsetX: defaultOffsetX,
+                offsetY: defaultOffsetY
+            });
+            return;
+        }
+        
+        const offsetX = centerX - roomElement.xCoordinate;
+        const offsetY = centerY - roomElement.yCoordinate;
+        
+        // referenceId를 문자열로 변환하여 키 일치 보장
+        const refIdKey = String(element.referenceId);
+        const existing = this.savedApPositions[refIdKey] || {};
+        this.savedApPositions[refIdKey] = {
+            ...existing,
+            x: offsetX,  // 교실 기준 상대 X 좌표
+            y: offsetY,  // 교실 기준 상대 Y 좌표
+            width: width,
+            height: height,
+            radius: (element.shapeType === 'circle' || element.shapeType === 'circle-l') ? (element.radius || width / 2) : null,
+            shapeType: element.shapeType || existing.shapeType || 'circle',
+            backgroundColor: element.backgroundColor || existing.backgroundColor,
+            borderColor: element.borderColor || existing.borderColor
+        };
+        
+        console.log('💾 AP 위치 업데이트:', element.referenceId, {
+            offsetX: offsetX.toFixed(2),
+            offsetY: offsetY.toFixed(2),
+            centerX: centerX.toFixed(2),
+            centerY: centerY.toFixed(2),
+            roomX: roomElement.xCoordinate.toFixed(2),
+            roomY: roomElement.yCoordinate.toFixed(2)
+        });
+    }
+    
+    /**
+     * 페이지 전환 시 호출 (main_new_v3.js에서 호출)
+     */
+    async onPageSwitch(pageNumber) {
+        console.log(`📄 무선AP 설계 모드 - 페이지 전환: ${pageNumber}`);
+        
+        // core.currentPage 업데이트
+        if (this.core) {
+            this.core.currentPage = pageNumber;
+        }
+        
+        // 교실 요소가 로드될 때까지 대기
+        await this.waitForRoomElements();
+        
+        // 저장된 AP/MDF 위치 다시 로드 (모든 페이지의 교실 요소가 로드된 후)
+        await this.loadSavedApMdfElements();
+        
+        // 현재 페이지의 교실에 맞는 AP만 다시 렌더링
+        this.renderWirelessAps();
+        
+        // 렌더링 강제 실행
+        this.core.markDirty();
+        this.core.render && this.core.render();
     }
 }
 

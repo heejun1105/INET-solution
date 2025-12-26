@@ -71,11 +71,8 @@ public class FloorPlanService {
             
             // 4. 평면도 저장
             floorPlan = floorPlanRepository.save(floorPlan);
-            
-            // 5. 기존 요소들 삭제
-            floorPlanElementRepository.deleteByFloorPlanId(floorPlan.getId());
-            
-            // 6. 새 요소들 저장
+
+            // 5. 새 요소들 저장 (페이지 단위 병합은 saveFloorPlanElements에서 처리)
             saveFloorPlanElements(floorPlan.getId(), floorPlanData);
             
             logger.info("평면도 저장 완료 - schoolId: {}, floorPlanId: {}", schoolId, floorPlan.getId());
@@ -196,6 +193,22 @@ public class FloorPlanService {
             // elements가 null이거나 비어있으면 빈 리스트로 처리
             if (elements == null) {
                 elements = new ArrayList<>();
+            }
+
+            // 현재 페이지 정보 (프론트에서 전달, 없으면 0으로 간주)
+            int currentPage = 0;
+            if (floorPlanData.containsKey("currentPage")) {
+                currentPage = getIntValue(floorPlanData, "currentPage", 0);
+            }
+            
+            // 현재 페이지가 명시된 경우: 해당 페이지 요소만 삭제하고 나머지 페이지는 유지
+            // 현재 페이지가 0이거나 잘못 전달된 경우: 기존 방식대로 전체 삭제 (하위 호환)
+            if (currentPage > 0) {
+                logger.info("페이지 단위 저장 모드 - floorPlanId: {}, currentPage: {}", floorPlanId, currentPage);
+                floorPlanElementRepository.deleteByFloorPlanIdAndPageNumber(floorPlanId, currentPage);
+            } else {
+                logger.info("전체 페이지 저장 모드 - floorPlanId: {}", floorPlanId);
+                floorPlanElementRepository.deleteByFloorPlanId(floorPlanId);
             }
             
             logger.info("평면도 요소 저장 시작 - floorPlanId: {}, 요소 수: {}", floorPlanId, elements.size());

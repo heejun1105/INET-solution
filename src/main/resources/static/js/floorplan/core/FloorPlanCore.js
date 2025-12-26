@@ -231,8 +231,19 @@ export default class FloorPlanCore {
         
         // 4.5. A4 규격 가상선 렌더링
         // - 교실설계 모드(design-classroom)
-        // - 장비보기 모드(view-equipment)
-        const a4GuideModes = ['design-classroom', 'view-equipment'];
+        // - 무선AP 설계 모드(design-wireless)
+        // - 자리배치 설계 모드(design-seat)
+        // - 장비보기 모드(view-equipment, equipment-view)
+        // - 무선AP 보기 모드(view-wireless, wireless-ap-view)
+        const a4GuideModes = [
+            'design-classroom', 
+            'design-wireless', 
+            'design-seat', 
+            'view-equipment', 
+            'equipment-view',
+            'view-wireless',
+            'wireless-ap-view'
+        ];
         if (a4GuideModes.includes(this.state.currentMode)) {
             this.renderA4Guide(ctx);
         }
@@ -334,8 +345,32 @@ export default class FloorPlanCore {
      * 요소들 렌더링
      */
     renderElements(ctx) {
+        // 현재 페이지 필터링 (currentPage가 설정된 경우)
+        const currentPage = this.currentPage || this.state.currentPage || 1;
+        let elementsToRender = this.state.elements;
+        
+        // 현재 모드 확인
+        const currentMode = this.state.currentMode;
+        
+        // 페이지 필터링
+        if (currentPage) {
+            elementsToRender = elementsToRender.filter(element => {
+                // pageNumber가 없거나 null이면 1페이지로 간주
+                const elementPage = element.pageNumber || 1;
+                return elementPage === currentPage;
+            });
+        }
+        
+        // 모드별 필터링: 교실설계 모드에서는 무선AP 숨김
+        // 장비 보기 모드에서는 무선AP를 숨기지 않음 (AP도 표시)
+        if (currentMode === 'design-classroom') {
+            elementsToRender = elementsToRender.filter(element => {
+                return element.elementType !== 'wireless_ap';
+            });
+        }
+        
         // z-index로 정렬
-        const sortedElements = [...this.state.elements].sort(
+        const sortedElements = [...elementsToRender].sort(
             (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
         );
         
@@ -508,6 +543,37 @@ export default class FloorPlanCore {
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
+        } else if (shapeType === 'circle-l') {
+            // 원형 테두리 + 대문자 L
+            const radius = element.radius || width / 2;
+            const centerX = x + radius;
+            const centerY = y + radius;
+            const letterColor = element.letterColor || borderColor;
+            
+            // 원형 테두리만 그리기 (채우기 없음) - 굵은 선
+            ctx.fillStyle = 'transparent';
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = Math.max(4, borderWidth * 2); // 테두리를 2배로 굵게
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // 대문자 L 그리기 - 굵은 선
+            const letterSize = radius * 0.6; // L 크기
+            const letterX = centerX - letterSize * 0.3;
+            const letterY = centerY - letterSize * 0.3;
+            ctx.fillStyle = letterColor;
+            ctx.strokeStyle = letterColor;
+            ctx.lineWidth = Math.max(4, borderWidth * 2); // L도 2배로 굵게
+            ctx.lineCap = 'round'; // 선 끝을 둥글게
+            ctx.lineJoin = 'round'; // 선 연결을 둥글게
+            ctx.beginPath();
+            // L의 세로선
+            ctx.moveTo(letterX, letterY);
+            ctx.lineTo(letterX, letterY + letterSize);
+            // L의 가로선
+            ctx.lineTo(letterX + letterSize * 0.7, letterY + letterSize);
+            ctx.stroke();
         } else {
             const radius = element.radius || width / 2;
             const centerX = x + radius;
@@ -521,14 +587,20 @@ export default class FloorPlanCore {
         const label = element.label || element.newLabelNumber || '';
         if (label) {
             const baseSize = Math.min(width, height);
-            const fontSize = Math.max(12, baseSize * 0.4);
+            const fontSize = Math.max(24, baseSize * 0.8); // 두 배로 증가 (0.4 → 0.8)
             ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-            ctx.fillStyle = backgroundColor;
+            
+            // circle-l 모양일 때는 letterColor를 사용, 그 외에는 backgroundColor 사용
+            const labelColor = (shapeType === 'circle-l' && element.letterColor) 
+                ? element.letterColor 
+                : backgroundColor;
+            ctx.fillStyle = labelColor;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
 
+            // 글자 크기가 커짐에 따라 위치 조정 (더 아래로)
             const textX = x + width / 2;
-            const textY = y + height + 4;
+            const textY = y + height + Math.max(8, fontSize * 0.3); // 위치 조정
             ctx.fillText(String(label), textX, textY);
         }
     }
@@ -1221,16 +1293,26 @@ export default class FloorPlanCore {
             const w = element.width || 100;
             const h = element.height || 80;
             
+            // 현관(entrance)의 경우 대각선 핸들만 표시
+            const isEntrance = element.elementType === 'entrance' || 
+                              (element.elementType === 'shape' && element.shapeType === 'entrance');
+            
             const handles = [
                 { x: x, y: y }, // nw (좌상)
                 { x: x + w, y: y }, // ne (우상)
                 { x: x, y: y + h }, // sw (좌하)
                 { x: x + w, y: y + h }, // se (우하)
+            ];
+            
+            // 현관이 아닌 경우에만 위/아래/좌우 핸들 추가
+            if (!isEntrance) {
+                handles.push(
                 { x: x + w / 2, y: y }, // n (상)
                 { x: x + w / 2, y: y + h }, // s (하)
                 { x: x, y: y + h / 2 }, // w (좌)
-                { x: x + w, y: y + h / 2 }, // e (우)
-            ];
+                    { x: x + w, y: y + h / 2 } // e (우)
+                );
+            }
             
             ctx.fillStyle = '#3b82f6';
             ctx.strokeStyle = '#ffffff';
@@ -1569,6 +1651,17 @@ export default class FloorPlanCore {
      * 팬 설정 (경계 제한 포함)
      */
     setPan(panX, panY) {
+        // fitToElements에서 A4 중앙으로 이동한 직후인 경우 범위 제한을 무시
+        if (this._skipPanClamp) {
+            // 플래그가 설정되어 있으면 범위 제한 없이 상태 설정
+            // 플래그는 fitToElements에서 설정한 타이머에 의해 리셋됨
+            this.setState({ 
+                panX, 
+                panY 
+            });
+            return;
+        }
+        
         // 뷰포트 크기
         const viewportWidth = this.canvas.width / (window.devicePixelRatio || 1);
         const viewportHeight = this.canvas.height / (window.devicePixelRatio || 1);
@@ -1752,16 +1845,102 @@ export default class FloorPlanCore {
      * 모든 요소가 보이도록 자동 피팅
      */
     fitToElements() {
-        const elements = this.state.elements;
+        // 현재 페이지의 요소만 필터링
+        const currentPage = this.currentPage || this.state.currentPage || 1;
+        let elements = this.state.elements || [];
+        
+        // 현재 페이지의 요소만 필터링
+        if (currentPage) {
+            elements = elements.filter(element => {
+                const elementPage = element.pageNumber || 1;
+                return elementPage === currentPage;
+            });
+        }
+        
+        console.log('📐 fitToElements 내부 호출:', {
+            currentPage,
+            totalElements: this.state.elements?.length || 0,
+            currentPageElements: elements.length,
+            thisCurrentPage: this.currentPage,
+            stateCurrentPage: this.state.currentPage
+        });
         
         if (!elements || elements.length === 0) {
-            // 요소가 없으면 중앙으로
-            this.setState({
-                panX: 0,
-                panY: 0,
-                zoom: FloorPlanCore.DEFAULT_ZOOM
-            });
+            // 요소가 없으면 A4 윤곽선 중앙으로 이동
+            // 실제 화면 크기 사용 (render 메서드와 동일한 방식)
+            // requestAnimationFrame 내에서 호출될 수 있으므로 캔버스 크기를 다시 확인
+            const dpr = window.devicePixelRatio || 1;
+            const canvasWidth = (this.canvas.width || this.container?.clientWidth || 1600) / dpr;
+            const canvasHeight = (this.canvas.height || this.container?.clientHeight || 1200) / dpr;
+            
+            // A4 규격: 210mm x 297mm
+            // 96 DPI 기준으로 픽셀 변환: 1mm = 96/25.4 ≈ 3.7795px
+            // 5배 크기로 확대
+            const mmToPx = 96 / 25.4;
+            const scale = 5; // 5배 크기
+            const a4Width = 210 * mmToPx * scale;  // 약 3970px (794px * 5)
+            const a4Height = 297 * mmToPx * scale; // 약 5615px (1123px * 5)
+            
+            // 논리적 캔버스 중앙에 A4 가상선 배치 (state.canvasWidth/Height 사용)
+            const logicalCanvasWidth = this.state.canvasWidth;
+            const logicalCanvasHeight = this.state.canvasHeight;
+            const a4X = (logicalCanvasWidth - a4Width) / 2;
+            const a4Y = (logicalCanvasHeight - a4Height) / 2;
+            
+            // A4 윤곽선의 중앙 좌표 (논리적 좌표계)
+            const a4CenterX = a4X + a4Width / 2;
+            const a4CenterY = a4Y + a4Height / 2;
+            
+            // 화면 중앙 좌표 (화면 좌표계)
+            const screenCenterX = canvasWidth / 2;
+            const screenCenterY = canvasHeight / 2;
+            
+            // panX, panY 계산: 화면 중앙이 A4 중앙에 오도록
+            // 변환 공식: screenX = (canvasX + panX) * zoom
+            // 화면 중앙이 A4 중앙에 오려면: screenCenterX = (a4CenterX + panX) * zoom
+            // 따라서: panX = screenCenterX / zoom - a4CenterX
+            const currentZoom = this.state.zoom || FloorPlanCore.DEFAULT_ZOOM;
+            let panX = screenCenterX / currentZoom - a4CenterX;
+            let panY = screenCenterY / currentZoom - a4CenterY;
+            
+            // A4 중앙으로 이동할 때는 범위 제한을 무시하고 직접 상태 설정
+            // setPan의 범위 제한을 우회하기 위해 플래그 설정 (500ms 동안 유지)
+            this._skipPanClamp = true;
+            
+            // 상태를 직접 수정하여 setPan의 범위 제한을 우회
+            // setState를 사용하지 않고 직접 할당하여 범위 제한을 완전히 우회
+            this.state.panX = panX;
+            this.state.panY = panY;
+            this.state.zoom = currentZoom;
+            
+            // 플래그를 500ms 후에 리셋 (fitCanvasToViewport 호출을 고려)
+            if (this._skipPanClampTimer) {
+                clearTimeout(this._skipPanClampTimer);
+            }
+            this._skipPanClampTimer = setTimeout(() => {
+                this._skipPanClamp = false;
+                this._skipPanClampTimer = null;
+            }, 500);
+            
+            // 상태 변경 알림 (렌더링 트리거)
             this.markDirty();
+            console.log('📐 A4 윤곽선 중앙으로 화면 시점 이동:', { 
+                currentPage,
+                panX: panX.toFixed(2), 
+                panY: panY.toFixed(2), 
+                zoom: currentZoom.toFixed(4),
+                canvasWidth: canvasWidth.toFixed(2),
+                canvasHeight: canvasHeight.toFixed(2),
+                logicalCanvasWidth: logicalCanvasWidth.toFixed(2),
+                logicalCanvasHeight: logicalCanvasHeight.toFixed(2),
+                a4CenterX: a4CenterX.toFixed(2),
+                a4CenterY: a4CenterY.toFixed(2),
+                screenCenterX: screenCenterX.toFixed(2),
+                screenCenterY: screenCenterY.toFixed(2),
+                calculatedPanX: panX.toFixed(2),
+                calculatedPanY: panY.toFixed(2),
+                formula: `panX = ${screenCenterX.toFixed(2)} / ${currentZoom.toFixed(4)} - ${a4CenterX.toFixed(2)} = ${panX.toFixed(2)}`
+            });
             return;
         }
         

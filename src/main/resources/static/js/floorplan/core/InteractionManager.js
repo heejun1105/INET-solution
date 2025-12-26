@@ -387,6 +387,9 @@ export default class InteractionManager {
         const { x, y } = this.getMousePos(e);
         const canvasPos = this.core.screenToCanvas(x, y);
         
+        // 마우스 위치 저장 (드래그/리사이즈 종료 후 호버 업데이트용)
+        this.lastMousePos = { x, y };
+        
         // 줌 드래그 중
         if (this.state.isZooming) {
             this.updateZoom(y);
@@ -921,6 +924,22 @@ export default class InteractionManager {
     endDrag() {
         console.debug('✅ 드래그 종료 | 변경 전 isDragging:', this.state.isDragging, '| core.isDragging:', this.core.state.isDragging);
         
+        // 무선AP 위치 업데이트 (드래그된 무선AP 요소의 위치를 savedApPositions에 저장)
+        const draggedElements = this.dragStart.elements || [];
+        draggedElements.forEach(draggedElement => {
+            if (draggedElement.elementType === 'wireless_ap' && draggedElement.referenceId) {
+                // 최신 요소 상태 가져오기 (드래그 후 업데이트된 위치 반영)
+                const latestElement = this.core.state.elements.find(e => e.id === draggedElement.id);
+                if (latestElement) {
+                    // WirelessApDesignMode의 updateApPosition 메서드 호출
+                    const app = window.floorPlanApp;
+                    if (app && app.modeManager && typeof app.modeManager.updateApPosition === 'function') {
+                        app.modeManager.updateApPosition(latestElement);
+                    }
+                }
+            }
+        });
+        
         this.state.isDragging = false;
         this.core.state.isDragging = false;  // 즉시 직접 설정
         this.canvas.style.cursor = 'default';
@@ -928,6 +947,22 @@ export default class InteractionManager {
         // 즉시 강제 렌더링 (선택 효과 다시 표시)
         this.core.markDirty();
         this.core.render();  // 동기적으로 즉시 렌더링
+        
+        // 드래그 종료 후 현재 마우스 위치에서 호버 업데이트 (회전 핸들 감지용)
+        // 렌더링 완료 후 호버 업데이트 (요소 위치 업데이트 반영)
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (this.lastMousePos) {
+                    const canvasPos = this.core.screenToCanvas(this.lastMousePos.x, this.lastMousePos.y);
+                    console.debug('🔄 드래그 종료 후 호버 업데이트:', {
+                        mousePos: this.lastMousePos,
+                        canvasPos: canvasPos,
+                        selectedElement: this.core.state.selectedElements[0]?.id
+                    });
+                    this.updateHover(canvasPos.x, canvasPos.y);
+                }
+            });
+        });
         
         console.debug('✅ 드래그 종료 + 즉시 렌더링 | isDragging:', this.state.isDragging, '| core.isDragging:', this.core.state.isDragging);
         
@@ -1358,6 +1393,21 @@ export default class InteractionManager {
             label: el.label
         })));
         
+        // 요소 삭제 후 localElementsByPage 업데이트 (페이지 전환 시 삭제 상태 유지)
+        const app = window.floorPlanApp;
+        if (app && app.localElementsByPage && app.currentPage) {
+            // 현재 페이지의 모든 요소 저장 (삭제 후 상태 반영)
+            const currentPageElements = this.core.state.elements.filter(el => {
+                if (!el || (!el.id && !el.elementType)) return false;
+                const elPage = el.pageNumber || app.currentPage;
+                return elPage === app.currentPage;
+            });
+            
+            // 빈 배열이어도 저장 (삭제 상태 반영)
+            app.localElementsByPage[app.currentPage] = JSON.parse(JSON.stringify(currentPageElements));
+            console.log(`💾 페이지 ${app.currentPage}의 요소 ${currentPageElements.length}개 저장 (삭제 후 로컬 상태 업데이트)`);
+        }
+        
         // 현재 모드에 삭제 알림 (미배치 교실 복원용)
         if (this.currentMode && typeof this.currentMode.onElementsDeleted === 'function') {
             console.log('📞 currentMode.onElementsDeleted 콜백 호출 시작');
@@ -1583,16 +1633,24 @@ export default class InteractionManager {
         const ew = element.width || 100;
         const eh = element.height || 80;
         
+        // 현관(entrance)의 경우 대각선 핸들만 허용 (정사각형 비율 유지)
+        const isEntrance = element.elementType === 'entrance' || 
+                          (element.elementType === 'shape' && element.shapeType === 'entrance');
+        
         const handles = {
             'nw': { x: ex, y: ey },
             'ne': { x: ex + ew, y: ey },
             'sw': { x: ex, y: ey + eh },
-            'se': { x: ex + ew, y: ey + eh },
-            'n': { x: ex + ew / 2, y: ey },
-            's': { x: ex + ew / 2, y: ey + eh },
-            'w': { x: ex, y: ey + eh / 2 },
-            'e': { x: ex + ew, y: ey + eh / 2 }
+            'se': { x: ex + ew, y: ey + eh }
         };
+        
+        // 현관이 아닌 경우에만 위/아래/좌우 핸들 추가
+        if (!isEntrance) {
+            handles['n'] = { x: ex + ew / 2, y: ey };
+            handles['s'] = { x: ex + ew / 2, y: ey + eh };
+            handles['w'] = { x: ex, y: ey + eh / 2 };
+            handles['e'] = { x: ex + ew, y: ey + eh / 2 };
+        }
         
         for (const [position, handle] of Object.entries(handles)) {
             if (Math.abs(canvasX - handle.x) <= handleSize && 
@@ -1871,41 +1929,89 @@ export default class InteractionManager {
         let newWidth = this.resizeStart.originalWidth;
         let newHeight = this.resizeStart.originalHeight;
         
+        // 현관(entrance)의 경우 대각선 핸들만 허용하고 정사각형 비율 유지
+        const isEntrance = element.elementType === 'entrance' || 
+                          (element.elementType === 'shape' && element.shapeType === 'entrance');
+        
         // 핸들 위치에 따라 크기 조정
         switch (handle) {
             case 'nw':  // 북서 (좌상)
-                newX += dx_canvas;
-                newY += dy_canvas;
-                newWidth -= dx_canvas;
-                newHeight -= dy_canvas;
+                if (isEntrance) {
+                    // 현관: 대각선 변화량의 평균을 사용하여 정사각형 비율 유지
+                    const avgDelta = (dx_canvas + dy_canvas) / 2;
+                    newX = this.resizeStart.originalX + avgDelta;
+                    newY = this.resizeStart.originalY + avgDelta;
+                    newWidth = this.resizeStart.originalWidth - avgDelta;
+                    newHeight = this.resizeStart.originalHeight - avgDelta;
+                } else {
+                    newX += dx_canvas;
+                    newY += dy_canvas;
+                    newWidth -= dx_canvas;
+                    newHeight -= dy_canvas;
+                }
                 break;
             case 'ne':  // 북동 (우상)
-                newY += dy_canvas;
-                newWidth += dx_canvas;
-                newHeight -= dy_canvas;
+                if (isEntrance) {
+                    // 현관: 대각선 변화량의 평균을 사용하여 정사각형 비율 유지
+                    const avgDelta = (-dx_canvas + dy_canvas) / 2;
+                    newY = this.resizeStart.originalY + avgDelta;
+                    newWidth = this.resizeStart.originalWidth - avgDelta;
+                    newHeight = this.resizeStart.originalHeight - avgDelta;
+                    newX = this.resizeStart.originalX; // X는 변경 없음
+                } else {
+                    newY += dy_canvas;
+                    newWidth += dx_canvas;
+                    newHeight -= dy_canvas;
+                }
                 break;
             case 'sw':  // 남서 (좌하)
-                newX += dx_canvas;
-                newWidth -= dx_canvas;
-                newHeight += dy_canvas;
+                if (isEntrance) {
+                    // 현관: 대각선 변화량의 평균을 사용하여 정사각형 비율 유지
+                    const avgDelta = (dx_canvas - dy_canvas) / 2;
+                    newX = this.resizeStart.originalX + avgDelta;
+                    newWidth = this.resizeStart.originalWidth - avgDelta;
+                    newHeight = this.resizeStart.originalHeight - avgDelta;
+                    newY = this.resizeStart.originalY; // Y는 변경 없음
+                } else {
+                    newX += dx_canvas;
+                    newWidth -= dx_canvas;
+                    newHeight += dy_canvas;
+                }
                 break;
             case 'se':  // 남동 (우하)
-                newWidth += dx_canvas;
-                newHeight += dy_canvas;
+                if (isEntrance) {
+                    // 현관: 대각선 변화량의 평균을 사용하여 정사각형 비율 유지
+                    const avgDelta = (dx_canvas + dy_canvas) / 2;
+                    newWidth = this.resizeStart.originalWidth + avgDelta;
+                    newHeight = this.resizeStart.originalHeight + avgDelta;
+                    newX = this.resizeStart.originalX; // X는 변경 없음
+                    newY = this.resizeStart.originalY; // Y는 변경 없음
+                } else {
+                    newWidth += dx_canvas;
+                    newHeight += dy_canvas;
+                }
                 break;
-            case 'n':   // 북 (상)
-                newY += dy_canvas;
-                newHeight -= dy_canvas;
+            case 'n':   // 북 (상) - 현관은 비활성화
+                if (!isEntrance) {
+                    newY += dy_canvas;
+                    newHeight -= dy_canvas;
+                }
                 break;
-            case 's':   // 남 (하)
-                newHeight += dy_canvas;
+            case 's':   // 남 (하) - 현관은 비활성화
+                if (!isEntrance) {
+                    newHeight += dy_canvas;
+                }
                 break;
-            case 'w':   // 서 (좌)
-                newX += dx_canvas;
-                newWidth -= dx_canvas;
+            case 'w':   // 서 (좌) - 현관은 비활성화
+                if (!isEntrance) {
+                    newX += dx_canvas;
+                    newWidth -= dx_canvas;
+                }
                 break;
-            case 'e':   // 동 (우)
-                newWidth += dx_canvas;
+            case 'e':   // 동 (우) - 현관은 비활성화
+                if (!isEntrance) {
+                    newWidth += dx_canvas;
+                }
                 break;
         }
         
@@ -1994,6 +2100,22 @@ export default class InteractionManager {
         this.core.markDirty();
         this.core.render();  // 동기적으로 즉시 렌더링
         
+        // 리사이즈 종료 후 현재 마우스 위치에서 호버 업데이트 (회전 핸들 감지용)
+        // 렌더링 완료 후 호버 업데이트 (요소 위치 업데이트 반영)
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (this.lastMousePos) {
+                    const canvasPos = this.core.screenToCanvas(this.lastMousePos.x, this.lastMousePos.y);
+                    console.debug('🔄 리사이즈 종료 후 호버 업데이트:', {
+                        mousePos: this.lastMousePos,
+                        canvasPos: canvasPos,
+                        selectedElement: this.core.state.selectedElements[0]?.id
+                    });
+                    this.updateHover(canvasPos.x, canvasPos.y);
+                }
+            });
+        });
+        
         console.debug('✅ 리사이즈 종료 + 즉시 렌더링 | isResizing:', this.core.state.isResizing);
     }
     
@@ -2021,20 +2143,44 @@ export default class InteractionManager {
      * 호버 업데이트 (커서 포함)
      */
     updateHover(canvasX, canvasY) {
-        const selectedElement = this.core.state.selectedElements[0];
+        // 선택된 요소가 있으면 최신 상태로 가져오기 (드래그/리사이즈 후 위치 업데이트 반영)
+        const selectedElementId = this.core.state.selectedElements[0]?.id;
+        let selectedElement = null;
+        if (selectedElementId) {
+            // core.state.elements에서 최신 상태로 가져오기
+            selectedElement = this.core.state.elements.find(e => e.id === selectedElementId);
+        }
         
-        // 선택된 요소의 리사이즈 핸들 위에 있는지 확인
+        // 선택된 요소의 리사이즈 핸들 위에 있는지 확인 (회전 핸들 포함)
         if (selectedElement) {
             const handle = this.findResizeHandle(canvasX, canvasY, selectedElement);
             if (handle) {
+                console.debug('🎯 선택된 요소의 핸들 감지:', {
+                    handle: handle,
+                    elementId: selectedElement.id,
+                    elementType: selectedElement.elementType,
+                    canvasPos: { x: canvasX.toFixed(1), y: canvasY.toFixed(1) },
+                    elementPos: {
+                        x: selectedElement.xCoordinate.toFixed(1),
+                        y: selectedElement.yCoordinate.toFixed(1),
+                        w: selectedElement.width?.toFixed(1),
+                        h: selectedElement.height?.toFixed(1)
+                    }
+                });
                 this.canvas.style.cursor = this.getResizeCursor(handle);
+                // 선택된 요소를 hoveredElement로 설정하여 핸들이 표시되도록 함
+                if (this.core.state.hoveredElement !== selectedElement) {
+                    this.core.setState({ hoveredElement: selectedElement });
+                }
                 return;
             }
         }
         
         // 호버된 요소 확인
         const hoveredElement = this.findElementAt(canvasX, canvasY);
-        this.core.setState({ hoveredElement });
+        if (hoveredElement !== this.core.state.hoveredElement) {
+            this.core.setState({ hoveredElement });
+        }
         this.canvas.style.cursor = hoveredElement ? 'move' : 'default';
     }
     

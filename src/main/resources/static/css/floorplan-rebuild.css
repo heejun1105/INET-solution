@@ -151,6 +151,65 @@
     font-size: 16px;
 }
 
+/* 간소화 모드에서 기본 크기 설정 미니멀 스타일 */
+.design-toolbar-container.collapsed .size-control-group {
+    margin-bottom: 8px;
+    padding: 6px 4px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.design-toolbar-container.collapsed .size-label-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.design-toolbar-container.collapsed .size-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: #6b7280;
+    text-align: left;
+    line-height: 1.2;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.design-toolbar-container.collapsed .size-inputs {
+    flex-direction: row;
+    gap: 3px;
+    width: 100%;
+    align-items: center;
+}
+
+.design-toolbar-container.collapsed .size-input {
+    flex: 1;
+    padding: 3px 4px;
+    font-size: 9px;
+    border-radius: 3px;
+    text-align: center;
+    min-width: 0;
+}
+
+.design-toolbar-container.collapsed .size-separator {
+    font-size: 8px;
+    color: #9ca3af;
+    font-weight: 500;
+    flex-shrink: 0;
+    padding: 0 1px;
+}
+
+.design-toolbar-container.collapsed .size-reset-btn {
+    width: 18px;
+    height: 18px;
+    font-size: 8px;
+    flex-shrink: 0;
+}
+
 /* 토글 버튼 */
 .toolbar-toggle-btn {
     position: absolute;
@@ -362,7 +421,7 @@
 /* 무선AP 모양 선택 */
 .shape-selector {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 96px));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     justify-content: space-between;
     gap: 6px;
     margin-bottom: 6px;
@@ -446,6 +505,27 @@
     border-left: 12px solid transparent;
     border-right: 12px solid transparent;
     border-bottom: 24px solid #f97316;
+}
+
+.shape-icon.circle-l {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #3b82f6;
+    background: transparent;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.shape-icon.circle-l::after {
+    content: 'L';
+    font-size: 14px;
+    font-weight: bold;
+    color: #3b82f6;
+    line-height: 1;
+    margin-top: -1px;
 }
 
 .shape-label {
@@ -3063,5 +3143,55 @@
 
 #workspace-close-btn:hover {
     background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+/* 페이지 네비게이션 UI - 태블릿/모바일 위치 조정 */
+@media (max-width: 1024px) {
+    #page-navigation-ui {
+        top: 180px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    #page-navigation-ui {
+        top: 200px !important;
+        right: 10px !important;
+        padding: 5px 8px !important;
+        font-size: 11px !important;
+    }
+    
+    #page-navigation-ui button {
+        width: 22px !important;
+        height: 22px !important;
+        font-size: 9px !important;
+    }
+    
+    #page-info-display {
+        min-width: 50px !important;
+        font-size: 11px !important;
+    }
+    
+    /* 모바일에서 장비보기 모드 버튼 텍스트 숨기기 (아이콘만 표시) */
+    #workspace-design-btn span,
+    #workspace-ppt-btn span,
+    #workspace-close-btn span {
+        display: none !important;
+    }
+    
+    /* 아이콘만 표시되도록 버튼 크기 조정 */
+    #workspace-design-btn,
+    #workspace-ppt-btn,
+    #workspace-close-btn {
+        min-width: 44px !important;
+        width: 44px !important;
+        padding: 0.6rem !important;
+        justify-content: center !important;
+    }
+    
+    #workspace-design-btn i,
+    #workspace-ppt-btn i,
+    #workspace-close-btn i {
+        margin: 0 !important;
+    }
 }
 

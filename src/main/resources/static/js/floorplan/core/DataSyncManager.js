@@ -304,8 +304,11 @@ export default class DataSyncManager {
         // 현재 페이지 번호 가져오기 (FloorPlanApp에서 설정된 값)
         const currentPage = this.core.currentPage || window.floorPlanApp?.currentPage || 1;
         
-        // 모든 요소 저장 (타입 구분 없이)
-        const allElements = elements.map(element => {
+        // 모든 요소를 저장하되, 각 요소의 pageNumber는 그대로 유지
+        // (백엔드는 currentPage에 해당하는 요소만 먼저 지우고, 전체 elements를 병합 저장)
+        const allElements = (elements || []).map(element => {
+            if (!element || (!element.id && !element.elementType)) return null;
+            
             const elementData = { ...element };
             
             // 페이지 번호가 없으면 현재 페이지로 설정
@@ -350,7 +353,7 @@ export default class DataSyncManager {
             }
             
             return elementData;
-        });
+        }).filter(Boolean);
         
         console.log('💾 저장할 요소들:', allElements.map(el => ({
             type: el.elementType,
@@ -368,6 +371,8 @@ export default class DataSyncManager {
             gridSize,
             showGrid,
             snapToGrid,
+            // 현재 저장 중인 페이지 (백엔드에서 페이지 단위 병합에 사용)
+            currentPage,
             elements: allElements  // 모든 요소를 elements 배열로 저장
         };
     }

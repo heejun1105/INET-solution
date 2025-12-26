@@ -42,6 +42,9 @@ class FloorPlanApp {
         this.deletedPages = []; // 삭제 예정인 페이지 번호 목록 (저장 시 실제 삭제)
         this.localElementsByPage = {}; // 페이지별 로컬 요소 저장 (저장되지 않은 요소)
         
+        // AP 변경 사항 보존 (모드 전환 시에도 유지)
+        this.savedApPositions = {};
+        
         // 첫 진입 여부 확인 (localStorage 사용)
         this.isFirstEntry = !localStorage.getItem('floorplan_has_entered');
         
@@ -140,7 +143,8 @@ class FloorPlanApp {
             }
 
             // pan 클램프 유도 (코어의 setPan이 내부 클램프 처리 가정)
-            if (typeof this.core.setPan === 'function') {
+            // 단, fitToElements에서 A4 중앙으로 이동한 직후인 경우 범위 제한을 무시
+            if (typeof this.core.setPan === 'function' && !this.core._skipPanClamp) {
                 this.core.setPan(this.core.state.panX, this.core.state.panY);
             }
 
@@ -1647,8 +1651,14 @@ class FloorPlanApp {
                     const maxPageData = await maxPageResponse.json();
                     const maxPageValue = parseInt(maxPageData.maxPage, 10);
                     if (maxPageData.success && !isNaN(maxPageValue) && maxPageValue > 0) {
-                        this.maxPage = maxPageValue;
-                        console.log(`📄 저장 전 maxPage 업데이트: ${this.maxPage} (원본: ${maxPageData.maxPage}, 타입: ${typeof maxPageData.maxPage})`);
+                        // 서버에서 받은 maxPage가 현재 maxPage보다 클 때만 업데이트
+                        // (작업 중인 페이지 수를 서버 응답으로 줄이지 않도록 보호)
+                        if (maxPageValue >= this.maxPage) {
+                            this.maxPage = maxPageValue;
+                            console.log(`📄 저장 전 maxPage 업데이트: ${this.maxPage} (원본: ${maxPageData.maxPage}, 타입: ${typeof maxPageData.maxPage})`);
+                        } else {
+                            console.log(`ℹ️ 저장 전 maxPage 응답 무시 (서버 값이 더 작음): 현재=${this.maxPage}, 서버=${maxPageValue}`);
+                        }
                     }
                 }
             } catch (error) {
@@ -1784,8 +1794,13 @@ class FloorPlanApp {
                     console.warn('저장 후 maxPage 조회 실패:', error);
                 }
                 
-                // 13. 저장 후 빈 페이지 제거 및 maxPage 업데이트
-                await this.cleanupEmptyPages();
+                // 13. (중단) 자동 빈 페이지 삭제 기능
+                // cleanupEmptyPages는 서버에서 각 페이지 요소 수를 다시 조회해
+                // 요소가 없는 페이지를 바로 삭제하는데,
+                // 사용자가 해당 페이지를 건드리지 않고 저장만 해도
+                // 예기치 않게 페이지가 삭제되는 문제가 있어 비활성화한다.
+                // 필요 시, 명시적인 페이지 삭제 기능(deleteCurrentPage)을 사용하도록 제한한다.
+                // await this.cleanupEmptyPages();
                 
                 // 14. 저장 후 maxPage 업데이트 및 페이지 정보 표시 업데이트
                 this.updatePageDisplay();
@@ -2026,6 +2041,23 @@ class FloorPlanApp {
             console.log(`📄 maxPage 자동 증가 (switchPage): ${this.maxPage}`);
         }
         
+        // 로컬에 빈 배열이 저장되어 있으면 (모든 요소가 삭제된 경우) 서버 요소를 로드하지 않음
+        if (this.localElementsByPage.hasOwnProperty(pageNumber) && 
+            Array.isArray(this.localElementsByPage[pageNumber]) && 
+            this.localElementsByPage[pageNumber].length === 0) {
+            console.log(`🗑️ 페이지 ${pageNumber}의 모든 요소가 삭제됨 (서버 요소 로드 건너뜀)`);
+            this.core.state.elements = [];
+            this.core.currentPage = pageNumber;
+            this.core.markDirty();
+            this.core.render && this.core.render();
+            this.updatePageDisplay();
+            if (this.modeManager && typeof this.modeManager.onPageSwitch === 'function') {
+                this.modeManager.onPageSwitch(pageNumber);
+            }
+            console.log(`📄 페이지 전환: ${pageNumber} (최대: ${this.maxPage})`);
+            return;
+        }
+        
         // 해당 페이지의 요소들만 필터링하여 표시
         const loadResult = await this.loadPageElements(pageNumber);
         
@@ -2085,8 +2117,24 @@ class FloorPlanApp {
         // 저장된 로컬 요소 복원 (있는 경우)
         // 저장 후에는 localElementsByPage가 초기화되므로, 저장되지 않은 작업만 복원
         // 로컬 변경사항(이동, 삭제)을 우선시해야 함
-        if (this.localElementsByPage[pageNumber] && this.localElementsByPage[pageNumber].length > 0) {
+        // localElementsByPage[pageNumber]가 존재하면 (빈 배열이어도) 로컬 상태를 우선시
+        if (this.localElementsByPage.hasOwnProperty(pageNumber)) {
             const savedLocalElements = this.localElementsByPage[pageNumber];
+            
+            // 빈 배열인 경우 (모든 요소가 삭제된 경우) 서버 요소를 무시하고 빈 배열로 설정
+            if (savedLocalElements.length === 0) {
+                console.log(`🗑️ 페이지 ${pageNumber}의 모든 요소가 삭제됨 (로컬 상태 유지)`);
+                this.core.state.elements = [];
+                this.core.markDirty();
+                this.core.render && this.core.render();
+                this.updatePageDisplay();
+                if (this.modeManager && typeof this.modeManager.onPageSwitch === 'function') {
+                    this.modeManager.onPageSwitch(pageNumber);
+                }
+                console.log(`📄 페이지 전환: ${pageNumber} (최대: ${this.maxPage})`);
+                return;
+            }
+            
             // 깊은 복사로 복원
             const restoredElements = JSON.parse(JSON.stringify(savedLocalElements));
             
@@ -2103,61 +2151,18 @@ class FloorPlanApp {
             });
             
             // 최종 요소 목록 구성: 로컬 변경사항 우선
+            // 로컬 요소 목록이 "진실의 원천"이 되므로, 로컬에 있는 요소만 사용
+            // 로컬에 없는 서버 요소는 삭제된 것으로 간주하여 추가하지 않음
             const finalElements = [];
             const addedElementIds = new Set(); // 추가된 요소 ID 추적
             const addedCoords = new Set(); // 추가된 좌표 추적 (중복 방지)
             
-            // 1단계: 서버 요소 처리 (로컬에 같은 ID가 있으면 로컬 버전 사용, 없으면 서버 버전 사용)
-            this.core.state.elements.forEach(serverEl => {
-                if (!serverEl || (!serverEl.id && !serverEl.elementType)) return;
-                
-                const serverElementId = serverEl.id ? serverEl.id.toString() : null;
-                
-                // 서버 요소의 ID가 로컬 요소에 있으면 로컬 버전 사용 (로컬에서 이동한 경우)
-                // temp ID가 아닌 경우에만 확인
-                if (serverElementId && !serverElementId.startsWith('temp')) {
-                    if (localElementsById.has(serverElementId)) {
-                        // 로컬에 같은 ID가 있으면 로컬 버전 사용 (로컬 변경사항 우선)
-                        const localEl = localElementsById.get(serverElementId);
-                        const coordKey = `${localEl.elementType || 'unknown'}_${localEl.xCoordinate}_${localEl.yCoordinate}`;
-                        if (!addedCoords.has(coordKey)) {
-                            addedCoords.add(coordKey);
-                            addedElementIds.add(serverElementId);
-                            finalElements.push(localEl);
-                            console.log(`🔄 로컬 버전 사용 (이동/수정): ID ${serverElementId}`);
-                        }
-                    } else {
-                        // 로컬에 없으면 서버 버전 사용 (삭제하지 않은 요소)
-                        const coordKey = `${serverEl.elementType || 'unknown'}_${serverEl.xCoordinate}_${serverEl.yCoordinate}`;
-                        if (!addedCoords.has(coordKey)) {
-                            addedCoords.add(coordKey);
-                            addedElementIds.add(serverElementId);
-                            finalElements.push(serverEl);
-                        }
-                    }
-                } else {
-                    // temp ID인 서버 요소는 좌표 기반으로 확인
-                    const coordKey = `${serverEl.elementType || 'unknown'}_${serverEl.xCoordinate}_${serverEl.yCoordinate}`;
-                    if (!addedCoords.has(coordKey)) {
-                        addedCoords.add(coordKey);
-                        finalElements.push(serverEl);
-                    }
-                }
-            });
-            
-            // 2단계: 로컬에만 있는 요소 추가 (새로 추가한 요소)
+            // 1단계: 로컬 요소 추가 (로컬 요소가 우선)
+            // 로컬에 저장된 요소만 사용하고, 서버 요소는 로컬에 있는 것만 참고
             restoredElements.forEach(localEl => {
                 if (!localEl || (!localEl.id && !localEl.elementType)) return;
                 
                 const elementId = localEl.id ? localEl.id.toString() : null;
-                
-                // 이미 추가된 요소는 제외
-                if (elementId && !elementId.startsWith('temp')) {
-                    if (addedElementIds.has(elementId)) {
-                        return; // 이미 추가됨
-                    }
-                }
-                
                 const coordKey = `${localEl.elementType || 'unknown'}_${localEl.xCoordinate}_${localEl.yCoordinate}`;
                 
                 // 좌표 기반 중복 체크
@@ -2167,12 +2172,16 @@ class FloorPlanApp {
                 }
                 
                 addedCoords.add(coordKey);
-                if (elementId) {
+                if (elementId && !elementId.startsWith('temp')) {
                     addedElementIds.add(elementId);
                 }
                 finalElements.push(localEl);
-                console.log(`➕ 로컬에만 있는 요소 추가: ${elementId || 'temp'}`);
+                console.log(`✅ 로컬 요소 추가: ${elementId || 'temp'} (로컬 변경사항 반영)`);
             });
+            
+            // 2단계: 서버 요소는 로컬에 있는 요소만 참고 (이미 1단계에서 로컬 요소를 모두 추가했으므로 서버 요소는 추가하지 않음)
+            // 로컬 요소 목록이 "진실의 원천"이므로, 로컬에 없는 서버 요소는 삭제된 것으로 간주
+            // 서버 요소는 로컬 요소의 최신 상태를 확인하는 용도로만 사용 (이미 로컬 요소에 반영됨)
             
             // 최종 요소 목록으로 교체
             this.core.state.elements = finalElements;

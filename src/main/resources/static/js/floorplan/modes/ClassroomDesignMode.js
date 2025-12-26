@@ -147,13 +147,26 @@ export default class ClassroomDesignMode {
             this.loadUnplacedClassrooms(this.core.currentSchoolId);
         }
         
-        // 현재 요소들 기준으로 뷰 자동 피팅 (장비보기 모드와 동일한 기준을 유지)
-        if (this.core && this.core.state && this.core.state.elements) {
-            this.core.fitToElements();
+        // 현재 페이지 확인 및 설정 (모드 전환 시 페이지 유지)
+        const currentPage = this.core.currentPage || this.core.state.currentPage || 1;
+        this.core.currentPage = currentPage;
+        this.core.state.currentPage = currentPage;
+        console.log('📄 교실 설계 모드 활성화 - 현재 페이지:', currentPage);
+        
+        // 모드 전환 시 카메라 위치(panX, panY, zoom) 유지
+        // fitToElements() 호출 제거하여 이전 모드의 화면 위치 유지
+        
+        // 캔버스 크기 확인 및 필요시 리사이즈
+        if (this.core.container) {
+            const rect = this.core.container.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+                this.core.resize();
+            }
         }
         
-        // 강제 렌더링
+        // 강제 렌더링 (카메라 위치는 유지)
         this.core.markDirty();
+        this.core.render();
     }
     
     /**
@@ -1292,7 +1305,8 @@ export default class ClassroomDesignMode {
             borderColor: this.currentColor,  // 현재 선택된 선 색상
             backgroundColor: this.currentFillColor,  // 현재 선택된 채우기 색상
             borderWidth: this.currentLineWidth,
-            zIndex: 0  // 건물은 기본 레이어
+            zIndex: 0,  // 건물은 기본 레이어
+            pageNumber: this.core.currentPage || 1  // 현재 페이지 설정
         });
         
         console.log('🏢 건물 생성 완료:', building);
@@ -1308,7 +1322,8 @@ export default class ClassroomDesignMode {
             label: name,
             // backgroundColor, borderColor, borderWidth 제거 (투명하게 렌더링)
             parentElementId: building.id,
-            zIndex: 0  // 건물과 동일한 레이어
+            zIndex: 0,  // 건물과 동일한 레이어
+            pageNumber: this.core.currentPage || 1  // 현재 페이지 설정
         });
         
         this.selectTool(null);
@@ -1349,7 +1364,8 @@ export default class ClassroomDesignMode {
             borderColor: this.currentColor,  // 현재 선택된 선 색상
             backgroundColor: this.currentFillColor,  // 현재 선택된 채우기 색상
             borderWidth: this.currentLineWidth,
-            zIndex: 2  // 교실은 도형보다 위 (건물:0, 도형:1, 교실:2)
+            zIndex: 2,  // 교실은 도형보다 위 (건물:0, 도형:1, 교실:2)
+            pageNumber: this.core.currentPage || 1  // 현재 페이지 설정
         });
         
         console.log('🚪 교실 생성 완료:', room);
@@ -1365,7 +1381,8 @@ export default class ClassroomDesignMode {
             label: name,
             // backgroundColor, borderColor, borderWidth 제거 (투명하게 렌더링)
             parentElementId: room.id,
-            zIndex: 2  // 교실과 동일한 레이어
+            zIndex: 2,  // 교실과 동일한 레이어
+            pageNumber: this.core.currentPage || 1  // 현재 페이지 설정
         });
         
         this.selectTool(null);
@@ -1397,7 +1414,8 @@ export default class ClassroomDesignMode {
             borderColor: this.currentColor,
             backgroundColor: this.currentFillColor,
             borderWidth: this.currentLineWidth,
-            zIndex: 2
+            zIndex: 2,
+            pageNumber: this.core.currentPage || 1  // 현재 페이지 설정
         });
         
         this.selectTool(null);
@@ -1429,7 +1447,8 @@ export default class ClassroomDesignMode {
             borderColor: this.currentColor,
             backgroundColor: this.currentFillColor,
             borderWidth: this.currentLineWidth,
-            zIndex: 2
+            zIndex: 2,
+            pageNumber: this.core.currentPage || 1  // 현재 페이지 설정
         });
         
         this.selectTool(null);
@@ -1595,7 +1614,8 @@ export default class ClassroomDesignMode {
             borderColor: this.currentColor,
             borderWidth: this.currentLineWidth,
             backgroundColor: this.currentTool === 'line' || this.currentTool === 'dashed-line' ? 'transparent' : this.currentFillColor,
-            zIndex: 1  // 도형은 건물보다 위, 교실보다 아래
+            zIndex: 1,  // 도형은 건물보다 위, 교실보다 아래
+            pageNumber: this.core.currentPage || 1  // 현재 페이지 설정
         };
         
         // 선/점선의 경우 시작점과 끝점 저장
@@ -1611,6 +1631,16 @@ export default class ClassroomDesignMode {
         if (this.currentTool === 'entrance') {
             elementType = 'entrance';
             elementData.rotation = 180;  // 기본 180도 회전 (캐시 우회)
+            
+            // 현관의 경우 정사각형 비율 유지 (더 큰 값을 사용)
+            const size = Math.max(width, height);
+            elementData.width = size;
+            elementData.height = size;
+            // 중앙을 기준으로 위치 조정
+            const centerX = (this.drawStartPos.x + x) / 2;
+            const centerY = (this.drawStartPos.y + y) / 2;
+            elementData.xCoordinate = centerX - size / 2;
+            elementData.yCoordinate = centerY - size / 2;
         } else if (this.currentTool === 'stairs') {
             elementType = 'stairs';
         }
@@ -1921,7 +1951,8 @@ export default class ClassroomDesignMode {
             borderWidth: this.currentLineWidth,
             classroomId: classroomId,  // 교실 ID 저장 (좌표 업데이트 시 사용)
             referenceId: classroomId,  // 평면도 저장/로드 시 교실 연결용
-            zIndex: 2  // 교실은 도형보다 위 (건물:0, 도형:1, 교실:2)
+            zIndex: 2,  // 교실은 도형보다 위 (건물:0, 도형:1, 교실:2)
+            pageNumber: this.core.currentPage || 1  // 현재 페이지 설정
         });
         
         // 이름박스 자동 생성 - 기본 크기 사용
@@ -1938,7 +1969,8 @@ export default class ClassroomDesignMode {
             borderWidth: 1,
             fontSize: 18,  // 16 → 18 (+2px)
             parentElementId: room.id,
-            zIndex: 2  // 교실과 동일한 레이어
+            zIndex: 2,  // 교실과 동일한 레이어
+            pageNumber: this.core.currentPage || 1  // 현재 페이지 설정
         });
         
         // 배치된 교실 ID 추적 (미배치 리스트 필터링용)
