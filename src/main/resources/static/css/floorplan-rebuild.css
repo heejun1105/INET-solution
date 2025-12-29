@@ -193,6 +193,14 @@
     border-radius: 3px;
     text-align: center;
     min-width: 0;
+    /* 접힌 상태에서 스피너 제거 */
+    -moz-appearance: textfield;
+}
+
+.design-toolbar-container.collapsed .size-input::-webkit-inner-spin-button,
+.design-toolbar-container.collapsed .size-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .design-toolbar-container.collapsed .size-separator {
