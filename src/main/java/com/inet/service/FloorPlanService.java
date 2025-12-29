@@ -196,16 +196,57 @@ public class FloorPlanService {
             }
 
             // 현재 페이지 정보 (프론트에서 전달, 없으면 0으로 간주)
-            int currentPage = 0;
+            final int currentPage;
             if (floorPlanData.containsKey("currentPage")) {
                 currentPage = getIntValue(floorPlanData, "currentPage", 0);
+            } else {
+                currentPage = 0;
             }
             
             // 현재 페이지가 명시된 경우: 해당 페이지 요소만 삭제하고 나머지 페이지는 유지
             // 현재 페이지가 0이거나 잘못 전달된 경우: 기존 방식대로 전체 삭제 (하위 호환)
             if (currentPage > 0) {
                 logger.info("페이지 단위 저장 모드 - floorPlanId: {}, currentPage: {}", floorPlanId, currentPage);
+                
+                // 현재 페이지의 요소만 삭제 (무선AP 포함)
+                // 삭제 전에 중복된 AP가 있는지 확인하고 로그만 남기기 (실제 삭제는 deleteByFloorPlanIdAndPageNumber에서 처리)
+                List<FloorPlanElement> existingAps = floorPlanElementRepository.findByFloorPlanIdAndPageNumber(floorPlanId, currentPage)
+                    .stream()
+                    .filter(el -> "wireless_ap".equals(el.getElementType()))
+                    .collect(java.util.stream.Collectors.toList());
+                
+                // 중복된 AP 찾기 (로깅용)
+                Map<String, List<FloorPlanElement>> apByKey = new HashMap<>();
+                for (FloorPlanElement ap : existingAps) {
+                    if (ap.getReferenceId() != null) {
+                        String key = String.format("ap_%d_%d", ap.getReferenceId(), currentPage);
+                        apByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(ap);
+                    }
+                }
+                
+                // 중복된 AP 로깅
+                for (Map.Entry<String, List<FloorPlanElement>> entry : apByKey.entrySet()) {
+                    if (entry.getValue().size() > 1) {
+                        logger.warn("중복된 무선AP 발견 (저장 전): key={}, 개수={}", entry.getKey(), entry.getValue().size());
+                    }
+                }
+                
+                // 현재 페이지의 요소만 삭제 (무선AP 포함, 중복 포함 모두 삭제)
                 floorPlanElementRepository.deleteByFloorPlanIdAndPageNumber(floorPlanId, currentPage);
+                
+                // 현재 페이지의 요소만 필터링하여 저장 (다른 페이지 요소는 제외)
+                final int finalCurrentPage = currentPage; // 람다에서 사용하기 위한 final 변수
+                elements = elements.stream()
+                    .filter(element -> {
+                        Integer elementPage = getIntValue(element, "pageNumber", null);
+                        if (elementPage == null) {
+                            elementPage = finalCurrentPage; // 페이지 번호가 없으면 현재 페이지로 간주
+                        }
+                        return elementPage.equals(finalCurrentPage);
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+                
+                logger.info("현재 페이지({}) 요소만 필터링: {}개", currentPage, elements.size());
             } else {
                 logger.info("전체 페이지 저장 모드 - floorPlanId: {}", floorPlanId);
                 floorPlanElementRepository.deleteByFloorPlanId(floorPlanId);
@@ -216,10 +257,32 @@ public class FloorPlanService {
             // ID 매핑 테이블 (프론트엔드 임시 ID -> 백엔드 실제 ID)
             Map<String, Long> idMapping = new HashMap<>();
             
-            // 1단계: 부모 요소들을 먼저 저장 (building, room, shape)
+            // 중복 방지를 위한 Set (referenceId + pageNumber + elementType 조합)
+            // 무선AP의 경우 referenceId와 pageNumber 조합으로 중복 체크
+            Set<String> savedElementKeys = new HashSet<>();
+            
+            // 1단계: 부모 요소들을 먼저 저장 (building, room, shape, wireless_ap)
             for (Map<String, Object> element : elements) {
                 String elementType = (String) element.get("elementType");
                 if (elementType != null && !elementType.equals("name_box")) {
+                    // 무선AP의 경우 중복 체크
+                    if ("wireless_ap".equals(elementType)) {
+                        Long referenceId = extractReferenceId(element, elementType);
+                        Integer pageNumber = getIntValue(element, "pageNumber", null);
+                        if (pageNumber == null) {
+                            pageNumber = currentPage > 0 ? currentPage : 1;
+                        }
+                        
+                        if (referenceId != null) {
+                            String duplicateKey = String.format("wireless_ap_%d_%d", referenceId, pageNumber);
+                            if (savedElementKeys.contains(duplicateKey)) {
+                                logger.warn("중복된 무선AP 요소 스킵: referenceId={}, pageNumber={}", referenceId, pageNumber);
+                                continue;
+                            }
+                            savedElementKeys.add(duplicateKey);
+                        }
+                    }
+                    
                     Object frontendId = element.get("id");
                     FloorPlanElement savedElement = saveElementWithReturn(floorPlanId, elementType, element);
                     if (frontendId != null && savedElement != null) {
@@ -419,6 +482,31 @@ public class FloorPlanService {
                 element.setReferenceId(Long.valueOf(idValue));
             }
         }
+    }
+    
+    /**
+     * 요소에서 참조 ID 추출
+     */
+    private Long extractReferenceId(Map<String, Object> data, String elementType) {
+        String idKey = switch (elementType) {
+            case "room" -> "classroomId";
+            case "building" -> "buildingId";
+            case "wireless_ap" -> "wirelessApId";
+            default -> "id";
+        };
+        
+        if (data.containsKey(idKey) && data.get(idKey) != null) {
+            String idValue = data.get(idKey).toString();
+            
+            // 임시 ID는 무시
+            if (!idValue.startsWith("temp-") && 
+                !idValue.startsWith("temp_") && 
+                !idValue.startsWith("shape_") &&
+                isValidLong(idValue)) {
+                return Long.valueOf(idValue);
+            }
+        }
+        return null;
     }
     
     /**

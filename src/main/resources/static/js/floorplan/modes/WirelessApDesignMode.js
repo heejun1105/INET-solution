@@ -88,6 +88,10 @@ export default class WirelessApDesignMode {
         
         // 무선AP 렌더링 (저장된 위치가 없으면 기본 위치에 배치)
         this.renderWirelessAps();
+        
+        // AP 요소 잠금 해제 (설계 모드에서는 이동 가능해야 함)
+        this.unlockApElements();
+        
         this.bindEvents();
         
         // 강제 렌더링
@@ -682,6 +686,53 @@ export default class WirelessApDesignMode {
         // 생성된 AP 요소 확인
         const allApElements = this.core.state.elements.filter(e => e.elementType === 'wireless_ap');
         console.log('📊 Core state의 무선AP 요소 개수:', allApElements.length);
+        
+        // 페이지별 AP 통계 로그
+        const apByPage = {};
+        const apByClassroom = {};
+        allApElements.forEach(ap => {
+            const page = ap.pageNumber || 1;
+            if (!apByPage[page]) {
+                apByPage[page] = [];
+            }
+            apByPage[page].push({
+                apId: ap.referenceId,
+                label: ap.label,
+                classroomId: ap.parentElementId || ap.referenceId,
+                elementId: ap.id
+            });
+            
+            // 교실별 AP 중복 확인
+            const classroomId = ap.parentElementId || ap.referenceId;
+            if (classroomId) {
+                if (!apByClassroom[classroomId]) {
+                    apByClassroom[classroomId] = [];
+                }
+                apByClassroom[classroomId].push({
+                    apId: ap.referenceId,
+                    label: ap.label,
+                    page: page,
+                    elementId: ap.id
+                });
+            }
+        });
+        
+        console.log('📄 페이지별 AP 통계 (설계 모드):');
+        Object.keys(apByPage).sort((a, b) => parseInt(a) - parseInt(b)).forEach(page => {
+            console.log(`  페이지 ${page}: ${apByPage[page].length}개 AP`, apByPage[page].map(ap => `${ap.label}(${ap.apId})`).join(', '));
+        });
+        
+        // 교실별 중복 확인
+        const duplicateClassrooms = Object.keys(apByClassroom).filter(classroomId => apByClassroom[classroomId].length > 1);
+        if (duplicateClassrooms.length > 0) {
+            console.warn('⚠️ 같은 교실에 여러 AP가 있는 경우:');
+            duplicateClassrooms.forEach(classroomId => {
+                console.warn(`  교실 ${classroomId}:`, apByClassroom[classroomId].map(ap => `${ap.label}(${ap.apId}) - 페이지 ${ap.page}`).join(', '));
+            });
+        } else {
+            console.log('✅ 교실별 AP 중복 없음');
+        }
+        
         if (allApElements.length > 0) {
             console.log('📊 무선AP 요소 샘플:', allApElements.slice(0, 3).map(ap => ({
                 id: ap.id,
@@ -1153,6 +1204,21 @@ export default class WirelessApDesignMode {
     }
     
     /**
+     * AP 요소 잠금 해제 (설계 모드에서는 이동 가능해야 함)
+     */
+    unlockApElements() {
+        const elements = this.elementManager.getAllElements();
+        elements.forEach(element => {
+            if (element.elementType === 'wireless_ap' || element.type === 'wireless_ap') {
+                element.isLocked = false;
+                this.elementManager.updateElement(element.id, { isLocked: false });
+            }
+        });
+        
+        console.log('🔓 AP 요소 이동 잠금 해제');
+    }
+    
+    /**
      * AP/MDF 요소 제거
      */
     clearApElements() {
@@ -1546,6 +1612,9 @@ export default class WirelessApDesignMode {
         
         // 현재 페이지의 교실에 맞는 AP만 다시 렌더링
         this.renderWirelessAps();
+        
+        // AP 요소 잠금 해제 (설계 모드에서는 이동 가능해야 함)
+        this.unlockApElements();
         
         // 렌더링 강제 실행
         this.core.markDirty();

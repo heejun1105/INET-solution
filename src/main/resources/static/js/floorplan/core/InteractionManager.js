@@ -804,6 +804,24 @@ export default class InteractionManager {
                     newY = snapped.y;
                 }
                 
+                // AP의 경우 부모 교실 경계 체크
+                if (element.elementType === 'wireless_ap' && element.parentElementId) {
+                    const parent = this.core.state.elements.find(e => e.id === element.parentElementId);
+                    if (parent && parent.elementType === 'room') {
+                        // AP는 교실 내부에만 위치할 수 있음
+                        const apWidth = element.width || (element.radius ? element.radius * 2 : 40);
+                        const apHeight = element.height || (element.radius ? element.radius * 2 : 40);
+                        
+                        const minX = parent.xCoordinate;
+                        const minY = parent.yCoordinate;
+                        const maxX = parent.xCoordinate + parent.width - apWidth;
+                        const maxY = parent.yCoordinate + parent.height - apHeight;
+                        
+                        newX = Math.max(minX, Math.min(maxX, newX));
+                        newY = Math.max(minY, Math.min(maxY, newY));
+                    }
+                }
+                
                 // 이름박스의 경우 부모 요소 경계 체크 (건물의 이름박스는 제외)
                 if (element.elementType === 'name_box' && element.parentElementId) {
                     const parent = this.core.state.elements.find(e => e.id === element.parentElementId);

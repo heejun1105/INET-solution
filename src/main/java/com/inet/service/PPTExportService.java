@@ -252,21 +252,49 @@ public class PPTExportService {
 
         if ("wireless-ap".equals(mode)) {
             // 무선AP 보기 모드: 교실 요소는 그대로 유지하고, AP 요소만 처리
+            // 현재 페이지의 AP만 수집 (중복 제거)
             List<FloorPlanElement> savedApElements = new ArrayList<>();
             Map<Long, FloorPlanElement> savedApMap = new HashMap<>();
+            // 중복 체크를 위한 Set (referenceId + pageNumber 조합)
+            Set<String> seenApKeys = new HashSet<>();
+            
             for (FloorPlanElement el : elementsToProcess) {
                 if ("wireless_ap".equals(el.getElementType())) {
+                    // 현재 페이지의 AP만 포함
+                    Integer apPageNumber = el.getPageNumber() != null ? el.getPageNumber() : 1;
+                    if (apPageNumber.equals(pageNumber)) {
+                        // 중복 체크: 같은 referenceId와 pageNumber를 가진 AP는 하나만 포함
+                        Long referenceId = el.getReferenceId();
+                        if (referenceId != null) {
+                            String apKey = String.format("ap_%d_%d", referenceId, pageNumber);
+                            if (seenApKeys.contains(apKey)) {
+                                log.warn("중복된 AP 요소 스킵 (PPT 생성): referenceId={}, pageNumber={}, elementId={}", 
+                                        referenceId, pageNumber, el.getId());
+                                continue;
+                            }
+                            seenApKeys.add(apKey);
+                        }
+                        
                     savedApElements.add(el);
-                    if (el.getReferenceId() != null) {
-                        savedApMap.putIfAbsent(el.getReferenceId(), el);
+                        if (referenceId != null) {
+                            savedApMap.putIfAbsent(referenceId, el);
+                        }
                     }
                 }
             }
 
-            // 교실 맵 생성 (모든 교실 요소 포함, referenceId가 없어도 포함)
+            log.info("무선AP 보기 모드 - 중복 제거 후 저장된 AP 개수: {} (페이지 {})", savedApElements.size(), pageNumber);
+
+            // 교실 맵 생성 (현재 페이지의 교실만 포함, referenceId가 없어도 포함)
             Map<Long, FloorPlanElement> roomMap = new HashMap<>();
             for (FloorPlanElement el : elementsToProcess) {
                 if ("room".equals(el.getElementType())) {
+                    // 현재 페이지의 교실만 포함
+                    Integer roomPageNumber = el.getPageNumber() != null ? el.getPageNumber() : 1;
+                    if (!roomPageNumber.equals(pageNumber)) {
+                        continue;
+                    }
+                    
                     if (el.getReferenceId() != null) {
                     roomMap.putIfAbsent(el.getReferenceId(), el);
                     }
@@ -308,7 +336,17 @@ public class PPTExportService {
             Set<Long> handledApIds = new HashSet<>();
 
             for (FloorPlanElement savedAp : savedApElements) {
+                // 현재 페이지의 AP만 처리 (이미 필터링되었지만 다시 확인)
+                Integer apPageNumber = savedAp.getPageNumber() != null ? savedAp.getPageNumber() : 1;
+                if (!apPageNumber.equals(pageNumber)) {
+                    log.debug("AP 스킵 (다른 페이지): apId={}, apPage={}, currentPage={}", 
+                            savedAp.getReferenceId(), apPageNumber, pageNumber);
+                    continue;
+                }
+                
                 FloorPlanElement resolved = cloneWirelessApElement(savedAp);
+                // 페이지 번호 유지 (현재 페이지)
+                resolved.setPageNumber(pageNumber);
                 Map<String, Object> elementData = parseElementData(resolved.getElementData());
                 Long apId = extractWirelessApId(resolved, elementData, labelToApId);
                 if (apId != null) {
@@ -321,14 +359,20 @@ public class PPTExportService {
                             resolved.setLabel(newLabel);
                         }
                         
-                        // 저장된 AP 좌표를 교실 기준 오프셋으로 간주하고 절대 좌표로 변환
-                        // (장비 보기 모드와 동일한 방식으로 처리)
+                        // 저장된 AP 좌표 처리
+                        // DataSyncManager에서 저장 시 이미 중앙 좌표로 변환하여 저장하므로,
+                        // 서버에서 로드된 좌표는 이미 절대 중앙 좌표입니다.
                         Long classroomId = toLong(apInfo.get("classroomId"));
                         if (classroomId != null) {
                             FloorPlanElement roomElement = roomMap.get(classroomId);
                             if (roomElement != null) {
                                 double roomX = roomElement.getXCoordinate() != null ? roomElement.getXCoordinate() : 0.0;
                                 double roomY = roomElement.getYCoordinate() != null ? roomElement.getYCoordinate() : 0.0;
+                                double roomWidth = roomElement.getWidth() != null ? roomElement.getWidth() : 1000.0;
+                                double roomHeight = roomElement.getHeight() != null ? roomElement.getHeight() : 1000.0;
+                                
+                                double savedX = resolved.getXCoordinate() != null ? resolved.getXCoordinate() : 0.0;
+                                double savedY = resolved.getYCoordinate() != null ? resolved.getYCoordinate() : 0.0;
                                 
                                 // element_data에서 offsetX, offsetY 확인 (우선순위 1)
                                 double offsetX = extractDouble(elementData.get("offsetX"), Double.NaN);
@@ -340,41 +384,29 @@ public class PPTExportService {
                                     double centerY = roomY + offsetY;
                                     resolved.setXCoordinate(centerX);
                                     resolved.setYCoordinate(centerY);
+                                    log.debug("AP 좌표 변환 (element_data offset): offsetX={}, offsetY={}, roomX={}, roomY={}, centerX={}, centerY={}", 
+                                            offsetX, offsetY, roomX, roomY, centerX, centerY);
                                 } else {
-                                    // 저장된 좌표를 교실 기준 오프셋으로 간주하고 절대 좌표로 변환
-                                    // (프론트엔드에서 저장 시 교실 기준 오프셋으로 저장하므로)
-                                    double savedX = resolved.getXCoordinate() != null ? resolved.getXCoordinate() : 0.0;
-                                    double savedY = resolved.getYCoordinate() != null ? resolved.getYCoordinate() : 0.0;
+                                    // 저장된 좌표가 이미 중앙 좌표인지 확인
+                                    // 교실 범위 내에 있으면 오프셋으로 간주, 그 외에는 절대 좌표로 간주
+                                    boolean isWithinRoomBounds = (savedX >= roomX && savedX <= roomX + roomWidth && 
+                                                                 savedY >= roomY && savedY <= roomY + roomHeight);
                                     
-                                    // 저장된 좌표가 교실 범위 내에 있으면 오프셋으로 간주
-                                    double roomWidth = roomElement.getWidth() != null ? roomElement.getWidth() : 1000.0;
-                                    double roomHeight = roomElement.getHeight() != null ? roomElement.getHeight() : 1000.0;
-                                    
-                                    // 좌표가 교실 범위 내에 있거나, 절대 좌표가 아닌 경우 오프셋으로 간주
                                     // 절대 좌표는 보통 매우 큰 값(수천 이상)이므로, 작은 값은 오프셋으로 간주
-                                    boolean isOffset = false;
-                                    if (savedX >= 0 && savedX <= roomWidth && savedY >= 0 && savedY <= roomHeight) {
-                                        // 교실 범위 내에 있으면 오프셋
-                                        isOffset = true;
-                                    } else if (Math.abs(savedX) < 5000 && Math.abs(savedY) < 5000) {
-                                        // 작은 값이면 오프셋으로 간주 (절대 좌표는 보통 수천 이상)
-                                        isOffset = true;
-                                    } else if (Math.abs(savedX - roomX) < roomWidth * 2 && Math.abs(savedY - roomY) < roomHeight * 2) {
-                                        // 교실 좌표와 가까우면 오프셋으로 간주
-                                        isOffset = true;
-                                    }
+                                    boolean isSmallValue = (Math.abs(savedX) < 5000 && Math.abs(savedY) < 5000);
                                     
-                                    if (isOffset) {
-                                        // 교실 기준 오프셋으로 간주하고 절대 좌표로 변환
+                                    if (isWithinRoomBounds && isSmallValue) {
+                                        // 교실 범위 내에 있고 작은 값이면 오프셋으로 간주
                                         double centerX = roomX + savedX;
                                         double centerY = roomY + savedY;
                                         resolved.setXCoordinate(centerX);
                                         resolved.setYCoordinate(centerY);
-                                        log.debug("AP 좌표 변환 (오프셋): savedX={}, savedY={}, roomX={}, roomY={}, centerX={}, centerY={}", 
+                                        log.debug("AP 좌표 변환 (오프셋으로 간주): savedX={}, savedY={}, roomX={}, roomY={}, centerX={}, centerY={}", 
                                                 savedX, savedY, roomX, roomY, centerX, centerY);
                                     } else {
-                                        // 이미 절대 좌표로 간주하고 그대로 사용
-                                        log.debug("AP 좌표 유지 (절대 좌표): savedX={}, savedY={}", savedX, savedY);
+                                        // 이미 절대 중앙 좌표로 간주하고 그대로 사용
+                                        // (DataSyncManager에서 저장 시 이미 중앙 좌표로 변환하여 저장)
+                                        log.debug("AP 좌표 유지 (절대 중앙 좌표): savedX={}, savedY={}", savedX, savedY);
                                     }
                                 }
                             }
@@ -403,8 +435,27 @@ public class PPTExportService {
                     continue;
                 }
                 
+                // 해당 AP의 교실이 현재 페이지에 있는지 확인
+                FloorPlanElement roomElement = roomMap.get(classroomId);
+                if (roomElement == null) {
+                    // 현재 페이지에 해당 교실이 없으면 AP 생성하지 않음
+                    log.debug("AP 제외 (현재 페이지에 교실 없음): apId={}, classroomId={}, pageNumber={}", 
+                            apId, classroomId, pageNumber);
+                    continue;
+                }
+                
+                // 교실의 페이지 번호 확인 (이중 체크)
+                Integer roomPageNumber = roomElement.getPageNumber() != null ? roomElement.getPageNumber() : 1;
+                if (!roomPageNumber.equals(pageNumber)) {
+                    log.debug("AP 제외 (교실이 다른 페이지): apId={}, classroomId={}, roomPage={}, currentPage={}", 
+                            apId, classroomId, roomPageNumber, pageNumber);
+                    continue;
+                }
+                
                 FloorPlanElement virtualAp = createVirtualWirelessApElement(floorPlan, roomMap, apInfo);
                 virtualAp.setReferenceId(apId);
+                // 현재 페이지 번호 설정 (중요: 페이지별 필터링)
+                virtualAp.setPageNumber(pageNumber);
                 ensureWirelessApElementData(virtualAp);
                 normalizeWirelessApDefaults(virtualAp);
                 resolvedApElements.add(virtualAp);
@@ -414,8 +465,52 @@ public class PPTExportService {
             elementsToProcess.removeIf(el -> "wireless_ap".equals(el.getElementType()));
             elementsToProcess.addAll(resolvedApElements);
             
+            // 페이지별 AP 통계 로그
+            Map<Integer, List<FloorPlanElement>> apByPage = new HashMap<>();
+            Map<Long, List<FloorPlanElement>> apByClassroom = new HashMap<>();
+            for (FloorPlanElement ap : resolvedApElements) {
+                Integer apPage = ap.getPageNumber();
+                if (apPage == null) {
+                    apPage = pageNumber; // 현재 페이지로 간주
+                }
+                apByPage.computeIfAbsent(apPage, k -> new ArrayList<>()).add(ap);
+                
+                Long classroomId = ap.getReferenceId();
+                if (classroomId != null) {
+                    apByClassroom.computeIfAbsent(classroomId, k -> new ArrayList<>()).add(ap);
+                }
+            }
+            
             log.info("무선AP 보기 모드 - 처리 후 요소 개수: {}, AP 개수: {}", 
                     elementsToProcess.size(), resolvedApElements.size());
+            log.info("페이지별 AP 통계 (PPT 생성 - 페이지 {}):", pageNumber);
+            apByPage.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> {
+                    String apList = entry.getValue().stream()
+                        .map(ap -> String.format("%s(%s)", ap.getLabel(), ap.getReferenceId()))
+                        .collect(java.util.stream.Collectors.joining(", "));
+                    log.info("  페이지 {}: {}개 AP - {}", entry.getKey(), entry.getValue().size(), apList);
+                });
+            
+            // 교실별 중복 확인
+            List<Long> duplicateClassrooms = apByClassroom.entrySet().stream()
+                .filter(entry -> entry.getValue().size() > 1)
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toList());
+            
+            if (!duplicateClassrooms.isEmpty()) {
+                log.warn("⚠️ 같은 교실에 여러 AP가 있는 경우:");
+                for (Long classroomId : duplicateClassrooms) {
+                    String apList = apByClassroom.get(classroomId).stream()
+                        .map(ap -> String.format("%s(%s) - 페이지 %s", 
+                            ap.getLabel(), ap.getReferenceId(), ap.getPageNumber()))
+                        .collect(java.util.stream.Collectors.joining(", "));
+                    log.warn("  교실 {}: {}", classroomId, apList);
+                }
+            } else {
+                log.info("✅ 교실별 AP 중복 없음");
+            }
         }
         
         // 필터링된 요소들로 바운딩 박스 계산
@@ -1700,8 +1795,14 @@ public class PPTExportService {
     private void createWirelessApShape(XSLFSlide slide, FloorPlanElement element, double scale, double offsetX, double offsetY) throws Exception {
         Map<String, Object> elementData = parseElementData(element.getElementData());
         
-        double centerX = element.getXCoordinate();
-        double centerY = element.getYCoordinate();
+        // AP 좌표는 이미 중앙 좌표로 저장되어 있음
+        double centerX = element.getXCoordinate() != null ? element.getXCoordinate() : 0.0;
+        double centerY = element.getYCoordinate() != null ? element.getYCoordinate() : 0.0;
+        
+        // 좌표 유효성 검사 및 디버깅
+        if (centerX == 0.0 && centerY == 0.0) {
+            log.warn("⚠️ AP 좌표가 (0,0)입니다. element ID: {}, label: {}", element.getId(), element.getLabel());
+        }
         
         String shapeType = element.getShapeType();
         if (shapeType == null || shapeType.isBlank()) {
@@ -1735,16 +1836,30 @@ public class PPTExportService {
             int y = (int)(((top) - this.currentBoundsMinY) * scale + offsetY);
             int diameter = (int)(radius * 2 * scale);
             
+            // 도형 크기 유효성 검사
+            if (diameter <= 0) {
+                log.warn("⚠️ AP 도형 크기가 0 이하입니다. radius: {}, scale: {}, diameter: {}, element: {}", 
+                        radius, scale, diameter, element.getLabel());
+                diameter = Math.max(1, (int)(40.0 * scale)); // 최소 크기 보장
+            }
+            
             Color fillColor = addWirelessApLabel(slide, element, elementData, x, y, diameter, diameter, radius * 2, scale);
             XSLFAutoShape shape = slide.createAutoShape();
             shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
             shape.setAnchor(new Rectangle(x, y, diameter, diameter));
             applyWirelessApStyle(shape, elementData, scale, fillColor);
+            
+            // 디버깅 로그 (처음 몇 개만)
+            int debugIndex = apLabelDebugCounter.getAndIncrement();
+            if (debugIndex < 5) {
+                log.info("[AP 도형 생성] label: {}, centerX: {}, centerY: {}, left: {}, top: {}, x: {}, y: {}, diameter: {}, scale: {}", 
+                        element.getLabel(), centerX, centerY, left, top, x, y, diameter, scale);
+            }
             return;
         }
         
         if ("circle-l".equalsIgnoreCase(shapeType)) {
-            // 원형 테두리 + 대문자 L
+            // 원형 테두리 + 대문자 L (선으로 그리기)
             if (radius <= 0) {
                 radius = Math.min(width, height) / 2.0;
                 if (radius <= 0) {
@@ -1759,7 +1874,14 @@ public class PPTExportService {
             int y = (int)(((top) - this.currentBoundsMinY) * scale + offsetY);
             int diameter = (int)(radius * 2 * scale);
             
-            // 원형 테두리만 그리기 (채우기 없음)
+            // 도형 크기 유효성 검사
+            if (diameter <= 0) {
+                log.warn("⚠️ AP circle-l 도형 크기가 0 이하입니다. radius: {}, scale: {}, diameter: {}, element: {}", 
+                        radius, scale, diameter, element.getLabel());
+                diameter = Math.max(1, (int)(40.0 * scale)); // 최소 크기 보장
+            }
+            
+            // 원형 테두리만 그리기 (채우기 없음) - 굵은 선
             XSLFAutoShape circleShape = slide.createAutoShape();
             circleShape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
             circleShape.setAnchor(new Rectangle(x, y, diameter, diameter));
@@ -1770,32 +1892,37 @@ public class PPTExportService {
             circleShape.setFillColor(null); // 채우기 없음
             circleShape.setLineColor(borderColor);
             double borderWidth = extractDouble(elementData.get("borderWidth"), 2.0);
-            circleShape.setLineWidth(Math.max(0.2, borderWidth * scale));
+            circleShape.setLineWidth(Math.max(0.2, borderWidth * 2.0 * scale)); // 테두리를 2배로 굵게
             
-            // 대문자 L 그리기
+            // 대문자 L 그리기 (선으로 그리기) - 프론트엔드와 동일하게
             String letterColorStr = (String) elementData.getOrDefault("letterColor", borderColorStr);
             Color letterColor = parseColor(letterColorStr);
-            double letterSize = radius * 0.6 * scale; // L 크기
-            int letterX = x + (int)(diameter / 2.0 - letterSize * 0.3);
-            int letterY = y + (int)(diameter / 2.0 - letterSize * 0.3);
+            double letterSize = radius * 0.6 * scale; // L 크기 (원의 60%)
+            int circleCenterX = x + diameter / 2;
+            int circleCenterY = y + diameter / 2;
             
-            XSLFTextBox letterBox = slide.createTextBox();
-            letterBox.setAnchor(new Rectangle(letterX, letterY, (int)letterSize, (int)letterSize));
-            letterBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.MIDDLE);
-            letterBox.setLeftInset(0.0);
-            letterBox.setRightInset(0.0);
-            letterBox.setTopInset(0.0);
-            letterBox.setBottomInset(0.0);
-            XSLFTextParagraph letterPara = letterBox.addNewTextParagraph();
-            letterPara.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.LEFT);
-            XSLFTextRun letterRun = letterPara.addNewTextRun();
-            letterRun.setText("L");
-            letterRun.setFontSize(Math.max(8.0, letterSize * 0.7));
-            letterRun.setFontColor(letterColor);
-            letterRun.setBold(true);
+            // L의 위치 계산 (원의 중심 기준)
+            // 프론트엔드: letterX = centerX - letterSize * 0.3, letterY = centerY - letterSize * 0.3
+            double letterX = circleCenterX - (letterSize * 0.3);
+            double letterY = circleCenterY - (letterSize * 0.3);
             
-            // 라벨 추가
-            addWirelessApLabel(slide, element, elementData, x, y, diameter, diameter, radius * 2, scale);
+            // L을 Path2D로 그리기 (프론트엔드와 동일한 로직)
+            java.awt.geom.Path2D.Double lPath = new java.awt.geom.Path2D.Double();
+            // L의 세로선
+            lPath.moveTo(letterX, letterY);
+            lPath.lineTo(letterX, letterY + letterSize);
+            // L의 가로선
+            lPath.lineTo(letterX + letterSize * 0.7, letterY + letterSize);
+            
+            // XSLFFreeformShape로 L 그리기
+            XSLFFreeformShape lShape = slide.createFreeform();
+            lShape.setPath(lPath);
+            lShape.setLineColor(letterColor);
+            lShape.setLineWidth(Math.max(0.2, borderWidth * 2.0 * scale)); // L도 2배로 굵게
+            lShape.setFillColor(null); // 채우기 없음
+            
+            // 라벨 추가 (circle-l일 때 letterColor 사용)
+            addWirelessApLabelForCircleL(slide, element, elementData, x, y, diameter, diameter, radius * 2, scale, letterColor);
             return;
         }
 
@@ -1813,6 +1940,14 @@ public class PPTExportService {
         int y = (int)(((top) - this.currentBoundsMinY) * scale + offsetY);
         int pptWidth = (int)(width * scale);
         int pptHeight = (int)(height * scale);
+        
+        // 도형 크기 유효성 검사
+        if (pptWidth <= 0 || pptHeight <= 0) {
+            log.warn("⚠️ AP 도형 크기가 0 이하입니다. width: {}, height: {}, scale: {}, pptWidth: {}, pptHeight: {}, element: {}", 
+                    width, height, scale, pptWidth, pptHeight, element.getLabel());
+            pptWidth = Math.max(1, (int)(40.0 * scale)); // 최소 크기 보장
+            pptHeight = Math.max(1, (int)(40.0 * scale)); // 최소 크기 보장
+        }
         
         double baseSize = Math.min(width, height);
         Color fillColor = addWirelessApLabel(slide, element, elementData, x, y, pptWidth, pptHeight, baseSize, scale);
@@ -1896,6 +2031,7 @@ public class PPTExportService {
         Color backgroundColor = resolveWirelessApFillColor(element, elementData);
         
         double fontSize = Math.min(Math.max(3.6, baseSize * scale * 0.38), shapeWidth * 0.65);
+        fontSize = fontSize * 1.5; // AP 이름 크기 1.5배 증가
         double textWidth = Math.max(shapeWidth + fontSize * 0.35, fontSize * (label.length() + 1) * 0.5);
         double textHeight = Math.max(fontSize * 0.9, 4.2);
         double paddingByFont = fontSize * 0.32;
@@ -1973,6 +2109,103 @@ public class PPTExportService {
         
         return backgroundColor;
     }
+    
+    /**
+     * circle-l 모양의 AP 라벨 추가 (letterColor 사용)
+     */
+    private void addWirelessApLabelForCircleL(
+        XSLFSlide slide,
+        FloorPlanElement element,
+        Map<String, Object> elementData,
+        int shapeX,
+        int shapeY,
+        int shapeWidth,
+        int shapeHeight,
+        double baseSize,
+        double scale,
+        Color letterColor
+    ) {
+        String label = element.getLabel();
+        if (label == null || label.isBlank()) {
+            Object labelObj = elementData.get("label");
+            if (labelObj != null) {
+                label = labelObj.toString();
+            }
+        }
+        
+        if (label == null || label.isBlank()) {
+            return;
+        }
+        
+        double fontSize = Math.min(Math.max(3.6, baseSize * scale * 0.38), shapeWidth * 0.65);
+        fontSize = fontSize * 1.5; // AP 이름 크기 1.5배 증가
+        double textWidth = Math.max(shapeWidth + fontSize * 0.35, fontSize * (label.length() + 1) * 0.5);
+        double textHeight = Math.max(fontSize * 0.9, 4.2);
+        double paddingByFont = fontSize * 0.32;
+        double paddingByShape = Math.min(Math.max(shapeHeight * 0.08, 0.6), shapeHeight * 0.3);
+        double textPadding = Math.min(Math.max(0.35, (paddingByFont * 0.6) + (paddingByShape * 0.35)), 8.0);
+        double textBoxX = shapeX + (shapeWidth / 2.0) - (textWidth / 2.0);
+        if (textBoxX < 0) {
+            textBoxX = 0;
+        }
+        double verticalAdjust = Math.max(0.3, fontSize * 0.08);
+        double textY = shapeY + shapeHeight + textPadding - verticalAdjust;
+        if (textY < 0) {
+            textY = 0;
+        }
+        
+        XSLFTextBox labelBox = slide.createTextBox();
+        Rectangle2D.Double initialAnchor = new Rectangle2D.Double(
+            textBoxX,
+            textY,
+            textWidth,
+            textHeight
+        );
+        labelBox.setAnchor(initialAnchor);
+        labelBox.setLineColor(null);
+        labelBox.setFillColor(null);
+        labelBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.BOTTOM);
+        labelBox.setLeftInset(0.0);
+        labelBox.setRightInset(0.0);
+        labelBox.setTopInset(0.0);
+        labelBox.setBottomInset(0.0);
+        labelBox.setWordWrap(false);
+        
+        XSLFTextParagraph paragraph = labelBox.addNewTextParagraph();
+        paragraph.setTextAlign(org.apache.poi.sl.usermodel.TextParagraph.TextAlign.CENTER);
+        paragraph.setLineSpacing(0.0);
+        paragraph.setSpaceBefore(0.0);
+        paragraph.setSpaceAfter(0.0);
+        paragraph.setIndent(0.0);
+        paragraph.setLeftMargin(0.0);
+        paragraph.setRightMargin(0.0);
+        paragraph.setFontAlign(org.apache.poi.sl.usermodel.TextParagraph.FontAlign.CENTER);
+        
+        XSLFTextRun run = paragraph.addNewTextRun();
+        run.setText(label);
+        run.setBold(true);
+        run.setFontSize(fontSize);
+        run.setFontColor(letterColor != null ? letterColor : Color.BLACK); // letterColor 사용
+        run.setBaselineOffset(0.0);
+        run.setFontFamily("Malgun Gothic");
+        
+        double adjustedWidth = Math.max(textWidth, fontSize * (label.length() + 2) * 0.5);
+        double adjustedHeight = Math.max(textHeight, fontSize * 0.95);
+        double finalX = shapeX + (shapeWidth / 2.0) - (adjustedWidth / 2.0);
+        if (finalX < 0) {
+            finalX = 0;
+        }
+        double finalY = shapeY + shapeHeight + textPadding - verticalAdjust;
+        if (finalY < 0) {
+            finalY = 0;
+        }
+        Rectangle2D finalAnchor = new Rectangle2D.Double(finalX, finalY, adjustedWidth, adjustedHeight);
+        labelBox.setAnchor(finalAnchor);
+        labelBox.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.BOTTOM);
+        if (!labelBox.getTextParagraphs().isEmpty()) {
+            labelBox.getTextParagraphs().get(0).setBullet(false);
+        }
+    }
 
     private FloorPlanElement cloneWirelessApElement(FloorPlanElement source) {
         FloorPlanElement clone = new FloorPlanElement();
@@ -1991,6 +2224,7 @@ public class PPTExportService {
         clone.setShapeType(source.getShapeType());
         clone.setElementData(source.getElementData());
         clone.setShowLabel(source.getShowLabel());
+        clone.setPageNumber(source.getPageNumber()); // 페이지 번호 복사 (중요!)
         return clone;
     }
 

@@ -361,11 +361,18 @@ export default class FloorPlanCore {
             });
         }
         
-        // 모드별 필터링: 교실설계 모드에서는 무선AP 숨김
-        // 장비 보기 모드에서는 무선AP를 숨기지 않음 (AP도 표시)
+        // 모드별 필터링
+        // 교실설계 모드에서는 무선AP 숨김
         if (currentMode === 'design-classroom') {
             elementsToRender = elementsToRender.filter(element => {
                 return element.elementType !== 'wireless_ap';
+            });
+        }
+        
+        // 장비 보기 모드에서는 무선AP/MDF 숨김 (장비 정보만 표시)
+        if (currentMode === 'equipment' || currentMode === 'equipment-view' || currentMode === 'view-equipment') {
+            elementsToRender = elementsToRender.filter(element => {
+                return element.elementType !== 'wireless_ap' && element.elementType !== 'mdf_idf';
             });
         }
         

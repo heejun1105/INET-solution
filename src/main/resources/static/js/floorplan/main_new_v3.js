@@ -731,6 +731,22 @@ class FloorPlanApp {
                 
                 console.log(`📄 필터링 후 현재 페이지 ${this.currentPage}의 요소: ${this.core.state.elements.length}개`);
                 
+                // 모드가 선택되지 않았을 때 (학교만 선택) AP/MDF 요소 제거
+                // AP/MDF는 무선AP 설계 모드에서만 표시되어야 함
+                if (!this.currentMode || this.currentMode === '') {
+                    const beforeCount = this.core.state.elements.length;
+                    this.core.state.elements = this.core.state.elements.filter(el => {
+                        if (el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf') {
+                            return false;
+                        }
+                        return true;
+                    });
+                    const removedCount = beforeCount - this.core.state.elements.length;
+                    if (removedCount > 0) {
+                        console.log(`🗑️ 모드 미선택 상태: AP/MDF 요소 ${removedCount}개 제거`);
+                    }
+                }
+                
                 // 첫 로드 시에만 모든 요소가 보이도록 자동 피팅
                 // (이미 로드된 상태에서 다시 로드할 때는 이전 시점 유지)
                 if (this.core.state.elements.length === 0 || this.isFirstEntry) {

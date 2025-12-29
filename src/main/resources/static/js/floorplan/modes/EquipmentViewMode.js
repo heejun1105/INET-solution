@@ -18,6 +18,8 @@ export default class EquipmentViewMode {
         this.uiManager = uiManager;
         
         this.devicesByClassroom = {};
+        this.wirelessAps = []; // 무선AP 데이터 저장 (loadSavedApMdfElements에서 사용)
+        this.savedApPositions = {}; // 저장된 AP 위치 (offset)
         
         // 자리배치 모달을 위한 SeatLayoutMode 인스턴스
         this.seatLayoutMode = new SeatLayoutMode(core, elementManager, uiManager);
@@ -66,29 +68,22 @@ export default class EquipmentViewMode {
             }
         }
         
-        // 현재 페이지의 요소만 필터링 (AP는 나중에 로드하므로 일단 제외)
-        // 무선AP 설계 모드에서 수정한 AP 요소는 유지하기 위해 필터링 전에 백업
-        const allElementsBeforeFilter = [...this.core.state.elements];
-        const apElementsBeforeFilter = allElementsBeforeFilter.filter(el => 
-            el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf'
-        );
-        
+        // 현재 페이지의 요소만 필터링 (AP/MDF는 장비 보기 모드에서 표시하지 않음)
         this.core.state.elements = this.core.state.elements.filter(el => {
-            // AP/MDF는 나중에 로드하므로 일단 제외
+            // AP/MDF는 장비 보기 모드에서 표시하지 않음 (무선AP 보기 모드에서만 표시)
             if (el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf') {
                 return false;
             }
             // 나머지 요소는 현재 페이지만
             return el.pageNumber === currentPage || el.pageNumber === null || el.pageNumber === undefined;
         });
-        console.log(`📄 현재 페이지 ${currentPage}의 요소만 표시: ${this.core.state.elements.length}개 (AP 제외)`);
+        console.log(`📄 현재 페이지 ${currentPage}의 요소만 표시: ${this.core.state.elements.length}개 (AP/MDF 제외)`);
         
         // 모든 요소 잠금 (보기 모드에서는 이동 불가)
         this.lockAllElements();
         
-        // 무선AP 요소 로드 (장비 보기 모드에서도 AP 표시)
-        // 무선AP 설계 모드에서 수정한 AP 요소도 포함하여 로드
-        await this.loadWirelessAps(apElementsBeforeFilter);
+        // 장비 보기 모드에서는 AP를 표시하지 않음
+        // AP는 무선AP 보기 모드에서만 표시됨
         
         await this.loadDevices();
         this.renderEquipmentCards();
@@ -151,16 +146,76 @@ export default class EquipmentViewMode {
     /**
      * 페이지 전환 시 호출
      */
-    onPageSwitch(pageNumber) {
+    async onPageSwitch(pageNumber) {
         console.log(`📄 장비보기 모드: 페이지 ${pageNumber}로 전환`);
+        
+        // core.currentPage 업데이트
+        if (this.core) {
+            this.core.currentPage = pageNumber;
+        }
+        if (window.floorPlanApp) {
+            window.floorPlanApp.currentPage = pageNumber;
+        }
+        
+        // 로컬 요소 저장소에서 현재 페이지 요소 복원 (있는 경우)
+        const app = window.floorPlanApp;
+        if (app && app.localElementsByPage && app.localElementsByPage[pageNumber]) {
+            const savedLocalElements = app.localElementsByPage[pageNumber];
+            const restoredElements = JSON.parse(JSON.stringify(savedLocalElements));
+            
+            // 서버에서 로드한 요소의 ID 목록
+            const serverElementIds = new Set(
+                this.core.state.elements
+                    .filter(el => el.id && !el.id.toString().startsWith('temp'))
+                    .map(el => el.id.toString())
+            );
+            
+            // 로컬 요소만 필터링
+            const localOnlyElements = restoredElements.filter(el => {
+                if (!el.id || el.id.toString().startsWith('temp')) {
+                    return true;
+                }
+                return !serverElementIds.has(el.id.toString());
+            });
+            
+            if (localOnlyElements.length > 0) {
+                this.core.state.elements = [...this.core.state.elements, ...localOnlyElements];
+                console.log(`📂 장비보기 모드: 페이지 ${pageNumber}의 로컬 요소 ${localOnlyElements.length}개 복원`);
+            }
+        }
+        
+        // 현재 페이지의 요소만 필터링 (AP/MDF는 장비 보기 모드에서 표시하지 않음)
+        this.core.state.elements = this.core.state.elements.filter(el => {
+            // AP/MDF는 장비 보기 모드에서 표시하지 않음
+            if (el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf') {
+                return false;
+            }
+            // equipment_card도 제거 (나중에 다시 렌더링)
+            if (el.elementType === 'equipment_card') {
+                return false;
+            }
+            // 나머지 요소는 현재 페이지만 (pageNumber가 null/undefined인 경우 1페이지로 간주)
+            const elementPage = el.pageNumber || 1;
+            return elementPage === pageNumber;
+        });
+        console.log(`📄 현재 페이지 ${pageNumber}의 요소만 표시: ${this.core.state.elements.length}개 (AP/MDF 제외)`);
+        
         // 기존 장비 카드 제거
         this.clearEquipmentCards();
-        // 기존 AP 요소 제거
+        // 기존 AP 요소 제거 (장비 보기 모드에서는 AP를 표시하지 않음)
         this.clearApElements();
-        // 새 페이지의 AP 로드
-        this.loadWirelessAps();
+        
+        // 장비 보기 모드에서는 AP를 로드하지 않음 (AP는 무선AP 보기 모드에서만 표시)
+        
+        // 새 페이지의 장비 데이터 로드 (비동기)
+        await this.loadDevices();
+        
         // 새 페이지의 장비 카드 렌더링
         this.renderEquipmentCards();
+        
+        // 강제 렌더링
+        this.core.markDirty();
+        this.core.render && this.core.render();
     }
     
     /**
@@ -256,6 +311,10 @@ export default class EquipmentViewMode {
             
             // 저장된 AP 위치 맵 생성 (referenceId 기준)
             this.savedApPositions = {};
+            
+            // 모든 교실 요소 수집 (offset 계산을 위해)
+            const allRooms = this.core.state.elements.filter(e => e.elementType === 'room');
+            
             savedAps.forEach(apData => {
                 if (apData.referenceId) {
                     const shapeType = apData.shapeType || 'circle';
@@ -271,9 +330,85 @@ export default class EquipmentViewMode {
                         height = height || 40;
                     }
                     
-                    // 교실 기준 상대 좌표 (offset) 그대로 사용
-                    const offsetX = apData.xCoordinate || 0;
-                    const offsetY = apData.yCoordinate || 0;
+                    // 서버에서 받은 좌표는 절대 좌표(중앙 좌표)일 수 있으므로, 교실 기준 offset으로 변환 필요
+                    // 먼저 해당 AP의 교실을 찾아야 함
+                    let offsetX = 0;
+                    let offsetY = 0;
+                    
+                    // AP의 classroomId 찾기
+                    const apInfo = this.wirelessAps ? this.wirelessAps.find(ap => ap.apId === apData.referenceId) : null;
+                    const apClassroomId = apInfo ? (typeof apInfo.classroomId === 'string' 
+                        ? parseInt(apInfo.classroomId, 10) 
+                        : apInfo.classroomId) : (typeof apData.classroomId === 'string' 
+                        ? parseInt(apData.classroomId, 10) 
+                        : apData.classroomId);
+                    
+                    if (apClassroomId && apData.xCoordinate != null && apData.yCoordinate != null) {
+                        // 교실 요소 찾기
+                        const apRoom = allRooms.find(r => {
+                            const rRefId = typeof r.referenceId === 'string' ? parseInt(r.referenceId, 10) : r.referenceId;
+                            const rClassroomId = typeof r.classroomId === 'string' ? parseInt(r.classroomId, 10) : r.classroomId;
+                            // 1. referenceId로 매칭
+                            if (rRefId && rRefId === apClassroomId) return true;
+                            // 2. classroomId로 매칭
+                            if (rClassroomId && rClassroomId === apClassroomId) return true;
+                            // 3. element_data에서 classroomId 확인
+                            if (r.elementData) {
+                                try {
+                                    const elementData = typeof r.elementData === 'string' ? JSON.parse(r.elementData) : r.elementData;
+                                    if (elementData) {
+                                        const dataClassroomId = typeof elementData.classroomId === 'string' 
+                                            ? parseInt(elementData.classroomId, 10) 
+                                            : elementData.classroomId;
+                                        if (dataClassroomId && dataClassroomId === apClassroomId) return true;
+                                        // referenceId도 확인
+                                        const dataRefId = typeof elementData.referenceId === 'string' 
+                                            ? parseInt(elementData.referenceId, 10) 
+                                            : elementData.referenceId;
+                                        if (dataRefId && dataRefId === apClassroomId) return true;
+                                    }
+                                } catch (e) {}
+                            }
+                            return false;
+                        });
+                        
+                        if (apRoom) {
+                            // 절대 좌표(중앙)를 교실 기준 offset으로 변환
+                            // 서버에 저장된 좌표는 중앙 좌표이므로, 교실의 좌상단 좌표를 빼서 offset 계산
+                            offsetX = apData.xCoordinate - apRoom.xCoordinate;
+                            offsetY = apData.yCoordinate - apRoom.yCoordinate;
+                            console.log('🔄 절대 좌표를 offset으로 변환 (장비 보기 모드):', {
+                                apId: apData.referenceId,
+                                pageNumber: apRoom.pageNumber,
+                                absoluteX: apData.xCoordinate,
+                                absoluteY: apData.yCoordinate,
+                                roomX: apRoom.xCoordinate,
+                                roomY: apRoom.yCoordinate,
+                                offsetX,
+                                offsetY
+                            });
+                        } else {
+                            // 교실을 찾지 못한 경우, 절대 좌표가 작으면 offset으로 간주
+                            if (apData.xCoordinate < 5000 && apData.yCoordinate < 5000) {
+                                offsetX = apData.xCoordinate;
+                                offsetY = apData.yCoordinate;
+                                console.log('⚠️ 교실을 찾지 못함, 작은 값이므로 offset으로 간주 (장비 보기 모드):', {
+                                    apId: apData.referenceId,
+                                    classroomId: apClassroomId,
+                                    offsetX,
+                                    offsetY
+                                });
+                            } else {
+                                // 큰 값이면 절대 좌표일 가능성이 높지만, 교실을 찾지 못했으므로 기본값 사용
+                                console.warn('⚠️ 교실을 찾지 못하고 좌표가 큼, 기본 offset 사용 (장비 보기 모드):', {
+                                    apId: apData.referenceId,
+                                    classroomId: apClassroomId,
+                                    absoluteX: apData.xCoordinate,
+                                    absoluteY: apData.yCoordinate
+                                });
+                            }
+                        }
+                    }
                     
                     this.savedApPositions[apData.referenceId] = {
                         x: offsetX,
@@ -527,11 +662,12 @@ export default class EquipmentViewMode {
         const elements = this.core.state.elements;
             // 현재 페이지의 요소만 필터링
             const currentPage = this.core.currentPage || window.floorPlanApp?.currentPage || 1;
-            const roomElements = elements.filter(e => 
-                e && 
-                e.elementType === 'room' && 
-                (e.pageNumber === currentPage || e.pageNumber === null || e.pageNumber === undefined)
-            );
+            const roomElements = elements.filter(e => {
+                if (!e || e.elementType !== 'room') return false;
+                // pageNumber가 null/undefined인 경우 1페이지로 간주
+                const elementPage = e.pageNumber || 1;
+                return elementPage === currentPage;
+            });
         
         roomElements.forEach(room => {
                 try {
