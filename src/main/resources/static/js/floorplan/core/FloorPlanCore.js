@@ -829,58 +829,122 @@ export default class FloorPlanCore {
         const roomHeight = element.roomHeight || element.height || 200; // 교실 높이
         const maxHeight = roomHeight * 0.4; // 교실 높이의 40%를 최대 텍스트 영역으로 사용 (3/5 지점에서 시작하므로)
         
-        // 줄바꿈을 시뮬레이션하여 최대 폰트 크기 계산
-        let maxFontSize = requestedFontSize;
-        const testFontSize = requestedFontSize;
-        ctx.font = `bold ${testFontSize}px Arial, sans-serif`;
-        
-        // 줄바꿈을 고려한 실제 줄 수와 높이 계산
+        // 교실 크기 제한 내에서 최대 폰트 크기를 찾기 위한 이진 탐색
         const parts = text.split(', ');
-        const testLineHeight = testFontSize * 1.2; // 테스트용 줄 간격
-        let lines = [];
-        let testCurrentLine = ''; // 테스트용 currentLine
+        const minFontSize = 10;
         
-        parts.forEach((part) => {
-            const testText = testCurrentLine ? `${testCurrentLine}, ${part}` : part;
-            const metrics = ctx.measureText(testText);
+        // 특정 폰트 크기가 교실 크기 제한 내에 맞는지 확인하는 함수
+        const checkFontSize = (testFontSize, depth = 0) => {
+            // 재귀 깊이 제한 (무한 루프 방지)
+            if (depth > 5) {
+                return { fits: false, adjustedSize: null, lines: null };
+            }
             
-            if (metrics.width > maxWidth && testCurrentLine) {
-                lines.push(testCurrentLine);
-                testCurrentLine = part;
+            ctx.font = `bold ${testFontSize}px Arial, sans-serif`;
+            const testLineHeight = testFontSize * 1.2;
+            
+            // 줄바꿈 시뮬레이션
+            let lines = [];
+            let currentLine = '';
+            
+            parts.forEach((part) => {
+                const testText = currentLine ? `${currentLine}, ${part}` : part;
+                const metrics = ctx.measureText(testText);
+                
+                if (metrics.width > maxWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = part;
+                } else {
+                    currentLine = testText;
+                }
+            });
+            if (currentLine) {
+                lines.push(currentLine);
+            }
+            
+            // 높이 체크
+            const totalHeight = lines.length * testLineHeight;
+            if (totalHeight > maxHeight) {
+                return { fits: false, adjustedSize: null, lines: null };
+            }
+            
+            // 너비 체크 (각 줄이 교실 너비를 넘는지 확인)
+            let maxWidthRatio = 1.0;
+            for (const line of lines) {
+                const lineWidth = ctx.measureText(line).width;
+                if (lineWidth > maxWidth) {
+                    const ratio = (maxWidth - 10) / lineWidth;
+                    maxWidthRatio = Math.min(maxWidthRatio, ratio);
+                }
+            }
+            
+            // 너비 제한이 있으면 조정된 크기 계산
+            if (maxWidthRatio < 1.0) {
+                const adjustedSize = Math.floor(testFontSize * maxWidthRatio);
+                // 조정된 크기로 다시 검증 (재귀 깊이 증가)
+                if (adjustedSize >= minFontSize && adjustedSize < testFontSize) {
+                    const recheck = checkFontSize(adjustedSize, depth + 1);
+                    if (recheck.fits) {
+                        return { fits: true, adjustedSize: adjustedSize, lines: recheck.lines };
+                    }
+                }
+                return { fits: false, adjustedSize: null, lines: null };
+            }
+            
+            return { fits: true, adjustedSize: testFontSize, lines: lines };
+        };
+        
+        // 이진 탐색으로 최적의 폰트 크기 찾기
+        let min = minFontSize;
+        let max = requestedFontSize;
+        let bestFontSize = minFontSize;
+        let bestLines = null;
+        
+        for (let iteration = 0; iteration < 20; iteration++) {
+            if (min > max) break;
+            
+            const testFontSize = Math.floor((min + max) / 2);
+            const result = checkFontSize(testFontSize);
+            
+            if (result.fits && result.adjustedSize !== null) {
+                // 교실 크기 제한 내에 맞으면 더 큰 폰트 시도
+                bestFontSize = result.adjustedSize;
+                bestLines = result.lines;
+                min = testFontSize + 1;
             } else {
-                testCurrentLine = testText;
-            }
-        });
-        if (testCurrentLine) {
-            lines.push(testCurrentLine);
-        }
-        
-        const totalHeight = lines.length * testLineHeight;
-        
-        // 높이를 넘으면 폰트 크기 조정
-        if (totalHeight > maxHeight) {
-            const heightRatio = maxHeight / totalHeight;
-            maxFontSize = Math.floor(testFontSize * heightRatio);
-            maxFontSize = Math.max(10, maxFontSize);
-        }
-        
-        // 각 줄의 너비도 체크하여 폰트 크기 추가 조정
-        ctx.font = `bold ${maxFontSize}px Arial, sans-serif`;
-        let widthExceeded = false;
-        for (const line of lines) {
-            const lineWidth = ctx.measureText(line).width;
-            if (lineWidth > maxWidth) {
-                widthExceeded = true;
-                const widthRatio = (maxWidth - 10) / lineWidth;
-                const adjustedSize = Math.floor(maxFontSize * widthRatio);
-                maxFontSize = Math.min(maxFontSize, adjustedSize);
-                maxFontSize = Math.max(10, maxFontSize);
-                break;
+                // 교실 크기 제한을 넘으면 더 작은 폰트 시도
+                max = testFontSize - 1;
             }
         }
         
-        // 요청된 폰트 크기와 최대 폰트 크기 중 작은 값 사용
-        const fontSize = Math.min(requestedFontSize, maxFontSize);
+        // 최종 폰트 크기 제한
+        const fontSize = Math.min(requestedFontSize, Math.max(minFontSize, bestFontSize));
+        
+        // 최종 폰트 크기로 줄바꿈 시뮬레이션 (렌더링용)
+        // bestLines가 있으면 사용, 없으면 다시 계산
+        let finalLines = bestLines;
+        if (!finalLines) {
+            ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+            finalLines = [];
+            let finalCurrentLine = '';
+            
+            parts.forEach((part) => {
+                const testText = finalCurrentLine ? `${finalCurrentLine}, ${part}` : part;
+                const metrics = ctx.measureText(testText);
+                
+                if (metrics.width > maxWidth && finalCurrentLine) {
+                    finalLines.push(finalCurrentLine);
+                    finalCurrentLine = part;
+                } else {
+                    finalCurrentLine = testText;
+                }
+            });
+            if (finalCurrentLine) {
+                finalLines.push(finalCurrentLine);
+            }
+        }
+        
+        const finalLineHeight = fontSize * 1.2;
         
         // 텍스트 설정
         ctx.font = `bold ${fontSize}px Arial, sans-serif`;
@@ -891,33 +955,17 @@ export default class FloorPlanCore {
         // 중앙 정렬을 위한 x 좌표 계산 (정수로 반올림하여 선명한 렌더링)
         const centerX = Math.round(x + maxWidth / 2);
         
-        // 여러 줄 텍스트 렌더링 (자동 줄바꿈)
-        // parts는 이미 위에서 선언되었으므로 재사용
-        const lineHeight = fontSize * 1.2; // 실제 렌더링용 줄 간격
-        // textBaseline이 'middle'이므로 y 좌표 자체가 텍스트의 중앙이 됨 (정수로 반올림)
-        let currentY = Math.round(y);
-        let currentLine = '';
+        // 여러 줄 텍스트 렌더링 (이미 계산된 finalLines 사용)
+        const lineHeight = finalLineHeight; // 실제 렌더링용 줄 간격
+        // textBaseline이 'middle'이므로 y 좌표 자체가 텍스트의 중앙이 됨
+        // 여러 줄의 중앙을 계산하여 첫 줄의 y 좌표 결정
+        const totalTextHeight = finalLines.length * lineHeight;
+        let currentY = Math.round(y - totalTextHeight / 2 + lineHeight / 2);
         
-        parts.forEach((part, index) => {
-            // 현재 줄에 추가할 텍스트
-            const testText = currentLine ? `${currentLine}, ${part}` : part;
-            const metrics = ctx.measureText(testText);
-            
-            // 줄이 너비를 넘으면 현재 줄 출력하고 다음 줄로
-            if (metrics.width > maxWidth && currentLine) {
-                // 좌표를 정수로 반올림하여 선명한 렌더링
-                ctx.fillText(currentLine, centerX, Math.round(currentY));
-                currentY += lineHeight;
-                currentLine = part;
-            } else {
-                currentLine = testText;
-            }
-            
-            // 마지막 부분이면 출력
-            if (index === parts.length - 1 && currentLine) {
-                // 좌표를 정수로 반올림하여 선명한 렌더링
-                ctx.fillText(currentLine, centerX, Math.round(currentY));
-            }
+        finalLines.forEach((line) => {
+            // 좌표를 정수로 반올림하여 선명한 렌더링
+            ctx.fillText(line, centerX, Math.round(currentY));
+            currentY += lineHeight;
         });
         
         ctx.restore();

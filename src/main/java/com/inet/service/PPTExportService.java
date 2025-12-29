@@ -1735,15 +1735,137 @@ public class PPTExportService {
         }
         
         // 요청된 폰트 크기와 최대 폰트 크기 중 작은 값 사용
-        double pptFontSize = Math.min(requestedPptFontSize, maxFontSize);
-        pptFontSize = Math.max(3.0, pptFontSize); // 최소값 보장
+        double basePptFontSize = Math.min(requestedPptFontSize, maxFontSize);
+        basePptFontSize = Math.max(3.0, basePptFontSize); // 최소값 보장
         
         // 폰트 크기 30% 증가
-        pptFontSize = pptFontSize * 1.3;
+        double pptFontSize = basePptFontSize * 1.3;
+        
+        // 최종 폰트 크기로 줄바꿈을 다시 시뮬레이션하고 높이/너비 재검증
+        // 프론트엔드와 동일하게 이진 탐색으로 최적의 폰트 크기 찾기
+        double minFontSizeLimit = 3.0;
+        double bestFontSize = minFontSizeLimit;
+        java.util.List<String> bestLines = null;
+        
+        // 이진 탐색으로 최적의 폰트 크기 찾기
+        double min = minFontSizeLimit;
+        double max = pptFontSize;
+        
+        for (int iteration = 0; iteration < 20; iteration++) {
+            if (min > max) break;
+            
+            double midFontSize = Math.floor((min + max) / 2);
+            
+            // 특정 폰트 크기가 교실 크기 제한 내에 맞는지 확인
+            java.util.List<String> testLinesResult = new java.util.ArrayList<>();
+            String currentLine = "";
+            
+            for (String part : parts) {
+                String testText = currentLine.isEmpty() ? part : currentLine + ", " + part;
+                double lineWidth = estimateTextWidth(testText, midFontSize);
+                
+                if (lineWidth > maxWidth * 1.01 && !currentLine.isEmpty()) {
+                    testLinesResult.add(currentLine);
+                    currentLine = part;
+                } else {
+                    currentLine = testText;
+                }
+            }
+            if (!currentLine.isEmpty()) {
+                testLinesResult.add(currentLine);
+            }
+            
+            // 높이 체크
+            double lineHeight = midFontSize * 1.2;
+            double height = testLinesResult.size() * lineHeight;
+            boolean fitsHeight = height <= maxHeight;
+            
+            // 너비 체크
+            double maxWidthRatio = 1.0;
+            for (String line : testLinesResult) {
+                double lineWidth = estimateTextWidth(line, midFontSize);
+                if (lineWidth > maxWidth) {
+                    double ratio = (maxWidth - 10) / lineWidth;
+                    maxWidthRatio = Math.min(maxWidthRatio, ratio);
+                }
+            }
+            
+            // 너비 제한이 있으면 조정된 크기 계산
+            double adjustedSize = midFontSize;
+            if (maxWidthRatio < 1.0) {
+                adjustedSize = Math.floor(midFontSize * maxWidthRatio);
+            }
+            
+            // 조정된 크기로 다시 검증 (재귀 깊이 제한: 최대 5회)
+            boolean fits = fitsHeight && adjustedSize >= minFontSizeLimit;
+            if (fits && maxWidthRatio < 1.0 && adjustedSize < midFontSize) {
+                // 조정된 크기로 줄바꿈 다시 계산
+                java.util.List<String> adjustedLines = new java.util.ArrayList<>();
+                String adjCurrentLine = "";
+                for (String part : parts) {
+                    String testText = adjCurrentLine.isEmpty() ? part : adjCurrentLine + ", " + part;
+                    double lineWidth = estimateTextWidth(testText, adjustedSize);
+                    
+                    if (lineWidth > maxWidth * 1.01 && !adjCurrentLine.isEmpty()) {
+                        adjustedLines.add(adjCurrentLine);
+                        adjCurrentLine = part;
+                    } else {
+                        adjCurrentLine = testText;
+                    }
+                }
+                if (!adjCurrentLine.isEmpty()) {
+                    adjustedLines.add(adjCurrentLine);
+                }
+                
+                // 조정된 크기로 높이 재검증
+                double adjLineHeight = adjustedSize * 1.2;
+                double adjHeight = adjustedLines.size() * adjLineHeight;
+                if (adjHeight <= maxHeight) {
+                    testLinesResult = adjustedLines;
+                } else {
+                    fits = false;
+                }
+            }
+            
+            if (fits && adjustedSize > 0) {
+                // 교실 크기 제한 내에 맞으면 더 큰 폰트 시도
+                bestFontSize = adjustedSize;
+                bestLines = testLinesResult;
+                min = midFontSize + 1;
+            } else {
+                // 교실 크기 제한을 넘으면 더 작은 폰트 시도
+                max = midFontSize - 1;
+            }
+        }
+        
+        // 최종 폰트 크기 결정
+        pptFontSize = Math.min(pptFontSize, Math.max(minFontSizeLimit, bestFontSize));
+        
+        // 최종 줄바꿈 결과 사용
+        java.util.List<String> finalLines = bestLines;
+        if (finalLines == null || finalLines.isEmpty()) {
+            // fallback: 최종 폰트 크기로 다시 계산
+            finalLines = new java.util.ArrayList<>();
+            String finalCurrentLine = "";
+            for (String part : parts) {
+                String testText = finalCurrentLine.isEmpty() ? part : finalCurrentLine + ", " + part;
+                double lineWidth = estimateTextWidth(testText, pptFontSize);
+                
+                if (lineWidth > maxWidth * 1.01 && !finalCurrentLine.isEmpty()) {
+                    finalLines.add(finalCurrentLine);
+                    finalCurrentLine = part;
+                } else {
+                    finalCurrentLine = testText;
+                }
+            }
+            if (!finalCurrentLine.isEmpty()) {
+                finalLines.add(finalCurrentLine);
+            }
+        }
         
         // 줄바꿈 시뮬레이션 결과를 사용하여 수동으로 줄바꿈 적용
         // 장비종류+숫자 세트가 분리되지 않도록 각 줄을 \n으로 연결
-        String formattedLabel = String.join("\n", lines);
+        String formattedLabel = String.join("\n", finalLines);
         
         textRun.setText(formattedLabel);
         textRun.setFontSize(pptFontSize);

@@ -37,10 +37,40 @@ export default class EquipmentViewMode {
         try {
         console.log('✅ 장비보기 모드 활성화');
         
-        // 현재 페이지의 요소만 필터링 (다른 페이지 요소 제거)
-        // 단, 로컬 요소는 유지 (저장되지 않은 작업 내용 보존)
+        // 현재 페이지 확인
         const currentPage = this.core.currentPage || window.floorPlanApp?.currentPage || 1;
         const app = window.floorPlanApp;
+        
+        // 모든 페이지의 요소를 한 번만 로드 (activate 시에만)
+        if (app && typeof app.loadAllPageElements === 'function') {
+            const allPageElements = await app.loadAllPageElements();
+            if (allPageElements && allPageElements.length > 0) {
+                // 기존 요소와 병합 (중복 제거)
+                const existingElementMap = new Map();
+                this.core.state.elements.forEach(el => {
+                    if (el.id) {
+                        existingElementMap.set(el.id.toString(), el);
+                    }
+                });
+                
+                // 모든 페이지 요소를 맵에 추가 (중복 제거)
+                allPageElements.forEach(el => {
+                    if (el.id) {
+                        existingElementMap.set(el.id.toString(), el);
+                    } else {
+                        // ID가 없는 요소는 좌표 기반으로 중복 체크
+                        const coordKey = `${el.elementType}_${el.xCoordinate}_${el.yCoordinate}_${el.pageNumber || 1}`;
+                        if (!existingElementMap.has(coordKey)) {
+                            existingElementMap.set(coordKey, el);
+                        }
+                    }
+                });
+                
+                // 맵의 모든 요소를 배열로 변환
+                this.core.state.elements = Array.from(existingElementMap.values());
+                console.log(`📥 모든 페이지 요소 로드: 전체 ${this.core.state.elements.length}개`);
+            }
+        }
         
         // 로컬 요소 저장소에서 현재 페이지 요소 복원 (있는 경우)
         if (app && app.localElementsByPage && app.localElementsByPage[currentPage]) {
@@ -68,16 +98,9 @@ export default class EquipmentViewMode {
             }
         }
         
-        // 현재 페이지의 요소만 필터링 (AP/MDF는 장비 보기 모드에서 표시하지 않음)
-        this.core.state.elements = this.core.state.elements.filter(el => {
-            // AP/MDF는 장비 보기 모드에서 표시하지 않음 (무선AP 보기 모드에서만 표시)
-            if (el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf') {
-                return false;
-            }
-            // 나머지 요소는 현재 페이지만
-            return el.pageNumber === currentPage || el.pageNumber === null || el.pageNumber === undefined;
-        });
-        console.log(`📄 현재 페이지 ${currentPage}의 요소만 표시: ${this.core.state.elements.length}개 (AP/MDF 제외)`);
+        // AP/MDF 요소는 렌더링에서 필터링하므로 여기서는 제거하지 않음
+        // 페이지 필터링도 renderElements와 renderEquipmentCards에서 처리하므로 여기서는 하지 않음
+        console.log(`📄 장비보기 모드 활성화: 전체 요소 ${this.core.state.elements.length}개 (필터링은 렌더링 시 처리)`);
         
         // 모든 요소 잠금 (보기 모드에서는 이동 불가)
         this.lockAllElements();
@@ -85,6 +108,7 @@ export default class EquipmentViewMode {
         // 장비 보기 모드에서는 AP를 표시하지 않음
         // AP는 무선AP 보기 모드에서만 표시됨
         
+        // 장비 데이터는 한 번만 로드 (activate 시에만)
         await this.loadDevices();
         this.renderEquipmentCards();
         this.bindEvents();
@@ -184,33 +208,19 @@ export default class EquipmentViewMode {
             }
         }
         
-        // 현재 페이지의 요소만 필터링 (AP/MDF는 장비 보기 모드에서 표시하지 않음)
-        this.core.state.elements = this.core.state.elements.filter(el => {
-            // AP/MDF는 장비 보기 모드에서 표시하지 않음
-            if (el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf') {
-                return false;
-            }
-            // equipment_card도 제거 (나중에 다시 렌더링)
-            if (el.elementType === 'equipment_card') {
-                return false;
-            }
-            // 나머지 요소는 현재 페이지만 (pageNumber가 null/undefined인 경우 1페이지로 간주)
-            const elementPage = el.pageNumber || 1;
-            return elementPage === pageNumber;
-        });
-        console.log(`📄 현재 페이지 ${pageNumber}의 요소만 표시: ${this.core.state.elements.length}개 (AP/MDF 제외)`);
-        
-        // 기존 장비 카드 제거
+        // 기존 장비 카드 제거 (모든 페이지의 equipment_card 제거)
         this.clearEquipmentCards();
         // 기존 AP 요소 제거 (장비 보기 모드에서는 AP를 표시하지 않음)
         this.clearApElements();
         
+        // AP/MDF 요소는 렌더링에서 필터링하므로 여기서는 제거만 하고,
+        // 나머지 요소는 필터링하지 않음 (renderEquipmentCards에서 현재 페이지만 필터링)
+        // 단, equipment_card는 이미 제거했으므로 추가 제거 불필요
+        
         // 장비 보기 모드에서는 AP를 로드하지 않음 (AP는 무선AP 보기 모드에서만 표시)
         
-        // 새 페이지의 장비 데이터 로드 (비동기)
-        await this.loadDevices();
-        
-        // 새 페이지의 장비 카드 렌더링
+        // 장비 데이터는 이미 activate()에서 로드되었으므로 다시 로드할 필요 없음
+        // 이미 로드된 devicesByClassroom을 사용하여 즉시 렌더링
         this.renderEquipmentCards();
         
         // 강제 렌더링
@@ -662,20 +672,70 @@ export default class EquipmentViewMode {
         const elements = this.core.state.elements;
             // 현재 페이지의 요소만 필터링
             const currentPage = this.core.currentPage || window.floorPlanApp?.currentPage || 1;
+            
+            // 디버깅: 전체 교실 요소 확인
+            const allRooms = elements.filter(e => e && e.elementType === 'room');
+            console.log(`📚 renderEquipmentCards - 전체 교실 개수: ${allRooms.length}, 현재 페이지: ${currentPage}`);
+            if (allRooms.length > 0) {
+                const roomsByPage = {};
+                allRooms.forEach(room => {
+                    const roomPage = room.pageNumber || 1;
+                    if (!roomsByPage[roomPage]) {
+                        roomsByPage[roomPage] = [];
+                    }
+                    roomsByPage[roomPage].push(room);
+                });
+                console.log(`📚 페이지별 교실 개수:`, roomsByPage);
+            }
+            
             const roomElements = elements.filter(e => {
                 if (!e || e.elementType !== 'room') return false;
                 // pageNumber가 null/undefined인 경우 1페이지로 간주
                 const elementPage = e.pageNumber || 1;
                 return elementPage === currentPage;
             });
+            
+            console.log(`📚 renderEquipmentCards - 현재 페이지(${currentPage}) 교실 개수: ${roomElements.length}`);
+            
+            // 교실 정보 상세 로그
+            roomElements.forEach((room, index) => {
+                console.log(`📚 교실 ${index + 1}:`, {
+                    id: room.id,
+                    label: room.label,
+                    referenceId: room.referenceId,
+                    classroomId: room.classroomId,
+                    pageNumber: room.pageNumber
+                });
+            });
         
         roomElements.forEach(room => {
                 try {
-                    if (!room || (!room.referenceId && !room.classroomId)) return;
+                    if (!room || (!room.referenceId && !room.classroomId)) {
+                        console.log(`⚠️ 교실 정보 없음:`, {
+                            id: room?.id,
+                            label: room?.label,
+                            referenceId: room?.referenceId,
+                            classroomId: room?.classroomId
+                        });
+                        return;
+                    }
             
+            // classroomId를 숫자와 문자열 모두로 시도
             const classroomId = room.referenceId || room.classroomId;
-            const devices = this.devicesByClassroom[classroomId] || [];
-            if (devices.length === 0) return;
+            const classroomIdNum = typeof classroomId === 'string' ? parseInt(classroomId, 10) : classroomId;
+            const classroomIdStr = String(classroomId);
+            
+            // 숫자와 문자열 키 모두 확인
+            let devices = this.devicesByClassroom[classroomId] || 
+                         this.devicesByClassroom[classroomIdNum] || 
+                         this.devicesByClassroom[classroomIdStr] || [];
+            
+            console.log(`🔍 교실 장비 확인: 교실 ${room.label || room.id}, classroomId=${classroomId}, 장비 개수=${devices.length}`);
+            
+            if (devices.length === 0) {
+                console.log(`⚠️ 교실에 장비 없음: 교실 ${room.label || room.id}, classroomId=${classroomId}`);
+                return;
+            }
             
             // 고유번호 카테고리별 개수 집계
             const deviceCounts = {};
@@ -721,11 +781,15 @@ export default class EquipmentViewMode {
         const textY = roomY + (roomH * 3 / 5);
         const textX = roomX; // 중앙 정렬을 위해 x는 교실 시작점으로 설정 (렌더링 시 중앙 계산)
         
+        // 현재 페이지 번호 가져오기
+        const currentPage = this.core.currentPage || window.floorPlanApp?.currentPage || 1;
+        const roomPage = room.pageNumber || currentPage;
+        
         // 텍스트 요소 생성 (카드 형태 제거)
         const textElement = {
             id: `equipment_text_${room.id}`,
             elementType: 'equipment_card', // 렌더링 타입은 유지하되 내용만 텍스트
-                parentElementId: room.id,
+            parentElementId: room.id,
             xCoordinate: textX,
             yCoordinate: textY,
             width: roomW, // 교실 전체 너비 사용 (중앙 정렬)
@@ -733,10 +797,12 @@ export default class EquipmentViewMode {
             roomHeight: roomH, // 교실 높이 정보 저장 (폰트 크기 계산용)
             text: text, // 전체 텍스트
             cards: cards, // 개별 카드 정보 (줄바꿈 계산용)
-                zIndex: 1000
-            };
+            pageNumber: roomPage, // 교실과 동일한 페이지 번호 설정
+            zIndex: 1000
+        };
             
         this.core.state.elements.push(textElement);
+        console.log(`✅ 장비 카드 생성: 교실 ${room.label || room.id}, 페이지 ${roomPage}, 텍스트: ${text}`);
     }
     
     /**
