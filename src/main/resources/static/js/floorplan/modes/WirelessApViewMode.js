@@ -33,6 +33,9 @@ export default class WirelessApViewMode {
         // 모든 요소 잠금 (보기 모드에서는 이동 불가)
         this.lockAllElements();
         
+        // 장비 카드 제거 (장비보기 모드에서 생성된 장비 카드 제거)
+        this.clearEquipmentCards();
+        
         // 먼저 기존 AP/MDF 요소 제거
         this.clearApElements();
         
@@ -612,6 +615,17 @@ export default class WirelessApViewMode {
         apElements.forEach(element => {
             this.elementManager.removeElement(element.id);
         });
+    }
+    
+    /**
+     * 장비 카드 제거
+     */
+    clearEquipmentCards() {
+        // core.state.elements에서 직접 제거
+        this.core.state.elements = this.core.state.elements.filter(
+            e => e.elementType !== 'equipment_card'
+        );
+        this.core.markDirty();
     }
 }
 

@@ -376,6 +376,13 @@ export default class FloorPlanCore {
             });
         }
         
+        // 무선AP 보기 모드에서는 장비 카드 숨김 (AP 정보만 표시)
+        if (currentMode === 'wireless-ap-view' || currentMode === 'view-wireless' || currentMode === 'wireless-ap') {
+            elementsToRender = elementsToRender.filter(element => {
+                return element.elementType !== 'equipment_card';
+            });
+        }
+        
         // z-index로 정렬
         const sortedElements = [...elementsToRender].sort(
             (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
