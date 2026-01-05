@@ -962,6 +962,18 @@ export default class InteractionManager {
         this.core.state.isDragging = false;  // 즉시 직접 설정
         this.canvas.style.cursor = 'default';
         
+        // 요소 이동 후 localElementsByPage 즉시 업데이트 (변경사항 감지용)
+        const app = window.floorPlanApp;
+        if (app && app.localElementsByPage && app.currentPage) {
+            const currentPageElements = this.core.state.elements.filter(el => {
+                if (!el || (!el.id && !el.elementType)) return false;
+                const elPage = el.pageNumber || app.currentPage;
+                return elPage === app.currentPage;
+            });
+            app.localElementsByPage[app.currentPage] = JSON.parse(JSON.stringify(currentPageElements));
+            console.log(`💾 드래그 종료 후 페이지 ${app.currentPage}의 요소 ${currentPageElements.length}개 저장 (로컬 상태 업데이트)`);
+        }
+        
         // 즉시 강제 렌더링 (선택 효과 다시 표시)
         this.core.markDirty();
         this.core.render();  // 동기적으로 즉시 렌더링
@@ -1962,10 +1974,10 @@ export default class InteractionManager {
                     newWidth = this.resizeStart.originalWidth - avgDelta;
                     newHeight = this.resizeStart.originalHeight - avgDelta;
                 } else {
-                    newX += dx_canvas;
-                    newY += dy_canvas;
-                    newWidth -= dx_canvas;
-                    newHeight -= dy_canvas;
+                newX += dx_canvas;
+                newY += dy_canvas;
+                newWidth -= dx_canvas;
+                newHeight -= dy_canvas;
                 }
                 break;
             case 'ne':  // 북동 (우상)
@@ -1977,9 +1989,9 @@ export default class InteractionManager {
                     newHeight = this.resizeStart.originalHeight - avgDelta;
                     newX = this.resizeStart.originalX; // X는 변경 없음
                 } else {
-                    newY += dy_canvas;
-                    newWidth += dx_canvas;
-                    newHeight -= dy_canvas;
+                newY += dy_canvas;
+                newWidth += dx_canvas;
+                newHeight -= dy_canvas;
                 }
                 break;
             case 'sw':  // 남서 (좌하)
@@ -1991,9 +2003,9 @@ export default class InteractionManager {
                     newHeight = this.resizeStart.originalHeight - avgDelta;
                     newY = this.resizeStart.originalY; // Y는 변경 없음
                 } else {
-                    newX += dx_canvas;
-                    newWidth -= dx_canvas;
-                    newHeight += dy_canvas;
+                newX += dx_canvas;
+                newWidth -= dx_canvas;
+                newHeight += dy_canvas;
                 }
                 break;
             case 'se':  // 남동 (우하)
@@ -2005,30 +2017,30 @@ export default class InteractionManager {
                     newX = this.resizeStart.originalX; // X는 변경 없음
                     newY = this.resizeStart.originalY; // Y는 변경 없음
                 } else {
-                    newWidth += dx_canvas;
-                    newHeight += dy_canvas;
+                newWidth += dx_canvas;
+                newHeight += dy_canvas;
                 }
                 break;
             case 'n':   // 북 (상) - 현관은 비활성화
                 if (!isEntrance) {
-                    newY += dy_canvas;
-                    newHeight -= dy_canvas;
+                newY += dy_canvas;
+                newHeight -= dy_canvas;
                 }
                 break;
             case 's':   // 남 (하) - 현관은 비활성화
                 if (!isEntrance) {
-                    newHeight += dy_canvas;
+                newHeight += dy_canvas;
                 }
                 break;
             case 'w':   // 서 (좌) - 현관은 비활성화
                 if (!isEntrance) {
-                    newX += dx_canvas;
-                    newWidth -= dx_canvas;
+                newX += dx_canvas;
+                newWidth -= dx_canvas;
                 }
                 break;
             case 'e':   // 동 (우) - 현관은 비활성화
                 if (!isEntrance) {
-                    newWidth += dx_canvas;
+                newWidth += dx_canvas;
                 }
                 break;
         }
@@ -2085,7 +2097,7 @@ export default class InteractionManager {
         
         if (element.elementType === 'wireless_ap') {
             const shapeType = element.shapeType || 'circle';
-            if (shapeType === 'circle') {
+            if (shapeType === 'circle' || shapeType === 'circle-l') {
                 const size = Math.max(newWidth, newHeight);
                 const centerX = newX + newWidth / 2;
                 const centerY = newY + newHeight / 2;
@@ -2113,6 +2125,18 @@ export default class InteractionManager {
         this.resizeStart.element = null;
         this.resizeStart.handle = null;
         this.canvas.style.cursor = 'default';
+        
+        // 요소 크기 변경 후 localElementsByPage 즉시 업데이트 (변경사항 감지용)
+        const app = window.floorPlanApp;
+        if (app && app.localElementsByPage && app.currentPage) {
+            const currentPageElements = this.core.state.elements.filter(el => {
+                if (!el || (!el.id && !el.elementType)) return false;
+                const elPage = el.pageNumber || app.currentPage;
+                return elPage === app.currentPage;
+            });
+            app.localElementsByPage[app.currentPage] = JSON.parse(JSON.stringify(currentPageElements));
+            console.log(`💾 리사이즈 종료 후 페이지 ${app.currentPage}의 요소 ${currentPageElements.length}개 저장 (로컬 상태 업데이트)`);
+        }
         
         // 즉시 강제 렌더링 (선택 효과 다시 표시)
         this.core.markDirty();
@@ -2197,7 +2221,7 @@ export default class InteractionManager {
         // 호버된 요소 확인
         const hoveredElement = this.findElementAt(canvasX, canvasY);
         if (hoveredElement !== this.core.state.hoveredElement) {
-            this.core.setState({ hoveredElement });
+        this.core.setState({ hoveredElement });
         }
         this.canvas.style.cursor = hoveredElement ? 'move' : 'default';
     }

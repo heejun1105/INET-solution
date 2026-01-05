@@ -2767,6 +2767,7 @@ public class PPTExportService {
         items.add(new LegendItem("circle", Color.BLACK, "도교육청AP#"));
         items.add(new LegendItem("triangle", Color.BLACK, "4차,3차"));
         items.add(new LegendItem("diamond", Color.BLACK, "학교구입"));
+        items.add(new LegendItem("circle-l", Color.BLACK, "라인"));
         
         double startX = boxX + boxPadding + 50; // "범례 : " 공간 확보
         double currentX = startX;
@@ -2821,6 +2822,12 @@ public class PPTExportService {
                 shapeWidth = shapeSize;
                 shapeHeight = shapeSize;
                 shapeY = centerY - shapeSize / 2.0;
+            } else if ("circle-l".equals(item.shape)) {
+                // 원형L: 원형 테두리와 L 문자
+                shape.setShapeType(org.apache.poi.sl.usermodel.ShapeType.ELLIPSE);
+                shapeWidth = shapeSize;
+                shapeHeight = shapeSize;
+                shapeY = centerY - shapeSize / 2.0;
             } else {
                 shapeWidth = shapeSize;
                 shapeHeight = shapeSize;
@@ -2828,9 +2835,37 @@ public class PPTExportService {
             }
             
             shape.setAnchor(new Rectangle((int)currentX, (int)shapeY, (int)shapeWidth, (int)shapeHeight));
-            shape.setFillColor(item.color);
-            shape.setLineColor(Color.BLACK);
-            shape.setLineWidth(0.5);
+            
+            // circle-l은 투명 배경과 테두리만
+            if ("circle-l".equals(item.shape)) {
+                shape.setFillColor(null); // 투명
+                shape.setLineColor(item.color);
+                shape.setLineWidth(2.0);
+                
+                // L을 선으로 그리기 (프론트엔드와 동일하게)
+                double letterSize = shapeSize * 0.36; // L 크기 (원의 36%, 40% 감소: 0.6 * 0.6)
+                double letterX = currentX + shapeSize / 2.0 - (letterSize * 0.3);
+                double letterY = centerY - (letterSize * 0.7); // 위치를 더 위로 올림 (0.5 → 0.7)
+                
+                // L을 Path2D로 그리기
+                java.awt.geom.Path2D.Double lPath = new java.awt.geom.Path2D.Double();
+                // L의 세로선
+                lPath.moveTo(letterX, letterY);
+                lPath.lineTo(letterX, letterY + letterSize);
+                // L의 가로선
+                lPath.lineTo(letterX + letterSize * 0.7, letterY + letterSize);
+                
+                // XSLFFreeformShape로 L 그리기
+                XSLFFreeformShape lShape = slide.createFreeform();
+                lShape.setPath(lPath);
+                lShape.setLineColor(item.color);
+                lShape.setLineWidth(2.0); // 범례에서는 고정 두께
+                lShape.setFillColor(null); // 채우기 없음
+            } else {
+                shape.setFillColor(item.color);
+                shape.setLineColor(Color.BLACK);
+                shape.setLineWidth(0.5);
+            }
             
             // 라벨 추가 (도형 옆에)
             double labelX = currentX + shapeWidth + 3;

@@ -162,7 +162,8 @@ export default class LegendComponent {
             { shape: 'rectangle', color: '#000000', label: 'IDF#' },
             { shape: 'circle', color: '#000000', label: '도교육청AP#' },
             { shape: 'triangle', color: '#000000', label: '4차,3차' },
-            { shape: 'diamond', color: '#000000', label: '학교구입' }
+            { shape: 'diamond', color: '#000000', label: '학교구입' },
+            { shape: 'circle-l', color: '#000000', label: '라인' }
         ];
         
         let html = '<div class="legend-title">범례</div>';
@@ -172,6 +173,8 @@ export default class LegendComponent {
             let styleAttr = '';
             if (item.shape === 'triangle') {
                 styleAttr = `style="border-bottom-color: ${item.color}"`;
+            } else if (item.shape === 'circle-l') {
+                styleAttr = `style="border-color: ${item.color}; color: ${item.color}"`;
             } else {
                 styleAttr = `style="background-color: ${item.color}"`;
             }

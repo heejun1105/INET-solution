@@ -2204,6 +2204,26 @@
     border: 1px solid rgba(0, 0, 0, 0.2);
 }
 
+.legend-shape-circle-l {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid;
+    background: transparent;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.legend-shape-circle-l::after {
+    content: 'L';
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1;
+    margin-top: -1px;
+}
+
 .legend-label {
     flex: 1;
 }

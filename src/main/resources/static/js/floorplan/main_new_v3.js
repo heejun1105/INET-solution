@@ -45,6 +45,10 @@ class FloorPlanApp {
         // AP 변경 사항 보존 (모드 전환 시에도 유지)
         this.savedApPositions = {};
         
+        // 저장되지 않은 변경사항 추적 (설계 모드에서만)
+        this.lastSavedStateByPage = {}; // 페이지별 마지막 저장 상태 (요소 개수, 해시 등)
+        this.initialApPositionsByPage = {}; // 페이지별 초기 AP 위치 상태 (무선AP 설계 모드용)
+        
         // 첫 진입 여부 확인 (localStorage 사용)
         this.isFirstEntry = !localStorage.getItem('floorplan_has_entered');
         
@@ -913,6 +917,9 @@ class FloorPlanApp {
             try {
                 await this.modeManager.activate();
                 
+                // 무선AP 설계 모드인 경우 초기 AP 위치 상태는 activate() 내부에서 저장됨
+                // (renderWirelessAps 완료 후 저장하도록 변경)
+                
                 // InteractionManager에 현재 모드 설정 (삭제 콜백용)
                 if (this.interactionManager) {
                     this.interactionManager.setCurrentMode(this.modeManager);
@@ -1162,7 +1169,540 @@ class FloorPlanApp {
     /**
      * 워크스페이스 닫기
      */
+    /**
+     * 저장되지 않은 변경사항이 있는지 확인
+     * @param {Number} pageNumber - 확인할 페이지 번호 (없으면 현재 페이지)
+     * @returns {Boolean} 저장되지 않은 변경사항이 있으면 true
+     */
+    hasUnsavedChanges(pageNumber = null) {
+        const targetPage = pageNumber || this.currentPage;
+        
+        // 설계 모드가 아니면 변경사항 없음
+        if (!this.currentMode || 
+            (this.currentMode !== 'design-classroom' && this.currentMode !== 'design-wireless')) {
+            return false;
+        }
+        
+        // 무선AP 설계 모드인 경우 savedApPositions 변경만 확인
+        if (this.currentMode === 'design-wireless') {
+            // savedApPositions의 변경사항 확인
+            // 초기 상태와 비교하기 위해 lastSavedStateByPage에 savedApPositions 해시 저장 필요
+            // 간단하게는 savedApPositions가 비어있지 않고, 마지막 저장 상태와 다르면 변경사항으로 간주
+            // 하지만 더 정확하게는 초기 상태를 저장하고 비교해야 함
+            // 일단은 AP/MDF 요소를 제외하고 다른 요소들만 비교
+        }
+        
+        // 현재 페이지의 요소 가져오기 (무선AP 설계 모드에서는 AP/MDF 제외)
+        const currentPageElements = this.core.state.elements.filter(el => {
+            if (!el || (!el.id && !el.elementType)) return false;
+            const elPage = el.pageNumber || 1;
+            if (elPage !== targetPage) return false;
+            
+            // 무선AP 설계 모드에서는 AP/MDF 요소 제외 (동적으로 생성/제거되므로)
+            if (this.currentMode === 'design-wireless') {
+                if (el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf') {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+        
+        // 현재 상태의 해시 계산
+        const currentHash = JSON.stringify(currentPageElements.map(el => ({
+            id: el.id,
+            type: el.elementType,
+            x: el.xCoordinate,
+            y: el.yCoordinate,
+            w: el.width,
+            h: el.height
+        })).sort((a, b) => (a.id || '').toString().localeCompare((b.id || '').toString())));
+        
+        // 마지막 저장 상태가 없으면 (아직 저장한 적이 없으면) 초기 상태와 비교
+        if (!this.lastSavedStateByPage[targetPage]) {
+            // localElementsByPage에 저장된 초기 상태와 비교 (AP/MDF 제외)
+            if (this.localElementsByPage[targetPage] && this.localElementsByPage[targetPage].length > 0) {
+                const initialElements = this.localElementsByPage[targetPage].filter(el => {
+                    // 무선AP 설계 모드에서는 AP/MDF 제외
+                    if (this.currentMode === 'design-wireless') {
+                        if (el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf') {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+                
+                const initialHash = JSON.stringify(initialElements.map(el => ({
+                    id: el.id,
+                    type: el.elementType,
+                    x: el.xCoordinate,
+                    y: el.yCoordinate,
+                    w: el.width,
+                    h: el.height
+                })).sort((a, b) => (a.id || '').toString().localeCompare((b.id || '').toString())));
+                
+                // 초기 상태와 다르면 변경사항 있음
+                if (currentHash !== initialHash) {
+                    // 변경된 요소 상세 분석
+                    const initialElementMap = new Map();
+                    initialElements.forEach(el => {
+                        const key = `${el.elementType}_${el.id || el.referenceId || 'unknown'}`;
+                        initialElementMap.set(key, el);
+                    });
+                    
+                    const currentElementMap = new Map();
+                    currentPageElements.forEach(el => {
+                        const key = `${el.elementType}_${el.id || el.referenceId || 'unknown'}`;
+                        currentElementMap.set(key, el);
+                    });
+                    
+                    const addedElements = [];
+                    const removedElements = [];
+                    const modifiedElements = [];
+                    
+                    // 추가된 요소 찾기
+                    currentElementMap.forEach((el, key) => {
+                        if (!initialElementMap.has(key)) {
+                            addedElements.push({
+                                type: el.elementType,
+                                id: el.id || el.referenceId,
+                                name: el.name || el.label || '이름 없음',
+                                position: { x: el.xCoordinate, y: el.yCoordinate },
+                                size: { w: el.width, h: el.height }
+                            });
+                        }
+                    });
+                    
+                    // 삭제된 요소 찾기
+                    initialElementMap.forEach((el, key) => {
+                        if (!currentElementMap.has(key)) {
+                            removedElements.push({
+                                type: el.elementType,
+                                id: el.id || el.referenceId,
+                                name: el.name || el.label || '이름 없음'
+                            });
+                        }
+                    });
+                    
+                    // 수정된 요소 찾기
+                    initialElementMap.forEach((initialEl, key) => {
+                        const currentEl = currentElementMap.get(key);
+                        if (currentEl) {
+                            const initialProps = {
+                                x: initialEl.xCoordinate,
+                                y: initialEl.yCoordinate,
+                                w: initialEl.width,
+                                h: initialEl.height,
+                                rotation: initialEl.rotation || 0
+                            };
+                            const currentProps = {
+                                x: currentEl.xCoordinate,
+                                y: currentEl.yCoordinate,
+                                w: currentEl.width,
+                                h: currentEl.height,
+                                rotation: currentEl.rotation || 0
+                            };
+                            
+                            if (JSON.stringify(initialProps) !== JSON.stringify(currentProps)) {
+                                modifiedElements.push({
+                                    type: currentEl.elementType,
+                                    id: currentEl.id || currentEl.referenceId,
+                                    name: currentEl.name || currentEl.label || '이름 없음',
+                                    changes: {
+                                        before: initialProps,
+                                        after: currentProps
+                                    }
+                                });
+                            }
+                        }
+                    });
+                    
+                    console.log('⚠️ 저장되지 않은 변경사항 감지됨 (일반 요소 변경 - 초기 상태와 비교)', {
+                        targetPage,
+                        mode: this.currentMode,
+                        initialCount: initialElements.length,
+                        currentCount: currentPageElements.length,
+                        addedElements: addedElements.length > 0 ? addedElements : '없음',
+                        removedElements: removedElements.length > 0 ? removedElements : '없음',
+                        modifiedElements: modifiedElements.length > 0 ? modifiedElements : '없음',
+                        summary: {
+                            추가: addedElements.length,
+                            삭제: removedElements.length,
+                            수정: modifiedElements.length
+                        }
+                    });
+                    return true;
+                }
+            } else {
+                // 초기 상태도 없고 현재 요소도 없으면 변경사항 없음
+                if (currentPageElements.length === 0) {
+                    return false;
+                }
+                // 초기 상태는 없지만 현재 요소가 있으면 변경사항으로 간주하지 않음 (아직 초기화되지 않은 상태)
+                // 무선AP 설계 모드에서는 AP/MDF를 제외하고 비교했으므로, 여기서는 변경사항 없음으로 판단
+                return false;
+            }
+        } else {
+            // 마지막 저장 상태와 비교
+            // 무선AP 설계 모드에서는 lastSavedElements도 필터링하여 개수 비교
+            let lastSavedCount = 0;
+            const lastSavedState = this.lastSavedStateByPage[targetPage];
+            if (lastSavedState && lastSavedState.elementList) {
+                const lastSavedElements = lastSavedState.elementList;
+                if (this.currentMode === 'design-wireless') {
+                    // wireless_ap와 mdf_idf 제외
+                    const filteredLastSavedElements = lastSavedElements.filter(el => {
+                        return el.type !== 'wireless_ap' && el.type !== 'mdf_idf';
+                    });
+                    lastSavedCount = filteredLastSavedElements.length;
+                } else {
+                    lastSavedCount = lastSavedState.elementCount || lastSavedElements.length;
+                }
+            } else if (lastSavedState) {
+                lastSavedCount = lastSavedState.elementCount || 0;
+            }
+            
+            if (currentPageElements.length !== lastSavedCount) {
+                // 개수 차이 상세 분석
+                const currentElementIds = currentPageElements.map(el => ({
+                    type: el.elementType,
+                    id: el.id || el.referenceId,
+                    name: el.name || el.label || '이름 없음'
+                }));
+                
+                // 저장된 요소 목록이 있으면 비교 (lastSavedStateByPage에 요소 목록 저장 시)
+                // 무선AP 설계 모드에서는 AP/MDF 요소 제외
+                const lastSavedElements = (this.lastSavedStateByPage[targetPage].elementList || []).filter(el => {
+                    if (this.currentMode === 'design-wireless') {
+                        if (el.type === 'wireless_ap' || el.type === 'mdf_idf') {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+                const lastSavedElementIds = lastSavedElements.map(el => ({
+                    type: el.type,
+                    id: el.id,
+                    name: el.name || '이름 없음'
+                }));
+                
+                // 추가/삭제된 요소 찾기
+                const currentIdsSet = new Set(currentElementIds.map(e => `${e.type}_${e.id}`));
+                const lastSavedIdsSet = new Set(lastSavedElementIds.map(e => `${e.type}_${e.id}`));
+                
+                const addedElements = currentElementIds.filter(e => !lastSavedIdsSet.has(`${e.type}_${e.id}`));
+                const removedElements = lastSavedElementIds.filter(e => !currentIdsSet.has(`${e.type}_${e.id}`));
+                
+                // 상세 로그 출력
+                console.log('⚠️ 저장되지 않은 변경사항 감지됨 (일반 요소 개수 변경)', {
+                    targetPage,
+                    mode: this.currentMode,
+                    lastSavedCount,
+                    currentCount: currentPageElements.length,
+                    difference: currentPageElements.length - lastSavedCount,
+                    lastSavedElementsCount: lastSavedElements.length,
+                    summary: {
+                        추가: addedElements.length,
+                        삭제: removedElements.length,
+                        총_변경: addedElements.length + removedElements.length
+                    }
+                });
+                
+                if (addedElements.length > 0) {
+                    console.log('📝 추가된 요소:', addedElements);
+                }
+                if (removedElements.length > 0) {
+                    console.log('🗑️ 삭제된 요소:', removedElements);
+                }
+                if (addedElements.length === 0 && removedElements.length === 0) {
+                    console.log('ℹ️ 추가/삭제된 요소 없음 (개수 차이는 필터링 차이로 인한 것일 수 있음)');
+                }
+                return true;
+            }
+            
+            // 무선AP 설계 모드에서는 일반 요소 해시 비교를 건너뛰고 AP 위치 비교만 수행
+            // (일반 요소는 교실, 건물 등이고, 이들은 AP 설계 모드에서 변경되지 않아야 함)
+            if (this.currentMode !== 'design-wireless') {
+                const lastSavedHash = this.lastSavedStateByPage[targetPage].elementHash;
+                if (lastSavedHash && currentHash !== lastSavedHash) {
+                    // 해시가 다르면 요소 내용이 변경된 것
+                    // 마지막 저장 상태의 요소 정보는 없으므로 현재 요소 정보만 표시
+                    const changedElements = currentPageElements.map(el => ({
+                        type: el.elementType,
+                        id: el.id || el.referenceId,
+                        name: el.name || el.label || '이름 없음',
+                        position: { x: el.xCoordinate, y: el.yCoordinate },
+                        size: { w: el.width, h: el.height },
+                        rotation: el.rotation || 0
+                    }));
+                    
+                    console.log('⚠️ 저장되지 않은 변경사항 감지됨 (일반 요소 내용 변경)', {
+                        targetPage,
+                        mode: this.currentMode,
+                        elementCount: currentPageElements.length,
+                        changedElements: changedElements.length > 10 
+                            ? changedElements.slice(0, 10).concat([`... 외 ${changedElements.length - 10}개`])
+                            : changedElements,
+                        note: '요소의 위치, 크기, 회전 등이 변경되었을 수 있습니다.'
+                    });
+                    return true;
+                }
+            }
+        }
+        
+        // 무선AP 설계 모드인 경우 savedApPositions 변경 확인
+        if (this.currentMode === 'design-wireless') {
+            // savedApPositions의 초기 상태와 비교
+            const initialApPositions = this.initialApPositionsByPage[targetPage];
+            
+            console.log('🔍 AP 위치 변경 감지 시작:', {
+                targetPage,
+                hasInitialApPositions: !!initialApPositions,
+                initialApPositionsType: typeof initialApPositions,
+                initialApPositionsKeys: initialApPositions ? Object.keys(initialApPositions).sort() : [],
+                initialApPositionsCount: initialApPositions ? Object.keys(initialApPositions).length : 0,
+                hasSavedApPositions: !!(window.floorPlanApp && window.floorPlanApp.savedApPositions),
+                savedApPositionsKeys: window.floorPlanApp && window.floorPlanApp.savedApPositions ? Object.keys(window.floorPlanApp.savedApPositions).sort() : [],
+                savedApPositionsCount: window.floorPlanApp && window.floorPlanApp.savedApPositions ? Object.keys(window.floorPlanApp.savedApPositions).length : 0
+            });
+            
+            // initialApPositions가 undefined가 아니고 객체인 경우에만 비교
+            if (initialApPositions && typeof initialApPositions === 'object' && Object.keys(initialApPositions).length >= 0) {
+                // 초기 상태가 있으면 현재 상태와 비교
+                if (window.floorPlanApp && window.floorPlanApp.savedApPositions) {
+                    const currentApPositions = window.floorPlanApp.savedApPositions;
+                    
+                    // 현재 페이지의 AP만 비교 (다른 페이지의 AP는 제외)
+                    // initialApPositions와 currentApPositions에서 현재 페이지의 교실에 속한 AP만 추출
+                    const currentPageRooms = this.core.state.elements.filter(el => {
+                        if (el.elementType !== 'room') return false;
+                        const elPage = el.pageNumber || 1;
+                        return elPage === targetPage;
+                    });
+                    
+                    const currentPageRoomIds = new Set();
+                    currentPageRooms.forEach(room => {
+                        const roomId = room.referenceId || room.classroomId || room.id;
+                        if (roomId) {
+                            currentPageRoomIds.add(String(roomId));
+                        }
+                    });
+                    
+                    console.log('🔍 현재 페이지 교실 정보:', {
+                        targetPage,
+                        currentPageRoomsCount: currentPageRooms.length,
+                        currentPageRoomIds: Array.from(currentPageRoomIds).sort(),
+                        roomDetails: currentPageRooms.map(r => ({
+                            id: r.id,
+                            referenceId: r.referenceId,
+                            classroomId: r.classroomId,
+                            name: r.name || r.label,
+                            pageNumber: r.pageNumber || 1
+                        }))
+                    });
+                    
+                    // 현재 페이지의 교실에 속한 AP만 필터링
+                    // initialApPositions는 이미 현재 페이지의 AP만 필터링된 상태로 저장되어 있으므로
+                    // currentApPositions에서도 현재 페이지의 AP만 필터링하여 비교
+                    const currentApPositionsForPage = {};
+                    
+                    if (!this.modeManager || !this.modeManager.wirelessAps) {
+                        console.warn('⚠️ modeManager 또는 wirelessAps가 없음:', {
+                            hasModeManager: !!this.modeManager,
+                            hasWirelessAps: !!(this.modeManager && this.modeManager.wirelessAps)
+                        });
+                    }
+                    
+                    Object.keys(currentApPositions).forEach(apId => {
+                        // AP가 속한 교실 찾기 (wirelessAps 데이터에서 확인)
+                        if (this.modeManager && this.modeManager.wirelessAps) {
+                            const ap = this.modeManager.wirelessAps.find(a => String(a.apId) === apId);
+                            if (ap && ap.classroomId) {
+                                const classroomId = String(ap.classroomId);
+                                if (currentPageRoomIds.has(classroomId)) {
+                                    // 깊은 복사로 저장 (참조가 아닌 값 복사)
+                                    currentApPositionsForPage[apId] = JSON.parse(JSON.stringify(currentApPositions[apId]));
+                                }
+                            } else {
+                                console.log('🔍 AP 필터링 스킵:', {
+                                    apId,
+                                    hasAp: !!ap,
+                                    hasClassroomId: !!(ap && ap.classroomId),
+                                    classroomId: ap ? ap.classroomId : null
+                                });
+                            }
+                        }
+                    });
+                    
+                    console.log('🔍 AP 필터링 결과:', {
+                        targetPage,
+                        currentApPositionsKeys: Object.keys(currentApPositions).sort(),
+                        currentApPositionsForPageKeys: Object.keys(currentApPositionsForPage).sort(),
+                        currentApPositionsCount: Object.keys(currentApPositions).length,
+                        currentApPositionsForPageCount: Object.keys(currentApPositionsForPage).length
+                    });
+                    
+                    // initialApPositions는 이미 현재 페이지의 AP만 포함되어 있으므로 직접 비교
+                    // 단, 키 순서가 다를 수 있으므로 정렬하여 비교
+                    // 깊은 복사로 비교하여 참조 비교가 아닌 값 비교 수행
+                    const sortedInitial = {};
+                    Object.keys(initialApPositions).sort().forEach(key => {
+                        sortedInitial[key] = JSON.parse(JSON.stringify(initialApPositions[key]));
+                    });
+                    const sortedCurrent = {};
+                    Object.keys(currentApPositionsForPage).sort().forEach(key => {
+                        sortedCurrent[key] = JSON.parse(JSON.stringify(currentApPositionsForPage[key]));
+                    });
+                    const initialHash = JSON.stringify(sortedInitial);
+                    const currentHash = JSON.stringify(sortedCurrent);
+                    
+                    // 상세 디버깅 로그
+                    console.log('🔍 AP 위치 비교 상세:', {
+                        targetPage,
+                        initialKeys: Object.keys(initialApPositions).sort(),
+                        currentKeys: Object.keys(currentApPositionsForPage).sort(),
+                        initialKeysCount: Object.keys(initialApPositions).length,
+                        currentKeysCount: Object.keys(currentApPositionsForPage).length,
+                        initialSample: Object.keys(sortedInitial).length > 0 ? sortedInitial[Object.keys(sortedInitial)[0]] : null,
+                        currentSample: Object.keys(sortedCurrent).length > 0 ? sortedCurrent[Object.keys(sortedCurrent)[0]] : null,
+                        initialHash: initialHash.substring(0, 200),
+                        currentHash: currentHash.substring(0, 200),
+                        hashEqual: initialHash === currentHash
+                    });
+                    
+                    if (initialHash !== currentHash) {
+                        // 차이점 상세 분석
+                        const initialKeysSet = new Set(Object.keys(sortedInitial));
+                        const currentKeysSet = new Set(Object.keys(sortedCurrent));
+                        const onlyInInitial = Array.from(initialKeysSet).filter(k => !currentKeysSet.has(k));
+                        const onlyInCurrent = Array.from(currentKeysSet).filter(k => !initialKeysSet.has(k));
+                        const commonKeys = Array.from(initialKeysSet).filter(k => currentKeysSet.has(k));
+                        
+                        // 변경된 AP 상세 정보
+                        const changedAps = commonKeys.filter(key => {
+                            const init = JSON.stringify(sortedInitial[key]);
+                            const curr = JSON.stringify(sortedCurrent[key]);
+                            return init !== curr;
+                        }).map(key => {
+                            const ap = this.modeManager && this.modeManager.wirelessAps 
+                                ? this.modeManager.wirelessAps.find(a => String(a.apId) === key)
+                                : null;
+                            return {
+                                apId: key,
+                                apName: ap ? (ap.apName || `AP-${key}`) : `AP-${key}`,
+                                classroomId: ap ? ap.classroomId : null,
+                                classroomName: ap ? ap.classroomName : null,
+                                before: sortedInitial[key],
+                                after: sortedCurrent[key],
+                                changes: {
+                                    position: sortedInitial[key].x !== sortedCurrent[key].x || 
+                                             sortedInitial[key].y !== sortedCurrent[key].y 
+                                        ? { 
+                                            before: { x: sortedInitial[key].x, y: sortedInitial[key].y },
+                                            after: { x: sortedCurrent[key].x, y: sortedCurrent[key].y }
+                                          }
+                                        : null,
+                                    shape: sortedInitial[key].shapeType !== sortedCurrent[key].shapeType
+                                        ? { before: sortedInitial[key].shapeType, after: sortedCurrent[key].shapeType }
+                                        : null,
+                                    color: sortedInitial[key].borderColor !== sortedCurrent[key].borderColor ||
+                                           sortedInitial[key].backgroundColor !== sortedCurrent[key].backgroundColor
+                                        ? {
+                                            before: { 
+                                                border: sortedInitial[key].borderColor, 
+                                                background: sortedInitial[key].backgroundColor 
+                                            },
+                                            after: { 
+                                                border: sortedCurrent[key].borderColor, 
+                                                background: sortedCurrent[key].backgroundColor 
+                                            }
+                                          }
+                                        : null
+                                }
+                            };
+                        });
+                        
+                        const removedAps = onlyInInitial.map(key => {
+                            const ap = this.modeManager && this.modeManager.wirelessAps 
+                                ? this.modeManager.wirelessAps.find(a => String(a.apId) === key)
+                                : null;
+                            return {
+                                apId: key,
+                                apName: ap ? (ap.apName || `AP-${key}`) : `AP-${key}`,
+                                classroomId: ap ? ap.classroomId : null,
+                                classroomName: ap ? ap.classroomName : null,
+                                lastPosition: sortedInitial[key]
+                            };
+                        });
+                        
+                        const addedAps = onlyInCurrent.map(key => {
+                            const ap = this.modeManager && this.modeManager.wirelessAps 
+                                ? this.modeManager.wirelessAps.find(a => String(a.apId) === key)
+                                : null;
+                            return {
+                                apId: key,
+                                apName: ap ? (ap.apName || `AP-${key}`) : `AP-${key}`,
+                                classroomId: ap ? ap.classroomId : null,
+                                classroomName: ap ? ap.classroomName : null,
+                                currentPosition: sortedCurrent[key]
+                            };
+                        });
+                        
+                        console.log('🔍 AP 위치 변경 감지 - 상세 분석:', {
+                            targetPage,
+                            onlyInInitial,
+                            onlyInCurrent,
+                            commonKeys,
+                            differences: changedAps
+                        });
+                        
+                        console.log('⚠️ 저장되지 않은 변경사항 감지됨 (AP 위치 변경)', {
+                            targetPage,
+                            mode: this.currentMode,
+                            summary: {
+                                수정된_AP: changedAps.length,
+                                삭제된_AP: removedAps.length,
+                                추가된_AP: addedAps.length
+                            },
+                            changedAps: changedAps.length > 0 ? changedAps : '없음',
+                            removedAps: removedAps.length > 0 ? removedAps : '없음',
+                            addedAps: addedAps.length > 0 ? addedAps : '없음'
+                        });
+                        return true; // 현재 페이지의 AP 위치가 변경되었음
+                    } else {
+                        console.log('✅ AP 위치 변경 없음:', {
+                            targetPage,
+                            initialKeys: Object.keys(initialApPositions).sort(),
+                            currentKeys: Object.keys(currentApPositionsForPage).sort()
+                        });
+                    }
+                }
+            } else {
+                // initialApPositions가 없거나 빈 객체가 아니면 아직 초기화되지 않은 상태
+                // 이 경우 변경사항이 없다고 판단 (다른 요소들의 변경사항은 이미 위에서 확인했으므로)
+                console.log('ℹ️ initialApPositions가 없음 (변경사항 없음으로 판단):', {
+                    targetPage,
+                    initialApPositions: initialApPositions
+                });
+            }
+        }
+        
+        return false;
+    }
+    
     closeWorkspace() {
+        // 저장되지 않은 변경사항 확인
+        if (this.hasUnsavedChanges()) {
+            console.log('⚠️ 저장되지 않은 변경사항 감지 - 워크스페이스 닫기 시도', {
+                currentMode: this.currentMode,
+                currentPage: this.currentPage
+            });
+            if (!confirm('저장을 하지 않았습니다. 저장을 하지 않으면 수정사항이 저장되지 않습니다.\n\n정말 닫으시겠습니까?')) {
+                console.log('❌ 사용자가 워크스페이스 닫기 취소');
+                return; // 사용자가 취소하면 닫기 중단
+            }
+            console.log('✅ 사용자가 워크스페이스 닫기 확인');
+        }
         console.log('🚪 워크스페이스 닫기');
         
         // /floorplan으로 이동 (새로고침 효과)
@@ -1348,6 +1888,30 @@ class FloorPlanApp {
     async onWorkspaceModeChange(mode) {
         if (!mode) return;
         
+        // 설계 모드에서 보기 모드로 전환 시 저장되지 않은 변경사항 확인
+        const isCurrentDesignMode = this.currentMode === 'design-classroom' || this.currentMode === 'design-wireless';
+        const willBeViewMode = mode === 'view-equipment' || mode === 'view-wireless' || mode === 'equipment-view' || mode === 'wireless-ap-view';
+        
+        if (isCurrentDesignMode && willBeViewMode) {
+            if (this.hasUnsavedChanges()) {
+                console.log('⚠️ 저장되지 않은 변경사항 감지 - 보기 모드로 전환 시도', {
+                    currentMode: this.currentMode,
+                    targetMode: mode,
+                    currentPage: this.currentPage
+                });
+                if (!confirm('저장을 하지 않았습니다. 저장을 하지 않으면 수정사항이 저장되지 않습니다.\n\n정말 보기 모드로 이동하시겠습니까?')) {
+                    console.log('❌ 사용자가 보기 모드 전환 취소');
+                    // 사용자가 취소하면 모드 선택 드롭다운을 이전 값으로 복원
+                    const workspaceModeSelect = document.getElementById('workspace-mode-select');
+                    if (workspaceModeSelect) {
+                        workspaceModeSelect.value = this.currentMode || '';
+                    }
+                    return; // 모드 전환 중단
+                }
+                console.log('✅ 사용자가 보기 모드 전환 확인');
+            }
+        }
+        
         console.log('🔄 워크스페이스 모드 변경:', mode);
         
         if (!this.currentSchoolId) {
@@ -1451,7 +2015,7 @@ class FloorPlanApp {
         const viewBtn = document.getElementById('workspace-view-btn');
         const toolbarContainer = document.getElementById('design-toolbar-container');
         const headerCollapseBtn = document.getElementById('header-collapse-btn');
-        const isViewMode = mode.startsWith('view-');
+        const isViewMode = mode.startsWith('view-') || mode === 'equipment-view' || mode === 'wireless-ap-view';
         const isDesignMode = mode.startsWith('design-');
         const isSeatLayoutMode = mode === 'design-seat';
         const isWirelessApMode = mode === 'design-wireless';
@@ -1779,6 +2343,9 @@ class FloorPlanApp {
                 if (classroomSaveResult === false) {
                     classroomSaveFailed = true;
                 }
+                
+                // 교실 위치 변경 시 AP offset 업데이트 (교실 설계 모드 저장 시)
+                await this.updateApOffsetsForChangedRooms(mergedElements);
             }
             
             // 10. 평면도 데이터 저장 (알림은 여기서 통합 표시)
@@ -1794,6 +2361,98 @@ class FloorPlanApp {
                 // 저장 성공 후 로컬 요소 저장소 초기화 (모든 요소가 서버에 저장되었으므로)
                 this.localElementsByPage = {};
                 console.log('🔄 저장 완료 후 로컬 요소 저장소 초기화');
+                
+                // 마지막 저장 상태 업데이트 (각 페이지별 요소 개수 및 해시 저장)
+                const allPages = new Set();
+                this.core.state.elements.forEach(el => {
+                    const page = el.pageNumber || 1;
+                    allPages.add(page);
+                });
+                allPages.forEach(page => {
+                    // 무선AP 설계 모드에서는 AP/MDF 요소 제외
+                    const pageElements = this.core.state.elements.filter(el => {
+                        const elPage = el.pageNumber || 1;
+                        if (elPage !== page) return false;
+                        
+                        // 무선AP 설계 모드에서는 AP/MDF 제외
+                        if (this.currentMode === 'design-wireless') {
+                            if (el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf') {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+                    
+                    if (!this.lastSavedStateByPage[page]) {
+                        this.lastSavedStateByPage[page] = {};
+                    }
+                    this.lastSavedStateByPage[page].elementCount = pageElements.length;
+                    
+                    // 요소 목록 저장 (추가/삭제 감지용, AP/MDF 제외)
+                    this.lastSavedStateByPage[page].elementList = pageElements.map(el => ({
+                        id: el.id,
+                        type: el.elementType,
+                        name: el.name || el.label || '이름 없음',
+                        x: el.xCoordinate,
+                        y: el.yCoordinate,
+                        w: el.width,
+                        h: el.height
+                    }));
+                    
+                    // 요소 해시 저장 (내용 변경 감지용, AP/MDF 제외)
+                    const elementHash = JSON.stringify(pageElements.map(el => ({
+                        id: el.id,
+                        type: el.elementType,
+                        x: el.xCoordinate,
+                        y: el.yCoordinate,
+                        w: el.width,
+                        h: el.height
+                    })).sort((a, b) => (a.id || '').toString().localeCompare((b.id || '').toString())));
+                    this.lastSavedStateByPage[page].elementHash = elementHash;
+                });
+                
+                // 무선AP 설계 모드인 경우 initialApPositionsByPage도 업데이트 (저장 후 초기 상태로 설정)
+                // 현재 페이지의 교실에 속한 AP만 저장 (다른 페이지의 AP는 제외)
+                if (this.currentMode === 'design-wireless' && this.savedApPositions && this.modeManager) {
+                    // 현재 페이지의 교실 요소 찾기
+                    const currentPageRooms = this.core.state.elements.filter(el => {
+                        if (el.elementType !== 'room') return false;
+                        const elPage = el.pageNumber || 1;
+                        return elPage === this.currentPage;
+                    });
+                    
+                    const currentPageRoomIds = new Set();
+                    currentPageRooms.forEach(room => {
+                        const roomId = room.referenceId || room.classroomId || room.id;
+                        if (roomId) {
+                            currentPageRoomIds.add(String(roomId));
+                        }
+                    });
+                    
+                    // 현재 페이지의 교실에 속한 AP만 필터링
+                    const apPositionsForPage = {};
+                    if (this.modeManager.wirelessAps) {
+                        Object.keys(this.savedApPositions).forEach(apId => {
+                            // AP가 속한 교실 찾기
+                            const ap = this.modeManager.wirelessAps.find(a => String(a.apId) === apId);
+                            if (ap && ap.classroomId) {
+                                const classroomId = String(ap.classroomId);
+                                if (currentPageRoomIds.has(classroomId)) {
+                                    apPositionsForPage[apId] = this.savedApPositions[apId];
+                                }
+                            }
+                        });
+                    }
+                    
+                    // 깊은 복사로 저장하여 이후 변경사항이 초기 상태에 영향을 주지 않도록 함
+                    const savedInitialPositions = JSON.parse(JSON.stringify(apPositionsForPage));
+                    this.initialApPositionsByPage[this.currentPage] = savedInitialPositions;
+                    console.log(`💾 저장 완료 후 페이지 ${this.currentPage}의 초기 AP 위치 상태 업데이트 (${Object.keys(apPositionsForPage).length}개 AP)`, {
+                        apIds: Object.keys(apPositionsForPage).sort(),
+                        sample: Object.keys(apPositionsForPage).length > 0 ? apPositionsForPage[Object.keys(apPositionsForPage)[0]] : null,
+                        savedApPositionsKeys: this.savedApPositions ? Object.keys(this.savedApPositions).sort() : []
+                    });
+                }
                 
                 // 12. 저장 후 서버에서 실제 maxPage를 다시 조회하여 업데이트
                 try {
@@ -1891,6 +2550,217 @@ class FloorPlanApp {
         
         // 알림은 saveCurrentWork에서 통합 표시하므로 여기서는 반환만
         return successCount === roomElements.length;
+    }
+    
+    /**
+     * 교실 위치 변경 시 AP offset 업데이트 (교실 설계 모드 저장 시)
+     * @param {Array} mergedElements - 모든 페이지의 요소들 (교실 포함)
+     */
+    async updateApOffsetsForChangedRooms(mergedElements) {
+        if (!window.floorPlanApp || !window.floorPlanApp.savedApPositions) {
+            return;
+        }
+        
+        const savedApPositions = window.floorPlanApp.savedApPositions;
+        if (Object.keys(savedApPositions).length === 0) {
+            return;
+        }
+        
+        try {
+            // 서버에서 AP 요소 로드
+            const response = await fetch(`/floorplan/api/schools/${this.currentSchoolId}`);
+            const result = await response.json();
+            
+            if (!result.success || !result.data || !result.data.elements) {
+                console.log('ℹ️ AP offset 업데이트: 서버에 AP 데이터 없음');
+                return;
+            }
+            
+            const serverElements = result.data.elements;
+            const serverAps = serverElements.filter(el => el.elementType === 'wireless_ap');
+            
+            if (serverAps.length === 0) {
+                console.log('ℹ️ AP offset 업데이트: 서버에 AP 요소 없음');
+                return;
+            }
+            
+            // AP 정보 로드 (classroomId를 얻기 위해)
+            let apInfoMap = {};
+            try {
+                const apInfoResponse = await fetch(`/floorplan/api/schools/${this.currentSchoolId}/wireless-aps`);
+                const apInfoResult = await apInfoResponse.json();
+                if (apInfoResult.success) {
+                    const apList = apInfoResult.data?.wirelessAps || apInfoResult.data || [];
+                    apList.forEach(ap => {
+                        if (ap.apId) {
+                            apInfoMap[String(ap.apId)] = ap;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('⚠️ AP 정보 조회 실패 (계속 진행):', e);
+            }
+            
+            // 교실 요소들 찾기
+            const allRooms = mergedElements.filter(el => el.elementType === 'room');
+            const serverRooms = serverElements.filter(el => el.elementType === 'room');
+            
+            let updatedCount = 0;
+            
+            // 서버의 각 AP에 대해 offset 재계산 (교실 위치가 변경된 경우만)
+            serverAps.forEach(serverAp => {
+                if (!serverAp.referenceId || serverAp.xCoordinate == null || serverAp.yCoordinate == null) {
+                    return;
+                }
+                
+                const apId = String(serverAp.referenceId);
+                if (!savedApPositions[apId]) {
+                    return;
+                }
+                
+                // AP의 classroomId 찾기
+                const apInfo = apInfoMap[apId];
+                if (!apInfo || !apInfo.classroomId) {
+                    return;
+                }
+                
+                const classroomId = String(apInfo.classroomId);
+                
+                // 현재 교실 요소 찾기 (mergedElements에서 - saveClassroomCoordinates 이후의 최신 좌표)
+                const currentRoomElement = allRooms.find(room => {
+                    const roomRefId = room.referenceId ? String(room.referenceId) : null;
+                    const roomClassroomId = room.classroomId ? String(room.classroomId) : null;
+                    return (roomRefId === classroomId) || (roomClassroomId === classroomId);
+                });
+                
+                if (!currentRoomElement) {
+                    return;
+                }
+                
+                // 서버의 교실 요소 찾기 (서버에서 로드한 요소 - saveClassroomCoordinates 이전의 좌표일 수 있음)
+                // 하지만 실제로는 FloorPlanElement에서 로드하므로, Classroom 엔티티와 다를 수 있음
+                // 따라서 mergedElements의 교실 좌표를 기준으로 비교하는 것이 더 정확함
+                // 서버의 교실 요소는 참고용으로만 사용하고, 실제 비교는 mergedElements 기준으로 함
+                const serverRoomElement = serverRooms.find(room => {
+                    const roomRefId = room.referenceId ? String(room.referenceId) : null;
+                    const roomClassroomId = room.classroomId ? String(room.classroomId) : null;
+                    return (roomRefId === classroomId) || (roomClassroomId === classroomId);
+                });
+                
+                // 서버의 교실 요소가 없으면 현재 교실 좌표를 기준으로 offset만 확인
+                // (새로 추가된 교실이거나 서버에 아직 저장되지 않은 경우)
+                if (!serverRoomElement) {
+                    // 서버의 AP 좌표를 기준으로 offset 계산
+                    const serverApX = serverAp.xCoordinate;
+                    const serverApY = serverAp.yCoordinate;
+                    const currentRoomX = currentRoomElement.xCoordinate || 0;
+                    const currentRoomY = currentRoomElement.yCoordinate || 0;
+                    const calculatedOffsetX = serverApX - currentRoomX;
+                    const calculatedOffsetY = serverApY - currentRoomY;
+                    const existingOffsetX = (savedApPositions[apId]?.x || 0);
+                    const existingOffsetY = (savedApPositions[apId]?.y || 0);
+                    
+                    // offset이 불일치하면 업데이트
+                    const offsetXMismatch = Math.abs(existingOffsetX - calculatedOffsetX) > 0.01;
+                    const offsetYMismatch = Math.abs(existingOffsetY - calculatedOffsetY) > 0.01;
+                    
+                    if (offsetXMismatch || offsetYMismatch) {
+                        savedApPositions[apId] = {
+                            ...savedApPositions[apId],
+                            x: calculatedOffsetX,
+                            y: calculatedOffsetY
+                        };
+                        updatedCount++;
+                        console.log('🔄 AP offset 업데이트 (서버 교실 없음, offset 불일치):', {
+                            apId,
+                            classroomId,
+                            기존_offsetX: existingOffsetX.toFixed(2),
+                            기존_offsetY: existingOffsetY.toFixed(2),
+                            새로운_offsetX: calculatedOffsetX.toFixed(2),
+                            새로운_offsetY: calculatedOffsetY.toFixed(2)
+                        });
+                    }
+                    return;
+                }
+                
+                // 현재 교실 좌표 (좌상단 좌표) - mergedElements에서 가져온 최신 좌표
+                // saveClassroomCoordinates 이후의 최신 좌표이므로, 이것을 기준으로 offset 계산
+                const currentRoomX = currentRoomElement.xCoordinate || 0;
+                const currentRoomY = currentRoomElement.yCoordinate || 0;
+                
+                // 서버의 AP 절대 좌표 (중앙 좌표)
+                const serverApX = serverAp.xCoordinate;
+                const serverApY = serverAp.yCoordinate;
+                
+                // 현재 savedApPositions의 offset (교실 좌상단 기준)
+                const existingOffsetX = (savedApPositions[apId]?.x || 0);
+                const existingOffsetY = (savedApPositions[apId]?.y || 0);
+                
+                // 서버의 AP 좌표를 기준으로 계산한 offset (교실 좌상단 기준)
+                // 서버의 AP 중앙 좌표에서 현재 교실 좌상단 좌표를 빼서 offset 계산
+                const calculatedOffsetX = serverApX - currentRoomX;
+                const calculatedOffsetY = serverApY - currentRoomY;
+                
+                // offset이 일치하는지 확인 (0.01 이상 차이가 있으면 불일치로 간주)
+                const offsetXMismatch = Math.abs(existingOffsetX - calculatedOffsetX) > 0.01;
+                const offsetYMismatch = Math.abs(existingOffsetY - calculatedOffsetY) > 0.01;
+                
+                // offset이 일치하면 업데이트하지 않음
+                // (교실 위치가 변경되지 않았고, 서버의 AP 좌표와 현재 offset이 일치하는 경우)
+                if (!offsetXMismatch && !offsetYMismatch) {
+                    console.log('ℹ️ AP offset 업데이트 건너뜀 (offset 일치):', {
+                        apId,
+                        classroomId,
+                        currentRoomX: currentRoomX.toFixed(2),
+                        currentRoomY: currentRoomY.toFixed(2),
+                        existingOffsetX: existingOffsetX.toFixed(2),
+                        existingOffsetY: existingOffsetY.toFixed(2),
+                        calculatedOffsetX: calculatedOffsetX.toFixed(2),
+                        calculatedOffsetY: calculatedOffsetY.toFixed(2),
+                        serverApX: serverApX.toFixed(2),
+                        serverApY: serverApY.toFixed(2)
+                    });
+                    return;
+                }
+                
+                // 새로운 offset 계산: 서버의 AP 절대 좌표 - 현재 교실 좌표
+                // 서버의 AP 좌표는 이미 절대 좌표이므로, 현재 교실 좌표를 빼서 새로운 offset 계산
+                const newOffsetX = calculatedOffsetX;
+                const newOffsetY = calculatedOffsetY;
+                
+                // savedApPositions 업데이트
+                const existingPosition = savedApPositions[apId] || {};
+                savedApPositions[apId] = {
+                    ...existingPosition,
+                    x: newOffsetX,
+                    y: newOffsetY
+                };
+                
+                updatedCount++;
+                
+                console.log('🔄 AP offset 업데이트 (교실 위치 변경 반영):', {
+                    apId,
+                    classroomId,
+                    기존_offsetX: (existingPosition.x || 0).toFixed(2),
+                    기존_offsetY: (existingPosition.y || 0).toFixed(2),
+                    새로운_offsetX: newOffsetX.toFixed(2),
+                    새로운_offsetY: newOffsetY.toFixed(2),
+                    serverApX: serverApX.toFixed(2),
+                    serverApY: serverApY.toFixed(2),
+                    serverRoomX: serverRoomX.toFixed(2),
+                    serverRoomY: serverRoomY.toFixed(2),
+                    currentRoomX: currentRoomX.toFixed(2),
+                    currentRoomY: currentRoomY.toFixed(2)
+                });
+            });
+            
+            if (updatedCount > 0) {
+                console.log(`✅ AP offset 업데이트 완료: ${updatedCount}개 AP`);
+            }
+            
+        } catch (error) {
+            console.warn('⚠️ AP offset 업데이트 실패 (계속 진행):', error);
+        }
     }
     
     /**
@@ -2029,6 +2899,20 @@ class FloorPlanApp {
             pageNumber = 1;
         }
         
+        // 저장되지 않은 변경사항 확인
+        if (this.hasUnsavedChanges()) {
+            console.log('⚠️ 저장되지 않은 변경사항 감지 - 페이지 이동 시도', {
+                currentMode: this.currentMode,
+                currentPage: this.currentPage,
+                targetPage: pageNumber
+            });
+            if (!confirm('저장을 하지 않았습니다. 저장을 하지 않으면 수정사항이 저장되지 않습니다.\n\n정말 다른 페이지로 이동하시겠습니까?')) {
+                console.log('❌ 사용자가 페이지 이동 취소');
+                return; // 사용자가 취소하면 페이지 이동 중단
+            }
+            console.log('✅ 사용자가 페이지 이동 확인');
+        }
+        
         // 현재 페이지의 모든 요소를 메모리에 저장 (서버에 저장되지 않은 모든 요소)
         if (this.core && this.core.state && this.core.state.elements) {
             // 현재 페이지의 모든 요소 저장 (나중에 서버 요소와 비교하여 로컬 요소만 유지)
@@ -2038,9 +2922,53 @@ class FloorPlanApp {
                 return elPage === this.currentPage;
             });
             
-            // 빈 배열이어도 저장 (삭제 상태 반영)
-            this.localElementsByPage[this.currentPage] = JSON.parse(JSON.stringify(currentPageElements));
-            console.log(`💾 페이지 ${this.currentPage}의 요소 ${currentPageElements.length}개 저장 (로컬)`);
+            // 무선AP 설계 모드에서는 AP/MDF 요소 제외
+            const elementsForComparison = currentPageElements.filter(el => {
+                if (this.currentMode === 'design-wireless') {
+                    if (el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf') {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            
+            // 빈 배열이어도 저장 (삭제 상태 반영, AP/MDF 제외)
+            this.localElementsByPage[this.currentPage] = JSON.parse(JSON.stringify(elementsForComparison));
+            console.log(`💾 페이지 ${this.currentPage}의 요소 ${elementsForComparison.length}개 저장 (로컬, AP/MDF 제외)`);
+            
+            // 페이지를 처음 로드했을 때 초기 상태를 lastSavedStateByPage에 저장 (변경사항 감지용)
+            if (!this.lastSavedStateByPage[this.currentPage]) {
+                // 요소 목록 저장 (추가/삭제 감지용, AP/MDF 제외)
+                const elementList = elementsForComparison.map(el => ({
+                    id: el.id,
+                    type: el.elementType,
+                    name: el.name || el.label || '이름 없음',
+                    x: el.xCoordinate,
+                    y: el.yCoordinate,
+                    w: el.width,
+                    h: el.height
+                }));
+                
+                const elementHash = JSON.stringify(elementsForComparison.map(el => ({
+                    id: el.id,
+                    type: el.elementType,
+                    x: el.xCoordinate,
+                    y: el.yCoordinate,
+                    w: el.width,
+                    h: el.height
+                })).sort((a, b) => (a.id || '').toString().localeCompare((b.id || '').toString())));
+                
+                this.lastSavedStateByPage[this.currentPage] = {
+                    elementCount: elementsForComparison.length,
+                    elementHash: elementHash,
+                    elementList: elementList
+                };
+                
+                // 무선AP 설계 모드인 경우 초기 AP 위치 상태는 onPageSwitch에서 저장됨
+                // (해당 페이지의 AP만 저장하도록 처리)
+                
+                console.log(`💾 페이지 ${this.currentPage}의 초기 상태 저장 (변경사항 감지용, AP/MDF 제외)`);
+            }
         }
         
         // 페이지 변경 (저장은 나중에 저장 버튼을 눌렀을 때)
@@ -2251,7 +3179,10 @@ class FloorPlanApp {
         
         // 모드별 추가 처리
         if (this.modeManager && typeof this.modeManager.onPageSwitch === 'function') {
-            this.modeManager.onPageSwitch(pageNumber);
+            await this.modeManager.onPageSwitch(pageNumber);
+            
+            // 무선AP 설계 모드인 경우 초기 AP 위치 상태는 onPageSwitch 내부에서 저장됨
+            // (renderWirelessAps 완료 후 저장하도록 변경)
         }
         
         console.log(`📄 페이지 전환: ${pageNumber} (최대: ${this.maxPage})`);
@@ -2468,6 +3399,58 @@ class FloorPlanApp {
                     
                     this.core.state.elements = Array.from(uniqueElementsMap.values());
                     console.log(`📥 페이지 ${pageNumber} 로드: 서버 ${elements.length}개 → 중복 제거 후 ${this.core.state.elements.length}개`);
+                    
+                    // 페이지를 처음 로드했을 때 초기 상태를 저장 (변경사항 감지용)
+                    if (!this.lastSavedStateByPage[pageNumber]) {
+                        const loadedElements = this.core.state.elements.filter(el => {
+                            const elPage = el.pageNumber || pageNumber;
+                            return elPage === pageNumber;
+                        });
+                        
+                        // 무선AP 설계 모드에서는 AP/MDF 요소 제외
+                        const elementsForComparison = loadedElements.filter(el => {
+                            if (this.currentMode === 'design-wireless') {
+                                if (el.elementType === 'wireless_ap' || el.elementType === 'mdf_idf') {
+                                    return false;
+                                }
+                            }
+                            return true;
+                        });
+                        
+                        // 요소 목록 저장 (추가/삭제 감지용, AP/MDF 제외)
+                        const elementList = elementsForComparison.map(el => ({
+                            id: el.id,
+                            type: el.elementType,
+                            name: el.name || el.label || '이름 없음',
+                            x: el.xCoordinate,
+                            y: el.yCoordinate,
+                            w: el.width,
+                            h: el.height
+                        }));
+                        
+                        const elementHash = JSON.stringify(elementsForComparison.map(el => ({
+                            id: el.id,
+                            type: el.elementType,
+                            x: el.xCoordinate,
+                            y: el.yCoordinate,
+                            w: el.width,
+                            h: el.height
+                        })).sort((a, b) => (a.id || '').toString().localeCompare((b.id || '').toString())));
+                        
+                        this.lastSavedStateByPage[pageNumber] = {
+                            elementCount: elementsForComparison.length,
+                            elementHash: elementHash,
+                            elementList: elementList
+                        };
+                        
+                        // localElementsByPage에도 초기 상태 저장 (AP/MDF 제외)
+                        this.localElementsByPage[pageNumber] = JSON.parse(JSON.stringify(elementsForComparison));
+                        
+                        // 무선AP 설계 모드인 경우 초기 AP 위치 상태는 onPageSwitch에서 저장됨
+                        // (해당 페이지의 AP만 저장하도록 처리)
+                        
+                        console.log(`💾 페이지 ${pageNumber}의 초기 상태 저장 (loadPageElements, 변경사항 감지용, AP/MDF 제외)`);
+                    }
                     
                     // 최대 페이지 번호 업데이트 (서버에서 받은 값으로 설정)
                     // 주의: 이미 클라이언트에서 더 큰 maxPage를 가지고 있을 수 있으므로, 절대 감소시키지 않음

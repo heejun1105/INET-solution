@@ -71,6 +71,9 @@ export default class WirelessApDesignMode {
         // 먼저 기존 AP/MDF 요소 모두 제거 (중복 방지)
         this.clearApElements();
         
+        // 장비 카드 제거 (장비보기 모드에서 생성된 장비 카드 제거)
+        this.clearEquipmentCards();
+        
         // 교실/건물 잠금
         this.lockRoomsAndBuildings();
         
@@ -82,6 +85,25 @@ export default class WirelessApDesignMode {
         
         // 교실 요소가 로드될 때까지 약간 대기 (모드 전환 시 평면도 로드 완료 대기)
         await this.waitForRoomElements();
+        
+        // loadSavedApMdfElements() 이전에 saveCurrentWork()에서 설정한 initialApPositionsByPage 확인
+        // 저장 후 재진입 시에는 saveCurrentWork()에서 설정한 initialApPositionsByPage를 유지
+        // 저장하지 않고 재진입한 경우에만 renderWirelessAps 완료 후 서버 데이터로 초기 상태를 업데이트
+        const currentPage = this.core.currentPage || 1;
+        let shouldPreserveInitialState = false;
+        
+        // saveCurrentWork()에서 이미 설정한 initialApPositionsByPage가 있으면 유지
+        // (저장 후 재진입한 경우) - loadSavedApMdfElements() 이전에 확인
+        if (window.floorPlanApp && window.floorPlanApp.initialApPositionsByPage && 
+            window.floorPlanApp.initialApPositionsByPage[currentPage] &&
+            Object.keys(window.floorPlanApp.initialApPositionsByPage[currentPage]).length > 0) {
+            shouldPreserveInitialState = true;
+            const existingInitial = window.floorPlanApp.initialApPositionsByPage[currentPage];
+            console.log(`💾 무선AP 설계 모드 활성화 (loadSavedApMdfElements 이전): 페이지 ${currentPage}의 초기 AP 위치 상태 확인 (저장 후 재진입, ${Object.keys(existingInitial).length}개 AP)`, {
+                apIds: Object.keys(existingInitial).sort(),
+                sample: Object.keys(existingInitial).length > 0 ? existingInitial[Object.keys(existingInitial)[0]] : null
+            });
+        }
         
         // 저장된 AP/MDF 위치 로드
         await this.loadSavedApMdfElements();
@@ -96,6 +118,53 @@ export default class WirelessApDesignMode {
         
         // 강제 렌더링
         this.core.markDirty();
+        
+        // renderWirelessAps 완료 후 초기 상태 저장 (변경사항 감지용)
+        // 저장 후 재진입한 경우에는 이미 설정된 initialApPositionsByPage를 유지하므로 건너뜀
+        // 저장하지 않고 재진입한 경우에만 서버 데이터로 초기 상태를 업데이트
+        if (!shouldPreserveInitialState && window.floorPlanApp && window.floorPlanApp.savedApPositions) {
+            // 현재 페이지의 교실 요소 찾기
+            const currentPageRooms = this.core.state.elements.filter(el => {
+                if (el.elementType !== 'room') return false;
+                const elPage = el.pageNumber || 1;
+                return elPage === currentPage;
+            });
+            
+            const currentPageRoomIds = new Set();
+            currentPageRooms.forEach(room => {
+                const roomId = room.referenceId || room.classroomId || room.id;
+                if (roomId) {
+                    currentPageRoomIds.add(String(roomId));
+                }
+            });
+            
+            // 현재 페이지의 교실에 속한 AP만 필터링
+            // saveCurrentWork()와 동일한 로직 사용
+            const apPositionsForPage = {};
+            if (this.wirelessAps) {
+                Object.keys(window.floorPlanApp.savedApPositions).forEach(apId => {
+                    // AP가 속한 교실 찾기 (wirelessAps 데이터에서 확인)
+                    const ap = this.wirelessAps.find(a => String(a.apId) === apId);
+                    if (ap && ap.classroomId) {
+                        const classroomId = String(ap.classroomId);
+                        if (currentPageRoomIds.has(classroomId)) {
+                            // 깊은 복사로 저장 (참조가 아닌 값 복사)
+                            apPositionsForPage[apId] = JSON.parse(JSON.stringify(window.floorPlanApp.savedApPositions[apId]));
+                        }
+                    }
+                });
+            }
+            
+            // 깊은 복사로 저장하여 이후 변경사항이 초기 상태에 영향을 주지 않도록 함
+            const savedInitialPositions = JSON.parse(JSON.stringify(apPositionsForPage));
+            window.floorPlanApp.initialApPositionsByPage[currentPage] = savedInitialPositions;
+            console.log(`💾 무선AP 설계 모드 활성화 (renderWirelessAps 완료 후): 페이지 ${currentPage}의 초기 AP 위치 상태 저장 (저장하지 않고 재진입, ${Object.keys(apPositionsForPage).length}개 AP)`, {
+                apIds: Object.keys(apPositionsForPage).sort(),
+                sample: Object.keys(apPositionsForPage).length > 0 ? apPositionsForPage[Object.keys(apPositionsForPage)[0]] : null
+            });
+        } else if (shouldPreserveInitialState) {
+            console.log(`💾 무선AP 설계 모드 활성화: 페이지 ${currentPage}의 초기 AP 위치 상태 유지 완료 (저장 후 재진입, ${Object.keys(window.floorPlanApp.initialApPositionsByPage[currentPage]).length}개 AP)`);
+        }
     }
     
     /**
@@ -1233,6 +1302,25 @@ export default class WirelessApDesignMode {
     }
     
     /**
+     * 장비 카드 제거 (장비보기 모드에서 생성된 장비 카드 제거)
+     */
+    clearEquipmentCards() {
+        const elements = this.elementManager.getAllElements();
+        const equipmentCards = elements.filter(e => e.elementType === 'equipment_card');
+        
+        equipmentCards.forEach(element => {
+            this.elementManager.removeElement(element.id);
+        });
+        
+        // core.state.elements에서도 제거
+        if (this.core && this.core.state && this.core.state.elements) {
+            this.core.state.elements = this.core.state.elements.filter(e => e.elementType !== 'equipment_card');
+        }
+        
+        console.log('🗑️ 장비 카드 제거:', equipmentCards.length, '개');
+    }
+    
+    /**
      * 저장된 AP/MDF 요소 로드
      */
     async loadSavedApMdfElements() {
@@ -1241,8 +1329,22 @@ export default class WirelessApDesignMode {
             if (!schoolId) return;
             
             // 기존 savedApPositions 백업 (변경 사항 보존) - 깊은 복사
-            // FloorPlanApp 레벨에서 관리하므로 직접 참조
-            const existingSavedPositions = this.savedApPositions ? JSON.parse(JSON.stringify(this.savedApPositions)) : {};
+            // FloorPlanApp 레벨에서 관리하므로 window.floorPlanApp.savedApPositions도 확인
+            // 설계 모드를 나갔다가 다시 들어올 때 window.floorPlanApp.savedApPositions는 유지되지만
+            // this.savedApPositions는 초기화되므로, window.floorPlanApp.savedApPositions를 우선 사용
+            let sourceSavedPositions = null;
+            if (window.floorPlanApp && window.floorPlanApp.savedApPositions && 
+                Object.keys(window.floorPlanApp.savedApPositions).length > 0) {
+                // window.floorPlanApp.savedApPositions가 있으면 우선 사용
+                sourceSavedPositions = window.floorPlanApp.savedApPositions;
+                console.log('💾 window.floorPlanApp.savedApPositions 사용:', Object.keys(sourceSavedPositions).length, '개');
+            } else if (this.savedApPositions && Object.keys(this.savedApPositions).length > 0) {
+                // this.savedApPositions가 있으면 사용
+                sourceSavedPositions = this.savedApPositions;
+                console.log('💾 this.savedApPositions 사용:', Object.keys(sourceSavedPositions).length, '개');
+            }
+            
+            const existingSavedPositions = sourceSavedPositions ? JSON.parse(JSON.stringify(sourceSavedPositions)) : {};
             
             console.log('💾 기존 변경 사항 백업:', Object.keys(existingSavedPositions).length, '개');
             
@@ -1302,23 +1404,46 @@ export default class WirelessApDesignMode {
                     
                     // 기존 변경 사항이 있으면 우선 사용 (서버 데이터보다 우선)
                     // referenceId가 문자열일 수도 있고 숫자일 수도 있으므로 둘 다 확인
-                    const existingPosition = existingSavedPositions[apIdKey] || existingSavedPositions[String(apData.referenceId)] || existingSavedPositions[apData.referenceId];
+                    const existingPosition = existingSavedPositions[apIdKey] || 
+                                            existingSavedPositions[String(apData.referenceId)] || 
+                                            existingSavedPositions[apData.referenceId];
                     if (existingPosition) {
                         // 기존 변경 사항을 그대로 유지 (서버 데이터와 병합하지 않음)
                         // 깊은 복사로 보존
                         this.savedApPositions[apIdKey] = JSON.parse(JSON.stringify(existingPosition));
-                        console.log('💾 기존 변경 사항 유지 (AP ID:', apIdKey, '):', this.savedApPositions[apIdKey]);
+                        console.log('💾 기존 변경 사항 유지 (서버 데이터 무시, AP ID:', apIdKey, '):', {
+                            existing: this.savedApPositions[apIdKey],
+                            server: {
+                        x: apData.xCoordinate,
+                        y: apData.yCoordinate,
+                                shapeType: apData.shapeType
+                            }
+                        });
                         return;
                     }
                     
-                    const shapeType = apData.shapeType || 'circle';
-                    let width = apData.width;
-                    let height = apData.height;
+                    // shapeType, backgroundColor, borderColor, letterColor 등을 elementData에서도 확인
+                    let elementData = {};
+                    if (apData.elementData) {
+                        try {
+                            elementData = typeof apData.elementData === 'string' 
+                                ? JSON.parse(apData.elementData) 
+                                : apData.elementData;
+                        } catch (e) {
+                            console.warn('⚠️ elementData 파싱 오류:', e);
+                        }
+                    }
+                    
+                    // shapeType 우선순위: elementData > apData.shapeType > 기본값
+                    const shapeType = elementData.shapeType || apData.shapeType || 'circle';
+                    let width = elementData.width || apData.width;
+                    let height = elementData.height || apData.height;
                     
                     // circle 또는 circle-l인 경우 radius로부터 width/height 계산
-                    if ((shapeType === 'circle' || shapeType === 'circle-l') && apData.radius) {
-                        width = apData.radius * 2;
-                        height = apData.radius * 2;
+                    if ((shapeType === 'circle' || shapeType === 'circle-l') && (elementData.radius || apData.radius)) {
+                        const radius = elementData.radius || apData.radius;
+                        width = radius * 2;
+                        height = radius * 2;
                     } else {
                         width = width || 40;
                         height = height || 40;
@@ -1336,12 +1461,13 @@ export default class WirelessApDesignMode {
                     
                     let offsetX = 0;
                     let offsetY = 0;
+                    let apRoom = null;
                     
                     if (apClassroomId && apData.xCoordinate != null && apData.yCoordinate != null) {
                         // 교실 요소 찾기 (renderWirelessAps와 동일한 로직 사용)
                         // 1. core.state.elements에서 찾기
                         let allRooms = this.core.state.elements.filter(e => e.elementType === 'room');
-                        let apRoom = allRooms.find(r => {
+                        apRoom = allRooms.find(r => {
                             const rRefId = typeof r.referenceId === 'string' ? parseInt(r.referenceId, 10) : r.referenceId;
                             const rClassroomId = typeof r.classroomId === 'string' ? parseInt(r.classroomId, 10) : r.classroomId;
                             // 1. referenceId로 매칭
@@ -1422,20 +1548,44 @@ export default class WirelessApDesignMode {
                         }
                         
                         if (apRoom) {
-                            // 절대 좌표(중앙)를 교실 기준 offset으로 변환
-                            // 서버에 저장된 좌표는 중앙 좌표이므로, 교실의 좌상단 좌표를 빼서 offset 계산
-                            offsetX = apData.xCoordinate - apRoom.xCoordinate;
-                            offsetY = apData.yCoordinate - apRoom.yCoordinate;
-                            console.log('🔄 절대 좌표를 offset으로 변환:', {
-                                apId: apData.referenceId,
-                                pageNumber: apRoom.pageNumber,
-                                absoluteX: apData.xCoordinate,
-                                absoluteY: apData.yCoordinate,
-                                roomX: apRoom.xCoordinate,
-                                roomY: apRoom.yCoordinate,
-                                offsetX,
-                                offsetY
-                            });
+                            // elementData에서 offsetX, offsetY를 우선 확인 (prepareSaveData에서 저장한 값)
+                            let useElementDataOffset = false;
+                            if (apData.elementData) {
+                                try {
+                                    const elementData = typeof apData.elementData === 'string' 
+                                        ? JSON.parse(apData.elementData) 
+                                        : apData.elementData;
+                                    if (elementData && (elementData.offsetX != null || elementData.offsetY != null)) {
+                                        offsetX = elementData.offsetX || 0;
+                                        offsetY = elementData.offsetY || 0;
+                                        useElementDataOffset = true;
+                                        console.log('💾 element_data에서 offset 추출 (우선 사용):', {
+                                            apId: apData.referenceId,
+                                            offsetX,
+                                            offsetY
+                                        });
+                                    }
+                                } catch (e) {
+                                    console.warn('⚠️ element_data 파싱 오류:', e);
+                                }
+                            }
+                            
+                            // elementData에서 offset을 찾지 못한 경우, 절대 좌표(중앙)를 교실 기준 offset으로 변환
+                            if (!useElementDataOffset) {
+                                // 서버에 저장된 좌표는 중앙 좌표이므로, 교실의 좌상단 좌표를 빼서 offset 계산
+                                offsetX = apData.xCoordinate - apRoom.xCoordinate;
+                                offsetY = apData.yCoordinate - apRoom.yCoordinate;
+                                console.log('🔄 절대 좌표를 offset으로 변환:', {
+                                    apId: apData.referenceId,
+                                    pageNumber: apRoom.pageNumber,
+                                    absoluteX: apData.xCoordinate,
+                                    absoluteY: apData.yCoordinate,
+                                    roomX: apRoom.xCoordinate,
+                                    roomY: apRoom.yCoordinate,
+                                    offsetX,
+                                    offsetY
+                                });
+                            }
                         } else {
                             // 교실을 찾지 못한 경우, 절대 좌표가 작으면 offset으로 간주
                             if (apData.xCoordinate < 5000 && apData.yCoordinate < 5000) {
@@ -1454,11 +1604,17 @@ export default class WirelessApDesignMode {
                                 });
                             } else {
                                 // 큰 값이면 절대 좌표일 가능성이 높지만, 교실을 찾지 못했으므로 기본값 사용
+                                // 하지만 서버에 저장된 데이터이므로 저장해야 함
+                                // 기본 offset 사용 (나중에 교실을 찾으면 업데이트됨)
+                                offsetX = 140; // 기본값
+                                offsetY = 120; // 기본값
                                 console.warn('⚠️ 교실을 찾지 못하고 좌표가 큼, 기본 offset 사용:', {
                                     apId: apData.referenceId,
                                     classroomId: apClassroomId,
                                     absoluteX: apData.xCoordinate,
                                     absoluteY: apData.yCoordinate,
+                                    defaultOffsetX: offsetX,
+                                    defaultOffsetY: offsetY,
                                     availableRooms: allRooms.map(r => ({
                                         id: r.referenceId,
                                         classroomId: r.classroomId,
@@ -1467,25 +1623,94 @@ export default class WirelessApDesignMode {
                                 });
                             }
                         }
+                    } else {
+                        // apClassroomId가 없거나 좌표가 없는 경우, 서버 데이터에서 직접 offset 추출 시도
+                        // 서버에 저장된 좌표가 이미 offset 형식일 수 있음 (교실 설계 모드에서 저장한 경우)
+                        // 또는 element_data에서 offset 정보 확인
+                        if (apData.elementData) {
+                            try {
+                                const elementData = typeof apData.elementData === 'string' 
+                                    ? JSON.parse(apData.elementData) 
+                                    : apData.elementData;
+                                if (elementData && (elementData.offsetX != null || elementData.offsetY != null)) {
+                                    offsetX = elementData.offsetX || 0;
+                                    offsetY = elementData.offsetY || 0;
+                                    console.log('💾 element_data에서 offset 추출 (AP ID:', apIdKey, '):', {
+                                        offsetX,
+                                        offsetY
+                                    });
+                                }
+                            } catch (e) {
+                                console.warn('⚠️ element_data 파싱 오류:', e);
+                            }
+                        }
+                        
+                        // element_data에서 찾지 못한 경우, 작은 값이면 offset으로 간주
+                        if (apData.xCoordinate != null && apData.yCoordinate != null) {
+                            if (apData.xCoordinate < 5000 && apData.yCoordinate < 5000) {
+                                offsetX = apData.xCoordinate;
+                                offsetY = apData.yCoordinate;
+                                console.log('💾 작은 값이므로 offset으로 간주 (AP ID:', apIdKey, '):', {
+                                    offsetX,
+                                    offsetY
+                                });
+                            } else {
+                                // 큰 값이면 절대 좌표일 가능성이 높지만, 교실을 찾지 못했으므로 기본값 사용
+                                offsetX = 140; // 기본값
+                                offsetY = 120; // 기본값
+                                console.warn('⚠️ 좌표가 크고 교실 정보 없음, 기본 offset 사용 (AP ID:', apIdKey, '):', {
+                                    absoluteX: apData.xCoordinate,
+                                    absoluteY: apData.yCoordinate,
+                                    defaultOffsetX: offsetX,
+                                    defaultOffsetY: offsetY
+                                });
+                            }
+                        }
                     }
                     
                     // apIdKey는 이미 위에서 선언되었으므로 재사용
+                    // 서버 데이터를 savedApPositions 형식으로 변환하여 저장
+                    // 이렇게 하면 설계 모드를 나갔다가 다시 들어와도 서버에 저장된 AP 위치 정보가 유지됨
+                    // 중요: 기존 변경 사항이 없을 때만 서버 데이터를 사용 (위에서 이미 처리됨)
+                    // backgroundColor, borderColor, letterColor도 elementData에서 확인
+                    const backgroundColor = elementData.backgroundColor || apData.backgroundColor || '#3b82f6';
+                    const borderColor = elementData.borderColor || apData.borderColor || '#1e40af';
+                    const letterColor = elementData.letterColor || apData.letterColor || '#000000';
+                    const radius = (shapeType === 'circle' || shapeType === 'circle-l') 
+                        ? (elementData.radius || apData.radius || width / 2) 
+                        : null;
+                    
                     this.savedApPositions[apIdKey] = {
                         // 교실 기준 상대 좌표 (offset)
                         x: offsetX,
                         y: offsetY,
-                        backgroundColor: apData.backgroundColor,
-                        borderColor: apData.borderColor,
-                        letterColor: apData.letterColor || '#000000',
+                        backgroundColor: backgroundColor,
+                        borderColor: borderColor,
+                        letterColor: letterColor,
                         shapeType: shapeType,
                         width: width,
                         height: height,
-                        radius: (shapeType === 'circle' || shapeType === 'circle-l') ? (apData.radius || width / 2) : null
+                        radius: radius
                     };
+                    
+                    console.log('💾 서버 AP 데이터를 savedApPositions 형식으로 변환 저장 (AP ID:', apIdKey, '):', {
+                        offsetX: offsetX.toFixed(2),
+                        offsetY: offsetY.toFixed(2),
+                        shapeType: shapeType,
+                        backgroundColor: this.savedApPositions[apIdKey].backgroundColor,
+                        borderColor: this.savedApPositions[apIdKey].borderColor,
+                        letterColor: this.savedApPositions[apIdKey].letterColor,
+                        pageNumber: apData.pageNumber || apRoom?.pageNumber || 'unknown',
+                        foundRoom: apRoom ? 'yes' : 'no',
+                        hasClassroomId: apClassroomId ? 'yes' : 'no'
+                    });
                 }
             });
             
             // 기존 변경 사항 중 서버에 없는 AP도 유지 (새로 생성된 AP)
+            // 단, 재진입 시에는 existingSavedPositions가 비어있어야 하므로, 저장 후 재진입 시에는 이 로직을 건너뛰어야 함
+            // 하지만 저장 후에는 모든 AP가 서버에 저장되어 있으므로, 재진입 시에는 existingSavedPositions가 비어있을 것
+            // 따라서 이 로직은 저장되지 않은 변경사항이 있을 때만 작동함
             Object.keys(existingSavedPositions).forEach(apId => {
                 // apId를 문자열로 변환하여 키 일치 보장
                 const apIdKey = String(apId);
@@ -1495,14 +1720,38 @@ export default class WirelessApDesignMode {
                     return serverApIdKey === apIdKey || String(ap.referenceId) === apId;
                 });
                 
-                if (!foundInServer || !this.savedApPositions[apIdKey]) {
+                // 서버에 없고, 현재 savedApPositions에도 없는 경우에만 추가 (새로 생성된 AP)
+                if (!foundInServer && !this.savedApPositions[apIdKey]) {
                     this.savedApPositions[apIdKey] = existingSavedPositions[apId];
                     console.log('💾 새로 생성된 AP 변경 사항 유지 (AP ID:', apIdKey, '):', this.savedApPositions[apIdKey]);
                 }
             });
             
+            // window.floorPlanApp.savedApPositions와 동기화 (모드 전환 시에도 유지되도록)
+            // 중요: 서버에서 로드한 모든 AP 데이터를 savedApPositions 형식으로 변환하여 저장
+            // 이렇게 하면 설계 모드를 나갔다가 다시 들어와도 서버에 저장된 AP 위치 정보가 유지됨
+            if (window.floorPlanApp) {
+                window.floorPlanApp.savedApPositions = this.savedApPositions;
+                console.log('💾 window.floorPlanApp.savedApPositions 동기화 완료:', {
+                    count: Object.keys(this.savedApPositions).length,
+                    apIds: Object.keys(this.savedApPositions).sort(),
+                    sample: Object.keys(this.savedApPositions).length > 0 ? {
+                        apId: Object.keys(this.savedApPositions)[0],
+                        position: this.savedApPositions[Object.keys(this.savedApPositions)[0]]
+                    } : null
+                });
+            }
+            
         } catch (error) {
             console.error('저장된 AP/MDF 로드 오류:', error);
+            // 오류 발생 시에도 기존 변경 사항 유지
+            if (existingSavedPositions && Object.keys(existingSavedPositions).length > 0) {
+                this.savedApPositions = existingSavedPositions;
+                if (window.floorPlanApp) {
+                    window.floorPlanApp.savedApPositions = this.savedApPositions;
+                }
+                console.log('💾 오류 발생으로 기존 변경 사항 복원:', Object.keys(this.savedApPositions).length, '개');
+            }
         }
     }
     
@@ -1604,6 +1853,9 @@ export default class WirelessApDesignMode {
             this.core.currentPage = pageNumber;
         }
         
+        // 장비 카드 제거 (장비보기 모드에서 생성된 장비 카드 제거)
+        this.clearEquipmentCards();
+        
         // 교실 요소가 로드될 때까지 대기
         await this.waitForRoomElements();
         
@@ -1619,6 +1871,50 @@ export default class WirelessApDesignMode {
         // 렌더링 강제 실행
         this.core.markDirty();
         this.core.render && this.core.render();
+        
+        // renderWirelessAps 완료 후 초기 상태 저장 (변경사항 감지용)
+        // renderWirelessAps에서 savedApPositions를 업데이트할 수 있으므로, 완료 후에 초기 상태 저장
+        // 해당 페이지의 교실에 속한 AP만 저장 (다른 페이지의 AP는 제외)
+        // 항상 현재 렌더링된 상태로 초기 상태를 업데이트 (저장 여부와 관계없이)
+        if (window.floorPlanApp && window.floorPlanApp.savedApPositions) {
+            // 현재 페이지의 교실 요소 찾기
+            const currentPageRooms = this.core.state.elements.filter(el => {
+                if (el.elementType !== 'room') return false;
+                const elPage = el.pageNumber || 1;
+                return elPage === pageNumber;
+            });
+            
+            const currentPageRoomIds = new Set();
+            currentPageRooms.forEach(room => {
+                const roomId = room.referenceId || room.classroomId || room.id;
+                if (roomId) {
+                    currentPageRoomIds.add(String(roomId));
+                }
+            });
+            
+            // 현재 페이지의 교실에 속한 AP만 필터링
+            const apPositionsForPage = {};
+            Object.keys(window.floorPlanApp.savedApPositions).forEach(apId => {
+                // AP가 속한 교실 찾기
+                const ap = this.wirelessAps.find(a => String(a.apId) === apId);
+                if (ap && ap.classroomId) {
+                    const classroomId = String(ap.classroomId);
+                    if (currentPageRoomIds.has(classroomId)) {
+                        apPositionsForPage[apId] = window.floorPlanApp.savedApPositions[apId];
+                    }
+                }
+            });
+            
+            // 항상 현재 렌더링된 상태로 초기 상태 업데이트
+            // 이렇게 하면 페이지 전환 시 현재 상태가 초기 상태로 설정되어 변경사항 감지가 정확해짐
+            // 깊은 복사로 저장하여 이후 변경사항이 초기 상태에 영향을 주지 않도록 함
+            const savedInitialPositions = JSON.parse(JSON.stringify(apPositionsForPage));
+            window.floorPlanApp.initialApPositionsByPage[pageNumber] = savedInitialPositions;
+            console.log(`💾 무선AP 설계 모드 페이지 전환 (onPageSwitch 완료 후): 페이지 ${pageNumber}의 초기 AP 위치 상태 저장 (${Object.keys(apPositionsForPage).length}개 AP)`, {
+                apIds: Object.keys(apPositionsForPage).sort(),
+                sample: Object.keys(apPositionsForPage).length > 0 ? apPositionsForPage[Object.keys(apPositionsForPage)[0]] : null
+            });
+        }
     }
 }
 

@@ -71,7 +71,7 @@ public class FloorPlanService {
             
             // 4. 평면도 저장
             floorPlan = floorPlanRepository.save(floorPlan);
-
+            
             // 5. 새 요소들 저장 (페이지 단위 병합은 saveFloorPlanElements에서 처리)
             saveFloorPlanElements(floorPlan.getId(), floorPlanData);
             
@@ -426,6 +426,18 @@ public class FloorPlanService {
             element.setEndY(getDoubleValue(elementData, "endY", null));
         }
         
+        // 무선AP 전용 정보
+        if ("wireless_ap".equals(elementType)) {
+            String apShapeType = getStringValue(elementData, "shapeType", "circle");
+            element.setShapeType(apShapeType);
+            // elementData에 shapeType 명시적으로 포함 (로드 시 확인용)
+            elementData.put("shapeType", apShapeType);
+            // letterColor는 elementData에만 저장 (별도 필드 없음)
+            if (elementData.containsKey("letterColor")) {
+                elementData.put("letterColor", elementData.get("letterColor"));
+            }
+        }
+        
         // 라벨 정보
         element.setLabel(getStringValue(elementData, "label", null));
         element.setShowLabel(getBooleanValue(elementData, "showLabel", true));
@@ -471,10 +483,25 @@ public class FloorPlanService {
             default -> "id";
         };
         
+        // 먼저 타입별 키 확인
         if (data.containsKey(idKey) && data.get(idKey) != null) {
             String idValue = data.get(idKey).toString();
             
             // 임시 ID는 무시 (temp-, temp_, shape_로 시작하는 ID)
+            if (!idValue.startsWith("temp-") && 
+                !idValue.startsWith("temp_") && 
+                !idValue.startsWith("shape_") &&
+                isValidLong(idValue)) {
+                element.setReferenceId(Long.valueOf(idValue));
+                return;
+            }
+        }
+        
+        // 타입별 키가 없거나 유효하지 않은 경우 referenceId 필드 확인 (프론트엔드 호환성)
+        if (data.containsKey("referenceId") && data.get("referenceId") != null) {
+            String idValue = data.get("referenceId").toString();
+            
+            // 임시 ID는 무시
             if (!idValue.startsWith("temp-") && 
                 !idValue.startsWith("temp_") && 
                 !idValue.startsWith("shape_") &&
