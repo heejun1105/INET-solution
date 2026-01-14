@@ -67,7 +67,7 @@ public interface WirelessApHistoryRepository extends JpaRepository<WirelessApHis
     @Modifying
     @Transactional
     @Query("DELETE FROM WirelessApHistory wah WHERE wah.wirelessAp.school.schoolId = :schoolId")
-    void deleteBySchoolId(@Param("schoolId") Long schoolId);
+    int deleteBySchoolId(@Param("schoolId") Long schoolId);
     
     // 특정 날짜 이전 무선AP 수정내역 삭제
     @Modifying
@@ -79,7 +79,7 @@ public interface WirelessApHistoryRepository extends JpaRepository<WirelessApHis
     @Modifying
     @Transactional
     @Query("DELETE FROM WirelessApHistory wah WHERE wah.wirelessAp.school.schoolId = :schoolId AND wah.modifiedAt < :beforeDateTime")
-    void deleteBySchoolIdAndModifiedAtBefore(@Param("schoolId") Long schoolId, @Param("beforeDateTime") java.time.LocalDateTime beforeDateTime);
+    int deleteBySchoolIdAndModifiedAtBefore(@Param("schoolId") Long schoolId, @Param("beforeDateTime") java.time.LocalDateTime beforeDateTime);
     
     // 학교별 무선AP 수정내역 개수 조회
     @Query("SELECT COUNT(wah) FROM WirelessApHistory wah WHERE wah.wirelessAp.school.schoolId = :schoolId")

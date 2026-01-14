@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
     List<Classroom> findBySchool(School school);
     Optional<Classroom> findByRoomNameAndSchool(String roomName, School school);
+    Optional<Classroom> findFirstByRoomNameAndSchool(String roomName, School school);
     
     // 기존 메서드는 Deprecated 처리
     @Deprecated

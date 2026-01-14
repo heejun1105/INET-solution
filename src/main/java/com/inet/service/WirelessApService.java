@@ -206,81 +206,98 @@ public class WirelessApService {
             
             // 첫 번째 행부터 데이터로 처리
             for (int i = 0; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null) {
-                    log.debug("Row {} is null, skipping", i);
-                    skippedRows++;
-                    continue;
+                try {
+                    Row row = sheet.getRow(i);
+                    if (row == null) {
+                        log.debug("Row {} is null, skipping", i);
+                        skippedRows++;
+                        continue;
+                    }
+
+                    // 첫 번째 셀(location)이 비어있으면 빈 행으로 간주하고 건너뛰기
+                    String locationValue = getCellValueAsString(row.getCell(0));
+                    if (locationValue == null || locationValue.trim().isEmpty()) {
+                        log.debug("Row {} has empty location, skipping", i);
+                        skippedRows++;
+                        continue;
+                    }
+
+                    log.debug("Processing row {}: location = '{}'", i, locationValue);
+
+                    WirelessAp ap = new WirelessAp();
+                    
+                    // school 설정
+                    ap.setSchool(school);
+                    log.debug("Set school: {}", school.getSchoolName());
+                    
+                    // location (Classroom) 처리
+                    Optional<Classroom> existingClassroom = classroomService.findByRoomNameAndSchool(locationValue, school.getSchoolId());
+                    Classroom classroom;
+                    
+                    if (existingClassroom.isPresent()) {
+                        classroom = existingClassroom.get();
+                        log.debug("Found existing classroom: {}", classroom.getRoomName());
+                    } else {
+                        // 새로운 Classroom 생성 시 school도 함께 설정
+                        classroom = new Classroom();
+                        classroom.setRoomName(locationValue);
+                        classroom.setSchool(school);
+                        classroom.setXCoordinate(0);
+                        classroom.setYCoordinate(0);
+                        classroom.setWidth(100);
+                        classroom.setHeight(100);
+                        classroom = classroomService.saveClassroom(classroom);
+                        log.debug("Created new classroom: {}", classroom.getRoomName());
+                    }
+                    ap.setLocation(classroom);
+
+                    // 새로운 순서에 맞게 필드 설정
+                    // location(0), classroomType(1), newLabelNumber(2), deviceNumber(3), APYear(4), manufacturer(5), model(6), macAddress(7), prevLocation(8), prevLabelNumber(9), speed(10)
+                    ap.setClassroomType(getCellValueAsString(row.getCell(1))); // 교실구분
+                    ap.setNewLabelNumber(getCellValueAsString(row.getCell(2))); // 신규라벨번호
+                    ap.setDeviceNumber(getCellValueAsString(row.getCell(3))); // 장비번호
+                    
+                    LocalDate apYear = getCellValueAsLocalDate(row.getCell(4)); // 도입년도
+                    ap.setAPYear(apYear);
+                    log.debug("Row {}: APYear = {}", i, apYear);
+                    
+                    ap.setManufacturer(getCellValueAsString(row.getCell(5))); // 제조사
+                    ap.setModel(getCellValueAsString(row.getCell(6))); // 모델
+                    ap.setMacAddress(getCellValueAsString(row.getCell(7))); // mac주소
+                    ap.setPrevLocation(getCellValueAsString(row.getCell(8))); // 기존위치
+                    ap.setPrevLabelNumber(getCellValueAsString(row.getCell(9))); // 기존라벨번호
+                    ap.setSpeed(getCellValueAsString(row.getCell(10))); // 속도
+
+                    wirelessAps.add(ap);
+                    processedRows++;
+                    log.debug("Added WirelessAp for row {}", i);
+                } catch (Exception e) {
+                    log.error("Error processing row {}: {}", i, e.getMessage(), e);
+                    throw new IllegalArgumentException((i + 1) + "번째 행 처리 중 오류가 발생했습니다: " + e.getMessage());
                 }
-
-                // 첫 번째 셀(location)이 비어있으면 빈 행으로 간주하고 건너뛰기
-                String locationValue = getCellValueAsString(row.getCell(0));
-                if (locationValue == null || locationValue.trim().isEmpty()) {
-                    log.debug("Row {} has empty location, skipping", i);
-                    skippedRows++;
-                    continue;
-                }
-
-                log.debug("Processing row {}: location = '{}'", i, locationValue);
-
-                WirelessAp ap = new WirelessAp();
-                
-                // school 설정
-                ap.setSchool(school);
-                log.debug("Set school: {}", school.getSchoolName());
-                
-                // location (Classroom) 처리
-                Optional<Classroom> existingClassroom = classroomService.findByRoomNameAndSchool(locationValue, school.getSchoolId());
-                Classroom classroom;
-                
-                if (existingClassroom.isPresent()) {
-                    classroom = existingClassroom.get();
-                    log.debug("Found existing classroom: {}", classroom.getRoomName());
-                } else {
-                    // 새로운 Classroom 생성 시 school도 함께 설정
-                    classroom = new Classroom();
-                    classroom.setRoomName(locationValue);
-                    classroom.setSchool(school);
-                    classroom.setXCoordinate(0);
-                    classroom.setYCoordinate(0);
-                    classroom.setWidth(100);
-                    classroom.setHeight(100);
-                    classroom = classroomService.saveClassroom(classroom);
-                    log.debug("Created new classroom: {}", classroom.getRoomName());
-                }
-                ap.setLocation(classroom);
-
-                // 새로운 순서에 맞게 필드 설정
-                // location(0), classroomType(1), newLabelNumber(2), deviceNumber(3), APYear(4), manufacturer(5), model(6), macAddress(7), prevLocation(8), prevLabelNumber(9), speed(10)
-                ap.setClassroomType(getCellValueAsString(row.getCell(1))); // 교실구분
-                ap.setNewLabelNumber(getCellValueAsString(row.getCell(2))); // 신규라벨번호
-                ap.setDeviceNumber(getCellValueAsString(row.getCell(3))); // 장비번호
-                
-                LocalDate apYear = getCellValueAsLocalDate(row.getCell(4)); // 도입년도
-                ap.setAPYear(apYear);
-                log.debug("Row {}: APYear = {}", i, apYear);
-                
-                ap.setManufacturer(getCellValueAsString(row.getCell(5))); // 제조사
-                ap.setModel(getCellValueAsString(row.getCell(6))); // 모델
-                ap.setMacAddress(getCellValueAsString(row.getCell(7))); // mac주소
-                ap.setPrevLocation(getCellValueAsString(row.getCell(8))); // 기존위치
-                ap.setPrevLabelNumber(getCellValueAsString(row.getCell(9))); // 기존라벨번호
-                ap.setSpeed(getCellValueAsString(row.getCell(10))); // 속도
-
-                wirelessAps.add(ap);
-                processedRows++;
-                log.debug("Added WirelessAp for row {}", i);
             }
+        } catch (IllegalArgumentException e) {
+            // IllegalArgumentException은 그대로 전달
+            throw e;
+        } catch (Exception e) {
+            log.error("Error reading Excel file: {}", e.getMessage(), e);
+            throw new IllegalArgumentException("엑셀 파일을 읽는 중 오류가 발생했습니다: " + e.getMessage());
         }
 
         log.info("Excel processing completed. Processed: {}, Skipped: {}, Total to save: {}", 
                 processedRows, skippedRows, wirelessAps.size());
         
         if (!wirelessAps.isEmpty()) {
-            wirelessApRepository.saveAll(wirelessAps);
-            log.info("Successfully saved {} wireless APs to database", wirelessAps.size());
+            try {
+                wirelessApRepository.saveAll(wirelessAps);
+                log.info("Successfully saved {} wireless APs to database", wirelessAps.size());
+            } catch (Exception e) {
+                log.error("Error saving wireless APs to database: {}", e.getMessage(), e);
+                throw new IllegalArgumentException("데이터베이스에 저장하는 중 오류가 발생했습니다: " + e.getMessage());
+            }
         } else {
             log.warn("No valid wireless AP data found in Excel file");
+            throw new IllegalArgumentException("저장할 유효한 무선 AP 데이터가 없습니다.");
         }
     }
 

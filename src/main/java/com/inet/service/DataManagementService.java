@@ -29,6 +29,16 @@ public class DataManagementService {
     private final WirelessApRepository wirelessApRepository;
     private final DeviceHistoryRepository deviceHistoryRepository;
     private final WirelessApHistoryRepository wirelessApHistoryRepository;
+    private final DeviceInspectionStatusRepository deviceInspectionStatusRepository;
+    private final DeviceInspectionHistoryRepository deviceInspectionHistoryRepository;
+    private final DeviceLocationRepository deviceLocationRepository;
+    private final WirelessApLocationRepository wirelessApLocationRepository;
+    private final FloorPlanRepository floorPlanRepository;
+    private final FloorPlanElementRepository floorPlanElementRepository;
+    private final NetworkEquipmentRepository networkEquipmentRepository;
+    private final BuildingRepository buildingRepository;
+    private final FloorRoomRepository floorRoomRepository;
+    private final RoomSeatRepository roomSeatRepository;
     private final EntityManager entityManager;
     private final SchoolRepository schoolRepository;
 
@@ -42,6 +52,16 @@ public class DataManagementService {
             WirelessApRepository wirelessApRepository,
             DeviceHistoryRepository deviceHistoryRepository,
             WirelessApHistoryRepository wirelessApHistoryRepository,
+            DeviceInspectionStatusRepository deviceInspectionStatusRepository,
+            DeviceInspectionHistoryRepository deviceInspectionHistoryRepository,
+            DeviceLocationRepository deviceLocationRepository,
+            WirelessApLocationRepository wirelessApLocationRepository,
+            FloorPlanRepository floorPlanRepository,
+            FloorPlanElementRepository floorPlanElementRepository,
+            NetworkEquipmentRepository networkEquipmentRepository,
+            BuildingRepository buildingRepository,
+            FloorRoomRepository floorRoomRepository,
+            RoomSeatRepository roomSeatRepository,
             EntityManager entityManager,
             SchoolRepository schoolRepository) {
         this.deviceRepository = deviceRepository;
@@ -52,12 +72,22 @@ public class DataManagementService {
         this.wirelessApRepository = wirelessApRepository;
         this.deviceHistoryRepository = deviceHistoryRepository;
         this.wirelessApHistoryRepository = wirelessApHistoryRepository;
+        this.deviceInspectionStatusRepository = deviceInspectionStatusRepository;
+        this.deviceInspectionHistoryRepository = deviceInspectionHistoryRepository;
+        this.deviceLocationRepository = deviceLocationRepository;
+        this.wirelessApLocationRepository = wirelessApLocationRepository;
+        this.floorPlanRepository = floorPlanRepository;
+        this.floorPlanElementRepository = floorPlanElementRepository;
+        this.networkEquipmentRepository = networkEquipmentRepository;
+        this.buildingRepository = buildingRepository;
+        this.floorRoomRepository = floorRoomRepository;
+        this.roomSeatRepository = roomSeatRepository;
         this.entityManager = entityManager;
         this.schoolRepository = schoolRepository;
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @Transactional(isolation = Isolation.SERIALIZABLE)
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @Retryable(
         value = { DataIntegrityViolationException.class },
         maxAttempts = 3,
@@ -90,51 +120,107 @@ public class DataManagementService {
             entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 0").executeUpdate();
             
             try {
-                // 4. Device 삭제
-                int deletedDevices = deviceRepository.deleteBySchoolSchoolId(schoolId);
-                totalRecordsDeleted += deletedDevices;
-                logger.debug("Deleted {} devices", deletedDevices);
+                // 삭제 순서: 참조하는 데이터 먼저 삭제
                 
-                // 5. WirelessAp 삭제
-                int deletedWirelessAps = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
-                totalRecordsDeleted += deletedWirelessAps;
-                logger.debug("Deleted {} wireless APs", deletedWirelessAps);
+                // 1단계: 검사 데이터 삭제
+                int deletedInspectionStatus = deviceInspectionStatusRepository.deleteBySchoolId(schoolId);
+                totalRecordsDeleted += deletedInspectionStatus;
+                logger.debug("Deleted {} device inspection status records", deletedInspectionStatus);
                 
-                // 6. UID 삭제
-                int deletedUids = uidRepository.deleteBySchoolSchoolId(schoolId);
-                totalRecordsDeleted += deletedUids;
-                logger.debug("Deleted {} uids", deletedUids);
+                int deletedInspectionHistory = deviceInspectionHistoryRepository.deleteBySchoolId(schoolId);
+                totalRecordsDeleted += deletedInspectionHistory;
+                logger.debug("Deleted {} device inspection history records", deletedInspectionHistory);
                 
-                // 7. Operator 삭제
-                int deletedOperators = operatorRepository.deleteBySchoolSchoolId(schoolId);
-                totalRecordsDeleted += deletedOperators;
-                logger.debug("Deleted {} operators", deletedOperators);
-                
-                // 8. Classroom 삭제
-                int deletedClassrooms = classroomRepository.deleteBySchoolSchoolId(schoolId);
-                totalRecordsDeleted += deletedClassrooms;
-                logger.debug("Deleted {} classrooms", deletedClassrooms);
-                
-                // 9. Manage 삭제
-                int deletedManages = manageRepository.deleteBySchoolSchoolId(schoolId);
-                totalRecordsDeleted += deletedManages;
-                logger.debug("Deleted {} manages", deletedManages);
-                
-                // 10. 장비 수정내역 삭제
+                // 2단계: 히스토리 삭제
                 int deletedDeviceHistory = deviceHistoryRepository.deleteByDeviceSchoolSchoolId(schoolId);
                 totalRecordsDeleted += deletedDeviceHistory;
                 logger.debug("Deleted {} device history records", deletedDeviceHistory);
                 
-                // 11. 무선AP 수정내역 삭제
-                wirelessApHistoryRepository.deleteBySchoolId(schoolId);
-                logger.debug("Deleted wireless AP history records");
+                int deletedWirelessApHistory = wirelessApHistoryRepository.deleteBySchoolId(schoolId);
+                totalRecordsDeleted += deletedWirelessApHistory;
+                logger.debug("Deleted {} wireless AP history records", deletedWirelessApHistory);
+                
+                // 3단계: 위치 정보 삭제
+                int deletedDeviceLocations = deviceLocationRepository.deleteBySchoolId(schoolId);
+                totalRecordsDeleted += deletedDeviceLocations;
+                logger.debug("Deleted {} device location records", deletedDeviceLocations);
+                
+                int deletedWirelessApLocations = wirelessApLocationRepository.deleteBySchoolId(schoolId);
+                totalRecordsDeleted += deletedWirelessApLocations;
+                logger.debug("Deleted {} wireless AP location records", deletedWirelessApLocations);
+                
+                // 4단계: 장비/AP 삭제
+                int deletedDevices = deviceRepository.deleteBySchoolSchoolId(schoolId);
+                totalRecordsDeleted += deletedDevices;
+                logger.debug("Deleted {} devices", deletedDevices);
+                
+                int deletedWirelessAps = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
+                totalRecordsDeleted += deletedWirelessAps;
+                logger.debug("Deleted {} wireless APs", deletedWirelessAps);
+                
+                // 5단계: 평면도 관련 삭제 (순서 중요)
+                // 5-1. 평면도 ID 목록 조회
+                List<FloorPlan> floorPlans = floorPlanRepository.findAllBySchoolId(schoolId);
+                List<Long> floorPlanIds = floorPlans.stream()
+                    .map(FloorPlan::getId)
+                    .collect(java.util.stream.Collectors.toList());
+                
+                // 5-2. 평면도 요소 삭제
+                int deletedFloorPlanElements = 0;
+                if (!floorPlanIds.isEmpty()) {
+                    deletedFloorPlanElements = floorPlanElementRepository.deleteByFloorPlanIds(floorPlanIds);
+                    totalRecordsDeleted += deletedFloorPlanElements;
+                    logger.debug("Deleted {} floor plan elements", deletedFloorPlanElements);
+                }
+                
+                // 5-3. 평면도 삭제
+                int deletedFloorPlans = floorPlanRepository.deleteBySchoolId(schoolId);
+                totalRecordsDeleted += deletedFloorPlans;
+                logger.debug("Deleted {} floor plans", deletedFloorPlans);
+                
+                // 5-4. 네트워크 장비 삭제 (평면도 삭제 시 포함)
+                networkEquipmentRepository.deleteBySchool_SchoolId(schoolId);
+                logger.debug("Deleted network equipment");
+                
+                // 5-5. 좌석 삭제
+                int deletedRoomSeats = roomSeatRepository.deleteBySchoolId(schoolId);
+                totalRecordsDeleted += deletedRoomSeats;
+                logger.debug("Deleted {} room seats", deletedRoomSeats);
+                
+                // 5-6. 평면도 교실 삭제
+                int deletedFloorRooms = floorRoomRepository.deleteBySchoolId(schoolId);
+                totalRecordsDeleted += deletedFloorRooms;
+                logger.debug("Deleted {} floor rooms", deletedFloorRooms);
+                
+                // 5-7. 건물 삭제
+                int deletedBuildings = buildingRepository.deleteBySchoolSchoolId(schoolId);
+                totalRecordsDeleted += deletedBuildings;
+                logger.debug("Deleted {} buildings", deletedBuildings);
+                
+                // 6단계: 교실 삭제
+                int deletedClassrooms = classroomRepository.deleteBySchoolSchoolId(schoolId);
+                totalRecordsDeleted += deletedClassrooms;
+                logger.debug("Deleted {} classrooms", deletedClassrooms);
+                
+                // 7단계: 참조받는 엔티티들 삭제
+                int deletedUids = uidRepository.deleteBySchoolSchoolId(schoolId);
+                totalRecordsDeleted += deletedUids;
+                logger.debug("Deleted {} uids", deletedUids);
+                
+                int deletedOperators = operatorRepository.deleteBySchoolSchoolId(schoolId);
+                totalRecordsDeleted += deletedOperators;
+                logger.debug("Deleted {} operators", deletedOperators);
+                
+                int deletedManages = manageRepository.deleteBySchoolSchoolId(schoolId);
+                totalRecordsDeleted += deletedManages;
+                logger.debug("Deleted {} manages", deletedManages);
                 
             } finally {
-                // 12. 외래키 제약조건 다시 활성화
+                // 외래키 제약조건 다시 활성화
                 entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 1").executeUpdate();
             }
 
-            // 13. 삭제 결과 검증
+            // 삭제 결과 검증
             long remainingDevices = deviceRepository.countBySchoolSchoolId(schoolId);
             long remainingWirelessAps = wirelessApRepository.countBySchoolSchoolId(schoolId);
             long remainingClassrooms = classroomRepository.countBySchoolSchoolId(schoolId);
@@ -224,30 +310,6 @@ public class DataManagementService {
         logger.info("Deleted {} uids for school: {}", deletedCount, schoolId);
     }
 
-    @Transactional
-    public void deleteSelectedDataTypes(Long schoolId, boolean deleteDevices, boolean deleteWirelessAps) {
-        logger.info("Deleting selected data types for school: {} (devices: {}, wirelessAPs: {})", 
-                   schoolId, deleteDevices, deleteWirelessAps);
-        
-        School school = schoolRepository.findById(schoolId)
-            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 학교입니다: " + schoolId));
-        
-        int totalDeleted = 0;
-        
-        if (deleteDevices) {
-            int deletedDevices = deviceRepository.deleteBySchoolSchoolId(schoolId);
-            totalDeleted += deletedDevices;
-            logger.debug("Deleted {} devices", deletedDevices);
-        }
-        
-        if (deleteWirelessAps) {
-            int deletedWirelessAps = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
-            totalDeleted += deletedWirelessAps;
-            logger.debug("Deleted {} wireless APs", deletedWirelessAps);
-        }
-        
-        logger.info("Successfully deleted {} records for school: {}", totalDeleted, school.getSchoolName());
-    }
 
     /**
      * 학교별 장비 수정내역 삭제 (기간 설정 적용)
@@ -289,15 +351,15 @@ public class DataManagementService {
         
         if ("all".equals(periodType)) {
             // 전체 기간 삭제
-            wirelessApHistoryRepository.deleteBySchoolId(schoolId);
-            logger.info("Deleted all wireless AP history records for school: {}", schoolId);
+            deletedCount = wirelessApHistoryRepository.deleteBySchoolId(schoolId);
+            logger.info("Deleted all {} wireless AP history records for school: {}", deletedCount, schoolId);
         } else if ("before".equals(periodType) && deleteBeforeDate != null) {
             // 특정 날짜 이전 삭제
             try {
                 java.time.LocalDate beforeDate = java.time.LocalDate.parse(deleteBeforeDate);
                 java.time.LocalDateTime beforeDateTime = beforeDate.atStartOfDay();
-                wirelessApHistoryRepository.deleteBySchoolIdAndModifiedAtBefore(schoolId, beforeDateTime);
-                logger.info("Deleted wireless AP history records before {} for school: {}", deleteBeforeDate, schoolId);
+                deletedCount = wirelessApHistoryRepository.deleteBySchoolIdAndModifiedAtBefore(schoolId, beforeDateTime);
+                logger.info("Deleted {} wireless AP history records before {} for school: {}", deletedCount, deleteBeforeDate, schoolId);
             } catch (Exception e) {
                 logger.error("Error parsing date: {}", deleteBeforeDate, e);
                 throw new IllegalArgumentException("잘못된 날짜 형식입니다: " + deleteBeforeDate);
@@ -306,15 +368,73 @@ public class DataManagementService {
         
         return deletedCount;
     }
+    
+    /**
+     * 학교별 평면도 삭제 (평면도 요소, 평면도, 네트워크 장비, 건물, 평면도 교실, 좌석 포함)
+     */
+    @Transactional
+    public int deleteFloorPlansBySchool(Long schoolId) {
+        logger.info("Deleting floor plans for school: {}", schoolId);
+        
+        int totalDeleted = 0;
+        
+        try {
+            // 1. 평면도 ID 목록 조회
+            List<FloorPlan> floorPlans = floorPlanRepository.findAllBySchoolId(schoolId);
+            List<Long> floorPlanIds = floorPlans.stream()
+                .map(FloorPlan::getId)
+                .collect(java.util.stream.Collectors.toList());
+            
+            // 2. 평면도 요소 삭제
+            int deletedElements = 0;
+            if (!floorPlanIds.isEmpty()) {
+                deletedElements = floorPlanElementRepository.deleteByFloorPlanIds(floorPlanIds);
+                totalDeleted += deletedElements;
+                logger.debug("Deleted {} floor plan elements", deletedElements);
+            }
+            
+            // 3. 평면도 삭제
+            int deletedFloorPlans = floorPlanRepository.deleteBySchoolId(schoolId);
+            totalDeleted += deletedFloorPlans;
+            logger.debug("Deleted {} floor plans", deletedFloorPlans);
+            
+            // 4. 네트워크 장비 삭제 (평면도 삭제 시 포함)
+            networkEquipmentRepository.deleteBySchool_SchoolId(schoolId);
+            logger.debug("Deleted network equipment");
+            
+            // 5. 좌석 삭제
+            int deletedRoomSeats = roomSeatRepository.deleteBySchoolId(schoolId);
+            totalDeleted += deletedRoomSeats;
+            logger.debug("Deleted {} room seats", deletedRoomSeats);
+            
+            // 6. 평면도 교실 삭제
+            int deletedFloorRooms = floorRoomRepository.deleteBySchoolId(schoolId);
+            totalDeleted += deletedFloorRooms;
+            logger.debug("Deleted {} floor rooms", deletedFloorRooms);
+            
+            // 7. 건물 삭제
+            int deletedBuildings = buildingRepository.deleteBySchoolSchoolId(schoolId);
+            totalDeleted += deletedBuildings;
+            logger.debug("Deleted {} buildings", deletedBuildings);
+            
+            logger.info("Successfully deleted {} floor plan related records for school: {}", totalDeleted, schoolId);
+        } catch (Exception e) {
+            logger.error("Error deleting floor plans for school {}: {}", schoolId, e.getMessage());
+            throw new RuntimeException("평면도 삭제 중 오류가 발생했습니다. 관리자에게 문의해주세요.");
+        }
+        
+        return totalDeleted;
+    }
 
     @Transactional
     public void deleteSelectedDataTypes(Long schoolId, boolean deleteDevices, boolean deleteWirelessAps, 
                                        boolean deleteClassrooms, boolean deleteOperators, 
                                        boolean deleteManages, boolean deleteUids, boolean deleteDeviceHistory,
-                                       boolean deleteWirelessApHistory, String periodType, String deleteBeforeDate,
+                                       boolean deleteWirelessApHistory, boolean deleteFloorPlans,
+                                       String periodType, String deleteBeforeDate,
                                        String wirelessApPeriodType, String deleteWirelessApBeforeDate) {
-        logger.info("Deleting selected data types for school: {} (devices: {}, wirelessAPs: {}, classrooms: {}, operators: {}, manages: {}, uids: {}, deviceHistory: {}, wirelessApHistory: {}, period: {}, wirelessApPeriod: {})", 
-                   schoolId, deleteDevices, deleteWirelessAps, deleteClassrooms, deleteOperators, deleteManages, deleteUids, deleteDeviceHistory, deleteWirelessApHistory, periodType, wirelessApPeriodType);
+        logger.info("Deleting selected data types for school: {} (devices: {}, wirelessAPs: {}, classrooms: {}, operators: {}, manages: {}, uids: {}, deviceHistory: {}, wirelessApHistory: {}, floorPlans: {}, period: {}, wirelessApPeriod: {})", 
+                   schoolId, deleteDevices, deleteWirelessAps, deleteClassrooms, deleteOperators, deleteManages, deleteUids, deleteDeviceHistory, deleteWirelessApHistory, deleteFloorPlans, periodType, wirelessApPeriodType);
         
         School school = schoolRepository.findById(schoolId)
             .orElseThrow(() -> new RuntimeException("선택하신 학교 정보를 찾을 수 없습니다. 다시 시도해주세요."));
@@ -325,12 +445,33 @@ public class DataManagementService {
         
         // 외래키 제약조건을 고려한 안전한 삭제 순서
         
+        // 0단계: 검사 데이터 삭제 (장비 삭제 시 함께 삭제)
+        if (deleteDevices) {
+            try {
+                int deletedInspectionStatus = deviceInspectionStatusRepository.deleteBySchoolId(schoolId);
+                totalDeleted += deletedInspectionStatus;
+                logger.debug("Deleted {} device inspection status records", deletedInspectionStatus);
+                
+                int deletedInspectionHistory = deviceInspectionHistoryRepository.deleteBySchoolId(schoolId);
+                totalDeleted += deletedInspectionHistory;
+                logger.debug("Deleted {} device inspection history records", deletedInspectionHistory);
+            } catch (Exception e) {
+                logger.error("Error deleting inspection data for school {}: {}", schoolId, e.getMessage());
+                // 검사 데이터 삭제 실패는 경고만 하고 계속 진행
+            }
+        }
+        
         // 1단계: 참조하는 엔티티들 먼저 삭제 (Device, WirelessAp)
         if (deleteDevices) {
             try {
-            int deletedDevices = deviceRepository.deleteBySchoolSchoolId(schoolId);
-            totalDeleted += deletedDevices;
-            logger.debug("Deleted {} devices", deletedDevices);
+                // 위치 정보 먼저 삭제
+                int deletedDeviceLocations = deviceLocationRepository.deleteBySchoolId(schoolId);
+                totalDeleted += deletedDeviceLocations;
+                logger.debug("Deleted {} device location records", deletedDeviceLocations);
+                
+                int deletedDevices = deviceRepository.deleteBySchoolSchoolId(schoolId);
+                totalDeleted += deletedDevices;
+                logger.debug("Deleted {} devices", deletedDevices);
             } catch (Exception e) {
                 logger.error("Error deleting devices for school {}: {}", schoolId, e.getMessage());
                 throw new RuntimeException("장비 삭제 중 오류가 발생했습니다. 장비가 다른 시스템에서 사용 중일 수 있습니다. 관리자에게 문의해주세요.");
@@ -339,14 +480,19 @@ public class DataManagementService {
         
         if (deleteWirelessAps) {
             try {
-                // 1) 히스토리 먼저 삭제
+                // 1) 위치 정보 먼저 삭제
+                int deletedWirelessApLocations = wirelessApLocationRepository.deleteBySchoolId(schoolId);
+                totalDeleted += deletedWirelessApLocations;
+                logger.debug("Deleted {} wireless AP location records", deletedWirelessApLocations);
+                
+                // 2) 히스토리 먼저 삭제
                 wirelessApHistoryRepository.deleteBySchoolId(schoolId);
                 logger.debug("Deleted wireless AP histories for school {}", schoolId);
 
-                // 2) AP 삭제
-            int deletedWirelessAps = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
-            totalDeleted += deletedWirelessAps;
-            logger.debug("Deleted {} wireless APs", deletedWirelessAps);
+                // 3) AP 삭제
+                int deletedWirelessAps = wirelessApRepository.deleteBySchoolSchoolId(schoolId);
+                totalDeleted += deletedWirelessAps;
+                logger.debug("Deleted {} wireless APs", deletedWirelessAps);
             } catch (Exception e) {
                 logger.error("Error deleting wireless APs for school {}: {}", schoolId, e.getMessage());
                 throw new RuntimeException("무선AP 삭제 중 오류가 발생했습니다. 관리자에게 문의해주세요.");
@@ -444,12 +590,24 @@ public class DataManagementService {
         // 무선AP 수정내역 삭제 (기간 설정 적용)
         if (deleteWirelessApHistory) {
             try {
-            int deletedWirelessApHistory = deleteWirelessApHistoryBySchool(schoolId, wirelessApPeriodType, deleteWirelessApBeforeDate);
-            totalDeleted += deletedWirelessApHistory;
-            logger.debug("Deleted {} wireless AP history records", deletedWirelessApHistory);
+                int deletedWirelessApHistory = deleteWirelessApHistoryBySchool(schoolId, wirelessApPeriodType, deleteWirelessApBeforeDate);
+                totalDeleted += deletedWirelessApHistory;
+                logger.debug("Deleted {} wireless AP history records", deletedWirelessApHistory);
             } catch (Exception e) {
                 logger.error("Error deleting wireless AP history for school {}: {}", schoolId, e.getMessage());
                 throw new RuntimeException("무선AP 수정내역 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+            }
+        }
+        
+        // 평면도 삭제
+        if (deleteFloorPlans) {
+            try {
+                int deletedFloorPlans = deleteFloorPlansBySchool(schoolId);
+                totalDeleted += deletedFloorPlans;
+                logger.debug("Deleted {} floor plan related records", deletedFloorPlans);
+            } catch (Exception e) {
+                logger.error("Error deleting floor plans for school {}: {}", schoolId, e.getMessage());
+                throw new RuntimeException("평면도 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
             }
         }
         

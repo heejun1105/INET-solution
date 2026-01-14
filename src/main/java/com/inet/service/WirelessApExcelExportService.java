@@ -102,9 +102,28 @@ public class WirelessApExcelExportService {
 
         String schoolName = getSchoolName(wirelessAps);
         Row titleRow = summarySheet.createRow(0);
+        titleRow.setHeightInPoints(60); // 행 높이 60
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue(schoolName + " 무선 AP 현황");
-        titleCell.setCellStyle(headerStyle);
+        
+        // 제목 스타일 생성
+        CellStyle titleStyle = workbook.createCellStyle();
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 36);
+        titleStyle.setFont(titleFont);
+        titleStyle.setAlignment(HorizontalAlignment.CENTER);
+        titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        titleStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        titleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        // 제목 행의 테두리 제거
+        titleStyle.setBorderTop(BorderStyle.NONE);
+        titleStyle.setBorderBottom(BorderStyle.NONE);
+        titleStyle.setBorderLeft(BorderStyle.NONE);
+        titleStyle.setBorderRight(BorderStyle.NONE);
+        titleStyle.setWrapText(true); // 셀에 맞춤
+        
+        titleCell.setCellStyle(titleStyle);
         summarySheet.addMergedRegion(org.apache.poi.ss.util.CellRangeAddress.valueOf("A1:G1"));
 
         // AP 정보의 마지막 수정일자 조회 (모든 AP 중 가장 최근 수정일자)
@@ -175,6 +194,10 @@ public class WirelessApExcelExportService {
                 .toList();
 
         Row headerRow = summarySheet.createRow(3);
+        headerRow.setHeightInPoints(25); // 행 높이 25
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+        headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        headerStyle.setWrapText(true); // 셀에 맞춤
         List<String> headers = new ArrayList<>();
         headers.add("도입년도");
         headers.add("제조사");
@@ -203,6 +226,7 @@ public class WirelessApExcelExportService {
                     Map<String, Integer> classroomCounts = modelEntry.getValue();
 
                     Row row = summarySheet.createRow(rowNum++);
+                    row.setHeightInPoints(25); // 데이터 행 높이 25
                     row.createCell(0).setCellValue(year);
                     row.createCell(1).setCellValue(manufacturer);
                     row.createCell(2).setCellValue(model);
@@ -225,6 +249,17 @@ public class WirelessApExcelExportService {
         }
 
         Row totalRow = summarySheet.createRow(rowNum);
+        totalRow.setHeightInPoints(25); // 행 높이 25
+        
+        // 총계 행 스타일 생성 (볼드 + 색 채우기)
+        CellStyle totalStyle = workbook.createCellStyle();
+        totalStyle.cloneStyleFrom(dataStyle);
+        Font totalFont = workbook.createFont();
+        totalFont.setBold(true);
+        totalStyle.setFont(totalFont);
+        totalStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        totalStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        
         totalRow.createCell(0).setCellValue("총계");
         totalRow.createCell(1).setCellValue("");
         totalRow.createCell(2).setCellValue("");
@@ -239,7 +274,7 @@ public class WirelessApExcelExportService {
         }
 
         for (int i = 0; i < headers.size(); i++) {
-            totalRow.getCell(i).setCellStyle(dataStyle);
+            totalRow.getCell(i).setCellStyle(totalStyle);
         }
     }
 
@@ -251,9 +286,28 @@ public class WirelessApExcelExportService {
 
         String schoolName = getSchoolName(wirelessAps);
         Row titleRow = sheet.createRow(0);
+        titleRow.setHeightInPoints(60); // 행 높이 60
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue(schoolName + " 무선 AP 현황");
-        titleCell.setCellStyle(headerStyle);
+        
+        // 제목 스타일 생성
+        CellStyle titleStyle = workbook.createCellStyle();
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 36);
+        titleStyle.setFont(titleFont);
+        titleStyle.setAlignment(HorizontalAlignment.CENTER);
+        titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        titleStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        titleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        // 제목 행의 테두리 제거
+        titleStyle.setBorderTop(BorderStyle.NONE);
+        titleStyle.setBorderBottom(BorderStyle.NONE);
+        titleStyle.setBorderLeft(BorderStyle.NONE);
+        titleStyle.setBorderRight(BorderStyle.NONE);
+        titleStyle.setWrapText(true); // 셀에 맞춤
+        
+        titleCell.setCellStyle(titleStyle);
         sheet.addMergedRegion(org.apache.poi.ss.util.CellRangeAddress.valueOf("A1:K1"));
 
         // AP 정보의 마지막 수정일자 조회 (모든 AP 중 가장 최근 수정일자)
@@ -360,6 +414,7 @@ public class WirelessApExcelExportService {
         dataStyle.setBorderBottom(BorderStyle.THIN);
         dataStyle.setBorderLeft(BorderStyle.THIN);
         dataStyle.setBorderRight(BorderStyle.THIN);
+        dataStyle.setWrapText(true); // 셀에 맞춤
         return dataStyle;
     }
 

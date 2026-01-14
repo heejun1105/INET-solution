@@ -562,15 +562,44 @@ public class DeviceService {
             return Optional.empty();
         }
         
-        // 페이지 다운로드와 동일한 순서로 정렬 (교실, 세트 타입, 담당자 순)
+        // 페이지 다운로드와 동일한 순서로 정렬 (교실 순서, 세트 타입, 담당자 순)
         devices.sort((d1, d2) -> {
-            // 1. 교실 기준 정렬
-            String classroom1 = d1.getClassroom() != null && d1.getClassroom().getRoomName() != null ? 
-                                d1.getClassroom().getRoomName() : "미지정 교실";
-            String classroom2 = d2.getClassroom() != null && d2.getClassroom().getRoomName() != null ? 
-                                d2.getClassroom().getRoomName() : "미지정 교실";
-            int classroomCompare = classroom1.compareTo(classroom2);
-            if (classroomCompare != 0) return classroomCompare;
+            // 1. 교실 기준 정렬 (순서 우선, 없으면 교실명)
+            Classroom classroom1 = d1.getClassroom();
+            Classroom classroom2 = d2.getClassroom();
+            
+            if (classroom1 == null && classroom2 == null) {
+                // 둘 다 교실이 없으면 다음 정렬 기준으로
+            } else if (classroom1 == null) {
+                return 1; // 교실이 없는 장비는 뒤로
+            } else if (classroom2 == null) {
+                return -1; // 교실이 없는 장비는 뒤로
+            } else {
+                Integer order1 = classroom1.getDisplayOrder();
+                Integer order2 = classroom2.getDisplayOrder();
+                
+                // 둘 다 순서가 있는 경우
+                if (order1 != null && order2 != null) {
+                    int orderCompare = order1.compareTo(order2);
+                    if (orderCompare != 0) {
+                        return orderCompare;
+                    }
+                }
+                // c1만 순서가 있는 경우
+                else if (order1 != null) {
+                    return -1;
+                }
+                // c2만 순서가 있는 경우
+                else if (order2 != null) {
+                    return 1;
+                }
+                
+                // 둘 다 순서가 없는 경우 교실명 기준
+                String name1 = classroom1.getRoomName() != null ? classroom1.getRoomName() : "";
+                String name2 = classroom2.getRoomName() != null ? classroom2.getRoomName() : "";
+                int classroomCompare = name1.compareTo(name2);
+                if (classroomCompare != 0) return classroomCompare;
+            }
             
             // 2. 세트 타입 기준 정렬 (있는 경우)
             String setType1 = d1.getSetType() != null && !d1.getSetType().trim().isEmpty() ? d1.getSetType() : null;
@@ -625,16 +654,18 @@ public class DeviceService {
         CellStyle titleStyle = workbook.createCellStyle();
         Font titleFont = workbook.createFont();
         titleFont.setBold(true);
-        titleFont.setFontHeightInPoints((short) 14);
+        titleFont.setFontHeightInPoints((short) 36);
         titleStyle.setFont(titleFont);
         titleStyle.setAlignment(HorizontalAlignment.CENTER);
         titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
         titleStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
         titleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        titleStyle.setBorderTop(BorderStyle.THIN);
-        titleStyle.setBorderBottom(BorderStyle.THIN);
-        titleStyle.setBorderLeft(BorderStyle.THIN);
-        titleStyle.setBorderRight(BorderStyle.THIN);
+        // 제목 행의 테두리 제거 (이미지처럼 A1셀 아래 테두리 제거)
+        titleStyle.setBorderTop(BorderStyle.NONE);
+        titleStyle.setBorderBottom(BorderStyle.NONE);
+        titleStyle.setBorderLeft(BorderStyle.NONE);
+        titleStyle.setBorderRight(BorderStyle.NONE);
+        titleStyle.setWrapText(true); // 셀에 맞춤
         
         // 2. 날짜 스타일 (배경색 없음)
         CellStyle dateStyle = workbook.createCellStyle();
@@ -659,10 +690,13 @@ public class DeviceService {
         
         // 4. 데이터 스타일
         CellStyle dataStyle = workbook.createCellStyle();
+        dataStyle.setAlignment(HorizontalAlignment.CENTER);
+        dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
         dataStyle.setBorderTop(BorderStyle.THIN);
         dataStyle.setBorderBottom(BorderStyle.THIN);
         dataStyle.setBorderLeft(BorderStyle.THIN);
         dataStyle.setBorderRight(BorderStyle.THIN);
+        dataStyle.setWrapText(true); // 셀에 맞춤
         
         // 학교명 가져오기 - 첫 번째 장비의 학교명 사용 (또는 선택된 학교명)
         String schoolName = "학교";
@@ -694,6 +728,7 @@ public class DeviceService {
         
         // 첫번째 행: 제목 (학교명 + 교실배치별 장비현황)
         Row titleRow = sheet.createRow(0);
+        titleRow.setHeightInPoints(60); // 행 높이 60
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue(schoolName + " 교실배치별 장비현황" + (hasInspectionStatus ? " (검사결과 포함)" : ""));
         titleCell.setCellStyle(titleStyle);
@@ -712,6 +747,10 @@ public class DeviceService {
         
         // 세번째 행: 헤더
         Row headerRow = sheet.createRow(2);
+        headerRow.setHeightInPoints(25); // 행 높이 25
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+        headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        headerStyle.setWrapText(true); // 셀에 맞춤
         String[] headers = {"No", "고유번호", "관리번호", "종류", "직위", "취급자", "제조사", "모델명", "도입일자", "현IP주소", "설치장소", "용도", "세트분류", "비고"};
         if (hasInspectionStatus) {
             // 검사상태 컬럼 추가
@@ -734,6 +773,7 @@ public class DeviceService {
         for (int i = 0; i < devices.size(); i++) {
             Device device = devices.get(i);
             Row row = sheet.createRow(rowNum++);
+            row.setHeightInPoints(25); // 데이터 행 높이 25
             
             // 각 열에 데이터 추가 및 스타일 적용
             int totalCols = hasInspectionStatus ? 15 : 14; // 검사상태 컬럼 포함 여부
@@ -856,8 +896,362 @@ public class DeviceService {
             }
         }
 
+        // 연도별 총괄표 시트 추가
+        createYearlySummarySheet(workbook, devices, schoolName, dateStr, titleStyle, headerStyle, dataStyle);
+        
         workbook.write(outputStream);
         workbook.close();
+    }
+    
+    /**
+     * 연도별 총괄표 시트 생성
+     */
+    private void createYearlySummarySheet(Workbook workbook, List<Device> devices, String schoolName, String dateStr,
+                                          CellStyle titleStyle, CellStyle headerStyle, CellStyle dataStyle) throws IOException {
+        Sheet summarySheet = workbook.createSheet("연도별 총괄표");
+        
+        // 제목 스타일 (폰트 36pt 명시)
+        CellStyle summaryTitleStyle = workbook.createCellStyle();
+        summaryTitleStyle.cloneStyleFrom(titleStyle);
+        Font summaryTitleFont = workbook.createFont();
+        summaryTitleFont.setBold(true);
+        summaryTitleFont.setFontHeightInPoints((short) 36);
+        summaryTitleStyle.setFont(summaryTitleFont);
+        
+        // 날짜 스타일
+        CellStyle summaryDateStyle = workbook.createCellStyle();
+        summaryDateStyle.setAlignment(HorizontalAlignment.RIGHT);
+        summaryDateStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        Font dateFont = workbook.createFont();
+        dateFont.setBold(true);
+        summaryDateStyle.setFont(dateFont);
+        
+        // 합계 행 스타일
+        CellStyle totalRowStyle = workbook.createCellStyle();
+        totalRowStyle.cloneStyleFrom(dataStyle);
+        Font totalFont = workbook.createFont();
+        totalFont.setBold(true);
+        totalRowStyle.setFont(totalFont);
+        totalRowStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        totalRowStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        
+        // 빈 셀 채우기 스타일
+        CellStyle emptyCellStyle = workbook.createCellStyle();
+        emptyCellStyle.cloneStyleFrom(dataStyle);
+        emptyCellStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        emptyCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        
+        // 첫번째 행: 제목 (학교 이름 제거)
+        Row titleRow = summarySheet.createRow(0);
+        titleRow.setHeightInPoints(60);
+        Cell titleCell = titleRow.createCell(0);
+        titleCell.setCellValue("정보화장비 연도별 총괄표");
+        titleCell.setCellStyle(summaryTitleStyle);
+        summarySheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 6)); // G열까지 병합 (0-6)
+        
+        // 두번째 행: 작성일자
+        Row dateRow = summarySheet.createRow(1);
+        dateRow.setHeightInPoints(25);
+        Cell dateLabelCell = dateRow.createCell(5);
+        dateLabelCell.setCellValue("작성일자");
+        dateLabelCell.setCellStyle(summaryDateStyle);
+        Cell dateValueCell = dateRow.createCell(6);
+        dateValueCell.setCellValue(dateStr);
+        dateValueCell.setCellStyle(summaryDateStyle);
+        
+        // 현재 행 추적 변수
+        int currentRow = 5; // 기본값: 5행부터 시작
+        
+        // 1. 데스크톱과 노트북 처리
+        List<Device> desktopAndLaptopDevices = devices.stream()
+            .filter(d -> "데스크톱".equals(d.getType()) || "노트북".equals(d.getType()))
+            .collect(Collectors.toList());
+        
+        if (!desktopAndLaptopDevices.isEmpty()) {
+            // 세번째 행: 데스크톱 총계 제목 (3행, 0-based이므로 2)
+            Row sectionTitleRow = summarySheet.createRow(2);
+            sectionTitleRow.setHeightInPoints(19);
+            
+            // 전체 개수 계산
+            int totalCount = desktopAndLaptopDevices.size();
+            
+            // A3에 "데스크톱 총계" 텍스트
+            Cell sectionTitleCell = sectionTitleRow.createCell(0);
+            sectionTitleCell.setCellValue("데스크톱 총계");
+            sectionTitleCell.setCellStyle(headerStyle);
+            
+            // B3부터 G3까지 셀 통합하여 총계 값만 표시 (0-based로는 1부터 6까지)
+            Cell totalCountCell = sectionTitleRow.createCell(1);
+            totalCountCell.setCellValue(totalCount);
+            
+            // 스타일 생성 (채우기 색 없음, 가운데 맞춤)
+            CellStyle totalCountStyle = workbook.createCellStyle();
+            totalCountStyle.setAlignment(HorizontalAlignment.CENTER);
+            totalCountStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            Font totalCountFont = workbook.createFont();
+            totalCountFont.setBold(true);
+            totalCountStyle.setFont(totalCountFont);
+            // 채우기 색 없음 (기본 스타일)
+            
+            totalCountCell.setCellStyle(totalCountStyle);
+            
+            // B3부터 G3까지 셀 병합 (0-based로는 1부터 6까지)
+            summarySheet.addMergedRegion(new CellRangeAddress(2, 2, 1, 6));
+            
+            // 네번째 행: 빈 행 (높이 8pt) - 4행
+            Row emptyRow2 = summarySheet.createRow(3);
+            emptyRow2.setHeightInPoints(8);
+            
+            // 다섯번째 행: 헤더 행 (5행, 0-based이므로 4)
+            Row headerRow = summarySheet.createRow(4);
+            headerRow.setHeightInPoints(19);
+            String[] headers = {"제조년도", "업무", "학급", "컴퓨터실", "기타", "학교", "노트북"};
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+            
+            // 데스크톱만 manageCate별로 그룹화하고 연도별 집계
+            List<Device> desktopDevices = desktopAndLaptopDevices.stream()
+                .filter(d -> "데스크톱".equals(d.getType()))
+                .collect(Collectors.toList());
+            
+            Map<String, Map<Integer, Long>> desktopStatsByCateAndYear = desktopDevices.stream()
+                .filter(d -> d.getManage() != null && d.getManage().getManageCate() != null && d.getPurchaseDate() != null)
+                .collect(Collectors.groupingBy(
+                    d -> d.getManage().getManageCate(),
+                    Collectors.groupingBy(
+                        d -> d.getPurchaseDate().getYear(),
+                        Collectors.counting()
+                    )
+                ));
+            
+            // 노트북은 type별로 연도별 집계
+            List<Device> laptopDevices = desktopAndLaptopDevices.stream()
+                .filter(d -> "노트북".equals(d.getType()))
+                .collect(Collectors.toList());
+            
+            Map<Integer, Long> laptopStatsByYear = laptopDevices.stream()
+                .filter(d -> d.getPurchaseDate() != null)
+                .collect(Collectors.groupingBy(
+                    d -> d.getPurchaseDate().getYear(),
+                    Collectors.counting()
+                ));
+            
+            // 모든 연도 수집 (데이터가 있는 연도만)
+            Set<Integer> allYears = new java.util.HashSet<>();
+            allYears.addAll(desktopStatsByCateAndYear.values().stream()
+                .flatMap(yearMap -> yearMap.keySet().stream())
+                .collect(Collectors.toSet()));
+            allYears.addAll(laptopStatsByYear.keySet());
+            List<Integer> sortedYears = new ArrayList<>(allYears);
+            sortedYears.sort(Integer::compareTo);
+            
+            // manageCate 순서: 업무, 학급, 컴퓨터실, 기타, 학교
+            List<String> cateOrder = List.of("업무", "학급", "컴퓨터실", "기타", "학교");
+            
+            // 각 연도별로 데이터 행 생성
+            currentRow = 5; // 데이터 행은 6행부터 시작 (0-based이므로 5)
+            for (Integer year : sortedYears) {
+                Row dataRow = summarySheet.createRow(currentRow++);
+                dataRow.setHeightInPoints(19);
+                
+                // 제조년도
+                Cell yearCell = dataRow.createCell(0);
+                yearCell.setCellValue(year);
+                yearCell.setCellStyle(dataStyle);
+                
+                // 각 manageCate별 개수 (데스크톱만)
+                for (int i = 0; i < cateOrder.size(); i++) {
+                    String cate = cateOrder.get(i);
+                    Long count = desktopStatsByCateAndYear.getOrDefault(cate, new java.util.HashMap<>()).getOrDefault(year, 0L);
+                    Cell cell = dataRow.createCell(i + 1);
+                    cell.setCellValue(count.intValue());
+                    cell.setCellStyle(dataStyle);
+                }
+                
+                // 노트북 개수
+                Long laptopCount = laptopStatsByYear.getOrDefault(year, 0L);
+                Cell laptopCell = dataRow.createCell(6);
+                laptopCell.setCellValue(laptopCount.intValue());
+                laptopCell.setCellStyle(dataStyle);
+            }
+            
+            // 합계 행
+            Row totalRow = summarySheet.createRow(currentRow++);
+            totalRow.setHeightInPoints(19);
+            Cell totalLabelCell = totalRow.createCell(0);
+            totalLabelCell.setCellValue("합계");
+            totalLabelCell.setCellStyle(totalRowStyle);
+            
+            // 각 manageCate별 총합 (데스크톱만)
+            for (int i = 0; i < cateOrder.size(); i++) {
+                String cate = cateOrder.get(i);
+                long total = desktopStatsByCateAndYear.getOrDefault(cate, new java.util.HashMap<>()).values().stream()
+                    .mapToLong(Long::longValue).sum();
+                Cell cell = totalRow.createCell(i + 1);
+                cell.setCellValue((int) total);
+                cell.setCellStyle(totalRowStyle);
+            }
+            
+            // 노트북 총합
+            long laptopTotal = laptopStatsByYear.values().stream().mapToLong(Long::longValue).sum();
+            Cell laptopTotalCell = totalRow.createCell(6);
+            laptopTotalCell.setCellValue((int) laptopTotal);
+            laptopTotalCell.setCellStyle(totalRowStyle);
+            
+            currentRow++; // 한 행 건너뛰기
+        }
+        
+        // 2. 나머지 장비들 처리
+        List<Device> otherDevices = devices.stream()
+            .filter(d -> !"데스크톱".equals(d.getType()) && !"노트북".equals(d.getType()))
+            .collect(Collectors.toList());
+        
+        if (!otherDevices.isEmpty()) {
+            // currentRow는 이미 초기화되어 있음 (데스크톱 섹션이 있으면 그 다음 행, 없으면 5행)
+            // 장비 종류별로 그룹화
+            Map<String, List<Device>> devicesByType = otherDevices.stream()
+                .collect(Collectors.groupingBy(d -> d.getType() != null ? d.getType() : "기타"));
+            
+            // 정렬: 모니터, 프린터, TV 먼저, 나머지는 가나다 순
+            List<String> sortedTypes = new ArrayList<>(devicesByType.keySet());
+            sortedTypes.sort((t1, t2) -> {
+                int order1 = getTypeOrder(t1);
+                int order2 = getTypeOrder(t2);
+                if (order1 != order2) {
+                    return Integer.compare(order1, order2);
+                }
+                return t1.compareTo(t2); // 가나다 순
+            });
+            
+            // 6개씩 그룹으로 나누어 처리
+            int typesPerTable = 6;
+            for (int groupStart = 0; groupStart < sortedTypes.size(); groupStart += typesPerTable) {
+                int groupEnd = Math.min(groupStart + typesPerTable, sortedTypes.size());
+                List<String> currentGroup = sortedTypes.subList(groupStart, groupEnd);
+                
+                // 헤더 행
+                Row headerRow = summarySheet.createRow(currentRow++);
+                headerRow.setHeightInPoints(19);
+                Cell yearHeaderCell = headerRow.createCell(0);
+                yearHeaderCell.setCellValue("제조년도");
+                yearHeaderCell.setCellStyle(headerStyle);
+                
+                // 각 장비 종류를 헤더로 추가
+                for (int i = 0; i < currentGroup.size(); i++) {
+                    Cell cell = headerRow.createCell(i + 1);
+                    cell.setCellValue(currentGroup.get(i));
+                    cell.setCellStyle(headerStyle);
+                }
+                
+                // 빈 셀 채우기 (6개가 안 채워진 경우)
+                for (int i = currentGroup.size(); i < typesPerTable; i++) {
+                    Cell cell = headerRow.createCell(i + 1);
+                    cell.setCellValue("");
+                    cell.setCellStyle(emptyCellStyle);
+                }
+                
+                // 각 장비 종류별로 manageCate와 연도별 집계
+                Map<String, Map<String, Map<Integer, Long>>> statsByTypeCateYear = new java.util.HashMap<>();
+                for (String type : currentGroup) {
+                    List<Device> typeDevices = devicesByType.get(type);
+                    Map<String, Map<Integer, Long>> cateYearMap = typeDevices.stream()
+                        .filter(d -> d.getManage() != null && d.getManage().getManageCate() != null && d.getPurchaseDate() != null)
+                        .collect(Collectors.groupingBy(
+                            d -> d.getManage().getManageCate(),
+                            Collectors.groupingBy(
+                                d -> d.getPurchaseDate().getYear(),
+                                Collectors.counting()
+                            )
+                        ));
+                    statsByTypeCateYear.put(type, cateYearMap);
+                }
+                
+                // 모든 연도 수집 (데이터가 있는 연도만)
+                Set<Integer> allYearsForGroup = statsByTypeCateYear.values().stream()
+                    .flatMap(cateMap -> cateMap.values().stream().flatMap(yearMap -> yearMap.keySet().stream()))
+                    .collect(Collectors.toSet());
+                List<Integer> sortedYearsForGroup = new ArrayList<>(allYearsForGroup);
+                sortedYearsForGroup.sort(Integer::compareTo);
+                
+                // 각 연도별로 데이터 행 생성
+                for (Integer year : sortedYearsForGroup) {
+                    Row dataRow = summarySheet.createRow(currentRow++);
+                    dataRow.setHeightInPoints(19);
+                    
+                    // 제조년도
+                    Cell yearCell = dataRow.createCell(0);
+                    yearCell.setCellValue(year);
+                    yearCell.setCellStyle(dataStyle);
+                    
+                    // 각 장비 종류별 총합 (manageCate 구분 없이, 연도별 합계)
+                    for (int i = 0; i < currentGroup.size(); i++) {
+                        String type = currentGroup.get(i);
+                        Map<String, Map<Integer, Long>> cateYearMap = statsByTypeCateYear.get(type);
+                        long total = cateYearMap.values().stream()
+                            .mapToLong(yearMap -> yearMap.getOrDefault(year, 0L))
+                            .sum();
+                        Cell cell = dataRow.createCell(i + 1);
+                        cell.setCellValue((int) total);
+                        cell.setCellStyle(dataStyle);
+                    }
+                    
+                    // 빈 셀 채우기
+                    for (int i = currentGroup.size(); i < typesPerTable; i++) {
+                        Cell cell = dataRow.createCell(i + 1);
+                        cell.setCellValue("");
+                        cell.setCellStyle(emptyCellStyle);
+                    }
+                }
+                
+                // 합계 행
+                Row totalRow = summarySheet.createRow(currentRow++);
+                totalRow.setHeightInPoints(19);
+                Cell totalLabelCell = totalRow.createCell(0);
+                totalLabelCell.setCellValue("합계");
+                totalLabelCell.setCellStyle(totalRowStyle);
+                
+                // 각 장비 종류별 총합
+                for (int i = 0; i < currentGroup.size(); i++) {
+                    String type = currentGroup.get(i);
+                    Map<String, Map<Integer, Long>> cateYearMap = statsByTypeCateYear.get(type);
+                    long total = cateYearMap.values().stream()
+                        .flatMap(yearMap -> yearMap.values().stream())
+                        .mapToLong(Long::longValue)
+                        .sum();
+                    Cell cell = totalRow.createCell(i + 1);
+                    cell.setCellValue((int) total);
+                    cell.setCellStyle(totalRowStyle);
+                }
+                
+                // 빈 셀 채우기
+                for (int i = currentGroup.size(); i < typesPerTable; i++) {
+                    Cell cell = totalRow.createCell(i + 1);
+                    cell.setCellValue("");
+                    cell.setCellStyle(emptyCellStyle);
+                }
+                
+                currentRow++; // 한 행 건너뛰기
+            }
+        }
+        
+        // 컬럼 너비 조정 (너비 14)
+        for (int i = 0; i < 7; i++) { // G열까지 (0-6)
+            summarySheet.setColumnWidth(i, 14 * 256); // Excel 컬럼 너비는 1/256 단위
+        }
+    }
+    
+    /**
+     * 장비 종류 순서 반환 (모니터, 프린터, TV 먼저, 나머지는 가나다 순)
+     */
+    private int getTypeOrder(String type) {
+        if (type == null) return 99;
+        if ("모니터".equals(type)) return 1;
+        if ("프린터".equals(type)) return 2;
+        if ("TV".equals(type)) return 3;
+        return 10; // 나머지는 가나다 순으로 정렬
     }
 
     public List<Device> findByClassroomRoomName(String roomName) {

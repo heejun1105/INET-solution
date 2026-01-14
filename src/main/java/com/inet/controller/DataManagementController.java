@@ -111,6 +111,7 @@ public class DataManagementController {
                                  @RequestParam(value = "deleteUids", required = false, defaultValue = "false") boolean deleteUids,
                                  @RequestParam(value = "deleteDeviceHistory", required = false, defaultValue = "false") boolean deleteDeviceHistory,
                                  @RequestParam(value = "deleteWirelessApHistory", required = false, defaultValue = "false") boolean deleteWirelessApHistory,
+                                 @RequestParam(value = "deleteFloorPlans", required = false, defaultValue = "false") boolean deleteFloorPlans,
                                  @RequestParam(value = "deleteDeviceHistoryOnly", required = false, defaultValue = "false") boolean deleteDeviceHistoryOnly,
                                  @RequestParam(value = "deleteWirelessApHistoryOnly", required = false, defaultValue = "false") boolean deleteWirelessApHistoryOnly,
                                  @RequestParam(value = "periodType", required = false, defaultValue = "all") String periodType,
@@ -155,8 +156,8 @@ public class DataManagementController {
                     
                     dataManagementService.deleteSelectedDataTypes(schoolId, deleteDevices, deleteWirelessAps, 
                                                                  deleteClassrooms, deleteOperators, deleteManages, deleteUids, 
-                                                                 finalDeleteDeviceHistory, finalDeleteWirelessApHistory, periodType, deleteBeforeDate,
-                                                                 wirelessApPeriodType, deleteWirelessApBeforeDate);
+                                                                 finalDeleteDeviceHistory, finalDeleteWirelessApHistory, deleteFloorPlans,
+                                                                 periodType, deleteBeforeDate, wirelessApPeriodType, deleteWirelessApBeforeDate);
                 }
             }
             
@@ -167,7 +168,7 @@ public class DataManagementController {
                 message = schoolsStr + "의 모든 데이터가 성공적으로 삭제되었습니다.";
             } else if ("selective".equals(deleteType)) {
                 if (!deleteDevices && !deleteWirelessAps && !deleteClassrooms && 
-                    !deleteOperators && !deleteManages && !deleteUids && !deleteDeviceHistory && !deleteWirelessApHistory) {
+                    !deleteOperators && !deleteManages && !deleteUids && !deleteDeviceHistory && !deleteWirelessApHistory && !deleteFloorPlans) {
                     redirectAttributes.addFlashAttribute("error", "삭제할 데이터 유형을 하나 이상 선택해주세요.");
                     return "redirect:/data/delete";
                 }
@@ -182,6 +183,7 @@ public class DataManagementController {
                 if (deleteUids) dataTypes.add("고유번호");
                 if (deleteDeviceHistory) dataTypes.add("장비 수정내역");
                 if (deleteWirelessApHistory) dataTypes.add("무선AP 수정내역");
+                if (deleteFloorPlans) dataTypes.add("평면도");
                 
                 messageBuilder.append(String.join(", ", dataTypes));
                 messageBuilder.append(" 데이터가 성공적으로 삭제되었습니다.");

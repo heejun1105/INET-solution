@@ -636,4 +636,36 @@ public class ClassroomController {
             return new ArrayList<>();
         }
     }
+    
+    /**
+     * 교실 순서 업데이트 API
+     */
+    @PostMapping("/api/update-order")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateClassroomOrder(
+            @RequestParam Long classroomId,
+            @RequestParam Integer order,
+            @RequestParam Long schoolId,
+            RedirectAttributes redirectAttributes) {
+        
+        // 권한 체크
+        User user = checkSchoolPermission(Feature.CLASSROOM_MANAGEMENT, schoolId, redirectAttributes);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("success", false, "message", "권한이 없습니다."));
+        }
+        
+        try {
+            classroomService.updateClassroomOrder(classroomId, order, schoolId);
+            return ResponseEntity.ok(Map.of("success", true, "message", "순서가 업데이트되었습니다."));
+        } catch (IllegalArgumentException e) {
+            log.error("교실 순서 업데이트 중 오류: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                .body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("교실 순서 업데이트 중 오류: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "message", "순서 업데이트 중 오류가 발생했습니다."));
+        }
+    }
 } 

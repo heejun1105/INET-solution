@@ -353,8 +353,16 @@ public class IpController {
         style.cloneStyleFrom(headerStyle);
         Font font = workbook.createFont();
         font.setBold(true);
-        font.setFontHeightInPoints((short) 14);
+        font.setFontHeightInPoints((short) 36);
         style.setFont(font);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        // 제목 행의 테두리 제거
+        style.setBorderTop(BorderStyle.NONE);
+        style.setBorderBottom(BorderStyle.NONE);
+        style.setBorderLeft(BorderStyle.NONE);
+        style.setBorderRight(BorderStyle.NONE);
+        style.setWrapText(true); // 셀에 맞춤
         return style;
     }
 
@@ -366,13 +374,14 @@ public class IpController {
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THIN);
         style.setBorderRight(BorderStyle.THIN);
+        style.setWrapText(true); // 셀에 맞춤
         return style;
     }
 
     private CellStyle createWarningStyle(Workbook workbook, CellStyle dataStyle) {
         CellStyle style = workbook.createCellStyle();
         style.cloneStyleFrom(dataStyle);
-        style.setFillForegroundColor(IndexedColors.ROSE.getIndex());
+        style.setFillForegroundColor(IndexedColors.RED.getIndex()); // 빨간색 채우기
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         return style;
     }
@@ -407,10 +416,27 @@ public class IpController {
         
         // 제목 행 (1행)
         Row titleRow = sheet.createRow(0);
-        titleRow.setHeightInPoints(40);
+        titleRow.setHeightInPoints(60); // 행 높이 60
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue("IP대장업무용(전체 IP 대역)");
-        titleCell.setCellStyle(titleStyle);
+        
+        // 제목 스타일 수정
+        CellStyle newTitleStyle = workbook.createCellStyle();
+        newTitleStyle.cloneStyleFrom(titleStyle);
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 36);
+        newTitleStyle.setFont(titleFont);
+        newTitleStyle.setAlignment(HorizontalAlignment.CENTER);
+        newTitleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        // 제목 행의 테두리 제거
+        newTitleStyle.setBorderTop(BorderStyle.NONE);
+        newTitleStyle.setBorderBottom(BorderStyle.NONE);
+        newTitleStyle.setBorderLeft(BorderStyle.NONE);
+        newTitleStyle.setBorderRight(BorderStyle.NONE);
+        newTitleStyle.setWrapText(true); // 셀에 맞춤
+        
+        titleCell.setCellStyle(newTitleStyle);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 15));
         
         // 날짜 행 (2행)
@@ -437,7 +463,10 @@ public class IpController {
         // 헤더 행 생성
         String[] headers = {"IP", "관리번호", "모델명", "설치장소"};
         Row headerRow = sheet.createRow(2);
-        headerRow.setHeightInPoints(25);
+        headerRow.setHeightInPoints(25); // 행 높이 25
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+        headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        headerStyle.setWrapText(true); // 셀에 맞춤
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < headers.length; j++) {
                 Cell cell = headerRow.createCell(i * 4 + j);
@@ -469,20 +498,27 @@ public class IpController {
                     (existing, replacement) -> existing
                 ));
 
-            // 데이터 행 채우기 (1-254 범위)
+            // 데이터 행 채우기 (1-256 범위: 254 + 2행 빈 데이터셀)
             int rowsPerGroup = 64;
             for (int i = 0; i < rowsPerGroup; i++) {
                 Row dataRow = sheet.createRow(currentRow++);
-                dataRow.setHeightInPoints(20);
+                dataRow.setHeightInPoints(25); // 데이터 행 높이 25
 
                 // 4개 그룹에 대해 처리
                 for (int group = 0; group < 4; group++) {
                     int ipNumber = i + 1 + (group * rowsPerGroup);
-                    if (ipNumber > 254) continue;
+                    if (ipNumber > 256) continue; // 254 + 2행 (255, 256)
 
                     int baseCol = group * 4;
                     Device device = deviceMap.get(ipNumber);
-                    CellStyle style = (ipNumber >= 245 && ipNumber <= 254) ? warningStyle : dataStyle;
+                    CellStyle style;
+                    if (ipNumber >= 245 && ipNumber <= 254) {
+                        style = warningStyle; // 245-254: 빨간색
+                    } else if (ipNumber > 254) {
+                        style = dataStyle; // 255, 256: 빈 데이터셀 (색 채우기 없음)
+                    } else {
+                        style = dataStyle;
+                    }
 
                     // IP 번호
                     Cell ipCell = dataRow.createCell(baseCol);
@@ -490,11 +526,11 @@ public class IpController {
                     ipCell.setCellStyle(style);
 
                     // 나머지 정보
-                    for (int j = 1; j < 4; j++) {
-                        Cell cell = dataRow.createCell(baseCol + j);
-                        cell.setCellStyle(style);
-                        
-                        if (device != null) {
+                    if (ipNumber <= 254 && device != null) {
+                        for (int j = 1; j < 4; j++) {
+                            Cell cell = dataRow.createCell(baseCol + j);
+                            cell.setCellStyle(style);
+                            
                             switch (j) {
                                 case 1: // 관리번호
                                     if (device.getManage() != null) {
@@ -526,6 +562,13 @@ public class IpController {
                                     }
                                     break;
                             }
+                        }
+                    } else if (ipNumber > 254) {
+                        // 255, 256: 빈 데이터셀
+                        for (int j = 1; j < 4; j++) {
+                            Cell emptyCell = dataRow.createCell(baseCol + j);
+                            emptyCell.setCellValue("");
+                            emptyCell.setCellStyle(style);
                         }
                     }
                 }

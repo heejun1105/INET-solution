@@ -147,6 +147,7 @@ public class DeviceController {
                       @RequestParam(required = false) String searchKeyword,
                       @RequestParam(required = false) Boolean inspectionMode,
                       @RequestParam(required = false) Boolean showClassroomsWithDevices,
+                      @RequestParam(required = false) Boolean sortByPurpose,
                       @RequestParam(defaultValue = "1") int page,
                       @RequestParam(defaultValue = "16") int size,
                       Model model,
@@ -200,6 +201,7 @@ public class DeviceController {
         model.addAttribute("selectedClassroomId", classroomId);
         model.addAttribute("selectedClassroomName", classroomName);
         model.addAttribute("searchKeyword", searchKeyword);
+        model.addAttribute("sortByPurpose", sortByPurpose != null && sortByPurpose);
 
         // 모든 장비를 가져와서 교실별로 정렬
         List<Device> allDevices;
@@ -253,22 +255,64 @@ public class DeviceController {
             // 이미 위에서 allDevices가 설정되었으므로 추가 처리 불필요
         }
         
-        // 교실별로 정렬 (교실명 기준)
-        allDevices.sort((d1, d2) -> {
-            String classroom1 = d1.getClassroom() != null && d1.getClassroom().getRoomName() != null ? 
-                             d1.getClassroom().getRoomName() : "미지정 교실";
-            String classroom2 = d2.getClassroom() != null && d2.getClassroom().getRoomName() != null ? 
-                             d2.getClassroom().getRoomName() : "미지정 교실";
-            return classroom1.compareTo(classroom2);
-        });
+        // 정렬 및 그룹화 로직
+        Map<String, List<Device>> devicesByClassroom;
         
-        // 교실별로 그룹화
-        Map<String, List<Device>> devicesByClassroom = allDevices.stream()
-            .collect(Collectors.groupingBy(device -> 
-                device.getClassroom() != null && device.getClassroom().getRoomName() != null ? 
-                device.getClassroom().getRoomName() : "미지정 교실",
-                LinkedHashMap::new, Collectors.toList()
-            ));
+        if (sortByPurpose != null && sortByPurpose) {
+            // 용도별로 먼저 그룹화
+            Map<Integer, List<Device>> devicesByPurpose = allDevices.stream()
+                .collect(Collectors.groupingBy(device -> {
+                    String purpose = device.getPurpose() != null ? device.getPurpose() : "";
+                    return getPurposeOrder(purpose);
+                }, LinkedHashMap::new, Collectors.toList()));
+            
+            // 용도 순서대로 정렬된 LinkedHashMap 생성
+            Map<Integer, List<Device>> sortedDevicesByPurpose = devicesByPurpose.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (e1, e2) -> e1,
+                    LinkedHashMap::new
+                ));
+            
+            // 각 용도 그룹 내에서 교실별로 그룹화하고 정렬
+            devicesByClassroom = new LinkedHashMap<>();
+            for (List<Device> purposeDevices : sortedDevicesByPurpose.values()) {
+                // 용도 그룹 내에서 교실별로 그룹화
+                Map<String, List<Device>> classroomGroup = purposeDevices.stream()
+                    .collect(Collectors.groupingBy(device -> 
+                        device.getClassroom() != null && device.getClassroom().getRoomName() != null ? 
+                        device.getClassroom().getRoomName() : "미지정 교실",
+                        LinkedHashMap::new, Collectors.toList()
+                    ));
+                
+                // 교실별로 정렬하여 devicesByClassroom에 추가
+                List<Map.Entry<String, List<Device>>> sortedClassrooms = classroomGroup.entrySet().stream()
+                    .sorted((e1, e2) -> {
+                        // 교실 순서로 비교
+                        Device d1 = e1.getValue().get(0);
+                        Device d2 = e2.getValue().get(0);
+                        return compareByClassroom(d1, d2);
+                    })
+                    .collect(Collectors.toList());
+                
+                for (Map.Entry<String, List<Device>> entry : sortedClassrooms) {
+                    devicesByClassroom.put(entry.getKey(), entry.getValue());
+                }
+            }
+        } else {
+            // 기존 정렬 (교실 순서 기준, 순서가 없으면 교실명 기준)
+            allDevices.sort((d1, d2) -> compareByClassroom(d1, d2));
+            
+            // 교실별로 그룹화
+            devicesByClassroom = allDevices.stream()
+                .collect(Collectors.groupingBy(device -> 
+                    device.getClassroom() != null && device.getClassroom().getRoomName() != null ? 
+                    device.getClassroom().getRoomName() : "미지정 교실",
+                    LinkedHashMap::new, Collectors.toList()
+                ));
+        }
         
         // 각 교실 내에서 세트타입 > 담당자 순으로 정렬
         for (List<Device> devices : devicesByClassroom.values()) {
@@ -297,8 +341,52 @@ public class DeviceController {
         
         // 교실별 그룹을 페이징 처리를 위한 단일 리스트로 변환
         List<Device> paginatedDevices = new ArrayList<>();
-        for (List<Device> classroomDevices : devicesByClassroom.values()) {
-            paginatedDevices.addAll(classroomDevices);
+        if (sortByPurpose != null && sortByPurpose) {
+            // 용도별 정렬이 체크된 경우: 용도별로 그룹화된 순서 유지
+            Map<Integer, List<Device>> devicesByPurpose = allDevices.stream()
+                .collect(Collectors.groupingBy(device -> {
+                    String purpose = device.getPurpose() != null ? device.getPurpose() : "";
+                    return getPurposeOrder(purpose);
+                }, LinkedHashMap::new, Collectors.toList()));
+            
+            // 용도 순서대로 정렬된 LinkedHashMap 생성
+            Map<Integer, List<Device>> sortedDevicesByPurpose = devicesByPurpose.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (e1, e2) -> e1,
+                    LinkedHashMap::new
+                ));
+            
+            // 각 용도 그룹 내에서 교실별로 정렬하여 추가
+            for (List<Device> purposeDevices : sortedDevicesByPurpose.values()) {
+                // 용도 그룹 내에서 교실별로 그룹화
+                Map<String, List<Device>> classroomGroup = purposeDevices.stream()
+                    .collect(Collectors.groupingBy(device -> 
+                        device.getClassroom() != null && device.getClassroom().getRoomName() != null ? 
+                        device.getClassroom().getRoomName() : "미지정 교실",
+                        LinkedHashMap::new, Collectors.toList()
+                    ));
+                
+                // 교실별로 정렬하여 paginatedDevices에 추가
+                List<Map.Entry<String, List<Device>>> sortedClassrooms = classroomGroup.entrySet().stream()
+                    .sorted((e1, e2) -> {
+                        Device d1 = e1.getValue().get(0);
+                        Device d2 = e2.getValue().get(0);
+                        return compareByClassroom(d1, d2);
+                    })
+                    .collect(Collectors.toList());
+                
+                for (Map.Entry<String, List<Device>> entry : sortedClassrooms) {
+                    paginatedDevices.addAll(entry.getValue());
+                }
+            }
+        } else {
+            // 기존 방식: 교실별 그룹 순서대로 추가
+            for (List<Device> classroomDevices : devicesByClassroom.values()) {
+                paginatedDevices.addAll(classroomDevices);
+            }
         }
         
         // 페이징 처리
@@ -674,12 +762,78 @@ public class DeviceController {
         deviceService.deleteDevice(deviceId);
         return "redirect:/device/list";
     }
+    
+    /**
+     * 용도별 정렬 순서 반환
+     * 업무: 1, 학급: 2, 기타: 3, 컴퓨터교육: 4, 용도 없음: 5
+     */
+    private int getPurposeOrder(String purpose) {
+        if (purpose == null || purpose.trim().isEmpty()) {
+            return 5; // 용도 없음
+        }
+        String purposeLower = purpose.toLowerCase();
+        if (purposeLower.contains("업무")) {
+            return 1;
+        } else if (purposeLower.contains("학급")) {
+            return 2;
+        } else if (purposeLower.contains("기타")) {
+            return 3;
+        } else if (purposeLower.contains("컴퓨터교육")) {
+            return 4;
+        }
+        return 5; // 용도 없음
+    }
+    
+    /**
+     * 교실 기준으로 비교
+     */
+    private int compareByClassroom(Device d1, Device d2) {
+        Classroom classroom1 = d1.getClassroom();
+        Classroom classroom2 = d2.getClassroom();
+        
+        // 교실이 없는 경우 "미지정 교실"로 처리
+        if (classroom1 == null && classroom2 == null) {
+            return 0;
+        }
+        if (classroom1 == null) {
+            return 1; // 교실이 없는 장비는 뒤로
+        }
+        if (classroom2 == null) {
+            return -1; // 교실이 없는 장비는 뒤로
+        }
+        
+        // 교실 순서 비교
+        Integer order1 = classroom1.getDisplayOrder();
+        Integer order2 = classroom2.getDisplayOrder();
+        
+        // 둘 다 순서가 있는 경우
+        if (order1 != null && order2 != null) {
+            int orderCompare = order1.compareTo(order2);
+            if (orderCompare != 0) {
+                return orderCompare;
+            }
+        }
+        // c1만 순서가 있는 경우
+        else if (order1 != null) {
+            return -1;
+        }
+        // c2만 순서가 있는 경우
+        else if (order2 != null) {
+            return 1;
+        }
+        
+        // 둘 다 순서가 없는 경우 교실명 기준 정렬
+        String name1 = classroom1.getRoomName() != null ? classroom1.getRoomName() : "";
+        String name2 = classroom2.getRoomName() != null ? classroom2.getRoomName() : "";
+        return name1.compareTo(name2);
+    }
 
     @GetMapping("/excel")
     public void downloadExcel(
             @RequestParam(required = false) Long schoolId,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) Long classroomId,
+            @RequestParam(required = false) Boolean sortByPurpose,
             HttpServletResponse response) throws IOException {
         
         // 권한 체크 (학교별 권한 체크는 schoolId가 있을 때만)
@@ -726,36 +880,111 @@ public class DeviceController {
             devices = deviceService.findAll();
         }
         
-        // 교실, 세트 타입, 담당자 순으로 정렬
-        devices.sort((d1, d2) -> {
-            // 1. 교실 기준 정렬
-            String classroom1 = d1.getClassroom() != null && d1.getClassroom().getRoomName() != null ? 
-                                d1.getClassroom().getRoomName() : "미지정 교실";
-            String classroom2 = d2.getClassroom() != null && d2.getClassroom().getRoomName() != null ? 
-                                d2.getClassroom().getRoomName() : "미지정 교실";
-            int classroomCompare = classroom1.compareTo(classroom2);
-            if (classroomCompare != 0) return classroomCompare;
+        // 장비목록 페이지와 동일한 정렬 로직 적용
+        List<Device> sortedDevices = new ArrayList<>(devices);
+        
+        if (sortByPurpose != null && sortByPurpose) {
+            // 용도별로 먼저 그룹화
+            Map<Integer, List<Device>> devicesByPurpose = sortedDevices.stream()
+                .collect(Collectors.groupingBy(device -> {
+                    String purpose = device.getPurpose() != null ? device.getPurpose() : "";
+                    return getPurposeOrder(purpose);
+                }, LinkedHashMap::new, Collectors.toList()));
             
-            // 2. 세트 타입 기준 정렬 (있는 경우)
-            String setType1 = d1.getSetType() != null && !d1.getSetType().trim().isEmpty() ? d1.getSetType() : null;
-            String setType2 = d2.getSetType() != null && !d2.getSetType().trim().isEmpty() ? d2.getSetType() : null;
+            // 용도 순서대로 정렬된 LinkedHashMap 생성
+            Map<Integer, List<Device>> sortedDevicesByPurpose = devicesByPurpose.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (e1, e2) -> e1,
+                    LinkedHashMap::new
+                ));
             
-            // 세트 타입이 있는 경우 우선 정렬
-            if (setType1 != null && setType2 != null) {
-                return setType1.compareTo(setType2);
-            } else if (setType1 != null) {
-                return -1; // d1이 세트 타입이 있으면 앞으로
-            } else if (setType2 != null) {
-                return 1;  // d2가 세트 타입이 있으면 앞으로
+            // 각 용도 그룹 내에서 교실별로 정렬하여 최종 리스트 생성
+            sortedDevices = new ArrayList<>();
+            for (List<Device> purposeDevices : sortedDevicesByPurpose.values()) {
+                // 용도 그룹 내에서 교실별로 그룹화
+                Map<String, List<Device>> classroomGroup = purposeDevices.stream()
+                    .collect(Collectors.groupingBy(device -> 
+                        device.getClassroom() != null && device.getClassroom().getRoomName() != null ? 
+                        device.getClassroom().getRoomName() : "미지정 교실",
+                        LinkedHashMap::new, Collectors.toList()
+                    ));
+                
+                // 교실별로 정렬하여 sortedDevices에 추가
+                List<Map.Entry<String, List<Device>>> sortedClassrooms = classroomGroup.entrySet().stream()
+                    .sorted((e1, e2) -> {
+                        Device d1 = e1.getValue().get(0);
+                        Device d2 = e2.getValue().get(0);
+                        return compareByClassroom(d1, d2);
+                    })
+                    .collect(Collectors.toList());
+                
+                for (Map.Entry<String, List<Device>> entry : sortedClassrooms) {
+                    // 각 교실 내에서 세트타입 > 담당자 순으로 정렬
+                    entry.getValue().sort((d1, d2) -> {
+                        // 세트타입 기준 정렬 (있으면 우선)
+                        boolean hasSetType1 = d1.getSetType() != null && !d1.getSetType().trim().isEmpty();
+                        boolean hasSetType2 = d2.getSetType() != null && !d2.getSetType().trim().isEmpty();
+                        
+                        if (hasSetType1 && hasSetType2) {
+                            int setTypeCompare = d1.getSetType().compareTo(d2.getSetType());
+                            if (setTypeCompare != 0) return setTypeCompare;
+                        } else if (hasSetType1) {
+                            return -1; // d1만 세트타입이 있으면 앞으로
+                        } else if (hasSetType2) {
+                            return 1;  // d2만 세트타입이 있으면 앞으로
+                        }
+                        
+                        // 담당자 기준 정렬
+                        String operator1 = d1.getOperator() != null && d1.getOperator().getName() != null ? 
+                                         d1.getOperator().getName() : "미지정 담당자";
+                        String operator2 = d2.getOperator() != null && d2.getOperator().getName() != null ? 
+                                         d2.getOperator().getName() : "미지정 담당자";
+                        return operator1.compareTo(operator2);
+                    });
+                    sortedDevices.addAll(entry.getValue());
+                }
             }
+        } else {
+            // 기존 정렬 (교실 순서 기준, 순서가 없으면 교실명 기준)
+            sortedDevices.sort((d1, d2) -> compareByClassroom(d1, d2));
             
-            // 3. 담당자 기준 정렬
-            String operator1 = d1.getOperator() != null && d1.getOperator().getName() != null ? 
-                               d1.getOperator().getName() : "미지정 담당자";
-            String operator2 = d2.getOperator() != null && d2.getOperator().getName() != null ? 
-                               d2.getOperator().getName() : "미지정 담당자";
-            return operator1.compareTo(operator2);
-        });
+            // 각 교실 내에서 세트타입 > 담당자 순으로 정렬
+            Map<String, List<Device>> devicesByClassroom = sortedDevices.stream()
+                .collect(Collectors.groupingBy(device -> 
+                    device.getClassroom() != null && device.getClassroom().getRoomName() != null ? 
+                    device.getClassroom().getRoomName() : "미지정 교실",
+                    LinkedHashMap::new, Collectors.toList()
+                ));
+            
+            sortedDevices = new ArrayList<>();
+            for (List<Device> classroomDevices : devicesByClassroom.values()) {
+                classroomDevices.sort((d1, d2) -> {
+                    // 세트타입 기준 정렬 (있으면 우선)
+                    boolean hasSetType1 = d1.getSetType() != null && !d1.getSetType().trim().isEmpty();
+                    boolean hasSetType2 = d2.getSetType() != null && !d2.getSetType().trim().isEmpty();
+                    
+                    if (hasSetType1 && hasSetType2) {
+                        int setTypeCompare = d1.getSetType().compareTo(d2.getSetType());
+                        if (setTypeCompare != 0) return setTypeCompare;
+                    } else if (hasSetType1) {
+                        return -1; // d1만 세트타입이 있으면 앞으로
+                    } else if (hasSetType2) {
+                        return 1;  // d2만 세트타입이 있으면 앞으로
+                    }
+                    
+                    // 담당자 기준 정렬
+                    String operator1 = d1.getOperator() != null && d1.getOperator().getName() != null ? 
+                                     d1.getOperator().getName() : "미지정 담당자";
+                    String operator2 = d2.getOperator() != null && d2.getOperator().getName() != null ? 
+                                     d2.getOperator().getName() : "미지정 담당자";
+                    return operator1.compareTo(operator2);
+                });
+                sortedDevices.addAll(classroomDevices);
+            }
+        }
         
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=devices.xlsx");
@@ -764,7 +993,7 @@ public class DeviceController {
         Map<Long, String> inspectionStatuses = null;
         // TODO: 세션에서 검사 데이터를 가져오는 로직 추가
         
-        deviceService.exportToExcel(devices, response.getOutputStream(), inspectionStatuses);
+        deviceService.exportToExcel(sortedDevices, response.getOutputStream(), inspectionStatuses);
     }
     
     // 검사 데이터를 포함한 엑셀 다운로드

@@ -598,6 +598,56 @@
             border-radius: 16px;
             padding: 1.5rem;
             transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .classroom-order-input-container {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 10;
+        }
+        
+        .order-label {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.85rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .classroom-order-input {
+            width: 60px;
+            padding: 0.4rem 0.5rem;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+            /* 숫자 입력 필드의 스피너 제거 */
+            -moz-appearance: textfield;
+        }
+        
+        .classroom-order-input::-webkit-outer-spin-button,
+        .classroom-order-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .classroom-order-input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.3);
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3);
+        }
+        
+        .classroom-order-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .classroom-card:hover {
@@ -1406,7 +1456,18 @@
                             
                             <div th:if="${classrooms != null and !classrooms.isEmpty()}" class="classroom-list-section">
                                 <div class="classroom-grid">
-                                    <div th:each="classroom : ${classrooms}" class="classroom-card">
+                                    <div th:each="classroom : ${classrooms}" class="classroom-card" th:attr="data-classroom-id=${classroom.classroomId}">
+                                        <div class="classroom-order-input-container">
+                                            <label for="order-input-${classroom.classroomId}" class="order-label">순서</label>
+                                            <input type="number" 
+                                                   class="classroom-order-input" 
+                                                   th:id="'order-input-' + ${classroom.classroomId}"
+                                                   th:value="${classroom.displayOrder != null ? classroom.displayOrder : ''}"
+                                                   th:attr="data-classroom-id=${classroom.classroomId}, data-school-id=${selectedSchoolId}"
+                                                   min="1"
+                                                   onchange="updateClassroomOrder(this)"
+                                                   placeholder="순서">
+                                        </div>
                                         <div class="classroom-header">
                                             <label class="checkbox-container classroom-checkbox-container">
                                                 <input type="checkbox" class="classroom-checkbox" 
@@ -2860,6 +2921,61 @@
             console.log('All classroom selections cleared');
         }
 
+        // 교실 순서 업데이트 함수
+        async function updateClassroomOrder(inputElement) {
+            const classroomId = inputElement.getAttribute('data-classroom-id');
+            const schoolId = inputElement.getAttribute('data-school-id');
+            const newOrder = parseInt(inputElement.value);
+            
+            if (!classroomId || !schoolId) {
+                alert('교실 정보를 찾을 수 없습니다.');
+                inputElement.value = inputElement.getAttribute('data-original-order') || '';
+                return;
+            }
+            
+            if (isNaN(newOrder) || newOrder < 1) {
+                alert('순서는 1 이상의 숫자여야 합니다.');
+                inputElement.value = inputElement.getAttribute('data-original-order') || '';
+                return;
+            }
+            
+            // 원래 값 저장 (실패 시 복원용)
+            if (!inputElement.getAttribute('data-original-order')) {
+                inputElement.setAttribute('data-original-order', inputElement.value || '');
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('classroomId', classroomId);
+                formData.append('order', newOrder);
+                formData.append('schoolId', schoolId);
+                
+                const response = await fetch('/classroom/api/update-order', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 성공 시 원래 값 업데이트
+                    inputElement.setAttribute('data-original-order', newOrder);
+                    
+                    // 페이지 새로고침하여 순서대로 정렬된 교실 목록 표시
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 300);
+                } else {
+                    alert(result.message || '순서 업데이트에 실패했습니다.');
+                    inputElement.value = inputElement.getAttribute('data-original-order') || '';
+                }
+            } catch (error) {
+                console.error('순서 업데이트 중 오류:', error);
+                alert('순서 업데이트 중 오류가 발생했습니다.');
+                inputElement.value = inputElement.getAttribute('data-original-order') || '';
+            }
+        }
+        
         // 중복 그룹 삭제 함수
         function removeGroup(button) {
             console.log('=== REMOVE GROUP ===');

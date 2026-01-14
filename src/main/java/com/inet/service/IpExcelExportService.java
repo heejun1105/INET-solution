@@ -120,10 +120,27 @@ public class IpExcelExportService {
         Sheet sheet = workbook.createSheet("전체");
 
         Row titleRow = sheet.createRow(0);
-        titleRow.setHeightInPoints(40);
+        titleRow.setHeightInPoints(60); // 행 높이 60
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue("IP대장업무용(전체 IP 대역)");
-        titleCell.setCellStyle(titleStyle);
+        
+        // 제목 스타일 수정
+        CellStyle newTitleStyle = workbook.createCellStyle();
+        newTitleStyle.cloneStyleFrom(titleStyle);
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 36);
+        newTitleStyle.setFont(titleFont);
+        newTitleStyle.setAlignment(HorizontalAlignment.CENTER);
+        newTitleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        // 제목 행의 테두리 제거
+        newTitleStyle.setBorderTop(BorderStyle.NONE);
+        newTitleStyle.setBorderBottom(BorderStyle.NONE);
+        newTitleStyle.setBorderLeft(BorderStyle.NONE);
+        newTitleStyle.setBorderRight(BorderStyle.NONE);
+        newTitleStyle.setWrapText(true); // 셀에 맞춤
+        
+        titleCell.setCellStyle(newTitleStyle);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 15));
 
         // 작성일자 스타일 생성 (배경색 없음)
@@ -148,7 +165,10 @@ public class IpExcelExportService {
 
         String[] headers = {"IP", "관리번호", "모델명", "설치장소"};
         Row headerRow = sheet.createRow(2);
-        headerRow.setHeightInPoints(25);
+        headerRow.setHeightInPoints(25); // 행 높이 25
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+        headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        headerStyle.setWrapText(true); // 셀에 맞춤
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < headers.length; j++) {
                 Cell cell = headerRow.createCell(i * 4 + j);
@@ -164,7 +184,7 @@ public class IpExcelExportService {
 
         for (String octet : sortedOctets) {
             Row sectionRow = sheet.createRow(currentRow++);
-            sectionRow.setHeightInPoints(25);
+            sectionRow.setHeightInPoints(25); // 행 높이 25
             Cell sectionCell = sectionRow.createCell(0);
             sectionCell.setCellValue("IP 대역: 10." + octet + ".36.x");
             sectionCell.setCellStyle(sectionHeaderStyle);
@@ -180,22 +200,38 @@ public class IpExcelExportService {
             int rowsPerGroup = 64;
             for (int i = 0; i < rowsPerGroup; i++) {
                 Row dataRow = sheet.createRow(currentRow++);
-                dataRow.setHeightInPoints(20);
+                dataRow.setHeightInPoints(25); // 데이터 행 높이 25
 
                 for (int group = 0; group < 4; group++) {
                     int ipNumber = i + 1 + (group * rowsPerGroup);
-                    if (ipNumber > 254) {
+                    if (ipNumber > 256) { // 254 + 2행 (255, 256)
                         continue;
                     }
                     int baseCol = group * 4;
                     Device device = deviceMap.get(ipNumber);
-                    CellStyle style = (ipNumber >= 245 && ipNumber <= 254) ? warningStyle : dataStyle;
+                    CellStyle style;
+                    if (ipNumber >= 245 && ipNumber <= 254) {
+                        style = warningStyle; // 245-254: 빨간색
+                    } else if (ipNumber > 254) {
+                        style = dataStyle; // 255, 256: 빈 데이터셀 (색 채우기 없음)
+                    } else {
+                        style = dataStyle;
+                    }
 
                     Cell ipCell = dataRow.createCell(baseCol);
                     ipCell.setCellValue(ipNumber);
                     ipCell.setCellStyle(style);
 
-                    populateDetailCells(baseCol, dataRow, style, device);
+                    if (ipNumber <= 254) {
+                        populateDetailCells(baseCol, dataRow, style, device);
+                    } else {
+                        // 255, 256: 빈 데이터셀
+                        for (int j = 1; j < 4; j++) {
+                            Cell emptyCell = dataRow.createCell(baseCol + j);
+                            emptyCell.setCellValue("");
+                            emptyCell.setCellStyle(style);
+                        }
+                    }
                 }
             }
 
@@ -219,10 +255,38 @@ public class IpExcelExportService {
                 ));
 
         Row titleRow = sheet.createRow(0);
-        titleRow.setHeightInPoints(40);
+        titleRow.setHeightInPoints(60); // 행 높이 60
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue(String.format("IP대장업무용(10.%s.36.001-254)", secondOctet));
-        titleCell.setCellStyle(titleStyle);
+        
+        // 제목 스타일 수정 (시트별 색상 적용)
+        CellStyle newTitleStyle = workbook.createCellStyle();
+        newTitleStyle.cloneStyleFrom(titleStyle);
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 36);
+        
+        // 시트별 제목 색상 설정
+        int octetInt = Integer.parseInt(secondOctet);
+        if (octetInt == 101 || octetInt == 102) {
+            titleFont.setColor(IndexedColors.RED.getIndex()); // 빨간색
+        } else if (octetInt == 103 || octetInt == 104 || octetInt == 105 || octetInt == 106) {
+            titleFont.setColor(IndexedColors.ORANGE.getIndex()); // 주황색
+        } else if (octetInt == 107 || octetInt == 108) {
+            titleFont.setColor(IndexedColors.BLUE.getIndex()); // 파란색
+        }
+        
+        newTitleStyle.setFont(titleFont);
+        newTitleStyle.setAlignment(HorizontalAlignment.CENTER);
+        newTitleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        // 제목 행의 테두리 제거
+        newTitleStyle.setBorderTop(BorderStyle.NONE);
+        newTitleStyle.setBorderBottom(BorderStyle.NONE);
+        newTitleStyle.setBorderLeft(BorderStyle.NONE);
+        newTitleStyle.setBorderRight(BorderStyle.NONE);
+        newTitleStyle.setWrapText(true); // 셀에 맞춤
+        
+        titleCell.setCellStyle(newTitleStyle);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 15));
 
         // 작성일자 스타일 생성 (배경색 없음)
@@ -247,7 +311,10 @@ public class IpExcelExportService {
 
         String[] headers = {"IP", "관리번호", "모델명", "설치장소"};
         Row headerRow = sheet.createRow(2);
-        headerRow.setHeightInPoints(25);
+        headerRow.setHeightInPoints(25); // 행 높이 25
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+        headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        headerStyle.setWrapText(true); // 셀에 맞춤
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < headers.length; j++) {
                 Cell cell = headerRow.createCell(i * 4 + j);
@@ -259,23 +326,39 @@ public class IpExcelExportService {
         int rowsPerGroup = 64;
         for (int i = 0; i < rowsPerGroup; i++) {
             Row dataRow = sheet.createRow(i + 3);
-            dataRow.setHeightInPoints(20);
+            dataRow.setHeightInPoints(25); // 데이터 행 높이 25
 
             for (int group = 0; group < 4; group++) {
                 int ipNumber = i + 1 + (group * rowsPerGroup);
-                if (ipNumber > 254) {
+                if (ipNumber > 256) { // 254 + 2행 (255, 256)
                     continue;
                 }
 
                 int baseCol = group * 4;
                 Device device = deviceMap.get(ipNumber);
-                CellStyle style = (ipNumber >= 245 && ipNumber <= 254) ? warningStyle : dataStyle;
+                CellStyle style;
+                if (ipNumber >= 245 && ipNumber <= 254) {
+                    style = warningStyle; // 245-254: 빨간색
+                } else if (ipNumber > 254) {
+                    style = dataStyle; // 255, 256: 빈 데이터셀 (색 채우기 없음)
+                } else {
+                    style = dataStyle;
+                }
 
                 Cell ipCell = dataRow.createCell(baseCol);
                 ipCell.setCellValue(ipNumber);
                 ipCell.setCellStyle(style);
 
+                if (ipNumber <= 254) {
                     populateDetailCells(baseCol, dataRow, style, device);
+                } else {
+                    // 255, 256: 빈 데이터셀
+                    for (int j = 1; j < 4; j++) {
+                        Cell emptyCell = dataRow.createCell(baseCol + j);
+                        emptyCell.setCellValue("");
+                        emptyCell.setCellStyle(style);
+                    }
+                }
             }
         }
 
@@ -313,25 +396,37 @@ public class IpExcelExportService {
     private CellStyle createTitleStyle(Workbook workbook, CellStyle baseStyle) {
         CellStyle style = workbook.createCellStyle();
         style.cloneStyleFrom(baseStyle);
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 36);
+        style.setFont(font);
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
+        // 제목 행의 테두리 제거
+        style.setBorderTop(BorderStyle.NONE);
+        style.setBorderBottom(BorderStyle.NONE);
+        style.setBorderLeft(BorderStyle.NONE);
+        style.setBorderRight(BorderStyle.NONE);
+        style.setWrapText(true); // 셀에 맞춤
         return style;
     }
 
     private CellStyle createDataStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
         style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
         style.setBorderTop(BorderStyle.THIN);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THIN);
         style.setBorderRight(BorderStyle.THIN);
+        style.setWrapText(true); // 셀에 맞춤
         return style;
     }
 
     private CellStyle createWarningStyle(Workbook workbook, CellStyle baseStyle) {
         CellStyle style = workbook.createCellStyle();
         style.cloneStyleFrom(baseStyle);
-        style.setFillForegroundColor(IndexedColors.LIGHT_YELLOW.getIndex());
+        style.setFillForegroundColor(IndexedColors.RED.getIndex()); // 빨간색 채우기
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         return style;
     }

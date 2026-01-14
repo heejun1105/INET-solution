@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class QrCodeService {
@@ -37,6 +38,9 @@ public class QrCodeService {
 
     @Autowired
     private DeviceRepository deviceRepository;
+    
+    @Autowired
+    private DeviceService deviceService;
 
     private static final List<String> DEFAULT_INFO_LINES = List.of("MANAGE", "MANUFACTURER", "MODEL", "UID");
     private static final DateTimeFormatter PURCHASE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy.MM");
@@ -79,7 +83,49 @@ public class QrCodeService {
         
         List<Uid> uids = uidService.getUidsBySchoolId(schoolId);
         List<String> fieldConfig = normalizeInfoFields(infoFields);
+        return generateQrCodeExcelWithUids(school, uids, fieldConfig);
+    }
+    
+    /**
+     * 필터링된 장비들의 고유번호를 포함한 엑셀 파일을 생성합니다.
+     * @param schoolId 학교 ID
+     * @param type 장비 유형 (선택사항)
+     * @param classroomId 교실 ID (선택사항)
+     * @param searchKeyword 검색 키워드 (선택사항)
+     * @param infoFields 정보 필드 목록
+     * @return 엑셀 파일의 바이트 배열
+     */
+    public byte[] generateQrCodeExcelFiltered(Long schoolId, String type, Long classroomId, String searchKeyword, List<String> infoFields) throws IOException, WriterException {
+        School school = schoolService.findById(schoolId)
+                .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다."));
         
+        // 필터링된 장비 목록 가져오기
+        List<Device> filteredDevices;
+        if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
+            filteredDevices = deviceService.searchDevices(schoolId, type, classroomId, searchKeyword);
+        } else {
+            filteredDevices = deviceService.findFiltered(schoolId, type, classroomId);
+        }
+        
+        // 장비들의 Uid 추출
+        List<Uid> uids = filteredDevices.stream()
+                .filter(device -> device.getUid() != null)
+                .map(Device::getUid)
+                .distinct()
+                .collect(Collectors.toList());
+        
+        List<String> fieldConfig = normalizeInfoFields(infoFields);
+        return generateQrCodeExcelWithUids(school, uids, fieldConfig);
+    }
+    
+    /**
+     * Uid 리스트를 받아서 QR 코드 엑셀 파일을 생성합니다.
+     * @param school 학교 객체
+     * @param uids Uid 리스트
+     * @param fieldConfig 필드 설정
+     * @return 엑셀 파일의 바이트 배열
+     */
+    private byte[] generateQrCodeExcelWithUids(School school, List<Uid> uids, List<String> fieldConfig) throws IOException, WriterException {
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("QR코드");
             
@@ -373,7 +419,45 @@ public class QrCodeService {
         
         List<Uid> uids = uidService.getUidsBySchoolId(schoolId);
         List<String> fieldConfig = normalizeInfoFields(infoFields);
+        return generateDataExcelWithUids(uids, fieldConfig);
+    }
+    
+    /**
+     * 필터링된 장비들의 데이터만 포함한 엑셀 파일을 생성합니다 (A~D열에 설정 순서대로).
+     * @param schoolId 학교 ID
+     * @param type 장비 유형 (선택사항)
+     * @param classroomId 교실 ID (선택사항)
+     * @param searchKeyword 검색 키워드 (선택사항)
+     * @param infoFields 설정된 정보 필드 목록
+     * @return 엑셀 파일의 바이트 배열
+     */
+    public byte[] generateDataExcelFiltered(Long schoolId, String type, Long classroomId, String searchKeyword, List<String> infoFields) throws IOException {
+        // 필터링된 장비 목록 가져오기
+        List<Device> filteredDevices;
+        if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
+            filteredDevices = deviceService.searchDevices(schoolId, type, classroomId, searchKeyword);
+        } else {
+            filteredDevices = deviceService.findFiltered(schoolId, type, classroomId);
+        }
         
+        // 장비들의 Uid 추출
+        List<Uid> uids = filteredDevices.stream()
+                .filter(device -> device.getUid() != null)
+                .map(Device::getUid)
+                .distinct()
+                .collect(Collectors.toList());
+        
+        List<String> fieldConfig = normalizeInfoFields(infoFields);
+        return generateDataExcelWithUids(uids, fieldConfig);
+    }
+    
+    /**
+     * Uid 리스트를 받아서 데이터 엑셀 파일을 생성합니다.
+     * @param uids Uid 리스트
+     * @param fieldConfig 필드 설정
+     * @return 엑셀 파일의 바이트 배열
+     */
+    private byte[] generateDataExcelWithUids(List<Uid> uids, List<String> fieldConfig) throws IOException {
         // NONE이 아닌 필드만 추출 (최대 4개: A~D열)
         List<String> activeFields = new ArrayList<>();
         for (String field : fieldConfig) {

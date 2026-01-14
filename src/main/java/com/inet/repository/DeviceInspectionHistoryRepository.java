@@ -2,10 +2,12 @@ package com.inet.repository;
 
 import com.inet.entity.DeviceInspectionHistory;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -28,4 +30,10 @@ public interface DeviceInspectionHistoryRepository extends JpaRepository<DeviceI
     // 학교별 최근 검사 이력 조회
     @Query("SELECT d FROM DeviceInspectionHistory d WHERE d.schoolId = :schoolId ORDER BY d.inspectionDate DESC")
     List<DeviceInspectionHistory> findRecentInspectionsBySchool(@Param("schoolId") Long schoolId, Pageable pageable);
+    
+    // 학교별 모든 검사 이력 삭제
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM DeviceInspectionHistory dih WHERE dih.schoolId = :schoolId")
+    int deleteBySchoolId(@Param("schoolId") Long schoolId);
 }

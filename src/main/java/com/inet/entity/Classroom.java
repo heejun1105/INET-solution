@@ -50,6 +50,10 @@ public class Classroom {
     @JsonView(Views.Summary.class)
     private Integer height = 100;
 
+    @Column(name = "display_order")
+    @JsonView(Views.Summary.class)
+    private Integer displayOrder;
+
     @ManyToOne
     @JoinColumn(name = "school_id")
     @JsonView(Views.Detail.class)

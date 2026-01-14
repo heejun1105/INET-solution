@@ -4,9 +4,11 @@ import com.inet.entity.FloorRoom;
 import com.inet.entity.Building;
 import com.inet.entity.Classroom;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,4 +42,12 @@ public interface FloorRoomRepository extends JpaRepository<FloorRoom, Long> {
     Optional<FloorRoom> findByClassroom(Classroom classroom);
     
     boolean existsByBuildingAndRoomName(Building building, String roomName);
+    
+    /**
+     * 학교별 모든 평면도 교실 삭제
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM FloorRoom fr WHERE fr.school.schoolId = :schoolId OR fr.building.school.schoolId = :schoolId")
+    int deleteBySchoolId(@Param("schoolId") Long schoolId);
 } 

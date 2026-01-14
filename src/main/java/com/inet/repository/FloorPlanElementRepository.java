@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -79,4 +80,12 @@ public interface FloorPlanElementRepository extends JpaRepository<FloorPlanEleme
      */
     @Query("SELECT COALESCE(MAX(fpe.pageNumber), 1) FROM FloorPlanElement fpe WHERE fpe.floorPlanId = :floorPlanId")
     Integer findMaxPageNumberByFloorPlanId(@Param("floorPlanId") Long floorPlanId);
+    
+    /**
+     * 평면도 ID 목록으로 평면도 요소 삭제
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM FloorPlanElement fpe WHERE fpe.floorPlanId IN :floorPlanIds")
+    int deleteByFloorPlanIds(@Param("floorPlanIds") List<Long> floorPlanIds);
 } 

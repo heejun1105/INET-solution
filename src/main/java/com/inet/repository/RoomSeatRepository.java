@@ -3,9 +3,11 @@ package com.inet.repository;
 import com.inet.entity.RoomSeat;
 import com.inet.entity.FloorRoom;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Repository
@@ -19,4 +21,12 @@ public interface RoomSeatRepository extends JpaRepository<RoomSeat, Long> {
     List<RoomSeat> findByFloorRoomIdOrderBySeatName(@Param("floorRoomId") Long floorRoomId);
     
     boolean existsByFloorRoomAndSeatName(FloorRoom floorRoom, String seatName);
+    
+    /**
+     * 학교별 모든 좌석 삭제
+     */
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM RoomSeat rs WHERE rs.floorRoom.school.schoolId = :schoolId")
+    int deleteBySchoolId(@Param("schoolId") Long schoolId);
 } 

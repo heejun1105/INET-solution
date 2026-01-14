@@ -111,6 +111,11 @@
             border-radius: 12px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap;
         }
         
         .filter-form {
@@ -118,22 +123,11 @@
             align-items: center;
             gap: 15px;
             flex-wrap: wrap;
-        }
-        
-        .filter-group {
             flex: 1;
-            min-width: 200px;
         }
         
-        .filter-group label {
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 8px;
-            font-size: 0.9rem;
-        }
-        
-        .filter-group select {
-            width: 100%;
+        .filter-select {
+            width: 15.3% !important; /* 기존 18%에서 15% 감소 (18% * 0.85) */
             padding: 12px 16px;
             border: 2px solid #e5e7eb;
             border-radius: 8px;
@@ -142,20 +136,16 @@
             transition: all 0.2s ease;
         }
         
-        .filter-group select:focus {
+        .filter-select:focus {
             outline: none;
             border-color: #1e3a8a;
             box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
         }
         
-
-        
-        /* 액션 버튼 */
-        .action-buttons {
-            margin-bottom: 20px;
-            text-align: right;
+        /* 액션 버튼 컨테이너 */
+        .action-buttons-container {
             display: flex;
-            justify-content: flex-end;
+            align-items: center;
             gap: 10px;
             flex-wrap: wrap;
         }
@@ -438,16 +428,18 @@
                 display: block;
             }
 
+            .filter-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
             .filter-form {
                 gap: 12px;
             }
 
-            .filter-group {
-                min-width: 160px;
-            }
-
-            .action-buttons {
+            .action-buttons-container {
                 justify-content: center;
+                width: 100%;
             }
 
             .card-content {
@@ -482,12 +474,18 @@
                 display: block;
             }
             
+            .filter-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
             .filter-form {
                 grid-template-columns: 1fr;
             }
             
-            .action-buttons {
+            .action-buttons-container {
                 justify-content: center;
+                width: 100%;
             }
             
             .card-content {
@@ -625,8 +623,7 @@
                 <form th:action="@{/wireless-ap/list}" method="get" class="filter-form">
                     <input type="hidden" name="searchKeyword" th:value="${searchKeyword}">
                     
-                    <div class="filter-group">
-                        <select name="schoolId" id="schoolSelect" onchange="updateClassrooms()">
+                    <select name="schoolId" id="schoolSelect" onchange="updateClassrooms()" class="filter-select">
                         <option value="">전체 학교</option>
                         <option th:each="school : ${schools}" 
                                 th:value="${school.schoolId}" 
@@ -634,29 +631,26 @@
                                     th:selected="${selectedSchoolId != null and selectedSchoolId == school.schoolId}">
                         </option>
                     </select>
-                    </div>
                     
-                    <div class="filter-group">
-                        <select name="classroomId" id="classroomSelect">
-                            <option value="">전체 교실</option>
-                        </select>
-                    </div>
+                    <select name="classroomId" id="classroomSelect" class="filter-select">
+                        <option value="">전체 교실</option>
+                    </select>
                     
 
                 </form>
-            </div>
-            
-            <!-- 액션 버튼 -->
-            <div class="action-buttons">
-                <a th:href="@{/wireless-ap/register}" class="btn btn-primary">
-                    <i class="fas fa-plus" style="color: white;"></i> <span style="color: white;">무선 AP 등록</span>
-                </a>
-                <a th:href="@{/wireless-ap/excel(schoolId=${selectedSchoolId}, classroomId=${selectedClassroomId})}" class="btn btn-success" id="excelDownloadBtn" onclick="downloadExcel(event)">
-                    <i class="fas fa-file-excel" style="color: white;"></i> <span style="color: white;">엑셀 다운로드</span>
-                </a>
-                <a th:href="@{/wireless-ap/history/list(schoolId=${selectedSchoolId})}" class="btn btn-info">
-                    <i class="fas fa-history"></i> <span>수정내역</span>
-                </a>
+                
+                <!-- 액션 버튼 -->
+                <div class="action-buttons-container">
+                    <a th:href="@{/wireless-ap/register}" class="btn btn-primary">
+                        <i class="fas fa-plus" style="color: white;"></i> <span style="color: white;">무선 AP 등록</span>
+                    </a>
+                    <a th:href="@{/wireless-ap/excel(schoolId=${selectedSchoolId}, classroomId=${selectedClassroomId})}" class="btn btn-success" id="excelDownloadBtn" onclick="downloadExcel(event)">
+                        <i class="fas fa-file-excel" style="color: white;"></i> <span style="color: white;">엑셀 다운로드</span>
+                    </a>
+                    <a th:href="@{/wireless-ap/history/list(schoolId=${selectedSchoolId})}" class="btn btn-info">
+                        <i class="fas fa-history"></i> <span>수정내역</span>
+                    </a>
+                </div>
             </div>
             
             <!-- 학교 선택 안내 메시지 -->

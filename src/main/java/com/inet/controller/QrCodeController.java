@@ -123,6 +123,74 @@ public class QrCodeController {
     }
     
     /**
+     * 필터링된 장비들의 QR 코드 엑셀 파일을 생성하고 다운로드합니다.
+     */
+    @PostMapping("/download-filtered")
+    public ResponseEntity<ByteArrayResource> downloadQrCodeExcelFiltered(
+            @RequestParam Long schoolId,
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "classroomId", required = false) Long classroomId,
+            @RequestParam(value = "searchKeyword", required = false) String searchKeyword,
+            @RequestParam(value = "infoLines", required = false) List<String> infoLines,
+            RedirectAttributes redirectAttributes) throws IOException, WriterException {
+        
+        try {
+            School school = schoolService.findById(schoolId)
+                    .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다."));
+            
+            byte[] excelBytes = qrCodeService.generateQrCodeExcelFiltered(schoolId, type, classroomId, searchKeyword, infoLines);
+            
+            ByteArrayResource resource = new ByteArrayResource(excelBytes);
+            
+            String filename = school.getSchoolName() + "_QR코드.xlsx";
+            
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .contentLength(excelBytes.length)
+                    .body(resource);
+                    
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "QR 코드 엑셀 파일 생성 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * 필터링된 장비들의 데이터 엑셀 파일을 생성하고 다운로드합니다 (A~D열에 설정 순서대로).
+     */
+    @PostMapping("/download-data-filtered")
+    public ResponseEntity<ByteArrayResource> downloadDataExcelFiltered(
+            @RequestParam Long schoolId,
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "classroomId", required = false) Long classroomId,
+            @RequestParam(value = "searchKeyword", required = false) String searchKeyword,
+            @RequestParam(value = "infoLines", required = false) List<String> infoLines,
+            RedirectAttributes redirectAttributes) throws IOException {
+        
+        try {
+            School school = schoolService.findById(schoolId)
+                    .orElseThrow(() -> new RuntimeException("학교를 찾을 수 없습니다."));
+            
+            byte[] excelBytes = qrCodeService.generateDataExcelFiltered(schoolId, type, classroomId, searchKeyword, infoLines);
+            
+            ByteArrayResource resource = new ByteArrayResource(excelBytes);
+            
+            String filename = school.getSchoolName() + "_데이터.xlsx";
+            
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .contentLength(excelBytes.length)
+                    .body(resource);
+                    
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "데이터 엑셀 파일 생성 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
      * 권한 체크 메서드
      */
     private User checkPermission(Feature feature, RedirectAttributes redirectAttributes) {

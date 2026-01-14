@@ -227,7 +227,7 @@ input:focus, textarea:focus, select:focus {
 
 /* 버튼 공통 스타일 */
 .btn {
-    padding: 8px 16px;
+    padding: 8px 14.72px; /* 기존 16px에서 8% 감소 (16px * 0.92 = 14.72px) */
     border-radius: 6px;
     text-decoration: none;
     font-weight: 500;
@@ -317,7 +317,7 @@ input:focus, textarea:focus, select:focus {
 /* 필터 컨테이너 */
 .filter-container {
     display: flex;
-    gap: 10px;
+    gap: 5px; /* 기존 10px에서 절반으로 감소 */
     margin-bottom: 20px;
     align-items: center;
     background: #f8f9fa;
