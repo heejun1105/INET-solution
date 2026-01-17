@@ -14,8 +14,10 @@ buildCommand = "bash ./gradlew build -x test"
 startCommand = "java -jar build/libs/INET-0.0.1-SNAPSHOT.jar"
 
 # Health check 설정
-healthcheckPath = "/"
-healthcheckTimeout = 300
+# 루트 경로("/")는 Spring Security로 보호되어 있을 수 있으므로
+# 로그인 페이지로 변경하거나 제거하여 Railway가 자동으로 처리하도록 함
+healthcheckPath = "/login"
+healthcheckTimeout = 600
 
 # 재시작 정책
 restartPolicyType = "ON_FAILURE"
