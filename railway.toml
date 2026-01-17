@@ -1,9 +1,11 @@
 # Railway 배포 설정 파일
 # https://docs.railway.app/develop/variables#railwaytoml
+# 
+# Railway는 Gradle 프로젝트를 자동으로 감지합니다.
+# builder 필드는 제거하고 buildCommand만 사용합니다.
 
 [build]
 # Gradle 빌드 명령어 (테스트 제외)
-builder = "GRADLE"
 buildCommand = "./gradlew build -x test"
 
 [deploy]
