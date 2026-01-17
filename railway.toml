@@ -6,7 +6,8 @@
 
 [build]
 # Gradle 빌드 명령어 (테스트 제외)
-buildCommand = "./gradlew build -x test"
+# bash를 명시적으로 사용하여 실행 권한 문제 해결
+buildCommand = "bash ./gradlew build -x test"
 
 [deploy]
 # 애플리케이션 시작 명령어
